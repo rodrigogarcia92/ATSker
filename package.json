@@ -1,0 +1,13 @@
+{
+  "name": "atsker",
+  "private": true,
+  "description": "Tailwind build only; the application itself is Python.",
+  "scripts": {
+    "build:css": "tailwindcss -i src/web/static/src.css -o src/web/static/app.css --minify",
+    "watch:css": "tailwindcss -i src/web/static/src.css -o src/web/static/app.css --watch"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.1.0",
+    "tailwindcss": "^4.1.0"
+  }
+}

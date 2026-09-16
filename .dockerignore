@@ -1,0 +1,16 @@
+# Keep the build context small and personal data out of it entirely: fixtures/ and
+# seed/ hold real résumés and job descriptions (PRD 10) and have no business being
+# uploaded to the build runner.
+.git/
+.github/
+.venv/
+node_modules/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+fixtures/
+seed/
+docs/
+tests/
+.env
+.neon

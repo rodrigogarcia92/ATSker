@@ -19,6 +19,9 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 
+# Tailwind build tooling (the compiled CSS in src/web/static/ is committed)
+node_modules/
+
 # OS
 Thumbs.db
 desktop.ini

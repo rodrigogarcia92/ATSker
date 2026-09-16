@@ -1,0 +1,5 @@
+@import "tailwindcss";
+
+/* Explicit sources: the scan must not wander into docs/ or fixtures/. */
+@source "../templates";
+@source "../routes";
