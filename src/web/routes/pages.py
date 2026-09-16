@@ -1,13 +1,20 @@
-"""Pages behind the login."""
+"""Pages behind the login: dashboard, profile, education, vocabulary."""
 
 from typing import Annotated
 
 from fastapi import APIRouter, Form, Request
 from fastapi.responses import RedirectResponse
 
+from src.bullets import list_bullets
+from src.education import create_education, delete_education, list_educations, update_education
 from src.i18n import LANGUAGES
-from src.profiles import get_own_profile, get_profile
-from src.web.deps import CurrentUser, DbSession, SignedInUser
+from src.letters import list_letters
+from src.profiles import update_profile
+from src.roles import list_roles
+from src.stories import list_stories
+from src.vocabulary import list_skills, list_unmapped
+from src.web.deps import CurrentUser, DbSession, OwnProfile, SignedInUser
+from src.web.forms import parse_date, parse_text
 from src.web.templating import render
 
 router = APIRouter()
@@ -19,19 +26,125 @@ def index(user: CurrentUser):
 
 
 @router.get("/dashboard")
-def dashboard(request: Request, user: SignedInUser, session: DbSession):
-    profile = get_own_profile(session, user)
-    return render(request, "dashboard.html", user=user, profile=profile)
+def dashboard(request: Request, user: SignedInUser, session: DbSession, profile: OwnProfile):
+    roles = list_roles(profile.id, session)
+    bullets = list_bullets(profile.id, session, active_only=True)
+    stories = list_stories(profile.id, session)
+    letters = list_letters(profile.id, session)
+    educations = list_educations(profile.id, session)
+    return render(
+        request,
+        "dashboard.html",
+        user=user,
+        profile=profile,
+        counts={
+            "roles": len(roles),
+            "bullets": len(bullets),
+            "stories": len(stories),
+            "letters": len(letters),
+            "educations": len(educations),
+            "metrics": sum(len(bullet.metrics) for bullet in bullets),
+        },
+    )
 
 
-@router.get("/profile/{profile_id}")
-def profile_page(profile_id: str, request: Request, user: SignedInUser, session: DbSession):
-    profile = get_profile(profile_id, session, user)
-    if profile is None:
-        # An id that is not the session's own profile is indistinguishable from an
-        # id that does not exist (PRD F1 isolation requirement).
-        return render(request, "not_found.html", user=user, status_code=404)
-    return render(request, "profile.html", user=user, profile=profile)
+@router.get("/profile")
+def profile_page(request: Request, user: SignedInUser, session: DbSession, profile: OwnProfile):
+    return render(
+        request,
+        "profile.html",
+        user=user,
+        profile=profile,
+        educations=list_educations(profile.id, session),
+    )
+
+
+@router.post("/profile")
+def save_profile(
+    user: SignedInUser,
+    session: DbSession,
+    profile: OwnProfile,
+    display_name: Annotated[str, Form()],
+    headline: Annotated[str | None, Form()] = None,
+    summary: Annotated[str | None, Form()] = None,
+):
+    update_profile(
+        profile.id,
+        session,
+        user,
+        display_name=display_name,
+        headline=headline,
+        summary=summary,
+    )
+    session.commit()
+    return RedirectResponse("/profile", status_code=303)
+
+
+@router.post("/profile/education")
+def add_education(
+    session: DbSession,
+    profile: OwnProfile,
+    institution: Annotated[str, Form()],
+    degree: Annotated[str | None, Form()] = None,
+    field: Annotated[str | None, Form()] = None,
+    start_date: Annotated[str | None, Form()] = None,
+    end_date: Annotated[str | None, Form()] = None,
+):
+    create_education(
+        profile.id,
+        session,
+        institution=institution,
+        degree=parse_text(degree),
+        field=parse_text(field),
+        start_date=parse_date(start_date),
+        end_date=parse_date(end_date),
+    )
+    session.commit()
+    return RedirectResponse("/profile", status_code=303)
+
+
+@router.post("/profile/education/{education_id}")
+def save_education(
+    education_id: str,
+    session: DbSession,
+    profile: OwnProfile,
+    institution: Annotated[str, Form()],
+    degree: Annotated[str | None, Form()] = None,
+    field: Annotated[str | None, Form()] = None,
+    start_date: Annotated[str | None, Form()] = None,
+    end_date: Annotated[str | None, Form()] = None,
+):
+    update_education(
+        profile.id,
+        session,
+        education_id,
+        institution=institution,
+        degree=parse_text(degree),
+        field=parse_text(field),
+        start_date=parse_date(start_date),
+        end_date=parse_date(end_date),
+    )
+    session.commit()
+    return RedirectResponse("/profile", status_code=303)
+
+
+@router.post("/profile/education/{education_id}/delete")
+def remove_education(education_id: str, session: DbSession, profile: OwnProfile):
+    delete_education(profile.id, session, education_id)
+    session.commit()
+    return RedirectResponse("/profile", status_code=303)
+
+
+@router.get("/vocabulary")
+def vocabulary(request: Request, user: SignedInUser, session: DbSession, profile: OwnProfile):
+    return render(
+        request,
+        "vocabulary.html",
+        user=user,
+        profile=profile,
+        skills=list_skills(session),
+        unmapped=list_unmapped(session),
+    )
 
 
 @router.post("/settings/lang")

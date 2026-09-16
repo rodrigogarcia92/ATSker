@@ -1,0 +1,1547 @@
+[
+  {
+    "canonical": "python",
+    "aliases": [
+      "py",
+      "python 3",
+      "lenguaje python"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "javascript",
+    "aliases": [
+      "js",
+      "java script",
+      "ecmascript",
+      "lenguaje javascript"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "typescript",
+    "aliases": [
+      "ts",
+      "lenguaje typescript"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "java",
+    "aliases": [
+      "lenguaje java",
+      "programación java"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "c#",
+    "aliases": [
+      "csharp",
+      "c sharp",
+      "lenguaje c#"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "c++",
+    "aliases": [
+      "cpp",
+      "c plus plus",
+      "lenguaje c++"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "go",
+    "aliases": [
+      "golang",
+      "lenguaje go"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "rust",
+    "aliases": [
+      "rustlang",
+      "lenguaje rust"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "r",
+    "aliases": [
+      "r language",
+      "lenguaje r",
+      "r programming"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "scala",
+    "aliases": [
+      "scala language",
+      "lenguaje scala"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "kotlin",
+    "aliases": [
+      "kotlin language",
+      "lenguaje kotlin"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "swift",
+    "aliases": [
+      "swift language",
+      "lenguaje swift"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "php",
+    "aliases": [
+      "php language",
+      "lenguaje php"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "matlab",
+    "aliases": [
+      "matlab programming",
+      "lenguaje matlab"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "bash",
+    "aliases": [
+      "bash scripting",
+      "shell bash",
+      "lenguaje bash"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "powershell",
+    "aliases": [
+      "windows powershell",
+      "powershell scripting"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "vba",
+    "aliases": [
+      "visual basic for applications",
+      "vba macros"
+    ],
+    "lang_tags": [
+      "en"
+    ]
+  },
+  {
+    "canonical": "sql",
+    "aliases": [
+      "structured query language",
+      "ansi sql",
+      "lenguaje de consulta estructurado"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "mysql",
+    "aliases": [
+      "my sql",
+      "mysql server"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "postgresql",
+    "aliases": [
+      "postgres",
+      "postgres sql"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "sql server",
+    "aliases": [
+      "microsoft sql server",
+      "mssql"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "oracle database",
+    "aliases": [
+      "oracle",
+      "oracle db",
+      "base de datos oracle"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "snowflake",
+    "aliases": [
+      "snowflake data warehouse"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "bigquery",
+    "aliases": [
+      "google bigquery",
+      "bq"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "amazon redshift",
+    "aliases": [
+      "redshift",
+      "aws redshift"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "databricks",
+    "aliases": [
+      "databricks lakehouse"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "dbt",
+    "aliases": [
+      "data build tool"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "power bi",
+    "aliases": [
+      "powerbi",
+      "microsoft power bi",
+      "pbi"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "tableau",
+    "aliases": [
+      "tableau desktop"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "looker",
+    "aliases": [
+      "looker studio",
+      "google looker studio"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "etl",
+    "aliases": [
+      "extract transform load",
+      "extracción transformación y carga"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "data warehouse",
+    "aliases": [
+      "dwh",
+      "almacén de datos",
+      "data warehousing"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "data lake",
+    "aliases": [
+      "lago de datos",
+      "data lakes"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "data modeling",
+    "aliases": [
+      "modelado de datos",
+      "modelo dimensional",
+      "dimensional modeling"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "data governance",
+    "aliases": [
+      "gobierno de datos",
+      "gobernanza de datos"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "data quality",
+    "aliases": [
+      "calidad de datos",
+      "calidad del dato"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "apache spark",
+    "aliases": [
+      "spark"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "apache kafka",
+    "aliases": [
+      "kafka"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "apache airflow",
+    "aliases": [
+      "airflow",
+      "orquestación de flujos de datos"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "hadoop",
+    "aliases": [
+      "apache hadoop",
+      "hdfs"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "version control",
+    "aliases": [
+      "control de versiones",
+      "gestión de versiones"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "data visualization",
+    "aliases": [
+      "visualización de datos",
+      "dataviz"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "web scraping",
+    "aliases": [
+      "scraping",
+      "extracción de datos web",
+      "raspado web"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "data analysis",
+    "aliases": [
+      "análisis de datos",
+      "analítica de datos",
+      "data analytics"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "aws",
+    "aliases": [
+      "amazon web services",
+      "amazon cloud services"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "microsoft azure",
+    "aliases": [
+      "azure"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "google cloud platform",
+    "aliases": [
+      "gcp",
+      "google cloud"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "docker",
+    "aliases": [
+      "docker engine",
+      "contenedores docker"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "kubernetes",
+    "aliases": [
+      "k8s",
+      "kube"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "terraform",
+    "aliases": [
+      "hashicorp terraform"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "infrastructure as code",
+    "aliases": [
+      "iac",
+      "infraestructura como código"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "ci/cd",
+    "aliases": [
+      "continuous integration",
+      "continuous delivery",
+      "integración continua",
+      "entrega continua"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "git",
+    "aliases": [
+      "git scm",
+      "sistema de control de versiones git"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "github actions",
+    "aliases": [
+      "gh actions",
+      "github workflows"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "linux",
+    "aliases": [
+      "gnu/linux",
+      "sistemas linux",
+      "administración de servidores linux"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "unix",
+    "aliases": [
+      "unix shell",
+      "sistemas unix"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "machine learning",
+    "aliases": [
+      "ml",
+      "aprendizaje automático",
+      "aprendizaje de máquina",
+      "machine-learning"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "deep learning",
+    "aliases": [
+      "dl",
+      "aprendizaje profundo"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "neural networks",
+    "aliases": [
+      "redes neuronales",
+      "ann",
+      "artificial neural networks"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "natural language processing",
+    "aliases": [
+      "nlp",
+      "procesamiento de lenguaje natural",
+      "procesamiento del lenguaje natural"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "computer vision",
+    "aliases": [
+      "visión por computadora",
+      "visión computacional",
+      "visión artificial"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "supervised learning",
+    "aliases": [
+      "aprendizaje supervisado"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "unsupervised learning",
+    "aliases": [
+      "aprendizaje no supervisado"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "clustering",
+    "aliases": [
+      "agrupamiento",
+      "cluster analysis",
+      "análisis de conglomerados"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "regression analysis",
+    "aliases": [
+      "análisis de regresión",
+      "modelos de regresión"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "feature engineering",
+    "aliases": [
+      "ingeniería de características",
+      "ingeniería de variables"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "model evaluation",
+    "aliases": [
+      "evaluación de modelos",
+      "validación de modelos"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "hyperparameter tuning",
+    "aliases": [
+      "ajuste de hiperparámetros",
+      "optimización de hiperparámetros"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "forecasting",
+    "aliases": [
+      "pronóstico",
+      "predicción",
+      "modelos de pronóstico"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "time series analysis",
+    "aliases": [
+      "análisis de series temporales",
+      "series temporales",
+      "time series"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "large language models",
+    "aliases": [
+      "llm",
+      "llms",
+      "modelos de lenguaje grandes"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "prompt engineering",
+    "aliases": [
+      "ingeniería de prompts"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "mlops",
+    "aliases": [
+      "machine learning operations",
+      "ml ops"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "pandas",
+    "aliases": [
+      "python pandas"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "numpy",
+    "aliases": [
+      "python numpy",
+      "numerical python"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "scikit-learn",
+    "aliases": [
+      "sklearn",
+      "scikit learn",
+      "scikit"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "tensorflow",
+    "aliases": [
+      "tensor flow"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "pytorch",
+    "aliases": [
+      "torch"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "recommendation systems",
+    "aliases": [
+      "sistemas de recomendación",
+      "recommender systems"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "data science",
+    "aliases": [
+      "ciencia de datos"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "statistics",
+    "aliases": [
+      "estadística",
+      "estadísticas",
+      "análisis estadístico"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "descriptive statistics",
+    "aliases": [
+      "estadística descriptiva"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "inferential statistics",
+    "aliases": [
+      "estadística inferencial"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "hypothesis testing",
+    "aliases": [
+      "pruebas de hipótesis",
+      "contraste de hipótesis"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "probability",
+    "aliases": [
+      "probabilidad",
+      "probability theory"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "bayesian statistics",
+    "aliases": [
+      "estadística bayesiana",
+      "inferencia bayesiana"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "sampling",
+    "aliases": [
+      "muestreo",
+      "técnicas de muestreo"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "statistical significance",
+    "aliases": [
+      "significancia estadística",
+      "significación estadística"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "quantitative analysis",
+    "aliases": [
+      "análisis cuantitativo",
+      "métodos cuantitativos"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "experimental design",
+    "aliases": [
+      "diseño experimental",
+      "diseño de experimentos"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "a/b testing",
+    "aliases": [
+      "ab testing",
+      "split testing",
+      "pruebas a/b"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "project management",
+    "aliases": [
+      "gestión de proyectos",
+      "administración de proyectos"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "agile",
+    "aliases": [
+      "agile methodology",
+      "metodologías ágiles",
+      "metodología ágil"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "scrum",
+    "aliases": [
+      "scrum framework",
+      "marco scrum"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "kanban",
+    "aliases": [
+      "método kanban",
+      "kanban board"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "product management",
+    "aliases": [
+      "gestión de producto",
+      "gestión de productos"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "roadmap planning",
+    "aliases": [
+      "hoja de ruta",
+      "planificación de hoja de ruta",
+      "product roadmap"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "backlog refinement",
+    "aliases": [
+      "refinamiento del backlog",
+      "backlog grooming"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "stakeholder management",
+    "aliases": [
+      "gestión de stakeholders",
+      "gestión de grupos de interés",
+      "stakeholder engagement"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "requirements gathering",
+    "aliases": [
+      "levantamiento de requisitos",
+      "recopilación de requisitos"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "risk management",
+    "aliases": [
+      "gestión de riesgos",
+      "administración de riesgos"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "budget management",
+    "aliases": [
+      "gestión de presupuestos",
+      "control presupuestario"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "change management",
+    "aliases": [
+      "gestión del cambio"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "okrs",
+    "aliases": [
+      "objectives and key results",
+      "okr"
+    ],
+    "lang_tags": [
+      "en"
+    ]
+  },
+  {
+    "canonical": "kpis",
+    "aliases": [
+      "key performance indicators",
+      "kpi"
+    ],
+    "lang_tags": [
+      "en"
+    ]
+  },
+  {
+    "canonical": "quality assurance",
+    "aliases": [
+      "aseguramiento de calidad",
+      "qa",
+      "control de calidad"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "time management",
+    "aliases": [
+      "gestión del tiempo",
+      "administración del tiempo"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "jira",
+    "aliases": [
+      "atlassian jira"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "communication skills",
+    "aliases": [
+      "habilidades de comunicación",
+      "comunicación efectiva"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "teamwork",
+    "aliases": [
+      "trabajo en equipo",
+      "team work"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "collaboration",
+    "aliases": [
+      "colaboración",
+      "trabajo colaborativo"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "cross-functional collaboration",
+    "aliases": [
+      "colaboración interfuncional",
+      "colaboración transversal"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "problem solving",
+    "aliases": [
+      "resolución de problemas",
+      "solución de problemas"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "critical thinking",
+    "aliases": [
+      "pensamiento crítico",
+      "pensamiento analítico"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "presentation skills",
+    "aliases": [
+      "habilidades de presentación",
+      "presentaciones efectivas"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "public speaking",
+    "aliases": [
+      "oratoria",
+      "hablar en público"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "written communication",
+    "aliases": [
+      "comunicación escrita"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "technical writing",
+    "aliases": [
+      "redacción técnica",
+      "documentación técnica"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "leadership",
+    "aliases": [
+      "liderazgo",
+      "liderazgo de equipos",
+      "team leadership"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "adaptability",
+    "aliases": [
+      "adaptabilidad",
+      "capacidad de adaptación"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "attention to detail",
+    "aliases": [
+      "atención al detalle",
+      "atención a los detalles"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "emotional intelligence",
+    "aliases": [
+      "inteligencia emocional"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "conflict resolution",
+    "aliases": [
+      "resolución de conflictos",
+      "manejo de conflictos"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "active listening",
+    "aliases": [
+      "escucha activa"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "customer orientation",
+    "aliases": [
+      "orientación al cliente",
+      "enfoque en el cliente",
+      "customer focus"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "negotiation",
+    "aliases": [
+      "negociación",
+      "habilidades de negociación"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "mentoring",
+    "aliases": [
+      "mentoría",
+      "mentorship"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "microsoft excel",
+    "aliases": [
+      "excel",
+      "ms excel"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "spreadsheets",
+    "aliases": [
+      "hojas de cálculo",
+      "planillas de cálculo"
+    ],
+    "lang_tags": [
+      "es"
+    ]
+  },
+  {
+    "canonical": "google sheets",
+    "aliases": [
+      "google spreadsheets",
+      "hojas de cálculo de google"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "pivot tables",
+    "aliases": [
+      "tablas dinámicas",
+      "pivot table"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "vlookup",
+    "aliases": [
+      "buscarv"
+    ],
+    "lang_tags": [
+      "es"
+    ]
+  },
+  {
+    "canonical": "microsoft office",
+    "aliases": [
+      "office 365",
+      "microsoft 365",
+      "paquete office"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "microsoft word",
+    "aliases": [
+      "word",
+      "ms word"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "powerpoint",
+    "aliases": [
+      "microsoft powerpoint",
+      "power point"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "google workspace",
+    "aliases": [
+      "g suite",
+      "google apps"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "excel macros",
+    "aliases": [
+      "macros de excel"
+    ],
+    "lang_tags": [
+      "es"
+    ]
+  },
+  {
+    "canonical": "data entry",
+    "aliases": [
+      "ingreso de datos",
+      "captura de datos"
+    ],
+    "lang_tags": [
+      "es"
+    ]
+  },
+  {
+    "canonical": "document management",
+    "aliases": [
+      "gestión documental",
+      "gestión de documentos"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  },
+  {
+    "canonical": "microsoft teams",
+    "aliases": [
+      "ms teams",
+      "teams"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ]
+  }
+]

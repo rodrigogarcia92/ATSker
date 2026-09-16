@@ -25,3 +25,22 @@ def get_profile(profile_id: uuid.UUID | str, session: Session, user: User) -> Pr
 
 def get_own_profile(session: Session, user: User) -> Profile | None:
     return session.scalar(select(Profile).where(Profile.user_id == user.id))
+
+
+def update_profile(
+    profile_id: uuid.UUID | str,
+    session: Session,
+    user: User,
+    *,
+    display_name: str,
+    headline: str | None,
+    summary: str | None,
+) -> Profile | None:
+    profile = get_profile(profile_id, session, user)
+    if profile is None:
+        return None
+    profile.display_name = display_name.strip()
+    profile.headline = (headline or "").strip() or None
+    profile.summary = (summary or "").strip() or None
+    session.flush()
+    return profile

@@ -9,7 +9,8 @@ from sqlalchemy.orm import Session
 from src.auth import sessions
 from src.config import get_settings
 from src.db import new_session
-from src.models import User
+from src.models import Profile, User
+from src.profiles import get_own_profile
 
 
 def get_db() -> Iterator[Session]:
@@ -58,3 +59,14 @@ def require_user(user: CurrentUser) -> User:
 
 
 SignedInUser = Annotated[User, Depends(require_user)]
+
+
+def require_profile(session: DbSession, user: SignedInUser) -> Profile:
+    """The signed-in user's own profile; every account gets one at creation."""
+    profile = get_own_profile(session, user)
+    if profile is None:
+        raise RuntimeError("signed-in account has no profile row; run scripts/create_user.py")
+    return profile
+
+
+OwnProfile = Annotated[Profile, Depends(require_profile)]

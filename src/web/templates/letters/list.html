@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}{{ t('letters.title', lang) }} — {{ t('app.name', lang) }}{% endblock %}
+{% block content %}
+<div class="flex items-center justify-between gap-4">
+  <h1 class="text-2xl font-semibold tracking-tight">{{ t('letters.title', lang) }}</h1>
+  <a href="/letters/new" class="rounded bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800">
+    {{ t('letters.new', lang) }}
+  </a>
+</div>
+
+<ul class="mt-6 divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white">
+  {% for letter in letters %}
+  <li class="p-4">
+    <a href="/letters/{{ letter.id }}/edit" class="font-medium hover:underline">{{ letter.name }}</a>
+    <span class="ml-2 text-xs uppercase text-slate-500">{{ letter.lang }}</span>
+    <p class="mt-1 text-sm text-slate-600">{{ letter.applies_when }}</p>
+  </li>
+  {% else %}
+  <li class="p-4 text-sm text-slate-600">{{ t('letters.empty', lang) }}</li>
+  {% endfor %}
+</ul>
+{% endblock %}

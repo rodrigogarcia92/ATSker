@@ -6,6 +6,8 @@ treatment by overriding `get_db`. PostgreSQL-specific behaviour (migrations,
 pgvector) is exercised against the Neon dev branch, not here.
 """
 
+from types import SimpleNamespace
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -13,19 +15,26 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from src.auth.accounts import create_account
+from src.bullets import create_bullet
 from src.config import get_settings
-from src.models import Base, Profile, User
+from src.letters import create_letter
+from src.models import Base, Profile, Skill, User
+from src.roles import create_role
+from src.stories import create_story, set_linked_bullets
 from src.web.deps import get_db
 from src.web.main import create_app
 
 PASSWORD = "correct horse battery staple"  # noqa: S105 - synthetic fixture password
+TEST_MODEL = "test/model-v1"
 
 
 @pytest.fixture
 def test_settings(monkeypatch):
-    """A session secret that exists without a developer's .env file."""
+    """Values a developer's .env would otherwise supply; no real credentials."""
     monkeypatch.setenv("ENV", "development")
     monkeypatch.setenv("SESSION_SECRET", "test-session-secret")
+    monkeypatch.setenv("OPENROUTER_MODEL", TEST_MODEL)
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-api-key")
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()
@@ -71,6 +80,104 @@ def two_accounts(session) -> tuple[tuple[User, Profile], tuple[User, Profile]]:
     second = create_account(session, "persona@example.com", PASSWORD, "Bea")
     session.commit()
     return first, second
+
+
+@pytest.fixture
+def vocabulary(session) -> None:
+    """Two canonical skills with Spanish aliases, one of them multi-word."""
+    session.add_all(
+        [
+            Skill(
+                canonical="python",
+                aliases=["python", "py"],
+                lang_tags=["es", "en"],
+            ),
+            Skill(
+                canonical="machine learning",
+                aliases=[
+                    "machine learning",
+                    "aprendizaje automático",
+                    "aprendizaje automatico",
+                    "learning",
+                    "ml",
+                ],
+                lang_tags=["es", "en"],
+            ),
+        ]
+    )
+    session.commit()
+
+
+@pytest.fixture
+def career(session, two_accounts, vocabulary) -> SimpleNamespace:
+    """One role, bullet and story for each account, so isolation can be tested."""
+    (first, first_profile), (second, second_profile) = two_accounts
+
+    first_role = create_role(first_profile.id, session, employer="Acme", title="Analista de datos")
+    second_role = create_role(second_profile.id, session, employer="Globex", title="Ingeniera")
+    first_bullet = create_bullet(
+        first_profile.id,
+        session,
+        role_id=first_role.id,
+        text_es="Reduje 30% el tiempo de reporte con Python",
+        text_en=None,
+        chips=["python", "cobalto"],
+    )
+    second_bullet = create_bullet(
+        second_profile.id,
+        session,
+        role_id=second_role.id,
+        text_es="Modelo de riesgo en producción",
+        text_en=None,
+        chips=["machine learning"],
+    )
+    first_story = create_story(
+        first_profile.id,
+        session,
+        title="Migración del reporte",
+        body="Llevé el reporte manual a un proceso automático.",
+        role_id=first_role.id,
+        tags=["migracion"],
+    )
+    set_linked_bullets(first_profile.id, session, first_story.id, [first_bullet.id])
+    second_story = create_story(
+        second_profile.id,
+        session,
+        title="Modelo de riesgo",
+        body="Puse un modelo en producción con monitoreo.",
+        tags=[],
+    )
+    first_letter = create_letter(
+        first_profile.id,
+        session,
+        name="Datos",
+        applies_when="Para puestos de analista de datos",
+        presentation="Me presento.",
+        achievements="Logros.",
+    )
+    second_letter = create_letter(
+        second_profile.id,
+        session,
+        name="Riesgo",
+        applies_when="Para puestos de riesgo",
+        presentation="Me presento.",
+        achievements="Logros.",
+    )
+    session.commit()
+    return SimpleNamespace(
+        first=first,
+        first_profile=first_profile,
+        second=second,
+        second_profile=second_profile,
+        first_role=first_role,
+        second_role=second_role,
+        first_bullet=first_bullet,
+        second_bullet=second_bullet,
+        first_story=first_story,
+        second_story=second_story,
+        first_letter=first_letter,
+        second_letter=second_letter,
+    )
 
 
 def login(client: TestClient, email: str, password: str = PASSWORD):

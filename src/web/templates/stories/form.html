@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}{{ t('stories.new', lang) if not story else story.title }} — {{ t('app.name', lang) }}{% endblock %}
+{% block content %}
+<a href="/stories" class="text-sm text-slate-600 underline">{{ t('common.back', lang) }}</a>
+
+<h1 class="mt-3 text-2xl font-semibold tracking-tight">
+  {{ t('stories.new', lang) if not story else t('common.edit', lang) }}
+</h1>
+
+{% if notice %}
+<p class="mt-4 rounded border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">{{ notice }}</p>
+{% endif %}
+{% if error %}
+<p class="mt-4 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">{{ error }}</p>
+{% endif %}
+
+<form method="post" action="{{ '/stories' if not story else '/stories/' ~ story.id }}"
+      class="mt-6 space-y-4 rounded-lg border border-slate-200 bg-white p-5">
+  <div>
+    <label for="title" class="mb-1 block text-sm font-medium">{{ t('stories.story_title', lang) }}</label>
+    <input id="title" name="title" required value="{{ values.title }}"
+           class="w-full rounded border border-slate-300 px-3 py-2 text-sm">
+  </div>
+  <div>
+    <label for="body" class="mb-1 block text-sm font-medium">{{ t('stories.body', lang) }}</label>
+    <textarea id="body" name="body" rows="10" required
+              class="w-full rounded border border-slate-300 px-3 py-2 text-sm">{{ values.body }}</textarea>
+    <p class="mt-1 text-xs text-slate-500">{{ t('stories.body_hint', lang) }}</p>
+  </div>
+  <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+    <div>
+      <label for="role_id" class="mb-1 block text-sm font-medium">{{ t('stories.role', lang) }}</label>
+      <select id="role_id" name="role_id" class="w-full rounded border border-slate-300 px-3 py-2 text-sm">
+        <option value="">{{ t('stories.no_role', lang) }}</option>
+        {% for role in roles %}
+        <option value="{{ role.id }}" {% if values.role_id == role.id|string %}selected{% endif %}>
+          {{ role.title }} — {{ role.employer }}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label for="lang" class="mb-1 block text-sm font-medium">{{ t('stories.lang', lang) }}</label>
+      <select id="lang" name="lang" class="w-full rounded border border-slate-300 px-3 py-2 text-sm">
+        <option value="es" {% if values.lang == 'es' %}selected{% endif %}>ES</option>
+        <option value="en" {% if values.lang == 'en' %}selected{% endif %}>EN</option>
+      </select>
+    </div>
+  </div>
+  <div>
+    <label for="tags" class="mb-1 block text-sm font-medium">{{ t('stories.tags', lang) }}</label>
+    <input id="tags" name="tags" value="{{ values.tags }}"
+           class="w-full rounded border border-slate-300 px-3 py-2 text-sm">
+  </div>
+
+  <fieldset>
+    <legend class="mb-1 text-sm font-medium">{{ t('stories.related_bullets', lang) }}</legend>
+    <p class="mb-2 text-xs text-slate-500">{{ t('stories.related_hint', lang) }}</p>
+    <div class="max-h-64 space-y-2 overflow-y-auto rounded border border-slate-200 p-3">
+      {% for bullet in bullets %}
+      <label class="flex items-start gap-2 text-sm">
+        <input type="checkbox" name="bullet_ids" value="{{ bullet.id }}"
+               {% if bullet.id|string in values.bullet_ids %}checked{% endif %}>
+        <span>{{ bullet.text_es or bullet.text_en }}</span>
+      </label>
+      {% else %}
+      <p class="text-sm text-slate-600">{{ t('common.empty', lang) }}</p>
+      {% endfor %}
+    </div>
+  </fieldset>
+
+  <div class="flex flex-wrap items-center gap-4">
+    <button type="submit" class="rounded bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800">
+      {{ t('common.save', lang) }}
+    </button>
+    {% if story and can_suggest %}
+    <button type="submit" formaction="/stories/{{ story.id }}/suggest" formnovalidate
+            class="rounded border border-slate-300 px-3 py-2 text-sm">
+      {{ t('stories.suggest', lang) }}
+    </button>
+    {% endif %}
+  </div>
+  {% if story and can_suggest %}
+  <p class="text-xs text-slate-500">{{ t('stories.suggest_hint', lang) }}</p>
+  {% endif %}
+  {% if story and not can_suggest %}
+  <p class="text-xs text-slate-500">{{ t('stories.suggest_no_model', lang) }}</p>
+  {% endif %}
+</form>
+
+{% if story %}
+<form method="post" action="/stories/{{ story.id }}/delete" class="mt-4"
+      onsubmit="return confirm('{{ t('stories.delete_confirm', lang) }}')">
+  <button type="submit" class="text-sm text-red-700 underline">{{ t('common.delete', lang) }}</button>
+</form>
+{% endif %}
+{% endblock %}

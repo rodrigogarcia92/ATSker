@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}{{ t('roles.title', lang) }} — {{ t('app.name', lang) }}{% endblock %}
+{% block content %}
+<div class="flex items-center justify-between gap-4">
+  <h1 class="text-2xl font-semibold tracking-tight">{{ t('roles.title', lang) }}</h1>
+  <a href="/roles/new" class="rounded bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800">
+    {{ t('roles.new', lang) }}
+  </a>
+</div>
+
+<ul class="mt-6 divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white">
+  {% for role in roles %}
+  <li class="flex flex-wrap items-center gap-x-4 gap-y-1 p-4">
+    <a href="/roles/{{ role.id }}" class="font-medium hover:underline">{{ role.title }}</a>
+    <span class="text-sm text-slate-600">{{ role.employer }}</span>
+    <span class="text-sm text-slate-500">
+      {{ role.start_date.strftime('%Y-%m') if role.start_date else '—' }} –
+      {{ role.end_date.strftime('%Y-%m') if role.end_date else t('roles.present', lang) }}
+    </span>
+    <span class="text-xs text-slate-500">{{ counts.get(role.id, 0) }} {{ t('roles.bullets', lang) }}</span>
+    {% if not role.active %}
+    <span class="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-600">{{ t('common.inactive', lang) }}</span>
+    {% endif %}
+  </li>
+  {% else %}
+  <li class="p-4 text-sm text-slate-600">{{ t('roles.empty', lang) }}</li>
+  {% endfor %}
+</ul>
+{% endblock %}
