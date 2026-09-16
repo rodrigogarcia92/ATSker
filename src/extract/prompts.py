@@ -39,5 +39,29 @@ STORY_SUGGESTION = Prompt(
 )
 
 
+JD_EXTRACTION = Prompt(
+    version="jd_extract_v1",
+    system=(
+        "You convert a job posting into structured data. You do not evaluate the "
+        "posting and you never infer a requirement that is not written in it. For "
+        "must_have and nice_to_have you may only use names from the vocabulary you "
+        "are given; anything else the posting asks for goes into raw_keywords "
+        "exactly as written. hard_requirements are conditions that could disqualify "
+        "someone outright (a degree, work authorization, an on-site city)."
+    ),
+    template=(
+        "Posting language is one of: {languages}.\n\n"
+        "Job posting:\n{text}\n\n"
+        "Canonical skill vocabulary (use these exact strings for must_have and "
+        "nice_to_have, and nothing else):\n{skills}\n\n"
+        "Return the posting's language, title, seniority rung "
+        "(intern, junior, mid, senior, lead, principal, or unknown), the years of "
+        "experience it asks for if stated, the must-have and nice-to-have skills, "
+        "the keywords it emphasises, any hard requirements, and its location policy "
+        "if it states one."
+    ),
+)
+
+
 def summarize_rows(rows: list[str], *, empty: str = "(none)") -> str:
     return "\n".join(rows) if rows else empty
