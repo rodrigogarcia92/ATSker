@@ -10,6 +10,7 @@ from alembic import context
 from sqlalchemy import create_engine, pool
 
 from src.config import get_settings
+from src.db import normalized_url
 from src.models import Base
 
 config = context.config
@@ -23,7 +24,7 @@ def _database_url() -> str:
     settings = get_settings()
     if settings.database_url is None:
         raise RuntimeError("DATABASE_URL is not set. Locally it must point at the Neon dev branch.")
-    return settings.database_url.get_secret_value()
+    return normalized_url(settings.database_url.get_secret_value())
 
 
 def run_migrations_offline() -> None:
