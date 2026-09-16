@@ -63,5 +63,26 @@ JD_EXTRACTION = Prompt(
 )
 
 
+EVIDENCE_GRADING = Prompt(
+    version="evidence_grade_v1",
+    system=(
+        "You judge how strongly a person's own résumé bullets evidence each job "
+        "requirement. Use exactly these levels: 0 absent — nothing supports it; "
+        "1 mentioned — the skill appears in a list with no context; 2 applied — it "
+        "was used in a described task; 3 demonstrated — it was used with scope or an "
+        "outcome attached. For any level above 0 you must cite the id of the bullet "
+        "that supports it. Never cite an id you were not given, and never assume "
+        "experience the bullets do not show: an unsupported requirement is level 0, "
+        "which is a normal and useful answer."
+    ),
+    template=(
+        "Requirements to grade, by index:\n{requirements}\n\n"
+        "The person's bullets (id, then text):\n{bullets}\n\n"
+        "Return one grade per requirement index: the level, the cited bullet id or "
+        "null, and one short sentence in {lang} if any requirement needs a caveat."
+    ),
+)
+
+
 def summarize_rows(rows: list[str], *, empty: str = "(none)") -> str:
     return "\n".join(rows) if rows else empty
