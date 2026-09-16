@@ -1,0 +1,6 @@
+# core.autocrlf=true on this Windows checkout would rewrite these to CRLF, which
+# breaks Dockerfile line continuations and GitHub Actions `run:` blocks. Pin LF
+# for text, and keep Word/PDF artifacts untouched on the way in and out.
+* text=auto eol=lf
+*.docx binary
+*.pdf binary
