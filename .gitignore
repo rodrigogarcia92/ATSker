@@ -4,6 +4,7 @@
 !.env.example
 *.pem
 gcp-*.json
+.neon
 
 # Personal data — PRD §10
 fixtures/

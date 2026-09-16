@@ -1,0 +1,70 @@
+name: deploy
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - "src/**"
+      - "pyproject.toml"
+      - "uv.lock"
+      - "Dockerfile"
+      - ".github/workflows/deploy.yml"
+  workflow_dispatch:
+
+# A deploy interrupted midway leaves the service on a half-updated revision, so
+# a queued run waits rather than cancelling the one in flight.
+concurrency:
+  group: deploy-default-branch
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write # Workload Identity Federation, no downloadable key (build steps E8)
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+      GCP_REGION: ${{ secrets.GCP_REGION }}
+      IMAGE: ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/atsker/app:${{ github.sha }}
+      RUNTIME_SERVICE_ACCOUNT: atsker-runtime@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+
+      - name: Build image
+        run: docker build --tag "$IMAGE" .
+
+      - name: Push image
+        run: |
+          gcloud auth configure-docker "${GCP_REGION}-docker.pkg.dev" --quiet
+          docker push "$IMAGE"
+
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy atsker \
+            --image="$IMAGE" \
+            --region="${GCP_REGION}" \
+            --platform=managed \
+            --allow-unauthenticated \
+            --min-instances=0 \
+            --max-instances=2 \
+            --cpu=1 \
+            --memory=512Mi \
+            --timeout=120 \
+            --service-account="${RUNTIME_SERVICE_ACCOUNT}" \
+            --set-env-vars=ENV=production \
+            --set-secrets=OPENROUTER_API_KEY=openrouter-api-key:latest,DATABASE_URL=neon-database-url:latest,SESSION_SECRET=session-secret:latest
+
+      - name: Report service URL
+        run: |
+          gcloud run services describe atsker \
+            --region="${GCP_REGION}" \
+            --format='value(status.url)'
