@@ -13,7 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from src.extract import redaction
-from src.extract.client import complete_json
+from src.extract.client import Completion, complete_json
 from src.extract.prompts import JD_EXTRACTION
 from src.jd import Seniority, StructuredJD, jd_hash, normalize_jd_text
 from src.models import Skill
@@ -63,8 +63,12 @@ def vocabulary_canonicals(session: Session) -> list[str]:
 
 def extract_jd(
     session: Session, text: str, *, model: str | None = None
-) -> tuple[StructuredJD, bool]:
-    """Return the structured posting and whether it came from the cache."""
+) -> tuple[StructuredJD, Completion]:
+    """Return the structured posting and the call that produced it.
+
+    The call carries whether it was served from the cache and what it cost, which
+    is what the analysis records (PRD 7).
+    """
     normalized = normalize_jd_text(text)
     if not normalized:
         raise ValueError("the job description is empty")
@@ -74,12 +78,11 @@ def extract_jd(
         session,
         purpose=PURPOSE,
         prompt_version=JD_EXTRACTION.version,
-        system=JD_EXTRACTION.system,
-        user=JD_EXTRACTION.render(
-            text=redaction.redact(normalized),
+        system=JD_EXTRACTION.render_system(
             skills="\n".join(canonicals),
             languages="es, en",
         ),
+        user=JD_EXTRACTION.render(text=redaction.redact(normalized)),
         schema=JDProposal,
         model=model,
         retries=RETRIES,
@@ -111,4 +114,4 @@ def extract_jd(
         ],
         location_policy=proposal.location_policy,
     )
-    return jd, completion.cached
+    return jd, completion

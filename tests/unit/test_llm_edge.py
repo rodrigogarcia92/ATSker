@@ -5,7 +5,12 @@ from decimal import Decimal
 import pytest
 
 from src.extract import client
-from src.extract.client import NoModelConfigured, StructuredOutputError, complete_json
+from src.extract.client import (
+    NoModelConfigured,
+    ProviderUnavailable,
+    StructuredOutputError,
+    complete_json,
+)
 from src.extract.redaction import redact
 from src.extract.stories import StorySuggestionSchema, suggest_story_links
 from src.models import LlmCall
@@ -97,6 +102,20 @@ def test_invalid_output_fails_loudly_without_retries(session, test_settings, mon
         call(session)
 
     assert session.query(LlmCall).count() == 0
+
+
+def test_a_provider_failure_is_named_rather_than_propagated(session, test_settings, monkeypatch):
+    import httpx
+
+    def unreachable(payload, api_key):
+        raise httpx.ConnectError("connection refused")
+
+    monkeypatch.setattr(client, "_post", unreachable)
+
+    with pytest.raises(ProviderUnavailable, match="connection refused"):
+        call(session)
+
+    assert session.query(LlmCall).count() == 0, "a failed call spends and caches nothing"
 
 
 def test_missing_model_is_reported_rather_than_defaulted(session, test_settings, monkeypatch):

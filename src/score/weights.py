@@ -7,7 +7,14 @@ that being visible.
 
 import hashlib
 import json
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass
+
+
+def hash_values(values: Mapping[str, float]) -> str:
+    """Stable hash of a weight set, nominal or effective, for the report to record."""
+    payload = json.dumps(dict(values), sort_keys=True, separators=(",", ":"))
+    return "sha256:" + hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
 @dataclass(frozen=True)
@@ -28,8 +35,7 @@ class Weights:
     def config_hash(self) -> str:
         """Hash of the weight values; the version is recorded beside it, not inside it."""
         values = {key: value for key, value in self.as_dict().items() if key != "version"}
-        payload = json.dumps(values, sort_keys=True, separators=(",", ":"))
-        return "sha256:" + hashlib.sha256(payload.encode("utf-8")).hexdigest()
+        return hash_values(values)
 
 
 W1 = Weights(

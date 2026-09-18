@@ -33,7 +33,7 @@ from sqlalchemy import (
     func,
     text,
 )
-from sqlalchemy.dialects.postgresql import ARRAY
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.ext.mutable import MutableList
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -43,6 +43,9 @@ _BigInt = BigInteger().with_variant(Integer, "sqlite")
 # PostgreSQL arrays where the PRD asks for `[]` columns; JSON elsewhere so the same
 # models create in SQLite. MutableList keeps in-place edits visible to the session.
 _StringList = MutableList.as_mutable(ARRAY(String(120)).with_variant(JSON(), "sqlite"))
+
+# JSONB in production (indexable, typed); plain JSON where the dialect lacks it.
+_JsonDoc = JSONB().with_variant(JSON(), "sqlite")
 
 
 class Base(DeclarativeBase):
@@ -209,6 +212,34 @@ class LlmCall(Base):
     completion_tokens: Mapped[int] = mapped_column(Integer, default=0)
     cost_usd: Mapped[Decimal] = mapped_column(Numeric(10, 6), default=Decimal("0"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class Application(Base):
+    """One analysis: the posting, the score report, and eventually the outcome (PRD F8).
+
+    The schema exists from the first real application so the dataset accumulates
+    from day one; the outcome column is what later answers whether the sub-scores
+    predict callbacks.
+    """
+
+    __tablename__ = "applications"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    profile_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("profiles.id", ondelete="CASCADE"), index=True
+    )
+    company: Mapped[str | None] = mapped_column(String(200))
+    title: Mapped[str | None] = mapped_column(String(200))
+    jd_text: Mapped[str] = mapped_column(Text)
+    jd_hash: Mapped[str] = mapped_column(String(80), index=True)
+    report: Mapped[dict] = mapped_column(_JsonDoc, default=dict)
+    weights_version: Mapped[str] = mapped_column(String(20))
+    prompt_versions: Mapped[dict] = mapped_column(_JsonDoc, default=dict)
+    token_cost_usd: Mapped[Decimal] = mapped_column(Numeric(10, 6), default=Decimal("0"))
+    outcome: Mapped[str] = mapped_column(String(20), default="no_reply")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
 
 class LoginAttempt(Base):

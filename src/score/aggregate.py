@@ -2,13 +2,19 @@
 
 A sub-score without its matched and missing terms is not a report ATSker shows, so
 the two travel together in one object rather than as loose numbers.
+
+Until embeddings exist (M9) the semantic sub-score cannot be computed, so the total
+is renormalised over the components that do exist — and only when the omission is
+declared with a reason. Every report then records the omission, the weights that
+were actually applied and their hash, so a total that shifts when M9 lands is
+auditable rather than mysterious.
 """
 
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass, field
 
 from src.parse.gate import ParseReport, apply_gate
-from src.score.weights import W1, Weights
+from src.score.weights import W1, Weights, hash_values
 
 SUB_SCORES = ("title", "evidence", "keyword", "semantic", "experience")
 
@@ -32,6 +38,9 @@ class ScoreReport:
     capped: int
     cap: int | None
     cap_reason: str | None
+    unavailable: dict[str, str] = field(default_factory=dict)
+    effective_weights: dict[str, float] = field(default_factory=dict)
+    effective_weights_hash: str = ""
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -42,6 +51,9 @@ class ScoreReport:
             "capped": self.capped,
             "cap": self.cap,
             "cap_reason": self.cap_reason,
+            "unavailable": dict(self.unavailable),
+            "effective_weights": dict(self.effective_weights),
+            "effective_weights_hash": self.effective_weights_hash,
             "sub_scores": {name: asdict(score) for name, score in self.sub_scores.items()},
         }
 
@@ -51,18 +63,40 @@ def aggregate(
     weights: Weights = W1,
     *,
     gate: ParseReport | None = None,
+    unavailable: Mapping[str, str] | None = None,
 ) -> ScoreReport:
-    """Weighted sum → 0–100, then the gate cap. Missing sub-scores fail loudly.
+    """Weighted sum → 0–100, then the gate cap.
 
-    Every one of the five weights must be accounted for: quietly re-normalising
-    over whichever sub-scores happen to exist would make two reports incomparable
-    while looking identical.
+    Every weight must be accounted for. A sub-score that was not computed is only
+    accepted when the caller declares it unavailable with a reason: the total is
+    then renormalised over the rest, which keeps reports comparable while saying
+    out loud what is missing. Quietly dropping a component would make two reports
+    incomparable while looking identical, so that fails loudly instead.
     """
-    absent = [name for name in SUB_SCORES if name not in sub_scores]
-    if absent:
-        raise ValueError(f"missing sub-scores: {', '.join(absent)}")
+    declared = dict(unavailable or {})
+    unknown = sorted(set(declared) - set(SUB_SCORES))
+    if unknown:
+        raise ValueError(f"unknown sub-scores declared unavailable: {', '.join(unknown)}")
+    contradicted = sorted(set(declared) & set(sub_scores))
+    if contradicted:
+        raise ValueError(
+            f"declared unavailable but supplied anyway: {', '.join(contradicted)}"
+        )
+    undeclared = [name for name in SUB_SCORES if name not in sub_scores and name not in declared]
+    if undeclared:
+        raise ValueError(f"missing sub-scores: {', '.join(undeclared)}")
 
-    weighted = sum(getattr(weights, name) * sub_scores[name].value for name in SUB_SCORES)
+    available = [name for name in SUB_SCORES if name in sub_scores]
+    if declared:
+        nominal = sum(getattr(weights, name) for name in available)
+        if nominal <= 0:
+            raise ValueError("the available weights sum to zero")
+        effective = {name: getattr(weights, name) / nominal for name in available}
+    else:
+        # No omission: the effective weights are the config, exactly as written.
+        effective = {name: getattr(weights, name) for name in available}
+
+    weighted = sum(effective[name] * sub_scores[name].value for name in available)
     uncapped = round(100 * weighted)
     cap = gate.cap if gate is not None else None
     capped = uncapped if gate is None else apply_gate(uncapped, gate)
@@ -76,4 +110,7 @@ def aggregate(
         capped=capped,
         cap=cap,
         cap_reason=gate.cap_reason if gate is not None else None,
+        unavailable=declared,
+        effective_weights=effective,
+        effective_weights_hash=hash_values(effective),
     )

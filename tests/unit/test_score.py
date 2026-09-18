@@ -5,7 +5,7 @@ from datetime import date
 import pytest
 
 from src.jd import StructuredJD
-from src.score.aggregate import SubScore, aggregate
+from src.score.aggregate import SUB_SCORES, SubScore, aggregate
 from src.score.experience import experience_score, merge_intervals, years_held
 from src.score.keywords import keyword_context
 from src.score.title import seniority_of, title_alignment
@@ -224,3 +224,61 @@ def test_report_serialises_every_sub_score_with_its_terms():
     assert set(payload["sub_scores"]) == {"title", "evidence", "keyword", "semantic", "experience"}
     assert payload["sub_scores"]["title"]["matched"] == ["title-term"]
     assert payload["weights_hash"] == W1.config_hash()
+
+
+def test_without_an_omission_the_effective_weights_are_the_config():
+    report = aggregate(full_set(), W1)
+
+    assert report.unavailable == {}
+    assert report.effective_weights == {name: getattr(W1, name) for name in SUB_SCORES}
+    assert report.effective_weights_hash == report.weights_hash
+
+
+def test_renormalising_over_four_components_matches_the_hand_computed_total():
+    """State doc §4 option A: the semantic weight is redistributed, not lost."""
+    partial = full_set()
+    del partial["semantic"]
+
+    report = aggregate(partial, W1, unavailable={"semantic": "embeddings_not_available"})
+
+    expected = (0.20 * 1.0 + 0.35 * 0.5 + 0.15 * 0.0 + 0.20 * 0.5) / 0.90
+    assert report.weighted == pytest.approx(expected)
+    assert report.uncapped == round(100 * expected)
+    assert report.effective_weights["title"] == pytest.approx(0.20 / 0.90)
+    assert sum(report.effective_weights.values()) == pytest.approx(1.0)
+    assert report.unavailable == {"semantic": "embeddings_not_available"}
+
+    payload = report.to_dict()
+    assert payload["unavailable"] == {"semantic": "embeddings_not_available"}
+    assert payload["effective_weights_hash"] == report.effective_weights_hash
+    assert payload["effective_weights_hash"] != payload["weights_hash"], (
+        "the shift from the nominal config must be visible"
+    )
+
+
+def test_the_effective_weights_hash_identifies_the_renormalised_configuration():
+    partial = full_set()
+    del partial["semantic"]
+    other = full_set()
+    del other["experience"]
+
+    first = aggregate(partial, W1, unavailable={"semantic": "embeddings_not_available"})
+    again = aggregate(partial, W1, unavailable={"semantic": "embeddings_not_available"})
+    different = aggregate(other, W1, unavailable={"experience": "no_roles_recorded"})
+
+    assert first.effective_weights_hash == again.effective_weights_hash
+    assert first.effective_weights_hash != different.effective_weights_hash
+
+
+def test_an_omission_must_be_declared_and_must_not_contradict_the_scores():
+    partial = full_set()
+    del partial["semantic"]
+
+    with pytest.raises(ValueError, match="missing sub-scores"):
+        aggregate(partial, W1)
+
+    with pytest.raises(ValueError, match="declared unavailable but supplied"):
+        aggregate(full_set(), W1, unavailable={"semantic": "embeddings_not_available"})
+
+    with pytest.raises(ValueError, match="unknown sub-scores"):
+        aggregate(partial, W1, unavailable={"semantik": "typo"})

@@ -15,8 +15,9 @@ from dataclasses import dataclass
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from src.bullets import bullet_text
 from src.extract import redaction
-from src.extract.client import complete_json
+from src.extract.client import Completion, complete_json
 from src.extract.prompts import EVIDENCE_GRADING, summarize_rows
 from src.jd import StructuredJD
 from src.models import Bullet
@@ -52,7 +53,12 @@ class EvidenceLevel:
 class EvidenceReport:
     levels: tuple[EvidenceLevel, ...]
     note: str
-    cached: bool
+    calls: tuple[Completion, ...] = ()
+
+    @property
+    def cached(self) -> bool:
+        """True when the last call was served from the cache; nothing was spent."""
+        return bool(self.calls) and self.calls[-1].cached
 
 
 def requirements_of(jd: StructuredJD) -> list[tuple[str, bool]]:
@@ -98,20 +104,22 @@ def grade_evidence(
     language: str = "es",
     model: str | None = None,
 ) -> EvidenceReport:
-    """One call covering every requirement, cached by content hash (PRD F4.3)."""
+    """One call covering every requirement, cached by content hash (PRD F4.3).
+
+    Every attempt is kept, including a retry: an analysis's cost is the sum of what
+    it actually spent, and a retried call was spent twice.
+    """
     requirements = requirements_of(jd)
     if not requirements:
-        return EvidenceReport(levels=(), note="", cached=False)
+        return EvidenceReport(levels=(), note="")
 
     numbered = "\n".join(f"{index}\t{value}" for index, (value, _) in enumerate(requirements))
     supplied = summarize_rows(
-        [
-            f"{bullet.id}\t{redaction.redact(bullet.text_es or bullet.text_en or '')}"
-            for bullet in bullets
-        ]
+        [f"{bullet.id}\t{redaction.redact(bullet_text(bullet))}" for bullet in bullets]
     )
     allowed_ids = {str(bullet.id) for bullet in bullets}
     prompt = EVIDENCE_GRADING.render(requirements=numbered, bullets=supplied, lang=language)
+    attempts: list[Completion] = []
 
     # One retry: the client covers a schema violation, this loop covers a citation one.
     for attempt in range(2):
@@ -119,7 +127,7 @@ def grade_evidence(
             session,
             purpose=PURPOSE,
             prompt_version=EVIDENCE_GRADING.version,
-            system=EVIDENCE_GRADING.system,
+            system=EVIDENCE_GRADING.render_system(),
             user=prompt
             if attempt == 0
             else f"{prompt}\n\nYour previous answer was unusable: cite only supplied "
@@ -127,6 +135,7 @@ def grade_evidence(
             schema=EvidenceGrading,
             model=model,
         )
+        attempts.append(completion)
         grading = EvidenceGrading.model_validate(completion.data)
         try:
             levels = _validate(grading, requirements, allowed_ids)
@@ -134,6 +143,6 @@ def grade_evidence(
             if attempt == 0:
                 continue
             raise
-        return EvidenceReport(levels=levels, note=grading.note, cached=completion.cached)
+        return EvidenceReport(levels=levels, note=grading.note, calls=tuple(attempts))
 
     raise CitationViolation("grading failed after a retry")  # pragma: no cover - loop returns

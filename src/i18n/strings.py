@@ -16,6 +16,7 @@ STRINGS: dict[str, dict[str, str]] = {
     },
     # Shell
     "nav.dashboard": {"es": "Panel", "en": "Dashboard"},
+    "nav.analyze": {"es": "Analizar", "en": "Analyse"},
     "nav.profile": {"es": "Perfil", "en": "Profile"},
     "nav.roles": {"es": "Trayectoria", "en": "Experience"},
     "nav.stories": {"es": "Historias", "en": "Stories"},
@@ -69,6 +70,112 @@ STRINGS: dict[str, dict[str, str]] = {
         "es": "La importación de PDF o Word llega en el siguiente paso.",
         "en": "PDF or Word import arrives in the next step.",
     },
+    # Analysis (M5b) — the form, and the report the analysis leaves behind
+    "analyze.title": {"es": "Analizar una oferta", "en": "Analyse a posting"},
+    "analyze.intro": {
+        "es": "Pega el texto de la oferta. Se extraen los requisitos, se contrastan "
+        "con tus viñetas y el informe queda guardado.",
+        "en": "Paste the posting. Its requirements are extracted, graded against your "
+        "bullets, and the report is kept.",
+    },
+    "analyze.jd": {"es": "Descripción del puesto", "en": "Job description"},
+    "analyze.jd_hint": {
+        "es": "El texto completo, tal como se publica. El idioma del puesto decide el "
+        "idioma de la salida, nunca el de la interfaz.",
+        "en": "The full text, as published. The posting's language decides the language "
+        "of the output, never the interface's.",
+    },
+    "analyze.company": {"es": "Empresa (opcional)", "en": "Company (optional)"},
+    "analyze.role_title": {"es": "Puesto (opcional)", "en": "Role (optional)"},
+    "analyze.optional_hint": {
+        "es": "Si dejas el puesto vacío se usa el título que extraiga el análisis.",
+        "en": "Leave the role empty to use the title the analysis extracts.",
+    },
+    "analyze.submit": {"es": "Analizar", "en": "Analyse"},
+    "analyze.need_text": {"es": "Pega el texto de la oferta.", "en": "Paste the posting text."},
+    "analyze.no_model": {
+        "es": "No hay modelo configurado (OPENROUTER_MODEL). El análisis no puede "
+        "ejecutarse todavía.",
+        "en": "No model is configured (OPENROUTER_MODEL). The analysis cannot run yet.",
+    },
+    "analyze.failed": {
+        "es": "El análisis no se pudo completar; no se ha guardado ningún informe.",
+        "en": "The analysis could not be completed; no report was saved.",
+    },
+    "analyze.need_bullets": {
+        "es": "No hay viñetas activas: sin ellas no hay evidencia que citar y la "
+        "cobertura será cero.",
+        "en": "No active bullets: without them there is no evidence to cite and "
+        "coverage will be zero.",
+    },
+    # Report
+    "report.title": {"es": "Informe", "en": "Report"},
+    "report.analysed_on": {"es": "Analizado el", "en": "Analysed on"},
+    "report.total": {"es": "Encaje total", "en": "Overall fit"},
+    "report.capped": {
+        "es": "Limitado a {cap} por la comprobación de formato ({check}); sin límite "
+        "sería {uncapped}.",
+        "en": "Capped at {cap} by the format check ({check}); uncapped it would be "
+        "{uncapped}.",
+    },
+    "report.renormalised": {
+        "es": "Falta {missing}: el total se renormaliza sobre {available} de {total} "
+        "componentes.",
+        "en": "Missing {missing}: the total is renormalised over {available} of {total} "
+        "components.",
+    },
+    "report.cost_label": {"es": "Coste del análisis", "en": "Analysis cost"},
+    "report.sub_scores": {"es": "Componentes", "en": "Components"},
+    "report.sub.title": {"es": "Alineación del título", "en": "Title alignment"},
+    "report.sub.evidence": {"es": "Cobertura de evidencia", "en": "Evidence coverage"},
+    "report.sub.keyword": {"es": "Contexto de palabras clave", "en": "Keyword context"},
+    "report.sub.semantic": {"es": "Encaje semántico", "en": "Semantic fit"},
+    "report.sub.experience": {"es": "Experiencia", "en": "Experience"},
+    "report.weight": {"es": "peso", "en": "weight"},
+    "report.component_unavailable": {"es": "no disponible", "en": "not available"},
+    "report.disqualifiers": {"es": "Requisitos eliminatorios", "en": "Disqualifiers"},
+    "report.disqualifiers_hint": {
+        "es": "No entran en la puntuación: un requisito eliminatorio no es un porcentaje.",
+        "en": "They do not enter the score: a disqualifier is not a percentage.",
+    },
+    "report.grades": {"es": "Requisitos evaluados", "en": "Graded requirements"},
+    "report.grades_hint": {
+        "es": "0 ausente · 1 mencionado · 2 aplicado · 3 demostrado. Cada nivel cita la "
+        "viñeta que lo sostiene.",
+        "en": "0 absent · 1 mentioned · 2 applied · 3 demonstrated. Every level cites "
+        "the bullet that supports it.",
+    },
+    "report.must_have": {"es": "Imprescindible", "en": "Must-have"},
+    "report.nice_to_have": {"es": "Deseable", "en": "Nice-to-have"},
+    "report.level_label": {"es": "Nivel", "en": "Level"},
+    "report.level.0": {"es": "Ausente", "en": "Absent"},
+    "report.level.1": {"es": "Mencionado", "en": "Mentioned"},
+    "report.level.2": {"es": "Aplicado", "en": "Applied"},
+    "report.level.3": {"es": "Demostrado", "en": "Demonstrated"},
+    "report.no_citation": {
+        "es": "Sin cita: nada en tu perfil lo respalda.",
+        "en": "No citation: nothing in your profile supports it.",
+    },
+    "report.no_grades": {
+        "es": "La oferta no produjo requisitos que evaluar.",
+        "en": "The posting produced no requirements to grade.",
+    },
+    "report.jd_fields": {"es": "Campos extraídos", "en": "Extracted fields"},
+    "report.language": {"es": "Idioma", "en": "Language"},
+    "report.seniority": {"es": "Seniority", "en": "Seniority"},
+    "report.years": {"es": "Años pedidos", "en": "Years asked"},
+    "report.keywords": {"es": "Palabras clave", "en": "Keywords"},
+    "report.audit": {"es": "Trazabilidad", "en": "Traceability"},
+    "report.tokens": {
+        "es": "{prompt} + {completion} tokens",
+        "en": "{prompt} + {completion} tokens",
+    },
+    "report.from_cache": {"es": "desde caché", "en": "from cache"},
+    "report.fresh_call": {"es": "llamada nueva", "en": "fresh call"},
+    "report.weights_version": {"es": "Pesos", "en": "Weights"},
+    "report.prompt_versions": {"es": "Versiones de prompt", "en": "Prompt versions"},
+    "report.jd_hash": {"es": "Hash de la oferta", "en": "Posting hash"},
+    "report.again": {"es": "Analizar otra oferta", "en": "Analyse another posting"},
     # Profile
     "profile.title": {"es": "Perfil", "en": "Profile"},
     "profile.display_name": {"es": "Nombre", "en": "Name"},

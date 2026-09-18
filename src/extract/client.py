@@ -34,13 +34,31 @@ class StructuredOutputError(RuntimeError):
     """The provider returned something the schema does not accept."""
 
 
+class ProviderUnavailable(RuntimeError):
+    """The provider could not be reached, or answered with an error status.
+
+    Named rather than propagated raw so the UI can say what happened instead of
+    showing a stack trace, and so the caller can tell a transport failure from a
+    model that answered badly.
+    """
+
+
 @dataclass(frozen=True)
 class Completion:
+    """One call site's answer, and what it cost.
+
+    `purpose`, `prompt_version` and `model` travel with the answer so the caller
+    can record the analysis's prompt versions and cost without re-deriving them.
+    """
+
     data: dict[str, Any]
     cached: bool
     prompt_tokens: int
     completion_tokens: int
     cost_usd: Decimal
+    purpose: str
+    prompt_version: str
+    model: str
 
 
 def _post(payload: dict[str, Any], api_key: str) -> dict[str, Any]:
@@ -100,6 +118,9 @@ def complete_json(
             prompt_tokens=0,
             completion_tokens=0,
             cost_usd=Decimal("0"),
+            purpose=purpose,
+            prompt_version=prompt_version,
+            model=chosen,
         )
 
     payload: dict[str, Any] = {
@@ -115,7 +136,12 @@ def complete_json(
 
     attempt = 0
     while True:
-        body = _post(payload, settings.openrouter_api_key.get_secret_value())
+        try:
+            body = _post(payload, settings.openrouter_api_key.get_secret_value())
+        except httpx.HTTPError as exc:
+            # A transport or status failure spends nothing and caches nothing, but
+            # the caller still needs to name it rather than fail as an unknown 500.
+            raise ProviderUnavailable(str(exc)) from exc
         message = body["choices"][0]["message"]["content"]
         try:
             parsed = schema.model_validate(json.loads(message))
@@ -153,4 +179,12 @@ def complete_json(
         prompt_tokens=int(usage.get("prompt_tokens") or 0),
         completion_tokens=int(usage.get("completion_tokens") or 0),
         cost_usd=cost,
+        purpose=purpose,
+        prompt_version=prompt_version,
+        model=chosen,
     )
+
+
+def model_configured() -> bool:
+    """True when a model has been chosen for this environment (PRD 7)."""
+    return bool((get_settings().openrouter_model or "").strip())

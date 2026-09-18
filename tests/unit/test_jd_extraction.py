@@ -64,9 +64,10 @@ def test_skills_outside_the_vocabulary_become_keywords_and_are_logged(
 ):
     stub(monkeypatch)
 
-    jd, cached = extract_jd(session, POSTING)
+    jd, extraction = extract_jd(session, POSTING)
 
-    assert cached is False
+    assert extraction.cached is False
+    assert extraction.purpose == PURPOSE
     assert jd.must_have == ["python", "sql"], "only canonical vocabulary names survive"
     assert jd.nice_to_have == ["power bi"]
     assert "snowflake" in jd.raw_keywords
@@ -99,10 +100,11 @@ def test_the_same_posting_is_never_analysed_twice(
     """PRD M4: the second analysis makes no network call and returns the same output."""
     calls = stub(monkeypatch)
 
-    first, first_cached = extract_jd(session, POSTING)
-    second, second_cached = extract_jd(session, POSTING)
+    first, first_extraction = extract_jd(session, POSTING)
+    second, second_extraction = extract_jd(session, POSTING)
 
-    assert first_cached is False and second_cached is True
+    assert first_extraction.cached is False and second_extraction.cached is True
+    assert second_extraction.cost_usd == 0
     assert first == second
     assert len(calls) == 1, "the cache must prevent a second request"
     assert session.query(LlmCall).count() == 1
@@ -131,7 +133,7 @@ def test_prompt_version_is_recorded_and_version_bumps_bust_the_cache(
 
     stored = session.query(LlmCall).one()
     assert stored.purpose == PURPOSE
-    assert stored.prompt_version == "jd_extract_v1"
+    assert stored.prompt_version == "jd_extract_v2"
     assert stored.cost_usd > 0
 
 

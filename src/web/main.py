@@ -13,6 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from src import __version__
 from src.config import get_settings
 from src.web.middleware import renew_session
+from src.web.routes import analyze as analyze_routes
 from src.web.routes import auth as auth_routes
 from src.web.routes import bullets as bullet_routes
 from src.web.routes import letters as letter_routes
@@ -42,6 +43,7 @@ def create_app() -> FastAPI:
 
     app.include_router(auth_routes.router)
     app.include_router(page_routes.router)
+    app.include_router(analyze_routes.router)
     app.include_router(role_routes.router)
     app.include_router(bullet_routes.router)
     app.include_router(story_routes.router)

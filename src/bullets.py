@@ -17,6 +17,15 @@ from src.scoping import owned_row, owned_rows
 from src.vocabulary import log_unmapped, resolve_bullet_terms, skills_in_text
 
 
+def bullet_text(bullet: Bullet) -> str:
+    """The text a consumer reads: Spanish first, English as the fallback.
+
+    Grading, keyword scoring and the report's citation all read the same line, so
+    what the model was shown and what the report displays cannot drift apart.
+    """
+    return bullet.text_es or bullet.text_en or ""
+
+
 def list_bullets(
     profile_id: uuid.UUID,
     session: Session,

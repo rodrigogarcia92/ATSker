@@ -12,8 +12,7 @@ from dataclasses import dataclass
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from src.bullets import list_bullets
-from src.config import get_settings
+from src.bullets import bullet_text, list_bullets
 from src.extract import redaction
 from src.extract.client import complete_json
 from src.extract.prompts import STORY_SUGGESTION, summarize_rows
@@ -53,7 +52,7 @@ def suggest_story_links(
         body=redaction.redact(story.body, known_names=[owner_name] if owner_name else None),
         roles=summarize_rows([f"{role.id}\t{role.title} @ {role.employer}" for role in roles]),
         bullets=summarize_rows(
-            [f"{bullet.id}\t{bullet.text_es or bullet.text_en}" for bullet in bullets]
+            [f"{bullet.id}\t{bullet_text(bullet)}" for bullet in bullets]
         ),
         skills=summarize_rows(skills),
     )
@@ -90,8 +89,3 @@ def suggest_story_links(
         skills=chosen_skills,
         note=note,
     )
-
-
-def suggestions_available() -> bool:
-    """True when a model has been chosen for this environment (PRD 7)."""
-    return bool((get_settings().openrouter_model or "").strip())

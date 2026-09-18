@@ -170,7 +170,7 @@ def test_regrading_the_same_pair_reuses_the_cache(session, test_settings, bullet
     assert first.levels == second.levels
     stored = session.query(LlmCall).one()
     assert stored.purpose == PURPOSE
-    assert stored.prompt_version == "evidence_grade_v1"
+    assert stored.prompt_version == "evidence_grade_v2"
 
 
 def test_bullet_text_is_redacted_before_it_leaves(session, test_settings, bullets, monkeypatch):

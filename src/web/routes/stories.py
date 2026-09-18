@@ -7,8 +7,13 @@ from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
 
 from src.bullets import list_bullets
-from src.extract.client import NoModelConfigured, StructuredOutputError
-from src.extract.stories import suggest_story_links, suggestions_available
+from src.extract.client import (
+    NoModelConfigured,
+    ProviderUnavailable,
+    StructuredOutputError,
+    model_configured,
+)
+from src.extract.stories import suggest_story_links
 from src.i18n import t
 from src.roles import list_roles
 from src.stories import (
@@ -61,7 +66,7 @@ def _story_form(
         suggestion=suggestion,
         notice=notice,
         error=error,
-        can_suggest=suggestions_available(),
+        can_suggest=model_configured(),
     )
 
 
@@ -167,7 +172,7 @@ def story_suggest(
         suggestion = suggest_story_links(
             profile.id, session, story, owner_name=profile.display_name
         )
-    except (NoModelConfigured, StructuredOutputError) as exc:
+    except (NoModelConfigured, ProviderUnavailable, StructuredOutputError) as exc:
         session.rollback()
         message = (
             t("stories.suggest_no_model", user.ui_lang)
