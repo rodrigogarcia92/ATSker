@@ -60,7 +60,10 @@ def main(argv: list[str] | None = None) -> int:
     if get_settings().openrouter_api_key is None:
         parser.error("OPENROUTER_API_KEY is not set; the live run needs it (see .env.example)")
 
-    pairs = load_pairs(Path(args.pairs))
+    try:
+        pairs = load_pairs(Path(args.pairs))
+    except ValueError as exc:
+        parser.error(str(exc))
     if args.limit:
         pairs = pairs[: args.limit]
     candidates = candidate_selection(args.models)
