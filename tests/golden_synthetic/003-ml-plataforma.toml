@@ -1,0 +1,41 @@
+# Synthetic golden pair — invented person, invented employer.
+id = "003-ml-platform-ingeniero"
+language = "es"
+bucket = "stretch"
+profile = "second"
+reason = "El puesto pide construir plataforma de ML; el perfil solo muestra tableros y SQL, sin modelos en producción."
+
+[resume]
+display_name = "Bea Sintética"
+headline = "Analista de business intelligence"
+
+[[resume.roles]]
+employer = "Seguros Sur"
+title = "Analista de BI"
+start_date = "2019-09-01"
+end_date = ""
+
+[[resume.roles.bullets]]
+key = "b1"
+text_es = "Mantuve 15 tableros de Power BI para las áreas comercial y de siniestros"
+skills = ["power bi", "data visualization"]
+
+[[resume.roles.bullets]]
+key = "b2"
+text_es = "Escribí consultas SQL sobre el data warehouse para el reporte regulatorio anual"
+skills = ["sql", "data warehouse"]
+
+[[resume.roles.bullets]]
+key = "b3"
+text_es = "Automaticé la validación de datos con Python y pandas antes de publicar"
+skills = ["python", "pandas", "data quality"]
+
+[jd]
+title = "Ingeniero/a de Plataforma de Machine Learning"
+text = """
+Buscamos un ingeniero de plataforma de machine learning para llevar modelos de
+riesgo a producción. Responsabilidades: desplegar modelos con Docker y Kubernetes,
+construir el pipeline de reentrenamiento y monitorear deriva en producción.
+Requisitos: 4 años de experiencia con Python, scikit-learn y machine learning en
+producción; deseable experiencia con Snowflake.
+"""

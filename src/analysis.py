@@ -19,11 +19,12 @@ from decimal import Decimal
 from sqlalchemy.orm import Session
 
 from src.bullets import bullet_text, list_bullets
-from src.extract.client import Completion
+from src.extract.client import CallOptions, Completion
 from src.extract.grading import grade_evidence
 from src.extract.jd import extract_jd
 from src.extract.prompts import EVIDENCE_GRADING, JD_EXTRACTION
-from src.models import Profile
+from src.jd import StructuredJD
+from src.models import Bullet, Profile
 from src.parse.gate import ParseReport
 from src.roles import list_roles
 from src.score.aggregate import SubScore, aggregate
@@ -40,7 +41,12 @@ UNAVAILABLE_UNTIL_M9 = {"semantic": "embeddings_not_available"}
 
 @dataclass(frozen=True)
 class Analysis:
-    """What one analysis produced, before it is written to `applications` (F8)."""
+    """What one analysis produced, before it is written to `applications` (F8).
+
+    `jd` and `bullets` are the inputs the judge saw; the model-selection experiment
+    re-runs the judge against them to measure stability without re-running
+    extraction.
+    """
 
     report: dict[str, object]
     prompt_versions: dict[str, str]
@@ -49,6 +55,8 @@ class Analysis:
     jd_hash: str
     title: str | None
     company: str | None
+    jd: StructuredJD
+    bullets: tuple[Bullet, ...]
 
 
 def _llm_section(calls: Sequence[Completion], cost: Decimal) -> dict[str, object]:
@@ -64,6 +72,7 @@ def _llm_section(calls: Sequence[Completion], cost: Decimal) -> dict[str, object
                 "prompt_tokens": call.prompt_tokens,
                 "completion_tokens": call.completion_tokens,
                 "cost_usd": str(call.cost_usd),
+                "fingerprint": call.fingerprint,
             }
             for call in calls
         ],
@@ -79,6 +88,7 @@ def analyze(
     title: str | None = None,
     gate: ParseReport | None = None,
     model: str | None = None,
+    options: CallOptions | None = None,
 ) -> Analysis:
     """Run the whole pipeline for one pasted posting.
 
@@ -86,6 +96,9 @@ def analyze(
     it stays None until M2b stores résumé files, so today the score is never capped
     by a document. Nothing is persisted here except the model calls themselves —
     the caller writes the application.
+
+    `options` exists for the model-selection experiment, which must bypass the
+    content-hash cache to measure the judge rather than the cache.
     """
     profile = session.get(Profile, profile_id)
     if profile is None:
@@ -101,8 +114,16 @@ def analyze(
     aliases = alias_map(session)
     today = date.today()
 
-    jd, extraction = extract_jd(session, jd_text, model=model)
-    grading = grade_evidence(session, jd, bullets, language=jd.language, model=model)
+    jd, extraction = extract_jd(session, jd_text, model=model, options=options)
+    grading = grade_evidence(
+        session,
+        jd,
+        bullets,
+        language=jd.language,
+        model=model,
+        known_names=[profile.display_name] if profile.display_name else None,
+        options=options,
+    )
 
     sub_scores: dict[str, SubScore] = {
         "title": title_alignment(
@@ -164,4 +185,6 @@ def analyze(
         jd_hash=jd.source_hash,
         title=(title or "").strip() or jd.title or None,
         company=(company or "").strip() or None,
+        jd=jd,
+        bullets=tuple(bullets),
     )

@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 
 from src.bullets import bullet_text
 from src.extract import redaction
-from src.extract.client import Completion, complete_json
+from src.extract.client import CallOptions, Completion, complete_json
 from src.extract.prompts import EVIDENCE_GRADING, summarize_rows
 from src.jd import StructuredJD
 from src.models import Bullet
@@ -103,6 +103,8 @@ def grade_evidence(
     *,
     language: str = "es",
     model: str | None = None,
+    known_names: Sequence[str] | None = None,
+    options: CallOptions | None = None,
 ) -> EvidenceReport:
     """One call covering every requirement, cached by content hash (PRD F4.3).
 
@@ -114,8 +116,12 @@ def grade_evidence(
         return EvidenceReport(levels=(), note="")
 
     numbered = "\n".join(f"{index}\t{value}" for index, (value, _) in enumerate(requirements))
+    names = list(known_names or [])
     supplied = summarize_rows(
-        [f"{bullet.id}\t{redaction.redact(bullet_text(bullet))}" for bullet in bullets]
+        [
+            f"{bullet.id}\t{redaction.redact(bullet_text(bullet), known_names=names or None)}"
+            for bullet in bullets
+        ]
     )
     allowed_ids = {str(bullet.id) for bullet in bullets}
     prompt = EVIDENCE_GRADING.render(requirements=numbered, bullets=supplied, lang=language)
@@ -134,6 +140,7 @@ def grade_evidence(
             "bullet ids, and return exactly one grade per requirement index.",
             schema=EvidenceGrading,
             model=model,
+            options=options,
         )
         attempts.append(completion)
         grading = EvidenceGrading.model_validate(completion.data)

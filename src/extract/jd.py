@@ -13,7 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from src.extract import redaction
-from src.extract.client import Completion, complete_json
+from src.extract.client import CallOptions, Completion, complete_json
 from src.extract.prompts import JD_EXTRACTION
 from src.jd import Seniority, StructuredJD, jd_hash, normalize_jd_text
 from src.models import Skill
@@ -62,7 +62,7 @@ def vocabulary_canonicals(session: Session) -> list[str]:
 
 
 def extract_jd(
-    session: Session, text: str, *, model: str | None = None
+    session: Session, text: str, *, model: str | None = None, options: CallOptions | None = None
 ) -> tuple[StructuredJD, Completion]:
     """Return the structured posting and the call that produced it.
 
@@ -86,6 +86,7 @@ def extract_jd(
         schema=JDProposal,
         model=model,
         retries=RETRIES,
+        options=options,
     )
     proposal = JDProposal.model_validate(completion.data)
 

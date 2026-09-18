@@ -1,0 +1,40 @@
+# Synthetic golden pair — invented person, invented employer.
+id = "002-data-engineer-pipelines"
+language = "en"
+bucket = "plausible"
+profile = "primary"
+reason = "Strong on SQL, ETL and dbt, but the posting is built around Spark, which the profile never shows."
+
+[resume]
+display_name = "Persona Demo"
+headline = "Data analyst moving into pipelines"
+
+[[resume.roles]]
+employer = "Empresa Demo"
+title = "Data Analyst"
+start_date = "2021-06-01"
+end_date = ""
+
+[[resume.roles.bullets]]
+key = "b1"
+text_en = "Built 20+ scheduled ETL jobs in Python and SQL that load 3M rows nightly"
+skills = ["python", "sql", "etl"]
+
+[[resume.roles.bullets]]
+key = "b2"
+text_en = "Modelled the warehouse in dbt; cut a weekly report from 4 hours to 15 minutes"
+skills = ["dbt", "data warehouse"]
+
+[[resume.roles.bullets]]
+key = "b3"
+text_en = "Worked with product managers to define 9 north-star metrics"
+skills = ["stakeholder management"]
+
+[jd]
+title = "Data Engineer, Streaming Pipelines"
+text = """
+We are hiring a Data Engineer to own our streaming platform. You will build
+pipelines in Apache Spark and Apache Airflow on AWS, own the data warehouse, and
+partner with analytics. Required: 3+ years with Spark, strong Python and SQL, and
+experience operating production pipelines. Nice to have: dbt and Kubernetes.
+"""

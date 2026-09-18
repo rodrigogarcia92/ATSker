@@ -6,6 +6,7 @@ import pytest
 
 from src.extract import client
 from src.extract.client import (
+    CallOptions,
     NoModelConfigured,
     ProviderUnavailable,
     StructuredOutputError,
@@ -14,6 +15,9 @@ from src.extract.client import (
 from src.extract.redaction import redact
 from src.extract.stories import StorySuggestionSchema, suggest_story_links
 from src.models import LlmCall
+
+TEST_MODEL = "test/model-v1"
+ANSWER = '{"role_id": null, "bullet_ids": [], "skills": [], "note": "ok"}'
 
 
 class Answer:
@@ -116,6 +120,58 @@ def test_a_provider_failure_is_named_rather_than_propagated(session, test_settin
         call(session)
 
     assert session.query(LlmCall).count() == 0, "a failed call spends and caches nothing"
+
+
+def test_bypassing_the_cache_makes_a_fresh_call_that_is_still_ledgered(
+    session, test_settings, monkeypatch
+):
+    """The stability measurement needs fresh answers; the cost record still gets them."""
+    seen = stub(monkeypatch, Answer(ANSWER))
+
+    cached = call(session)
+    fresh = call(session, options=CallOptions(bypass_cache=True))
+
+    assert cached.cached is False and fresh.cached is False
+    assert fresh.data == cached.data
+    assert len(seen) == 2, "the cache must not be read"
+    assert session.query(LlmCall).count() == 2, "and the second call is still paid for"
+
+
+def test_the_seed_and_reasoning_effort_reach_the_payload(session, test_settings, monkeypatch):
+    """Providers that ignore them are a measurement problem, so the request says so."""
+    seen = stub(monkeypatch, Answer(ANSWER))
+
+    call(session, options=CallOptions(seed=4711, reasoning_effort="low"))
+    payload = seen[0]
+
+    assert payload["temperature"] == 0
+    assert payload["seed"] == 4711
+    assert payload["reasoning"] == {"effort": "low"}
+
+
+def test_a_seeded_call_does_not_serve_an_unseeded_answer_from_the_cache(
+    session, test_settings, monkeypatch
+):
+    seen = stub(monkeypatch, Answer(ANSWER))
+
+    call(session)
+    call(session, options=CallOptions(seed=4711))
+
+    assert len(seen) == 2, "the seed is part of the cache key"
+
+
+def test_the_fingerprint_the_provider_echoes_is_kept(session, test_settings, monkeypatch):
+    answer = Answer('{"role_id": null, "bullet_ids": [], "skills": [], "note": "ok"}')
+    answer.response = lambda payload: {
+        "choices": [{"message": {"content": answer.content}}],
+        "usage": {"prompt_tokens": 10, "completion_tokens": 2, "cost": "0.000001"},
+        "system_fingerprint": "fp_abc123",
+    }
+    stub(monkeypatch, answer)
+
+    completion = call(session)
+
+    assert completion.fingerprint == "fp_abc123"
 
 
 def test_missing_model_is_reported_rather_than_defaulted(session, test_settings, monkeypatch):

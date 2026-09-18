@@ -1,0 +1,53 @@
+# Synthetic golden pair — invented person, invented employer. Never replace this
+# with a real pair: real ones live in fixtures/golden/ (gitignored).
+id = "001-analista-riesgo-senior"
+language = "es"
+bucket = "strong"
+profile = "primary"
+reason = "Cinco años de analista con Python, SQL y tableros usados por negocio: el encaje es directo y las viñetas lo demuestran."
+# resume_sha256 = ""   # provenance once M2b archives résumé files
+
+[resume]
+display_name = "Ana Sintética"
+headline = "Analista de datos senior"
+
+[[resume.roles]]
+employer = "Retail Andino"
+title = "Analista de datos senior"
+start_date = "2020-02-01"
+end_date = ""
+
+[[resume.roles.bullets]]
+key = "b1"
+text_es = "Automaticé 12 reportes regulatorios con Python y SQL para el área de riesgo"
+skills = ["python", "sql"]
+
+[[resume.roles.bullets]]
+key = "b2"
+text_es = "Construí tableros de Power BI usados a diario por 40 personas de negocio"
+skills = ["power bi", "data visualization"]
+
+[[resume.roles.bullets]]
+key = "b3"
+text_es = "Reduje el cierre mensual de 6 a 2 días con un modelo de datos en dbt"
+skills = ["dbt", "data modeling"]
+
+[[resume.roles]]
+employer = "Consultora Norte"
+title = "Analista de datos"
+start_date = "2018-01-15"
+end_date = "2020-01-31"
+
+[[resume.roles.bullets]]
+key = "b4"
+text_es = "Informes de previsión de demanda para tres clientes minoristas con SQL y Excel"
+skills = ["sql", "forecasting"]
+
+[jd]
+title = "Analista de Datos Senior — Riesgo"
+text = """
+Analista de Datos Senior (híbrido, Lima). Buscamos una persona con 5 años de
+experiencia en Python y SQL para el equipo de riesgo. Se valorará Power BI y
+experiencia con modelos de datos. Imprescindible: título universitario.
+Trabajarás con las áreas de negocio y con reportes regulatorios.
+"""

@@ -44,11 +44,30 @@ class ProviderUnavailable(RuntimeError):
 
 
 @dataclass(frozen=True)
+class CallOptions:
+    """How a caller wants its model calls made.
+
+    Defaults are production behaviour: the content-hash cache is read, temperature
+    is 0, and nothing else is pinned. The model-selection experiment turns the
+    cache off so that repeated runs measure the judge rather than the cache, and
+    pins a seed and a reasoning effort so the repeats are as comparable as the
+    provider allows.
+    """
+
+    bypass_cache: bool = False
+    seed: int | None = None
+    reasoning_effort: str | None = None
+
+
+@dataclass(frozen=True)
 class Completion:
     """One call site's answer, and what it cost.
 
     `purpose`, `prompt_version` and `model` travel with the answer so the caller
     can record the analysis's prompt versions and cost without re-deriving them.
+    `fingerprint` is whatever the provider echoed to identify the backend
+    (OpenRouter's `system_fingerprint`), which is how a caller can tell whether a
+    seeded request was honoured or merely accepted.
     """
 
     data: dict[str, Any]
@@ -59,6 +78,7 @@ class Completion:
     purpose: str
     prompt_version: str
     model: str
+    fingerprint: str | None = None
 
 
 def _post(payload: dict[str, Any], api_key: str) -> dict[str, Any]:
@@ -95,7 +115,9 @@ def complete_json(
     schema: type[SchemaT],
     model: str | None = None,
     retries: int = 0,
+    options: CallOptions | None = None,
 ) -> Completion:
+    opts = options or CallOptions()
     settings = get_settings()
     chosen = model or (settings.openrouter_model or "").strip()
     if not chosen:
@@ -103,14 +125,22 @@ def complete_json(
     if settings.openrouter_api_key is None:
         raise NoModelConfigured("OPENROUTER_API_KEY is not set")
 
-    digest = _input_hash(purpose, prompt_version, chosen, system, user)
-    cached = session.scalar(
-        select(LlmCall).where(
-            LlmCall.purpose == purpose,
-            LlmCall.prompt_version == prompt_version,
-            LlmCall.input_hash == digest,
+    key = [purpose, prompt_version, chosen, system, user]
+    if opts.seed is not None:
+        key.append(f"seed={opts.seed}")
+    if opts.reasoning_effort is not None:
+        key.append(f"reasoning={opts.reasoning_effort}")
+    digest = _input_hash(*key)
+
+    cached = None
+    if not opts.bypass_cache:
+        cached = session.scalar(
+            select(LlmCall).where(
+                LlmCall.purpose == purpose,
+                LlmCall.prompt_version == prompt_version,
+                LlmCall.input_hash == digest,
+            )
         )
-    )
     if cached is not None:
         return Completion(
             data=cached.response_json,
@@ -133,6 +163,10 @@ def complete_json(
         "response_format": {"type": "json_schema", "json_schema": _schema_for(schema)},
         "usage": {"include": True},
     }
+    if opts.seed is not None:
+        payload["seed"] = opts.seed
+    if opts.reasoning_effort is not None:
+        payload["reasoning"] = {"effort": opts.reasoning_effort}
 
     attempt = 0
     while True:
@@ -182,6 +216,7 @@ def complete_json(
         purpose=purpose,
         prompt_version=prompt_version,
         model=chosen,
+        fingerprint=(str(body["system_fingerprint"]) if body.get("system_fingerprint") else None),
     )
 
 
