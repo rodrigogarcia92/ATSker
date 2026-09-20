@@ -4,6 +4,11 @@ Cost and token counts land in `llm_calls` on every uncached call, which is where
 PRD 7's cost instrumentation comes from. The stored response doubles as the cache,
 so a repeat of the same purpose, prompt version, model and input makes no network
 call and returns byte-identical output.
+
+No transaction crosses the network here. The caller releases its own reads before
+calling — `complete_json` refuses to run otherwise — and the ledger row is written
+on a connection of the client's own afterwards. A transaction left open while the
+provider thinks is the one the database kills mid-flight (2026-09-20, defect 1).
 """
 
 import hashlib
@@ -15,6 +20,7 @@ from typing import Any, TypeVar
 import httpx
 from pydantic import BaseModel, ValidationError
 from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from src.config import get_settings
@@ -43,15 +49,36 @@ class ProviderUnavailable(RuntimeError):
     """
 
 
+class TransactionHeldAcrossProviderCall(RuntimeError):
+    """The caller holds a transaction (or uncommitted changes) when the call starts.
+
+    A transaction held across the HTTP request sits idle while the provider thinks,
+    and that is the connection the database kills mid-flight — the failure that
+    made a paid extraction unrecordable. The boundary belongs to the caller's unit
+    of work, so the client will not commit someone else's transaction: it stops
+    before the network call and names the caller instead.
+    """
+
+
+class LedgerWriteError(RuntimeError):
+    """The paid call could not be written to `llm_calls` on the client's own connection.
+
+    Caught inside `complete_json`, which keeps the answer and reports the gap as
+    `Completion.ledger_error`: throwing away something already paid for is worse
+    than a missing ledger row (decision 21).
+    """
+
+
 @dataclass(frozen=True)
 class CallOptions:
     """How a caller wants its model calls made.
 
     Defaults are production behaviour: the content-hash cache is read, temperature
-    is 0, and nothing else is pinned. The model-selection experiment turns the
-    cache off so that repeated runs measure the judge rather than the cache, and
-    pins a seed and a reasoning effort so the repeats are as comparable as the
-    provider allows.
+    is 0, and the reasoning effort is pinned by `OPENROUTER_REASONING_EFFORT` (low,
+    decision 27) rather than left to the provider. The model-selection experiment
+    turns the cache off so that repeated runs measure the judge rather than the
+    cache, and pins a seed and a reasoning effort so the repeats are as comparable
+    as the provider allows; an explicit value here wins over the setting.
     """
 
     bypass_cache: bool = False
@@ -67,7 +94,9 @@ class Completion:
     can record the analysis's prompt versions and cost without re-deriving them.
     `fingerprint` is whatever the provider echoed to identify the backend
     (OpenRouter's `system_fingerprint`), which is how a caller can tell whether a
-    seeded request was honoured or merely accepted.
+    seeded request was honoured or merely accepted. `ledger_error` is None when the
+    paid call reached `llm_calls`; otherwise it says why it did not, and the caller
+    surfaces that instead of pretending the record is complete.
     """
 
     data: dict[str, Any]
@@ -79,6 +108,7 @@ class Completion:
     prompt_version: str
     model: str
     fingerprint: str | None = None
+    ledger_error: str | None = None
 
 
 def _post(payload: dict[str, Any], api_key: str) -> dict[str, Any]:
@@ -105,6 +135,71 @@ def _input_hash(*parts: str) -> str:
     return hashlib.sha256("\x00".join(parts).encode("utf-8")).hexdigest()
 
 
+def _client_session(session: Session) -> Session:
+    """A session of its own, on the caller's engine.
+
+    The client's database work is its own unit of work: neither the cache read nor
+    the ledger write rides — or ends — a transaction the caller owns.
+    """
+    return Session(bind=session.get_bind())
+
+
+def _refuse_held_transaction(session: Session, purpose: str) -> None:
+    """Stop before the network call when the caller still holds database state.
+
+    A live transaction is the one the database kills while the provider thinks;
+    uncommitted changes count too, because the call sequence must not flush them by
+    accident. Naming the caller is the point: the fix is a commit or a rollback at
+    the call site, not a retry here.
+    """
+    if session.in_transaction() or session.new or session.dirty or session.deleted:
+        raise TransactionHeldAcrossProviderCall(
+            f"{purpose}: the caller holds a transaction or uncommitted changes when the "
+            "provider call starts; commit or roll back first"
+        )
+
+
+def _write_ledger(
+    session: Session,
+    *,
+    purpose: str,
+    prompt_version: str,
+    model: str,
+    input_hash: str,
+    response_json: dict[str, Any],
+    prompt_tokens: int,
+    completion_tokens: int,
+    cost_usd: Decimal,
+) -> None:
+    """Write the paid call's row on the client's own connection, with one retry.
+
+    The row is also the cache entry (decision 21), so the retry is not only about
+    the record: it is what stops the next identical call from paying again. A fresh
+    connection cannot be the one the database killed while the provider worked.
+    """
+    error: SQLAlchemyError | None = None
+    for _ in range(2):
+        try:
+            with _client_session(session) as ledger:
+                ledger.add(
+                    LlmCall(
+                        purpose=purpose,
+                        prompt_version=prompt_version,
+                        model=model,
+                        input_hash=input_hash,
+                        response_json=response_json,
+                        prompt_tokens=prompt_tokens,
+                        completion_tokens=completion_tokens,
+                        cost_usd=cost_usd,
+                    )
+                )
+                ledger.commit()
+            return
+        except SQLAlchemyError as exc:
+            error = exc
+    raise LedgerWriteError(f"the call could not be recorded: {error}") from error
+
+
 def complete_json(
     session: Session,
     *,
@@ -118,6 +213,7 @@ def complete_json(
     options: CallOptions | None = None,
 ) -> Completion:
     opts = options or CallOptions()
+    _refuse_held_transaction(session, purpose)
     settings = get_settings()
     chosen = model or (settings.openrouter_model or "").strip()
     if not chosen:
@@ -125,22 +221,28 @@ def complete_json(
     if settings.openrouter_api_key is None:
         raise NoModelConfigured("OPENROUTER_API_KEY is not set")
 
+    # Left alone, the provider runs its own default effort — high, medium and max
+    # across the current candidates — which is a cost and latency variable nobody
+    # chose. The setting pins the lowest advertised effort; an explicit option wins.
+    effort = opts.reasoning_effort or settings.openrouter_reasoning_effort or None
+
     key = [purpose, prompt_version, chosen, system, user]
     if opts.seed is not None:
         key.append(f"seed={opts.seed}")
-    if opts.reasoning_effort is not None:
-        key.append(f"reasoning={opts.reasoning_effort}")
+    if effort is not None:
+        key.append(f"reasoning={effort}")
     digest = _input_hash(*key)
 
     cached = None
     if not opts.bypass_cache:
-        cached = session.scalar(
-            select(LlmCall).where(
-                LlmCall.purpose == purpose,
-                LlmCall.prompt_version == prompt_version,
-                LlmCall.input_hash == digest,
+        with _client_session(session) as reader:
+            cached = reader.scalar(
+                select(LlmCall).where(
+                    LlmCall.purpose == purpose,
+                    LlmCall.prompt_version == prompt_version,
+                    LlmCall.input_hash == digest,
+                )
             )
-        )
     if cached is not None:
         return Completion(
             data=cached.response_json,
@@ -165,8 +267,8 @@ def complete_json(
     }
     if opts.seed is not None:
         payload["seed"] = opts.seed
-    if opts.reasoning_effort is not None:
-        payload["reasoning"] = {"effort": opts.reasoning_effort}
+    if effort is not None:
+        payload["reasoning"] = {"effort": effort}
 
     attempt = 0
     while True:
@@ -193,30 +295,39 @@ def complete_json(
 
     usage = body.get("usage") or {}
     cost = Decimal(str(usage.get("cost") or 0))
-    session.add(
-        LlmCall(
+    prompt_tokens = int(usage.get("prompt_tokens") or 0)
+    completion_tokens = int(usage.get("completion_tokens") or 0)
+    answer = parsed.model_dump(mode="json")
+
+    ledger_error: str | None = None
+    try:
+        _write_ledger(
+            session,
             purpose=purpose,
             prompt_version=prompt_version,
             model=chosen,
             input_hash=digest,
-            response_json=parsed.model_dump(mode="json"),
-            prompt_tokens=int(usage.get("prompt_tokens") or 0),
-            completion_tokens=int(usage.get("completion_tokens") or 0),
+            response_json=answer,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
             cost_usd=cost,
         )
-    )
-    session.flush()
+    except LedgerWriteError as exc:
+        # The answer was paid for: return it, and let the caller surface that the
+        # record is missing rather than fail a request that already has its answer.
+        ledger_error = str(exc)
 
     return Completion(
-        data=parsed.model_dump(mode="json"),
+        data=answer,
         cached=False,
-        prompt_tokens=int(usage.get("prompt_tokens") or 0),
-        completion_tokens=int(usage.get("completion_tokens") or 0),
+        prompt_tokens=prompt_tokens,
+        completion_tokens=completion_tokens,
         cost_usd=cost,
         purpose=purpose,
         prompt_version=prompt_version,
         model=chosen,
         fingerprint=(str(body["system_fingerprint"]) if body.get("system_fingerprint") else None),
+        ledger_error=ledger_error,
     )
 
 

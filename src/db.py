@@ -70,6 +70,16 @@ def new_session() -> Session:
     return _session_factory()()
 
 
+def short_session(session: Session) -> Session:
+    """A session of its own, on the same engine as the session handed in.
+
+    Library code that needs a read of its own — a prompt's vocabulary block, a
+    ledger row — must not open or end a transaction on a session it does not own;
+    this is how it borrows a connection instead. `NullPool` closes it on release.
+    """
+    return Session(bind=session.get_bind())
+
+
 @contextmanager
 def session_scope() -> Iterator[Session]:
     """Session for non-web callers (scripts); commits on success, rolls back on error."""

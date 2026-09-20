@@ -9,6 +9,7 @@ cache instead of the judge.
 import json
 import re
 import zlib
+from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
 
@@ -21,6 +22,7 @@ from src.extract import client
 from src.extract.client import CallOptions
 from src.model_selection import (
     CANDIDATES,
+    GLM_REFERENCE,
     PRICES,
     Candidate,
     CandidateReport,
@@ -30,12 +32,17 @@ from src.model_selection import (
     bootstrap_ci,
     build_session,
     composition_notes,
+    drift_pairs,
     kendall_tau_b,
     load_pair,
     load_pairs,
+    overlaps_surcharge,
+    render_notes,
+    render_table,
     run_experiment,
     run_pair,
     spearman_rho,
+    surcharge_warnings,
     table_row,
     verify_prices,
 )
@@ -58,6 +65,7 @@ PROPOSAL = json.dumps(
 )
 
 BULLET_ID = re.compile(r"([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\t")
+REQUIREMENT_LINE = re.compile(r"^(\d+)\t", re.MULTILINE)
 
 
 class FakeProvider:
@@ -65,15 +73,25 @@ class FakeProvider:
 
     `vary` bumps every grading answer, which is what makes a cached answer
     distinguishable from a fresh one: a stability run that reads the cache returns
-    the same levels every time.
+    the same levels every time. `drift` and `disqualifiers` move the extraction side
+    instead, which is measured and reported separately from the judge.
     """
 
-    def __init__(self, *, vary: bool = True, cost: str = "0.000100"):
+    def __init__(
+        self,
+        *,
+        vary: bool = True,
+        drift: bool = False,
+        disqualifiers: tuple[str, ...] = (),
+        cost: str = "0.000100",
+    ):
         self.calls: list[dict] = []
         self.extract_calls = 0
         self.grading_calls = 0
         self.cost = cost
         self.vary = vary
+        self.drift = drift
+        self.disqualifiers = disqualifiers
 
     def __call__(self, payload: dict, api_key: str) -> dict:
         self.calls.append(payload)
@@ -82,15 +100,20 @@ class FakeProvider:
             content = json.dumps({"ok": True})
         elif name == "JDProposal":
             self.extract_calls += 1
-            content = PROPOSAL
+            proposal = json.loads(PROPOSAL)
+            proposal["hard_requirements"] = list(self.disqualifiers)
+            if self.drift and self.extract_calls % 2 == 0:
+                proposal["must_have"] = [*proposal["must_have"], "power bi"]
+            content = json.dumps(proposal)
         else:
             self.grading_calls += 1
             user = payload["messages"][1]["content"]
             ids = BULLET_ID.findall(user)
+            indices = [int(value) for value in REQUIREMENT_LINE.findall(user)]
             variation = self.grading_calls if self.vary else 0
             base = zlib.crc32(user.encode("utf-8")) % 4
             grades = []
-            for index, _requirement in enumerate(["python", "sql", "power bi"]):
+            for index in indices:
                 level = (base + index + variation) % 4
                 citation = ids[0] if level > 0 and ids else None
                 grades.append({"index": index, "level": level, "bullet_id": citation})
@@ -274,6 +297,105 @@ def test_moving_ordinals_show_up_in_the_score_delta(provider, pairs):
 
 
 # --------------------------------------------------------------------------- #
+# Extraction drift, which the judge's number must not absorb
+# --------------------------------------------------------------------------- #
+
+
+def test_the_drift_sample_is_the_first_and_last_pair(pairs):
+    assert [pair.id for pair in drift_pairs(pairs)] == [
+        "001-analista-riesgo-senior",
+        "003-ml-platform-ingeniero",
+    ]
+    assert [pair.id for pair in drift_pairs(pairs[:1])] == ["001-analista-riesgo-senior"]
+
+
+def test_extraction_drift_moves_while_the_judge_stands_still(monkeypatch, test_settings, pairs):
+    """The two numbers answer different questions, so they are reported apart."""
+    stub = FakeProvider(vary=False, drift=True)
+    monkeypatch.setattr(client, "_post", stub)
+
+    report = run_experiment(pairs, [CANDIDATE], seed=11, repeats=3)[0]
+
+    assert report.stability() == pytest.approx(1.0), "the judge's own answer never moved"
+    assert report.drift is not None
+    assert report.drift.repeats == 3
+    assert report.drift.count_range == 1, "every second reading added a requirement"
+    assert report.drift.mean_jaccard < 1.0
+    assert report.drift.identical_share == 0.0
+    assert report.drift.pair_ids == ("001-analista-riesgo-senior", "003-ml-platform-ingeniero")
+    assert stub.extract_calls == len(pairs) + 3 * 2, "every pair, then three readings of two"
+    assert "extraction drift, separate from the judge" in render_notes([report])
+
+
+def test_a_degree_ask_is_reported_and_never_graded(monkeypatch, test_settings, pairs):
+    """PRD F4.4 keeps disqualifiers out of the number, and the grader sees bullets only."""
+    stub = FakeProvider(vary=False, disqualifiers=("titulo universitario",))
+    monkeypatch.setattr(client, "_post", stub)
+
+    report = run_experiment(pairs, [CANDIDATE], seed=11, repeats=1)[0]
+
+    assert report.disqualifiers() == ["titulo universitario"] * len(pairs)
+    assert "titulo universitario" not in report.pairs[0].requirements
+    notes = render_notes([report])
+    assert "reported, never graded (PRD F4.4)" in notes
+    assert f"{len(pairs)} in {len(pairs)} pairs" in notes
+    assert notes.count("'titulo universitario'") == 1, "one example, not one per pair"
+
+
+# --------------------------------------------------------------------------- #
+# The run window
+# --------------------------------------------------------------------------- #
+
+
+def test_the_recorded_surcharge_windows_match_the_published_ones():
+    """DeepSeek doubles on weekdays 01:00-04:00 and 06:00-10:00 UTC; weekends do not."""
+    windows = PRICES["deepseek/deepseek-v4.1-flash"].surcharges
+    monday_peak = datetime(2026, 9, 21, 2, 30, tzinfo=UTC)
+    tuesday_morning = datetime(2026, 9, 22, 6, 30, tzinfo=UTC)
+    monday_midday = datetime(2026, 9, 21, 12, 0, tzinfo=UTC)
+    saturday_peak = datetime(2026, 9, 19, 2, 30, tzinfo=UTC)
+
+    assert overlaps_surcharge(windows, monday_peak, monday_peak)
+    assert overlaps_surcharge(windows, tuesday_morning, tuesday_morning)
+    assert not overlaps_surcharge(windows, monday_midday, monday_midday)
+    assert not overlaps_surcharge(windows, saturday_peak, saturday_peak)
+
+
+def test_a_run_starting_inside_a_window_is_announced():
+    monday_peak = datetime(2026, 9, 21, 2, 30, tzinfo=UTC)
+    monday_midday = datetime(2026, 9, 21, 12, 0, tzinfo=UTC)
+
+    notes = surcharge_warnings(CANDIDATES, now=monday_peak)
+
+    assert any("this run starts inside" in note for note in notes)
+    assert surcharge_warnings(CANDIDATES, now=monday_midday) == []
+
+
+def test_every_candidate_and_pair_records_when_it_ran(provider, pairs):
+    reports = run_experiment(pairs, [CANDIDATE], seed=11, repeats=1)
+    report = reports[0]
+
+    assert report.started_at is not None and report.finished_at is not None
+    assert report.pairs[0].started_at <= report.pairs[-1].finished_at
+    assert report.finished_at >= report.pairs[-1].finished_at
+    assert report.pairs[0].in_surcharge_window is False, "the fake price row has no overrides"
+
+    table = render_table(reports, pairs=len(pairs))
+    assert "Run window" in table and "candidates started" in table
+    assert "all 1 inside the" in table
+    assert "time-of-day price overrides: none recorded" in render_notes(reports)
+
+
+def test_the_table_and_the_notes_carry_the_reasoning_setting(provider, pairs):
+    pinned = Candidate("fake/model-v1", "fake-model", reasoning_effort="low")
+
+    report = run_experiment(pairs, [pinned], seed=11, repeats=1)[0]
+
+    assert "| fake-model | low |" in table_row(report)
+    assert "- reasoning effort: low" in render_notes([report])
+
+
+# --------------------------------------------------------------------------- #
 # The experiment
 # --------------------------------------------------------------------------- #
 
@@ -291,8 +413,8 @@ def test_the_experiment_reports_every_column_of_the_table(provider, pairs):
     assert report.latency_median() >= 0
 
     row = table_row(report)
-    assert row.startswith("| fake-model |")
-    assert row.count("|") == 10
+    assert row.startswith("| fake-model | provider default |")
+    assert row.count("|") == 11
     assert "pass" in row or "below gate" in row
 
 
@@ -341,6 +463,15 @@ def test_the_json_detail_carries_the_per_pair_evidence(provider, pairs):
     assert len(payload["pairs"]) == 3
     assert payload["pairs"][0]["repeat_levels"], "the repeats travel with the result"
     assert payload["pairs"][0]["requirements"] == ["python", "sql", "power bi"]
+    assert payload["pairs"][0]["in_surcharge_window"] is False
+    assert payload["pairs"][0]["started_at"].endswith("Z"), "the window is recorded in UTC"
+    assert payload["started_at"] is not None and payload["finished_at"] is not None
+    assert payload["drift"]["pair_ids"] == [
+        "001-analista-riesgo-senior",
+        "003-ml-platform-ingeniero",
+    ]
+    assert payload["metrics"]["disqualifiers"] == []
+    assert payload["metrics"]["surcharge_pairs"] == 0
 
 
 # --------------------------------------------------------------------------- #
@@ -436,8 +567,11 @@ def test_the_candidate_list_matches_the_decided_set():
         "google/gemini-3.8-flash",
         "z-ai/glm-5.3",
     ]
-    glm = CANDIDATES[2]
-    assert glm.reasoning_effort == "low", "reasoning cannot be disabled on GLM"
+    assert [candidate.reasoning_effort for candidate in CANDIDATES] == ["low"] * 3, (
+        "all three are pinned to the lowest effort their provider advertises: the run "
+        "compares models, not effort levels"
+    )
+    assert GLM_REFERENCE.reference and GLM_REFERENCE.reasoning_effort == "max"
     assert all(candidate.model in PRICES for candidate in CANDIDATES)
 
 
@@ -533,12 +667,17 @@ def test_the_cli_runs_offline_against_the_synthetic_pairs(
     printed = capsys.readouterr().out
     assert code == 0
     assert "price check skipped" in printed
-    assert "| model |" in printed and "cache bypassed" in printed
+    assert "| model | reasoning |" in printed and "cache bypassed" in printed
+    assert "extraction drift measured separately" in printed
+    assert "| glm-5.3 | low |" in printed
     payload = json.loads(out.read_text(encoding="utf-8"))
     assert payload["pairs"] == ["001-analista-riesgo-senior"]
     assert [entry["label"] for entry in payload["models"]] == [
         "deepseek-v4.1-flash",
         "gemini-3.8-flash",
-        "glm-5.3 (low)",
+        "glm-5.3",
     ]
+    assert [entry["reasoning_effort"] for entry in payload["models"]] == ["low"] * 3
     assert payload["models"][0]["metrics"]["stability"] is not None
+    assert payload["models"][0]["drift"] is not None
+    assert payload["models"][0]["drift"]["repeats"] == 2

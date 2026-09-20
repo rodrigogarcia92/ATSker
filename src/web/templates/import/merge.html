@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% macro badge(label, lang) -%}
+<span class="rounded px-2 py-0.5 text-xs
+             {% if label == 'new' %}bg-emerald-100 text-emerald-900
+             {% elif label == 'changed' %}bg-amber-100 text-amber-900
+             {% else %}bg-slate-100 text-slate-600{% endif %}">{{ t('import.label.' ~ label, lang) }}</span>
+{%- endmacro %}
+{% macro checkbox(name, checked, lang, text) -%}
+<label class="flex items-start gap-2 text-sm">
+  <input type="checkbox" name="{{ name }}" value="on" {% if checked %}checked{% endif %} class="mt-0.5">
+  <span>{{ text }}</span>
+</label>
+{%- endmacro %}
+{% macro change_list(fields, lang) -%}
+{% for field in fields %}{{ t('import.change.' ~ field, lang) }}{% if not loop.last %}, {% endif %}{% endfor %}
+{%- endmacro %}
+{% block title %}{{ t('import.merge_title', lang) }} — {{ t('app.name', lang) }}{% endblock %}
+{% block content %}
+{% set counts = plan.label_counts() %}
+<h1 class="text-2xl font-semibold tracking-tight">{{ t('import.merge_title', lang) }}</h1>
+<p class="mt-1 text-sm text-slate-600">{{ t('import.merge_intro', lang) }}</p>
+<p class="mt-2 text-sm text-slate-500">
+  {{ counts.new }} {{ t('import.count_new', lang) }} ·
+  {{ counts.changed }} {{ t('import.count_changed', lang) }} ·
+  {{ counts.unchanged }} {{ t('import.count_unchanged', lang) }}
+</p>
+<p class="mt-1 text-xs text-slate-500">{{ t('import.role_children_hint', lang) }}</p>
+
+<form method="post" action="/import/{{ resume.id }}/merge" class="mt-6 space-y-8">
+  <section>
+    <h2 class="text-lg font-semibold">{{ t('import.roles', lang) }}</h2>
+    <div class="mt-3 space-y-4">
+      {% for role in plan.roles %}
+      {% set ri = loop.index0 %}
+      <div class="rounded-lg border border-slate-200 bg-white p-5">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          {{ checkbox('merge_role_' ~ ri, role.label != 'unchanged', lang, role.employer ~ ' — ' ~ role.title) }}
+          {{ badge(role.label, lang) }}
+        </div>
+        {% if role.dates_changed %}
+        <p class="mt-1 text-xs text-amber-900">{{ t('import.dates_changed', lang) }}</p>
+        {% endif %}
+        {% if role.reactivates %}
+        <p class="mt-1 text-xs text-amber-900">{{ t('import.reactivates', lang) }}</p>
+        {% endif %}
+
+        {% if role.bullets %}
+        <div class="mt-3 space-y-2 border-l border-slate-100 pl-3">
+          {% for bullet in role.bullets %}
+          {% set bi = loop.index0 %}
+          <div class="rounded border border-slate-100 bg-slate-50 p-3">
+            <div class="flex flex-wrap items-start justify-between gap-2">
+              {{ checkbox('merge_bullet_' ~ ri ~ '_' ~ bi, bullet.label != 'unchanged', lang, bullet.text) }}
+              {{ badge(bullet.label, lang) }}
+            </div>
+            {% if bullet.old_text %}
+            <p class="mt-1 text-xs text-slate-500">{{ t('import.old_text', lang) }}: {{ bullet.old_text }}</p>
+            {% endif %}
+            {% if bullet.reactivates %}
+            <p class="mt-1 text-xs text-amber-900">{{ t('import.reactivates', lang) }}</p>
+            {% endif %}
+            {% if bullet.chips %}
+            <p class="mt-1 flex flex-wrap gap-1">
+              {% for chip in bullet.chips %}
+              <span class="rounded bg-white px-2 py-0.5 text-xs text-slate-600">{{ chip }}</span>
+              {% endfor %}
+            </p>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+      {% else %}
+      <p class="text-sm text-slate-600">{{ t('common.empty', lang) }}</p>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section>
+    <h2 class="text-lg font-semibold">{{ t('import.educations', lang) }}</h2>
+    <div class="mt-3 space-y-3">
+      {% for entry in plan.educations %}
+      {% set ei = loop.index0 %}
+      <div class="rounded-lg border border-slate-200 bg-white p-4">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          {{ checkbox('merge_education_' ~ ei, entry.label != 'unchanged', lang,
+                      entry.institution ~ (' — ' ~ entry.award if entry.award else '')) }}
+          <span class="flex items-center gap-2">
+            {% if entry.needs_review %}<span class="rounded bg-amber-100 px-2 py-0.5 text-xs text-amber-900">{{ t('import.needs_review', lang) }}</span>{% endif %}
+            {{ badge(entry.label, lang) }}
+          </span>
+        </div>
+        {% if entry.changes %}
+        <p class="mt-1 text-xs text-amber-900">{{ t('import.changes', lang, fields=change_list(entry.changes, lang)) }}</p>
+        {% endif %}
+      </div>
+      {% else %}
+      <p class="text-sm text-slate-600">{{ t('common.empty', lang) }}</p>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section>
+    <h2 class="text-lg font-semibold">{{ t('import.certifications', lang) }}</h2>
+    <div class="mt-3 space-y-3">
+      {% for entry in plan.certifications %}
+      {% set ci = loop.index0 %}
+      <div class="rounded-lg border border-slate-200 bg-white p-4">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          {{ checkbox('merge_certification_' ~ ci, entry.label != 'unchanged', lang,
+                      entry.name ~ (' — ' ~ entry.issuer if entry.issuer else '')) }}
+          <span class="flex items-center gap-2">
+            {% if entry.needs_review %}<span class="rounded bg-amber-100 px-2 py-0.5 text-xs text-amber-900">{{ t('import.needs_review', lang) }}</span>{% endif %}
+            {{ badge(entry.label, lang) }}
+          </span>
+        </div>
+        {% if entry.changes %}
+        <p class="mt-1 text-xs text-amber-900">{{ t('import.changes', lang, fields=change_list(entry.changes, lang)) }}</p>
+        {% endif %}
+      </div>
+      {% else %}
+      <p class="text-sm text-slate-600">{{ t('common.empty', lang) }}</p>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section>
+    <h2 class="text-lg font-semibold">{{ t('import.skills', lang) }}</h2>
+    <div class="mt-3 flex flex-wrap gap-2">
+      {% for skill in plan.skills %}
+      {% set si = loop.index0 %}
+      <label class="flex items-center gap-2 rounded border border-slate-200 bg-white px-3 py-2 text-sm">
+        <input type="checkbox" name="merge_skill_{{ si }}" value="on" {% if skill.label == 'new' %}checked{% endif %}>
+        <span>{{ skill.canonical }}</span>
+        {{ badge(skill.label, lang) }}
+      </label>
+      {% else %}
+      <p class="text-sm text-slate-600">{{ t('common.empty', lang) }}</p>
+      {% endfor %}
+    </div>
+  </section>
+
+  <button type="submit" class="rounded bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800">
+    {{ t('import.merge_submit', lang) }}
+  </button>
+</form>
+{% endblock %}

@@ -73,6 +73,7 @@ def _llm_section(calls: Sequence[Completion], cost: Decimal) -> dict[str, object
                 "completion_tokens": call.completion_tokens,
                 "cost_usd": str(call.cost_usd),
                 "fingerprint": call.fingerprint,
+                "ledger_error": call.ledger_error,
             }
             for call in calls
         ],
@@ -114,7 +115,14 @@ def analyze(
     aliases = alias_map(session)
     today = date.today()
 
+    # Transaction boundaries are the unit of work's: release the profile, role and
+    # bullet reads before each provider call (client.complete_json refuses to run
+    # inside a transaction, which is the connection the database kills).
+    session.commit()
     jd, extraction = extract_jd(session, jd_text, model=model, options=options)
+    # The extraction just wrote its unmapped-term notes; the grading call must not
+    # carry them across the network either.
+    session.commit()
     grading = grade_evidence(
         session,
         jd,

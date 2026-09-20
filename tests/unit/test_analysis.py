@@ -253,7 +253,9 @@ def test_another_profiles_report_is_404(client, session, career, provider):
 def test_analysis_without_a_model_says_so_and_saves_nothing(client, session, career, monkeypatch):
     from src.config import get_settings
 
-    monkeypatch.delenv("OPENROUTER_MODEL")
+    # An empty value, not a deleted one: a developer's .env would otherwise supply
+    # a real model and the test would leave for the network.
+    monkeypatch.setenv("OPENROUTER_MODEL", "")
     get_settings.cache_clear()
     try:
         login(client, career.first.email)

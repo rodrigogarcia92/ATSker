@@ -4,7 +4,15 @@ import json
 from pathlib import Path
 
 from src.normalize.text import fold
-from src.vocabulary import alias_map, list_unmapped, log_unmapped, promote_alias, seed_vocabulary
+from src.vocabulary import (
+    SKILL_KINDS,
+    alias_map,
+    list_unmapped,
+    log_unmapped,
+    promote_alias,
+    seed_vocabulary,
+)
+from tests.conftest import login
 
 SEED_FILE = Path(__file__).resolve().parents[2] / "src" / "normalize" / "skills_seed.json"
 
@@ -23,6 +31,10 @@ def test_seed_file_is_internally_consistent():
     assert all(set(entry["lang_tags"]) <= {"es", "en"} and entry["lang_tags"] for entry in entries)
     folded = [fold(value) for value in canonicals + aliases]
     assert len(folded) == len(set(folded)), "aliases must not collide after folding"
+    # Every entry carries a kind, and every kind is in use — `experience` is what
+    # makes a posting's "fieldwork" a first-class canonical like `python` (F3).
+    assert all(entry.get("kind") in SKILL_KINDS for entry in entries)
+    assert {entry["kind"] for entry in entries} == set(SKILL_KINDS)
 
 
 def test_seeding_is_idempotent_and_never_drops_a_promoted_alias(session):
@@ -38,6 +50,48 @@ def test_seeding_is_idempotent_and_never_drops_a_promoted_alias(session):
     assert first == {"created": 2, "enriched": 0, "total": 2}
     assert second == {"created": 0, "enriched": 0, "total": 2}
     assert "powerbi" in alias_map(session)
+
+
+def test_seeding_stamps_kind_and_a_later_seed_corrects_it(session):
+    from sqlalchemy import select
+
+    from src.models import Skill
+
+    entry = {
+        "canonical": "fieldwork",
+        "aliases": ["trabajo de campo"],
+        "lang_tags": ["es", "en"],
+        "kind": "experience",
+    }
+
+    seed_vocabulary(session, [entry])
+    skill = session.scalar(select(Skill).where(Skill.canonical == "fieldwork"))
+    assert skill.kind == "experience"
+
+    # A kind is seed data: re-running the seed corrects it (this is how the 140
+    # pre-N1 rows get their real kinds after migration 0004).
+    seed_vocabulary(session, [{**entry, "kind": "domain"}])
+    assert skill.kind == "domain"
+
+
+def test_the_vocabulary_page_shows_each_skills_kind(client, session, two_accounts):
+    from src.models import Skill
+
+    session.add(
+        Skill(
+            canonical="fieldwork",
+            aliases=["trabajo de campo"],
+            lang_tags=["es"],
+            kind="experience",
+        )
+    )
+    session.commit()
+
+    login(client, two_accounts[0][0].email)
+    page = client.get("/vocabulary")
+
+    assert "fieldwork" in page.text
+    assert "Experiencia" in page.text
 
 
 def test_canonical_is_its_own_alias_and_accents_fold(session):

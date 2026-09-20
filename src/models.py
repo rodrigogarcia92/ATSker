@@ -11,6 +11,15 @@ Two tables are not in PRD 6 as written:
 * `llm_calls` — PRD 7 requires per-call token and cost logging, but
   `applications.token_cost_usd` cannot hold a call that happens outside an analysis
   (F3's story suggestions). The row doubles as the content-hash cache.
+
+Three more arrive with N1's ingest:
+
+* `bullet_revisions` — F2.5 says a changed bullet keeps its history; the old text of
+  every superseded wording lives here.
+* `profiles.skills` — F2.3 extracts a résumé's skills list and no §6 table holds it.
+* `resumes.draft` / `resumes.gate` / `resumes.merged_at` — the review screen renders
+  the archived upload's findings and draft before anything is merged; §6 lists the
+  archive columns only.
 """
 
 import uuid
@@ -26,6 +35,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    LargeBinary,
     Numeric,
     String,
     Text,
@@ -72,6 +82,10 @@ class Profile(Base):
     display_name: Mapped[str] = mapped_column(String(200))
     headline: Mapped[str | None] = mapped_column(String(200))
     summary: Mapped[str | None] = mapped_column(Text)
+    # The skills an uploaded résumé lists, as reviewed by the user (F2.3 has nowhere
+    # else to put them and §6 has no column). Annotation only: evidence and every
+    # score still read bullet chips, so a skill listed here cannot inflate a number.
+    skills: Mapped[list[str]] = mapped_column(_StringList, default=list)
 
 
 class Education(Base):
@@ -88,6 +102,30 @@ class Education(Base):
     end_date: Mapped[date | None] = mapped_column(Date)
 
 
+class Certification(Base):
+    """A credential (PRD 3).
+
+    Stored apart from education even when the résumé prints both under one heading:
+    the database does not merge what the document merges. `credential_id` is not in
+    §6's column list but F2.3's classification rule reads it, and dropping an ID the
+    document carries would lose what the user must be able to review.
+    """
+
+    __tablename__ = "certifications"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    profile_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("profiles.id", ondelete="CASCADE"), index=True
+    )
+    name: Mapped[str] = mapped_column(String(200))
+    issuer: Mapped[str | None] = mapped_column(String(200))
+    issued_date: Mapped[date | None] = mapped_column(Date)
+    expiry_date: Mapped[date | None] = mapped_column(Date)
+    credential_id: Mapped[str | None] = mapped_column(String(120))
+    credential_url: Mapped[str | None] = mapped_column(String(500))
+    active: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
+
+
 class Role(Base):
     """A position held. Deactivated rather than deleted, so historical reports render."""
 
@@ -101,6 +139,12 @@ class Role(Base):
     title: Mapped[str] = mapped_column(String(200))
     start_date: Mapped[date | None] = mapped_column(Date)
     end_date: Mapped[date | None] = mapped_column(Date)
+    # Optional scale (PRD 3): what the position was responsible for. Hand-entered;
+    # the extractor does not propose these, so they cannot be invented by a model.
+    team_size: Mapped[int | None] = mapped_column(Integer)
+    budget_amount: Mapped[Decimal | None] = mapped_column(Numeric(14, 2))
+    budget_currency: Mapped[str | None] = mapped_column(String(3))
+    scope_note: Mapped[str | None] = mapped_column(Text)
     active: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
 
 
@@ -120,7 +164,33 @@ class Bullet(Base):
     text_es: Mapped[str | None] = mapped_column(Text)
     skills: Mapped[list[str]] = mapped_column(_StringList, default=list)
     metrics: Mapped[list[str]] = mapped_column(_StringList, default=list)
+    # Set when a story proposed the bullet (F7.3): provenance is permanent, and the
+    # column is what the validators will read. Nothing writes it until N7.
+    source_story_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("stories.id", ondelete="SET NULL"), index=True
+    )
     active: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class BulletRevision(Base):
+    """The superseded text of a bullet (PRD F2.5).
+
+    A merge may change a bullet's wording; the old text stays readable afterwards so
+    nothing the database once claimed becomes unrecoverable. Rows are append-only.
+    """
+
+    __tablename__ = "bullet_revisions"
+
+    id: Mapped[int] = mapped_column(_BigInt, primary_key=True, autoincrement=True)
+    bullet_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("bullets.id", ondelete="CASCADE"), index=True
+    )
+    text_en: Mapped[str | None] = mapped_column(Text)
+    text_es: Mapped[str | None] = mapped_column(Text)
+    resume_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("resumes.id", ondelete="SET NULL")
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
@@ -170,7 +240,12 @@ class LetterTemplate(Base):
 
 
 class Skill(Base):
-    """Shared vocabulary. Growth is alias promotion only; no automatic expansion."""
+    """Shared vocabulary. Growth is alias promotion only; no automatic expansion.
+
+    `kind` (PRD F3) groups entries in the UI — technical, tool, domain, soft or
+    experience — and never changes matching: an experience type matches exactly like
+    `python` does.
+    """
 
     __tablename__ = "skills"
 
@@ -178,6 +253,73 @@ class Skill(Base):
     canonical: Mapped[str] = mapped_column(String(120), unique=True, index=True)
     aliases: Mapped[list[str]] = mapped_column(_StringList, default=list)
     lang_tags: Mapped[list[str]] = mapped_column(_StringList, default=list)
+    kind: Mapped[str] = mapped_column(
+        String(20), default="technical", server_default=text("'technical'")
+    )
+
+
+class Track(Base):
+    """A named target role and a saved selection of master bullets (PRD F4).
+
+    A track owns no content: it references bullets, so editing one updates it
+    everywhere and removing it from a track deletes nothing. Rows, not an enum.
+    """
+
+    __tablename__ = "tracks"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    profile_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("profiles.id", ondelete="CASCADE"), index=True
+    )
+    name: Mapped[str] = mapped_column(String(200))
+    applies_when: Mapped[str] = mapped_column(Text, default="")
+    lang: Mapped[str] = mapped_column(String(5), default="es")
+    target_seniority: Mapped[str | None] = mapped_column(String(20))
+    headline: Mapped[str | None] = mapped_column(String(200))
+    summary: Mapped[str | None] = mapped_column(Text)
+    active: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
+
+
+class TrackBullet(Base):
+    """Ordered membership: which master bullets a track selects, in what order."""
+
+    __tablename__ = "track_bullets"
+
+    track_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("tracks.id", ondelete="CASCADE"), primary_key=True
+    )
+    bullet_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("bullets.id", ondelete="CASCADE"), primary_key=True
+    )
+    position: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class Resume(Base):
+    """An uploaded source document, archived (PRD F2.6).
+
+    The bytes and their SHA-256 are kept so a bullet can be traced to the document
+    it came from. `draft` is the reviewed extraction and `gate` the readability
+    findings; both are what the review screen renders, and career data changes only
+    when the user confirms the merge. `merged_at` is NULL while a draft is pending.
+    """
+
+    __tablename__ = "resumes"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    profile_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("profiles.id", ondelete="CASCADE"), index=True
+    )
+    filename: Mapped[str] = mapped_column(String(255))
+    file_bytes: Mapped[bytes] = mapped_column(LargeBinary)
+    sha256: Mapped[str] = mapped_column(String(64), index=True)
+    track_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("tracks.id", ondelete="SET NULL"))
+    draft: Mapped[dict | None] = mapped_column(_JsonDoc)
+    gate: Mapped[dict | None] = mapped_column(_JsonDoc)
+    uploaded_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    merged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    active: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
 
 
 class UnmappedTerm(Base):
@@ -233,6 +375,11 @@ class Application(Base):
     jd_text: Mapped[str] = mapped_column(Text)
     jd_hash: Mapped[str] = mapped_column(String(80), index=True)
     report: Mapped[dict] = mapped_column(_JsonDoc, default=dict)
+    # Both ATS realism scans are persisted beside the score (PRD F5.1/F5.2): the
+    # readability findings of the track's source document, and the boolean recall
+    # result. Boolean recall is a gate reported next to the score, never in it.
+    scan_readability: Mapped[dict | None] = mapped_column(_JsonDoc)
+    scan_boolean: Mapped[dict | None] = mapped_column(_JsonDoc)
     weights_version: Mapped[str] = mapped_column(String(20))
     prompt_versions: Mapped[dict] = mapped_column(_JsonDoc, default=dict)
     token_cost_usd: Mapped[Decimal] = mapped_column(Numeric(10, 6), default=Decimal("0"))

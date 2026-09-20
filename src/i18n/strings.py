@@ -17,6 +17,7 @@ STRINGS: dict[str, dict[str, str]] = {
     # Shell
     "nav.dashboard": {"es": "Panel", "en": "Dashboard"},
     "nav.analyze": {"es": "Analizar", "en": "Analyse"},
+    "nav.import": {"es": "Importar", "en": "Import"},
     "nav.profile": {"es": "Perfil", "en": "Profile"},
     "nav.roles": {"es": "Trayectoria", "en": "Experience"},
     "nav.stories": {"es": "Historias", "en": "Stories"},
@@ -40,6 +41,12 @@ STRINGS: dict[str, dict[str, str]] = {
     "common.empty": {"es": "Sin datos todavía.", "en": "Nothing here yet."},
     "common.not_found": {"es": "No encontrado.", "en": "Not found."},
     "common.required": {"es": "Obligatorio", "en": "Required"},
+    "common.ledger_unrecorded": {
+        "es": "El modelo respondió, pero la llamada no se pudo registrar en la base de "
+        "datos: no aparecerá en el coste y la caché no la reutilizará.",
+        "en": "The model answered, but the call could not be recorded in the database: "
+        "it will not appear in the cost and the cache will not reuse it.",
+    },
     # Login
     "login.title": {"es": "Entrar", "en": "Sign in"},
     "login.email": {"es": "Correo", "en": "Email"},
@@ -62,13 +69,15 @@ STRINGS: dict[str, dict[str, str]] = {
     "dashboard.letters": {"es": "Plantillas de carta", "en": "Letter templates"},
     "dashboard.educations": {"es": "Formación", "en": "Education"},
     "dashboard.metrics": {"es": "Métricas detectadas", "en": "Detected metrics"},
-    "dashboard.empty": {
-        "es": "Empieza por tu trayectoria: puestos y viñetas.",
-        "en": "Start with your experience: roles and bullets.",
-    },
     "dashboard.next": {
-        "es": "La importación de PDF o Word llega en el siguiente paso.",
-        "en": "PDF or Word import arrives in the next step.",
+        "es": "Sube tu currículum en PDF o Word: se extrae y lo revisas antes de "
+        "guardar nada.",
+        "en": "Upload your résumé as PDF or Word: it is extracted and you review it "
+        "before anything is saved.",
+    },
+    "dashboard.empty": {
+        "es": "Empieza por tu trayectoria, o importa un currículum y revísalo.",
+        "en": "Start with your experience, or import a résumé and review it.",
     },
     # Analysis (M5b) — the form, and the report the analysis leaves behind
     "analyze.title": {"es": "Analizar una oferta", "en": "Analyse a posting"},
@@ -300,6 +309,12 @@ STRINGS: dict[str, dict[str, str]] = {
     # Vocabulary
     "vocabulary.title": {"es": "Vocabulario", "en": "Vocabulary"},
     "vocabulary.canonical": {"es": "Canónico", "en": "Canonical"},
+    "vocabulary.kind": {"es": "Tipo", "en": "Kind"},
+    "kind.technical": {"es": "Técnica", "en": "Technical"},
+    "kind.tool": {"es": "Herramienta", "en": "Tool"},
+    "kind.domain": {"es": "Dominio", "en": "Domain"},
+    "kind.soft": {"es": "Blanda", "en": "Soft"},
+    "kind.experience": {"es": "Experiencia", "en": "Experience"},
     "vocabulary.aliases": {"es": "Alias", "en": "Aliases"},
     "vocabulary.lang_tags": {"es": "Idiomas", "en": "Languages"},
     "vocabulary.skills": {"es": "Habilidades", "en": "Skills"},
@@ -314,6 +329,301 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "No pending terms.",
     },
     "vocabulary.status": {"es": "Estado", "en": "Status"},
+    # Import (N1) — gate findings, review, diff, merge
+    "import.title": {"es": "Importar un currículum", "en": "Import a résumé"},
+    "import.intro": {
+        "es": "Sube un PDF o un Word. Primero verás lo que un ATS puede leer del "
+        "documento, después el borrador extraído, que puedes corregir antes de que "
+        "se guarde nada.",
+        "en": "Upload a PDF or Word file. You first see what an ATS can read from the "
+        "document, then the extracted draft, which you can correct before anything "
+        "is stored.",
+    },
+    "import.file": {"es": "Archivo", "en": "File"},
+    "import.file_hint": {
+        "es": "PDF o DOCX, en español o inglés, hasta 10 MB.",
+        "en": "PDF or DOCX, Spanish or English, up to 10 MB.",
+    },
+    "import.track": {"es": "Puesto objetivo (opcional)", "en": "Target track (optional)"},
+    "import.track_hint": {
+        "es": "La trayectoria con la que piensas usar este currículum. Puedes "
+        "dejarlo vacío y asignarlo después.",
+        "en": "The track you intend this résumé for. Leave it empty and assign it later.",
+    },
+    "import.submit": {"es": "Importar", "en": "Import"},
+    "import.no_file": {"es": "Elige un archivo.", "en": "Choose a file."},
+    "import.too_large": {
+        "es": "El archivo supera los 10 MB.",
+        "en": "The file is larger than 10 MB.",
+    },
+    "import.unsupported": {
+        "es": "Solo se aceptan PDF o DOCX.",
+        "en": "Only PDF or DOCX are accepted.",
+    },
+    "import.unreadable": {
+        "es": "El archivo no se pudo leer: puede estar dañado o no ser realmente ese "
+        "formato.",
+        "en": "The file could not be read: it may be damaged or not really that format.",
+    },
+    "import.no_text": {
+        "es": "El documento no tiene texto que un ATS pueda leer. No hay nada que "
+        "extraer y no se ha guardado nada.",
+        "en": "The document has no text an ATS can read. There is nothing to extract "
+        "and nothing was stored.",
+    },
+    "import.no_model": {
+        "es": "No hay modelo configurado (OPENROUTER_MODEL): los hallazgos de formato "
+        "se muestran igual, pero la extracción no puede ejecutarse.",
+        "en": "No model is configured (OPENROUTER_MODEL): the format findings are "
+        "still shown, but the extraction cannot run.",
+    },
+    "import.failed": {
+        "es": "La extracción no se pudo completar; no se ha guardado nada.",
+        "en": "The extraction could not be completed; nothing was saved.",
+    },
+    "import.uploads": {"es": "Importaciones", "en": "Uploads"},
+    "import.none_yet": {
+        "es": "Todavía no has subido ningún currículum.",
+        "en": "No résumé has been uploaded yet.",
+    },
+    "import.uploaded_at": {"es": "Subido el", "en": "Uploaded"},
+    "import.view": {"es": "Ver", "en": "View"},
+    "import.review_link": {"es": "Revisar", "en": "Review"},
+    "import.discard": {"es": "Descartar", "en": "Discard"},
+    "import.status.pending": {"es": "En revisión", "en": "In review"},
+    "import.status.merged": {"es": "Importado", "en": "Merged"},
+    "import.status.discarded": {"es": "Descartado", "en": "Discarded"},
+    "import.findings": {"es": "Lectura del documento", "en": "Document readability"},
+    "import.findings_hint": {
+        "es": "Lo que un ATS encuentra antes de que nadie lea el contenido.",
+        "en": "What an ATS finds before anyone reads the content.",
+    },
+    "import.no_findings": {
+        "es": "Sin hallazgos: el documento se lee correctamente.",
+        "en": "No findings: the document reads correctly.",
+    },
+    "import.gate_hint": {
+        "es": "Un bloqueante limita la puntuación a 40; un aviso, a 85.",
+        "en": "A blocker caps the score at 40; a warning caps it at 85.",
+    },
+    "import.no_findings_docx": {
+        "es": "Sin hallazgos en las comprobaciones que un DOCX puede responder; abajo "
+        "se listan las que no se ejecutaron.",
+        "en": "No findings in the checks a DOCX can answer; the ones that did not run "
+        "are listed below.",
+    },
+    "import.not_run_title": {
+        "es": "No se ejecutaron para este formato",
+        "en": "Not run for this format",
+    },
+    "import.not_run_hint": {
+        "es": "Word no tiene geometría de página: sin estas comprobaciones, «sin "
+        "hallazgos» no significa que el documento esté limpio.",
+        "en": "A Word file has no page geometry: without these checks, \u201cno "
+        "findings\u201d does not mean the document is clean.",
+    },
+    "import.review_title": {"es": "Revisar la extracción", "en": "Review the extraction"},
+    "import.review_hint": {
+        "es": "Nada de esto se ha guardado todavía: la base de datos cambia solo "
+        "cuando confirmes la comparación. Corrige aquí lo que el extractor leyó mal.",
+        "en": "None of this is stored yet: the database changes only when you confirm "
+        "the diff. Fix here whatever the extractor read wrong.",
+    },
+    "import.headline": {"es": "Titular", "en": "Headline"},
+    "import.summary": {"es": "Resumen", "en": "Summary"},
+    "import.skills": {"es": "Habilidades", "en": "Skills"},
+    "import.skills_hint": {
+        "es": "Nombres canónicos del vocabulario, separados por comas. Solo son "
+        "anotación: la evidencia y la puntuación leen las viñetas.",
+        "en": "Canonical vocabulary names, comma-separated. Annotation only: evidence "
+        "and scoring read the bullets.",
+    },
+    "import.roles": {"es": "Puestos", "en": "Roles"},
+    "import.bullets_of": {"es": "Viñetas", "en": "Bullets"},
+    "import.employer": {"es": "Empleador", "en": "Employer"},
+    "import.position": {"es": "Puesto", "en": "Job title"},
+    "import.start": {"es": "Desde", "en": "From"},
+    "import.end": {"es": "Hasta", "en": "To"},
+    "import.educations": {"es": "Formación", "en": "Education"},
+    "import.credentials": {
+        "es": "Formación y certificaciones",
+        "en": "Education and certifications",
+    },
+    "import.kind": {"es": "Tipo", "en": "Type"},
+    "import.kind.education": {"es": "Formación", "en": "Education"},
+    "import.kind.certification": {"es": "Certificación", "en": "Certification"},
+    "import.name_award": {"es": "Nombre o título", "en": "Name or award"},
+    "import.institution_issuer": {"es": "Institución o emisor", "en": "Institution or issuer"},
+    "import.only_education": {"es": "solo formación", "en": "education only"},
+    "import.only_certification": {"es": "solo certificación", "en": "certification only"},
+    "import.certifications": {"es": "Certificaciones", "en": "Certifications"},
+    "import.field": {"es": "Área", "en": "Field"},
+    "import.issued": {"es": "Emitido", "en": "Issued"},
+    "import.expiry": {"es": "Caduca", "en": "Expires"},
+    "import.credential_id": {"es": "ID de credencial", "en": "Credential ID"},
+    "import.credential_url": {"es": "URL de credencial", "en": "Credential URL"},
+    "import.needs_review": {"es": "Por revisar", "en": "Needs review"},
+    "import.needs_review_hint": {
+        "es": "Ni una regla ni el modelo lo tenían claro: decide tú si es formación "
+        "o certificación.",
+        "en": "Neither a rule nor the model was sure: you decide whether this is "
+        "education or a certification.",
+    },
+    "import.remove_hint": {
+        "es": "Vaciar el nombre de un puesto o de una entrada la descarta.",
+        "en": "Clearing a role's name or an entry's name discards it.",
+    },
+    "import.to_diff": {"es": "Comparar con mis datos", "en": "Compare with my data"},
+    "import.merge_title": {"es": "Comparar antes de importar", "en": "Compare before importing"},
+    "import.merge_intro": {
+        "es": "Cada candidato está etiquetado: nuevo, cambia o sin cambios. Marca lo "
+        "que quieres importar; lo que ya existe no se sobrescribe sin que lo pidas.",
+        "en": "Every candidate is labelled: new, changed or unchanged. Tick what you "
+        "want to import; nothing that already exists is overwritten unless you ask.",
+    },
+    "import.count_new": {"es": "nuevos", "en": "new"},
+    "import.count_changed": {"es": "cambian", "en": "changed"},
+    "import.count_unchanged": {"es": "sin cambios", "en": "unchanged"},
+    "import.label.new": {"es": "Nuevo", "en": "New"},
+    "import.label.changed": {"es": "Cambia", "en": "Changed"},
+    "import.label.unchanged": {"es": "Sin cambios", "en": "Unchanged"},
+    "import.reactivates": {"es": "reactivar", "en": "reactivate"},
+    "import.dates_changed": {"es": "fechas", "en": "dates"},
+    "import.old_text": {"es": "Antes", "en": "Before"},
+    "import.change.institution": {"es": "institución", "en": "institution"},
+    "import.change.award": {"es": "título", "en": "award"},
+    "import.change.field": {"es": "área", "en": "field"},
+    "import.change.dates": {"es": "fechas", "en": "dates"},
+    "import.change.name": {"es": "nombre", "en": "name"},
+    "import.change.issuer": {"es": "emisor", "en": "issuer"},
+    "import.change.credential": {"es": "credencial", "en": "credential"},
+    "import.changes": {"es": "Cambia: {fields}", "en": "Changes: {fields}"},
+    "import.role_children_hint": {
+        "es": "Las viñetas de un puesto nuevo solo entran si el puesto entra.",
+        "en": "A new role's bullets come in only if the role does.",
+    },
+    "import.merge_submit": {"es": "Importar la selección", "en": "Import the selection"},
+    "import.merged_title": {"es": "Importación aplicada", "en": "Import applied"},
+    "import.merged_at": {"es": "Importado el", "en": "Merged on"},
+    "import.merged_intro": {
+        "es": "Lo revisado ya está en tu base de datos. Los informes guardados siguen "
+        "citando el texto que se evaluó.",
+        "en": "What you reviewed is now in your database. Stored reports still cite "
+        "the text they graded.",
+    },
+    "import.roles_created": {"es": "Puestos nuevos", "en": "Roles created"},
+    "import.roles_updated": {"es": "Puestos actualizados", "en": "Roles updated"},
+    "import.bullets_created": {"es": "Viñetas nuevas", "en": "Bullets created"},
+    "import.bullets_updated": {"es": "Viñetas actualizadas", "en": "Bullets updated"},
+    "import.educations_created": {"es": "Formación añadida", "en": "Education added"},
+    "import.educations_updated": {"es": "Formación actualizada", "en": "Education updated"},
+    "import.certifications_created": {
+        "es": "Certificaciones añadidas",
+        "en": "Certifications added",
+    },
+    "import.certifications_updated": {
+        "es": "Certificaciones actualizadas",
+        "en": "Certifications updated",
+    },
+    "import.skills_added": {"es": "Habilidades añadidas", "en": "Skills added"},
+    "import.skipped": {"es": "Omitidos", "en": "Skipped"},
+    "import.skipped_hint": {
+        "es": "Omitidos: sin el puesto al que pertenecen, o sin el dato obligatorio "
+        "(institución o nombre).",
+        "en": "Skipped: either their role was not imported, or a required value "
+        "(institution or name) is missing.",
+    },
+    "import.reviewed_content": {"es": "Lo que traía el documento", "en": "What the document held"},
+    "import.go_roles": {"es": "Ver mi trayectoria", "en": "See my experience"},
+    "import.go_back": {"es": "Volver a importaciones", "en": "Back to uploads"},
+    # Gate findings (F5.1) — labels and details. Findings never echo document text.
+    "gate.severity.blocker": {"es": "Bloqueante", "en": "Blocker"},
+    "gate.severity.warning": {"es": "Aviso", "en": "Warning"},
+    "gate.severity.info": {"es": "Info", "en": "Info"},
+    "gate.check.no_extractable_text": {"es": "Sin texto extraíble", "en": "No extractable text"},
+    "gate.check.contact_in_margin": {
+        "es": "Datos de contacto en cabecera o pie",
+        "en": "Contact details in header or footer",
+    },
+    "gate.check.text_in_table": {"es": "Texto dentro de tablas", "en": "Text inside tables"},
+    "gate.check.invisible_text": {"es": "Texto invisible", "en": "Invisible text"},
+    "gate.check.multi_column": {"es": "Cuerpo a varias columnas", "en": "Multi-column body"},
+    "gate.check.unrecognised_headings": {
+        "es": "Encabezados de sección no reconocidos",
+        "en": "Unrecognised section headings",
+    },
+    "gate.check.mojibake": {"es": "Caracteres mal codificados", "en": "Mojibake"},
+    "gate.check.image_bullets": {"es": "Viñetas como imagen", "en": "Image-based bullets"},
+    "gate.check.non_embedded_fonts": {
+        "es": "Fuentes no incrustadas",
+        "en": "Non-embedded fonts",
+    },
+    "gate.band.header": {"es": "cabecera", "en": "header"},
+    "gate.band.footer": {"es": "pie", "en": "footer"},
+    "gate.kind.email": {"es": "correo", "en": "email"},
+    "gate.kind.phone": {"es": "teléfono", "en": "phone"},
+    "gate.detail.no_extractable_text": {
+        "es": "Páginas sin texto: {pages}.",
+        "en": "Pages without text: {pages}.",
+    },
+    "gate.detail.no_extractable_text_docx": {
+        "es": "El documento no contiene texto que un ATS pueda leer.",
+        "en": "The document contains no text an ATS can read.",
+    },
+    "gate.detail.contact_in_margin": {
+        "es": "Página {page}: datos de contacto en la {band} ({kinds}).",
+        "en": "Page {page}: contact details in the {band} ({kinds}).",
+    },
+    "gate.detail.contact_in_margin_docx": {
+        "es": "Datos de contacto en la {band} ({kinds}).",
+        "en": "Contact details in the {band} ({kinds}).",
+    },
+    "gate.detail.text_in_table": {
+        "es": "Página {page}: {words} palabras dentro de {tables} tablas.",
+        "en": "Page {page}: {words} words inside {tables} tables.",
+    },
+    "gate.detail.text_in_table_docx": {
+        "es": "{cells} celdas con texto en {tables} tablas.",
+        "en": "{cells} cells with text across {tables} tables.",
+    },
+    "gate.detail.invisible_text": {
+        "es": "Página {page}: {words} palabras invisibles.",
+        "en": "Page {page}: {words} invisible words.",
+    },
+    "gate.detail.invisible_text_docx": {
+        "es": "{runs} fragmentos con color blanco o texto oculto.",
+        "en": "{runs} runs painted white or hidden.",
+    },
+    "gate.detail.multi_column": {
+        "es": "Página {page}: dos columnas con {gap_pt} pt entre ellas (x {gutter_start}–"
+        "{gutter_end}; {height_percent} % de la altura).",
+        "en": "Page {page}: two columns with a {gap_pt} pt gutter (x {gutter_start}–"
+        "{gutter_end}; {height_percent}% of the page height).",
+    },
+    "gate.detail.multi_column_docx": {
+        "es": "{columns} columnas declaradas en el documento.",
+        "en": "{columns} columns declared in the document.",
+    },
+    "gate.detail.unrecognised_headings": {
+        "es": "No se encontró ningún encabezado canónico en español ni en inglés.",
+        "en": "No canonical Spanish or English heading was found.",
+    },
+    "gate.detail.mojibake": {
+        "es": "Página {page}: {count} marcas de codificación ({markers}).",
+        "en": "Page {page}: {count} encoding marks ({markers}).",
+    },
+    "gate.detail.mojibake_docx": {
+        "es": "{count} marcas de codificación ({markers}).",
+        "en": "{count} encoding marks ({markers}).",
+    },
+    "gate.detail.image_bullets": {
+        "es": "Página {page}: {count} viñetas como imagen.",
+        "en": "Page {page}: {count} bullets drawn as images.",
+    },
+    "gate.detail.non_embedded_fonts": {
+        "es": "Fuentes sin incrustar: {fonts}.",
+        "en": "Fonts without embedding: {fonts}.",
+    },
 }
 
 

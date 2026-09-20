@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from src.bullets import bullet_text, list_bullets
+from src.db import short_session
 from src.extract import redaction
 from src.extract.client import complete_json
 from src.extract.prompts import STORY_SUGGESTION, summarize_rows
@@ -36,26 +37,30 @@ class StorySuggestion:
     bullet_ids: list[uuid.UUID]
     skills: list[str]
     note: str
+    ledger_error: str | None = None
 
 
 def suggest_story_links(
     profile_id: uuid.UUID, session: Session, story: Story, *, owner_name: str | None = None
 ) -> StorySuggestion:
     """Ask for tags, then discard anything the profile cannot already justify."""
-    roles = list_roles(profile_id, session, active_only=True)
-    bullets = list_bullets(profile_id, session, active_only=True)
-    skills = sorted(alias_map(session).values())
-
-    prompt = STORY_SUGGESTION.render(
-        title=story.title,
-        lang=story.lang,
-        body=redaction.redact(story.body, known_names=[owner_name] if owner_name else None),
-        roles=summarize_rows([f"{role.id}\t{role.title} @ {role.employer}" for role in roles]),
-        bullets=summarize_rows(
-            [f"{bullet.id}\t{bullet_text(bullet)}" for bullet in bullets]
-        ),
-        skills=summarize_rows(skills),
-    )
+    # The profile reads are the function's own: the caller's transaction is never
+    # opened or ended here (client.complete_json refuses to run inside one).
+    with short_session(session) as reader:
+        roles = list_roles(profile_id, reader, active_only=True)
+        bullets = list_bullets(profile_id, reader, active_only=True)
+        skills = sorted(alias_map(reader).values())
+        allowed_roles = {str(role.id): role.id for role in roles}
+        allowed_bullets = {str(bullet.id): bullet.id for bullet in bullets}
+        allowed_skills = set(skills)
+        prompt = STORY_SUGGESTION.render(
+            title=story.title,
+            lang=story.lang,
+            body=redaction.redact(story.body, known_names=[owner_name] if owner_name else None),
+            roles=summarize_rows([f"{role.id}\t{role.title} @ {role.employer}" for role in roles]),
+            bullets=summarize_rows([f"{bullet.id}\t{bullet_text(bullet)}" for bullet in bullets]),
+            skills=summarize_rows(skills),
+        )
 
     completion = complete_json(
         session,
@@ -66,9 +71,6 @@ def suggest_story_links(
         schema=StorySuggestionSchema,
     )
 
-    allowed_roles = {str(role.id): role.id for role in roles}
-    allowed_bullets = {str(bullet.id): bullet.id for bullet in bullets}
-    allowed_skills = set(skills)
     # Model output is a proposal, not an authority: unknown ids and skills are dropped.
     chosen_role = allowed_roles.get(str(completion.data.get("role_id")))
     chosen_bullets = [
@@ -88,4 +90,5 @@ def suggest_story_links(
         bullet_ids=chosen_bullets,
         skills=chosen_skills,
         note=note,
+        ledger_error=completion.ledger_error,
     )

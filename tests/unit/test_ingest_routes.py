@@ -1,0 +1,471 @@
+"""The import flow over HTTP (PRD F2.1-F2.5): upload, review, diff, merge.
+
+The provider is stubbed at `client._post`, so the whole front door runs offline:
+gate findings, the editable draft, the diff screen, and the merge that is the only
+thing allowed to touch career data.
+"""
+
+import json
+import re
+from io import BytesIO
+
+import pytest
+from docx import Document
+from fastapi.testclient import TestClient
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
+from sqlalchemy import create_engine, event
+from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.pool import NullPool
+
+from src.auth.accounts import create_account
+from src.bullets import list_bullets
+from src.certifications import list_certifications
+from src.education import list_educations
+from src.extract import client as extract_client
+from src.extract.client import TransactionHeldAcrossProviderCall
+from src.models import Base, LlmCall, Resume
+from src.roles import list_roles
+from src.web.deps import get_db
+from src.web.main import create_app
+from tests.conftest import PASSWORD, login
+
+DOCX_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+PROPOSAL = json.dumps(
+    {
+        "language": "es",
+        "headline": "Analista de datos",
+        "summary": "Cinco años automatizando reportes.",
+        "roles": [
+            {
+                "employer": "Globex",
+                "title": "Data Scientist",
+                "start_date": "2021-01",
+                "bullets": ["Modelé el riesgo de crédito con Python"],
+            }
+        ],
+        "credentials": [
+            {
+                "kind": "education",
+                "name": "Bachiller en Ingeniería de Sistemas",
+                "issuer": "Universidad Nacional de Ingeniería",
+                "end_date": "2019",
+            },
+            {
+                "kind": "certification",
+                "name": "Scrum Master",
+                "issuer": "Scrum Alliance",
+                "issued_date": "2020-03",
+            },
+        ],
+        "skills": ["python", "cobalto"],
+    }
+)
+
+REVIEWED_FORM = {
+    "language": "es",
+    "headline": "Analista de datos",
+    "summary": "Cinco años automatizando reportes.",
+    "skills": "python",
+    "role_count": "1",
+    "role_0_employer": "Globex",
+    "role_0_title": "Data Scientist",
+    "role_0_start": "2021-01-01",
+    "role_0_end": "",
+    "bullet_count_0": "1",
+    "bullet_0_0_text": "Modelé el riesgo de crédito con Python",
+    "bullet_0_0_chips": "python",
+    "credential_count": "2",
+    "credential_0_kind": "education",
+    "credential_0_name": "Bachiller en Ingeniería de Sistemas",
+    "credential_0_issuer": "Universidad Nacional de Ingeniería",
+    "credential_0_field": "",
+    "credential_0_start": "",
+    "credential_0_end": "2019-01-01",
+    "credential_0_issued": "",
+    "credential_0_expiry": "",
+    "credential_0_credential_id": "",
+    "credential_0_credential_url": "",
+    "credential_0_review": "off",
+    "credential_1_kind": "certification",
+    "credential_1_name": "Scrum Master",
+    "credential_1_issuer": "Scrum Alliance",
+    "credential_1_field": "",
+    "credential_1_start": "",
+    "credential_1_end": "",
+    "credential_1_issued": "2020-03-01",
+    "credential_1_expiry": "",
+    "credential_1_credential_id": "",
+    "credential_1_credential_url": "",
+    "credential_1_review": "off",
+}
+
+MERGE_FORM = {
+    "merge_role_0": "on",
+    "merge_bullet_0_0": "on",
+    "merge_education_0": "on",
+    "merge_certification_0": "on",
+    "merge_skill_0": "on",
+}
+
+
+class Provider:
+    """One résumé extraction answer, priced like a real call."""
+
+    def __init__(self, payload: str = PROPOSAL):
+        self.calls: list[dict] = []
+        self.payload = payload
+
+    def __call__(self, payload: dict, api_key: str) -> dict:
+        self.calls.append(payload)
+        return {
+            "choices": [{"message": {"content": self.payload}}],
+            "usage": {"prompt_tokens": 1500, "completion_tokens": 200, "cost": "0.000090"},
+        }
+
+
+@pytest.fixture
+def provider(monkeypatch, test_settings) -> Provider:
+    stub = Provider()
+    monkeypatch.setattr(extract_client, "_post", stub)
+    return stub
+
+
+def docx_bytes(*paragraphs: str, header: str | None = None) -> bytes:
+    document = Document()
+    for text in paragraphs:
+        document.add_paragraph(text)
+    if header is not None:
+        document.sections[0].header.paragraphs[0].text = header
+    buffer = BytesIO()
+    document.save(buffer)
+    return buffer.getvalue()
+
+
+def pdf_bytes(*lines: str) -> bytes:
+    buffer = BytesIO()
+    pdf = canvas.Canvas(buffer, pagesize=letter)
+    pdf.setFont("Helvetica", 10)
+    y = 720
+    for text in lines:
+        pdf.drawString(60, y, text)
+        y -= 20
+    pdf.showPage()
+    pdf.save()
+    return buffer.getvalue()
+
+
+def plain(html: str) -> str:
+    return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", html))
+
+
+def upload(client, data: bytes, name: str = "cv.docx", content_type: str = DOCX_TYPE):
+    return client.post(
+        "/import",
+        files={"file": (name, data, content_type)},
+        follow_redirects=False,
+    )
+
+
+def test_upload_review_merge_round_trip(client, session, career, provider):
+    login(client, career.first.email)
+    before = len(list_roles(career.first_profile.id, session, active_only=False))
+
+    uploaded = upload(client, docx_bytes("Experiencia", "Reduje el cierre un 30% con Python"))
+    assert uploaded.status_code == 303
+    review_url = uploaded.headers["location"]
+
+    page = plain(client.get(review_url).text)
+    assert "Lectura del documento" in page, "findings come before any extracted content"
+    assert "Modelé el riesgo de crédito con Python" in page, "the draft is editable"
+    assert session.query(Resume).count() == 1
+    assert len(list_roles(career.first_profile.id, session, active_only=False)) == before
+
+    merge_page = plain(client.post(f"{review_url}/review", data=REVIEWED_FORM).text)
+    assert "Nuevo" in merge_page
+    assert "Modelé el riesgo de crédito con Python" in merge_page
+
+    merged = plain(client.post(f"{review_url}/merge", data=MERGE_FORM).text)
+    assert "Importación aplicada" in merged
+
+    profile_id = career.first_profile.id
+    roles = [
+        role
+        for role in list_roles(profile_id, session, active_only=False)
+        if role.employer == "Globex"
+    ]
+    assert [role.title for role in roles] == ["Data Scientist"]
+    bullets = list_bullets(profile_id, session, active_only=True, role_id=roles[0].id)
+    assert [bullet.text_es for bullet in bullets] == ["Modelé el riesgo de crédito con Python"]
+    assert [entry.name for entry in list_certifications(profile_id, session)] == ["Scrum Master"]
+    assert [entry.institution for entry in list_educations(profile_id, session)] == [
+        "Universidad Nacional de Ingeniería"
+    ]
+    session.expire_all()
+    assert career.first_profile.skills == ["python"]
+    assert session.query(Resume).one().merged_at is not None
+
+
+def test_the_same_document_uploaded_twice_is_cached_and_diffs_as_unchanged(
+    client, session, career, provider
+):
+    login(client, career.first.email)
+    data = docx_bytes("Experiencia", "Reduje el cierre un 30% con Python")
+
+    first = upload(client, data)
+    client.post(f"{first.headers['location']}/review", data=REVIEWED_FORM)
+    client.post(f"{first.headers['location']}/merge", data=MERGE_FORM)
+
+    second = upload(client, data)
+    assert len(provider.calls) == 1, "the extraction is cached by content hash"
+
+    merge_page = plain(client.post(f"{second.headers['location']}/review", data=REVIEWED_FORM).text)
+    assert "0 nuevos" in merge_page
+    assert "0 cambian" in merge_page
+
+    merged = client.post(f"{second.headers['location']}/merge", data=MERGE_FORM)
+    assert merged.status_code == 200
+
+    profile_id = career.first_profile.id
+    globex = [
+        role
+        for role in list_roles(profile_id, session, active_only=False)
+        if role.employer == "Globex"
+    ]
+    assert len(globex) == 1
+    assert len(list_bullets(profile_id, session, active_only=False)) == 2, "nothing duplicated"
+    assert len(list_certifications(profile_id, session)) == 1
+    assert len(list_educations(profile_id, session)) == 1
+
+
+def test_the_review_screen_can_move_an_entry_between_education_and_certification(
+    client, session, career, provider
+):
+    """The classifier's rules can fire wrong; the kind is a field the user can fix."""
+    login(client, career.first.email)
+    uploaded = upload(client, docx_bytes("Experiencia", "Reduje el cierre un 30% con Python"))
+    review_url = uploaded.headers["location"]
+
+    fixed = dict(REVIEWED_FORM, **{"credential_0_kind": "certification"})
+    merge_page = plain(client.post(f"{review_url}/review", data=fixed).text)
+    assert "0 nuevos" not in merge_page
+
+    merged = client.post(
+        f"{review_url}/merge",
+        data=dict(MERGE_FORM, **{"merge_certification_1": "on"}),
+    )
+    assert merged.status_code == 200
+
+    profile_id = career.first_profile.id
+    assert list_educations(profile_id, session) == []
+    names = [entry.name for entry in list_certifications(profile_id, session)]
+    assert sorted(names) == ["Bachiller en Ingeniería de Sistemas", "Scrum Master"]
+
+
+def test_the_review_screen_shows_findings_before_the_draft(client, session, career, provider):
+    login(client, career.first.email)
+
+    uploaded = upload(
+        client,
+        docx_bytes("Experiencia", header="persona@example.com | ++00 111 222 333"),
+    )
+
+    page = plain(client.get(uploaded.headers["location"]).text)
+    assert "Bloqueante" in page
+    assert "persona@example.com" not in page, "findings never echo the text they matched"
+
+
+def test_upload_without_a_model_keeps_the_findings_and_stores_nothing(
+    client, session, career, monkeypatch
+):
+    from src.config import get_settings
+
+    # An empty value, not a deleted one: a developer's .env would otherwise supply
+    # a real model and the test would leave for the network.
+    monkeypatch.setenv("OPENROUTER_MODEL", "")
+    get_settings.cache_clear()
+    try:
+        login(client, career.first.email)
+        response = upload(client, docx_bytes("Experiencia", "Reduje el cierre un 30%"))
+    finally:
+        get_settings.cache_clear()
+
+    assert response.status_code == 200
+    assert "OPENROUTER_MODEL" in plain(response.text)
+    assert "Lectura del documento" in plain(response.text)
+    assert session.query(Resume).count() == 0
+
+
+def test_a_broken_docx_is_refused_by_the_reader(client, session, career, provider):
+    login(client, career.first.email)
+
+    response = upload(client, b"this is not a zip file", name="cv.docx")
+
+    assert response.status_code == 200
+    assert "no se pudo leer" in plain(response.text)
+    assert session.query(Resume).count() == 0
+    assert provider.calls == []
+
+
+def test_other_formats_are_refused_by_name(client, session, career, provider):
+    login(client, career.first.email)
+
+    response = upload(client, b"plain text", name="cv.txt")
+
+    assert response.status_code == 200
+    assert "Solo se aceptan PDF o DOCX" in plain(response.text)
+    assert session.query(Resume).count() == 0
+
+
+def test_another_profiles_import_is_404(client, session, career, provider):
+    login(client, career.first.email)
+    uploaded = upload(client, docx_bytes("Experiencia", "Reduje el cierre un 30% con Python"))
+    review_url = uploaded.headers["location"]
+
+    login(client, career.second.email)
+
+    assert client.get(review_url).status_code == 404
+    assert client.post(f"{review_url}/review", data=REVIEWED_FORM).status_code == 404
+    assert client.post(f"{review_url}/merge", data=MERGE_FORM).status_code == 404
+    assert client.post(f"{review_url}/discard").status_code == 404
+    resume = session.query(Resume).one()
+    assert resume.merged_at is None
+
+
+def test_a_provider_call_slower_than_the_transaction_keeps_the_upload_and_the_row(
+    tmp_path, test_settings, monkeypatch
+):
+    """Neon kills a connection left idle in a transaction while the provider works.
+
+    The upload must still succeed and the paid call must still reach the ledger: the
+    call site releases its reads before the network call, and the row is written on
+    the client's own connection afterwards.
+    """
+    engine = create_engine(f"sqlite:///{tmp_path / 'slow-provider.db'}", poolclass=NullPool)
+    Base.metadata.create_all(engine)
+    factory = sessionmaker(bind=engine, expire_on_commit=False)
+    with factory() as setup:
+        create_account(setup, "persona@example.com", PASSWORD, "Ana")
+        setup.commit()
+
+    opened: list[object] = []
+
+    @event.listens_for(engine, "checkout")
+    def _remember(dbapi_connection, connection_record, connection_proxy):
+        opened.append(dbapi_connection)
+
+    def slow_provider(payload: dict, api_key: str) -> dict:
+        # The provider is slow, and the database kills every connection the request
+        # has used so far. The ledger write happens after this, on a connection of
+        # its own: the paid answer must survive a dead request connection.
+        for connection in opened:
+            connection.close()
+        return {
+            "choices": [{"message": {"content": PROPOSAL}}],
+            "usage": {"prompt_tokens": 1500, "completion_tokens": 200, "cost": "0.000090"},
+        }
+
+    app = create_app()
+
+    def override_get_db():
+        with factory() as db:
+            try:
+                yield db
+            except Exception:
+                db.rollback()
+                raise
+
+    app.dependency_overrides[get_db] = override_get_db
+    monkeypatch.setattr(extract_client, "_post", slow_provider)
+
+    with TestClient(app) as slow_client:
+        login(slow_client, "persona@example.com")
+        uploaded = upload(
+            slow_client, docx_bytes("Experiencia", "Reduje el cierre un 30% con Python")
+        )
+
+    assert uploaded.status_code == 303, "a slow provider call must not 500 the upload"
+    with factory() as check:
+        assert check.query(LlmCall).count() == 1, "the paid call keeps its ledger row"
+        assert check.query(Resume).count() == 1
+
+
+def test_a_route_that_never_releases_its_reads_is_refused(
+    session_factory, career, test_settings, monkeypatch
+):
+    """The guard is the enforcement: with the release removed, the request stops
+    before the provider is reached instead of holding a transaction across it."""
+    app = create_app()
+
+    def forgetful_get_db():
+        with session_factory() as db:
+            db.commit = lambda: None  # a route that never releases its reads
+            try:
+                yield db
+            except Exception:
+                db.rollback()
+                raise
+
+    app.dependency_overrides[get_db] = forgetful_get_db
+
+    def forbidden(payload: dict, api_key: str) -> dict:
+        pytest.fail("the provider must not be reached while a transaction is held")
+
+    monkeypatch.setattr(extract_client, "_post", forbidden)
+
+    with TestClient(app) as forgetful:
+        login(forgetful, career.first.email)
+        with pytest.raises(TransactionHeldAcrossProviderCall, match="resume_extract"):
+            upload(forgetful, docx_bytes("Experiencia", "Reduje el cierre un 30% con Python"))
+
+
+def test_a_docx_review_names_the_checks_that_did_not_run(client, session, career, provider):
+    """A DOCX is weaker evidence: the panel says which checks it cannot answer."""
+    login(client, career.first.email)
+
+    uploaded = upload(client, docx_bytes("Experiencia", "Reduje el cierre un 30% con Python"))
+    page = plain(client.get(uploaded.headers["location"]).text)
+
+    assert "No se ejecutaron para este formato" in page
+    assert "Viñetas como imagen" in page
+    assert "Fuentes no incrustadas" in page
+
+
+def test_a_pdf_review_lists_no_skipped_checks(client, session, career, provider):
+    login(client, career.first.email)
+
+    uploaded = upload(
+        client,
+        pdf_bytes("Experiencia", "Reduje el cierre un 30% con Python"),
+        name="cv.pdf",
+        content_type="application/pdf",
+    )
+    page = plain(client.get(uploaded.headers["location"]).text)
+
+    assert "No se ejecutaron para este formato" not in page
+
+
+def test_an_unrecorded_call_keeps_the_draft_and_shows_the_warning(
+    tmp_path, client, session, career, provider, monkeypatch
+):
+    """The paid answer is kept; the missing ledger row is said out loud, not hidden."""
+    good = extract_client._client_session
+    broken = create_engine(f"sqlite:///{tmp_path}")  # a directory: nothing can connect
+    opened: list[int] = []
+
+    def flaky(bind_session):
+        opened.append(1)
+        return good(bind_session) if len(opened) == 1 else Session(bind=broken)
+
+    monkeypatch.setattr(extract_client, "_client_session", flaky)
+
+    login(client, career.first.email)
+    response = upload(client, docx_bytes("Experiencia", "Reduje el cierre un 30% con Python"))
+
+    assert response.status_code == 200, "the answer is kept, so this is a warning, not an error"
+    page = plain(response.text)
+    assert "no se pudo registrar" in page
+    assert "Modelé el riesgo de crédito con Python" in page, "the draft is still reviewable"
+    assert session.query(Resume).count() == 1
+    assert session.query(LlmCall).count() == 0

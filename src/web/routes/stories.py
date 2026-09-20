@@ -168,6 +168,8 @@ def story_suggest(
     story = get_story(profile.id, session, story_id)
     if story is None:
         return render(request, "not_found.html", user=user, status_code=404)
+    # The route owns its transaction: release the story read before the provider call.
+    session.commit()
     try:
         suggestion = suggest_story_links(
             profile.id, session, story, owner_name=profile.display_name
@@ -200,4 +202,6 @@ def story_suggest(
         values=values,
         suggestion=suggestion,
         notice=t("stories.suggest_applied", user.ui_lang),
+        # The proposal is real; the ledger row may not be. Say so next to it.
+        error=t("common.ledger_unrecorded", user.ui_lang) if suggestion.ledger_error else None,
     )

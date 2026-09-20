@@ -1,0 +1,22 @@
+{
+  "institution_markers": [
+    "universid",
+    "universit",
+    "institut",
+    "escuela",
+    "school",
+    "colegio",
+    "college",
+    "facultad",
+    "faculty",
+    "politecnico",
+    "polytechnic"
+  ],
+  "credential_markers": [
+    "certificat",
+    "certificad",
+    "certificacion",
+    "professional",
+    "profesional"
+  ]
+}

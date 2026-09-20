@@ -17,7 +17,20 @@ confidence interval: at n=12 a point estimate alone is not evidence.
 
 Stability is measured on the judge alone: the posting's extraction is held fixed
 and the grading call is repeated, because the PRD's stability question is about the
-ordinal the judge returns.
+ordinal the judge returns. Extraction drift is real production variance that number
+does not cover, so it is measured separately — three repeats of the extraction call
+on two pairs, reported on its own line and never folded into the judge's number.
+
+All three candidates are pinned to the lowest reasoning effort their provider
+advertises, because the experiment compares models, not effort levels: left at the
+provider default (high, medium and max respectively) the comparison would confound
+the two and inflate output-token variance, which is exactly what the stability
+measurement is trying to see past.
+
+Every pair records the wall-clock window it ran in. DeepSeek bills double inside
+two weekday windows, so a candidate priced under one regime and its neighbour under
+another is a confound rather than a footnote; the recorded windows make the overlap
+visible, and `verify_prices` reports when the advertised windows move.
 """
 
 import json
@@ -29,7 +42,7 @@ import uuid
 from collections import Counter
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from datetime import date
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 from typing import Literal
@@ -42,9 +55,11 @@ from sqlalchemy.pool import StaticPool
 
 from src.analysis import UNAVAILABLE_UNTIL_M9, Analysis, analyze
 from src.extract.client import CallOptions, complete_json
-from src.extract.grading import grade_evidence
+from src.extract.grading import grade_evidence, requirements_of
+from src.extract.jd import extract_jd
 from src.models import Base, Bullet, Profile, Role, User
 from src.normalize.metrics import extract_metrics
+from src.normalize.text import fold
 from src.score.aggregate import SubScore, aggregate
 from src.score.evidence import Level, evidence_coverage
 from src.score.weights import W1
@@ -58,6 +73,10 @@ BUCKET_ORDINAL = {"stretch": 0, "plausible": 1, "strong": 2}
 
 DEFAULT_SEED = 20260917
 DEFAULT_REPEATS = 3
+
+# Extraction drift is cheap to measure and separate from the judge: three readings
+# of two pairs, the first and the last by id, so the sample spans the set.
+DRIFT_PAIRS = 2
 
 # PRD §12: the acceptance gate, and the operator's hard ceiling at list prices.
 RHO_GATE = 0.70
@@ -241,6 +260,71 @@ class Candidate:
 
 
 @dataclass(frozen=True)
+class SurchargeWindow:
+    """A weekday time-of-day override, as the provider states it, in UTC hours.
+
+    DeepSeek's override list arrives as `utc_start`/`utc_end` in HHMM form, with an
+    `utc_end` of 0 meaning midnight; only the windows that bill differently from the
+    base rate are recorded, because those are the ones a run can fall into.
+    """
+
+    weekdays: tuple[int, ...]
+    start_hour: int
+    end_hour: int  # 0 = midnight, the end of the day
+    multiplier: float = 2.0
+
+    def covers(self, moment: datetime) -> bool:
+        return (
+            moment.weekday() in self.weekdays
+            and self.start_hour <= moment.hour
+            and (self.end_hour == 0 or moment.hour < self.end_hour)
+        )
+
+
+_WEEKDAY_NAMES = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+
+
+def overlaps_surcharge(
+    windows: Sequence[SurchargeWindow], started: datetime, finished: datetime
+) -> bool:
+    """True when any hour of [started, finished] falls inside one of the windows."""
+    moment = started.astimezone(UTC).replace(minute=0, second=0, microsecond=0)
+    last = finished.astimezone(UTC)
+    while moment <= last:
+        if any(window.covers(moment) for window in windows):
+            return True
+        moment += timedelta(hours=1)
+    return False
+
+
+def surcharge_warnings(
+    candidates: Sequence[Candidate], *, now: datetime | None = None
+) -> list[str]:
+    """Warn when the clock at run time is inside a time-of-day override.
+
+    A pair billed at the peak rate is a confound in the cost column, and it is the one
+    thing about the run the operator can still fix before spending anything: wait, or
+    run in another hour.
+    """
+    moment = now or datetime.now(UTC)
+    notes: list[str] = []
+    for candidate in candidates:
+        price = PRICES.get(candidate.model)
+        if price is None:
+            continue
+        for window in price.surcharges:
+            if window.covers(moment):
+                days = "/".join(_WEEKDAY_NAMES[day] for day in window.weekdays)
+                notes.append(
+                    f"{candidate.model}: this run starts inside a x{window.multiplier:g} "
+                    f"window ({days} {window.start_hour:02d}:00-"
+                    f"{window.end_hour or 24:02d}:00 UTC); outside it the three "
+                    "candidates stay under one price regime"
+                )
+    return notes
+
+
+@dataclass(frozen=True)
 class ModelPrice:
     """List prices in USD per million tokens, plus what the provider shows today.
 
@@ -254,13 +338,22 @@ class ModelPrice:
     current_input: float
     current_output: float
     note: str = ""
+    surcharges: tuple[SurchargeWindow, ...] = ()
 
 
-# Source: https://openrouter.ai/api/v1/models, read 2026-09-17. The "current"
+# Source: https://openrouter.ai/api/v1/models, read 2026-09-19. The "current"
 # columns are what the price list showed that day; "list" is the rate to judge the
-# budget by.
-PRICES_READ_ON = "2026-09-17"
+# budget by. A rate that is currently below the list rate is treated as
+# promotional: a model is not selected on a discount that can end.
+PRICES_READ_ON = "2026-09-19"
 MODELS_URL = "https://openrouter.ai/api/v1/models"
+
+# What the API shows for DeepSeek: base $0.15/$0.60 per M, doubled on weekdays
+# 01:00-04:00 and 06:00-10:00 UTC (`utc_start`/`utc_end` 100-400 and 600-1000).
+DEEPSEEK_SURCHARGES = (
+    SurchargeWindow(weekdays=(0, 1, 2, 3, 4), start_hour=1, end_hour=4),
+    SurchargeWindow(weekdays=(0, 1, 2, 3, 4), start_hour=6, end_hour=10),
+)
 
 PRICES: dict[str, ModelPrice] = {
     "deepseek/deepseek-v4.1-flash": ModelPrice(
@@ -268,10 +361,12 @@ PRICES: dict[str, ModelPrice] = {
         output_list=0.60,
         current_input=0.15,
         current_output=0.60,
+        surcharges=DEEPSEEK_SURCHARGES,
         note=(
-            "weekday time-of-day overrides double the rate inside the peak window "
-            "(see /models); the table uses the base rate, the measured cost shows "
-            "what was actually billed"
+            "weekday time-of-day overrides bill double (Mon-Fri 01:00-04:00 and "
+            "06:00-10:00 UTC at $0.30/$1.20 per M); the table uses the base rate, and "
+            "every pair records the window it ran in so a peak-billed pair is visible "
+            "rather than averaged away"
         ),
     ),
     "google/gemini-3.8-flash": ModelPrice(
@@ -280,32 +375,54 @@ PRICES: dict[str, ModelPrice] = {
         current_input=0.75,
         current_output=3.75,
         note=(
-            "list output is 2x the rate the API showed on 2026-09-17, per the "
-            "operator's note that a 50% output discount is active; reasoning is "
-            "mandatory on this model and bills at the output rate"
+            "list output is 2x the $3.75/M the API shows, per the operator's note that "
+            "a 50% output discount is active - the discount is promotional and the "
+            "budget is judged without it; reasoning is mandatory on this model and "
+            "bills at the output rate"
         ),
     ),
     "z-ai/glm-5.3": ModelPrice(
         input_list=1.40,
         output_list=4.40,
-        current_input=1.40,
-        current_output=4.40,
+        current_input=0.91,
+        current_output=2.86,
         note=(
-            "reasoning bills as output; the operator's figure of $2.97/M for "
-            "reasoning tokens does not match the $4.40/M the API showed on "
-            "2026-09-17 - the measured cost settles it"
+            "reasoning bills as output and cannot be disabled; the API showed "
+            "$1.40/$4.40 per M on 2026-09-17 and $0.91/$2.86 on 2026-09-19, so the "
+            "lower rate is treated as promotional and the budget is judged at the "
+            "$4.40/M completion rate the operator specified - the measured usage.cost "
+            "settles what was actually billed"
         ),
     ),
 }
 
 CANDIDATES: tuple[Candidate, ...] = (
-    Candidate("deepseek/deepseek-v4.1-flash", "deepseek-v4.1-flash", note="cheap baseline"),
-    Candidate("google/gemini-3.8-flash", "gemini-3.8-flash", note="mid tier"),
+    Candidate(
+        "deepseek/deepseek-v4.1-flash",
+        "deepseek-v4.1-flash",
+        reasoning_effort="low",
+        note=(
+            "cheap baseline; low is the lowest effort the API advertises (it also "
+            "advertises max and high, and defaults to high)"
+        ),
+    ),
+    Candidate(
+        "google/gemini-3.8-flash",
+        "gemini-3.8-flash",
+        reasoning_effort="low",
+        note=(
+            "mid tier; reasoning is mandatory here, and low is the lowest effort the "
+            "API advertises (default medium, also offers high)"
+        ),
+    ),
     Candidate(
         "z-ai/glm-5.3",
-        "glm-5.3 (low)",
+        "glm-5.3",
         reasoning_effort="low",
-        note="reasoning cannot be disabled; pinned to low effort",
+        note=(
+            "reasoning cannot be disabled; low is the lowest effort the API "
+            "advertises (default max, also offers high)"
+        ),
     ),
 )
 
@@ -409,6 +526,8 @@ def probe_candidate(candidate: Candidate, *, seed: int) -> ProbeOutcome:
         )
     )
     error = ""
+    # Transaction boundaries belong to the call site: the probe is one.
+    session.commit()
     for options in (
         CallOptions(bypass_cache=True, seed=seed, reasoning_effort=candidate.reasoning_effort),
         CallOptions(bypass_cache=True, reasoning_effort=candidate.reasoning_effort),
@@ -568,6 +687,13 @@ class PairResult:
     completion_tokens: int
     latency_s: float
     fingerprint: str | None
+    # Reported, never graded: PRD F4.4 keeps a degree or a work authorization out of
+    # the number, and counting them here is what shows whether a bucket was penalised
+    # by an ask no bullet can answer.
+    disqualifiers: tuple[str, ...] = ()
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
+    in_surcharge_window: bool | None = None
 
     @property
     def max_score_delta(self) -> int:
@@ -619,6 +745,16 @@ def _total_with_evidence(analysis: Analysis, levels: Sequence[Level]) -> int:
     return aggregate(sub_scores, W1, unavailable=UNAVAILABLE_UNTIL_M9).uncapped
 
 
+def _in_surcharge(
+    candidate: Candidate, started: datetime, finished: datetime
+) -> bool | None:
+    """Whether the pair's window fell inside a time-of-day override, when one is known."""
+    price = PRICES.get(candidate.model)
+    if price is None:
+        return None
+    return overlaps_surcharge(price.surcharges, started, finished)
+
+
 def run_pair(
     candidate: Candidate,
     pair: GoldenPair,
@@ -646,6 +782,7 @@ def run_pair(
         bypass_cache=True, seed=seed, reasoning_effort=candidate.reasoning_effort
     )
 
+    started_at = datetime.now(UTC)
     started = time.perf_counter()
     analysis = analyze(
         profile_id, session, jd_text=pair.jd.text, model=candidate.model, options=options
@@ -662,6 +799,8 @@ def run_pair(
     repeat_totals: list[int] = [int(analysis.report["score"]["uncapped"])]
     stability_cost = Decimal("0")
     for _ in range(max(1, repeats) - 1):
+        # The harness owns this session; every model call gets a clean boundary.
+        session.commit()
         report = grade_evidence(
             session,
             analysis.jd,
@@ -692,6 +831,7 @@ def run_pair(
         )
         stability_cost += sum(call.cost_usd for call in report.calls)
 
+    finished_at = datetime.now(UTC)
     return PairResult(
         pair_id=pair.id,
         language=pair.language,
@@ -708,6 +848,132 @@ def run_pair(
         completion_tokens=sum(int(call["completion_tokens"]) for call in llm_calls),
         latency_s=latency,
         fingerprint=llm_calls[0].get("fingerprint") if llm_calls else None,
+        disqualifiers=tuple(analysis.jd.hard_requirements),
+        started_at=started_at,
+        finished_at=finished_at,
+        in_surcharge_window=_in_surcharge(candidate, started_at, finished_at),
+    )
+
+
+@dataclass(frozen=True)
+class ExtractionDrift:
+    """How far the posting's reading moves when only the reading is repeated.
+
+    Judge stability holds the extraction fixed on purpose; this is the other half of
+    production variance, and it is reported on its own line so neither number can
+    hide inside the other.
+    """
+
+    pair_ids: tuple[str, ...]
+    repeats: int
+    requirement_counts: tuple[tuple[int, ...], ...]
+    must_have_counts: tuple[tuple[int, ...], ...]
+    identical_pairs: tuple[bool, ...]
+    mean_jaccard: float
+    cost_usd: Decimal
+    started_at: datetime
+    finished_at: datetime
+
+    @property
+    def count_range(self) -> int:
+        values = [count for run in self.requirement_counts for count in run]
+        return max(values) - min(values) if values else 0
+
+    @property
+    def must_have_range(self) -> int:
+        values = [count for run in self.must_have_counts for count in run]
+        return max(values) - min(values) if values else 0
+
+    @property
+    def identical_share(self) -> float:
+        if not self.identical_pairs:
+            return 0.0
+        return sum(1 for value in self.identical_pairs if value) / len(self.identical_pairs)
+
+
+def drift_pairs(pairs: Sequence[GoldenPair]) -> tuple[GoldenPair, ...]:
+    """The first and the last pair by id: a cheap sample that spans the set."""
+    ordered = sorted(pairs, key=lambda pair: pair.id)
+    if len(ordered) <= DRIFT_PAIRS:
+        return tuple(ordered)
+    return (ordered[0], ordered[-1])
+
+
+def _jaccard(
+    first: frozenset[tuple[str, bool]], second: frozenset[tuple[str, bool]]
+) -> float:
+    union = first | second
+    return len(first & second) / len(union) if union else 1.0
+
+
+def measure_extraction_drift(
+    candidate: Candidate,
+    pairs: Sequence[GoldenPair],
+    *,
+    seed: int,
+    repeats: int = DEFAULT_REPEATS,
+) -> ExtractionDrift | None:
+    """Repeat the extraction call alone, on two pairs, and measure what moved.
+
+    Deliberately separate from `run_pair`'s stability number, which holds the
+    extraction fixed to isolate the judge: folding the two together would hide which
+    half drifted. Requirements are compared folded, and with their weight class: a
+    requirement that moves from must-have to nice-to-have changes the score without
+    changing its text, so a set that ignored the class would call that reading
+    identical. The order the model emits them in is ignored, because it does not
+    change what gets graded.
+    """
+    chosen = drift_pairs(pairs)
+    if not chosen:
+        return None
+    options = CallOptions(
+        bypass_cache=True, seed=seed, reasoning_effort=candidate.reasoning_effort
+    )
+    started_at = datetime.now(UTC)
+    counts: list[tuple[int, ...]] = []
+    must_haves: list[tuple[int, ...]] = []
+    identical: list[bool] = []
+    jaccards: list[float] = []
+    cost = Decimal("0")
+    for pair in chosen:
+        session, _ = build_session(pair)
+        seen: list[frozenset[tuple[str, bool]]] = []
+        pair_counts: list[int] = []
+        pair_must: list[int] = []
+        for _ in range(max(1, repeats)):
+            # Each repeat writes its unmapped-term notes; release them before the
+            # next call (client.complete_json refuses to run inside a transaction).
+            session.commit()
+            jd, completion = extract_jd(
+                session, pair.jd.text, model=candidate.model, options=options
+            )
+            cost += completion.cost_usd
+            requirements = requirements_of(jd)
+            seen.append(frozenset((fold(text), is_must) for text, is_must in requirements))
+            pair_counts.append(len(requirements))
+            pair_must.append(sum(1 for _, is_must in requirements if is_must))
+        counts.append(tuple(pair_counts))
+        must_haves.append(tuple(pair_must))
+        identical.append(len(set(seen)) == 1)
+        comparisons = len(seen) * (len(seen) - 1) // 2
+        jaccards.append(
+            sum(
+                _jaccard(seen[i], seen[j])
+                for i in range(len(seen))
+                for j in range(i + 1, len(seen))
+            )
+            / max(1, comparisons)
+        )
+    return ExtractionDrift(
+        pair_ids=tuple(pair.id for pair in chosen),
+        repeats=max(1, repeats),
+        requirement_counts=tuple(counts),
+        must_have_counts=tuple(must_haves),
+        identical_pairs=tuple(identical),
+        mean_jaccard=sum(jaccards) / len(jaccards) if jaccards else 0.0,
+        cost_usd=cost,
+        started_at=started_at,
+        finished_at=datetime.now(UTC),
     )
 
 
@@ -718,6 +984,9 @@ class CandidateReport:
     pairs: tuple[PairResult, ...]
     seed: int
     repeats: int
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
+    drift: ExtractionDrift | None = None
 
     # -- aggregates ------------------------------------------------------- #
 
@@ -762,9 +1031,22 @@ class CandidateReport:
         return [pair.cost_usd for pair in self.pairs]
 
     def total_spend(self) -> Decimal:
+        drift = self.drift.cost_usd if self.drift else Decimal("0")
         return sum(
             (pair.cost_usd + pair.stability_cost_usd for pair in self.pairs), Decimal("0")
-        )
+        ) + drift
+
+    def disqualifiers(self) -> list[str]:
+        """Extracted but never graded: PRD F4.4 keeps them out of the number."""
+        return [value for pair in self.pairs for value in pair.disqualifiers]
+
+    def surcharge_pairs(self) -> int:
+        """Pairs whose window fell inside a time-of-day override (DeepSeek's peaks)."""
+        return sum(1 for pair in self.pairs if pair.in_surcharge_window)
+
+    def surcharge_windows(self) -> tuple[SurchargeWindow, ...]:
+        price = PRICES.get(self.candidate.model)
+        return price.surcharges if price else ()
 
     def cost_effective(self) -> Decimal:
         costs = self.costs()
@@ -829,16 +1111,22 @@ def run_experiment(
 ) -> list[CandidateReport]:
     reports: list[CandidateReport] = []
     for candidate in candidates:
+        started_at = datetime.now(UTC)
         probe = probe_candidate(candidate, seed=seed)
         if progress:
             failure = f" ({probe.error})" if probe.error else ""
             progress(f"{candidate.label}: {probe.seed_note}{failure}")
         results: list[PairResult] = []
+        drift: ExtractionDrift | None = None
         if probe.ok:
             for pair in pairs:
                 if progress:
                     progress(f"  {candidate.label} · {pair.id} ({pair.bucket}, {pair.language})")
                 results.append(run_pair(candidate, pair, seed=seed, repeats=repeats))
+            if progress:
+                sample = ", ".join(pair.id for pair in drift_pairs(pairs))
+                progress(f"  {candidate.label} · extraction only, {repeats} × ({sample})")
+            drift = measure_extraction_drift(candidate, pairs, seed=seed, repeats=repeats)
         reports.append(
             CandidateReport(
                 candidate=candidate,
@@ -846,6 +1134,9 @@ def run_experiment(
                 pairs=tuple(results),
                 seed=seed,
                 repeats=repeats,
+                started_at=started_at,
+                finished_at=datetime.now(UTC),
+                drift=drift,
             )
         )
     return reports
@@ -856,10 +1147,49 @@ def run_experiment(
 # --------------------------------------------------------------------------- #
 
 TABLE_HEADER = (
-    "| model | tau-b [95% CI] | rho [95% CI] | stability | max score delta | "
+    "| model | reasoning | tau-b [95% CI] | rho [95% CI] | stability | max score delta | "
     "cost/analysis (effective) | cost/analysis (list) | median latency | verdict |"
 )
-TABLE_RULE = "|---|---|---|---|---|---|---|---|---|"
+TABLE_RULE = "|---|---|---|---|---|---|---|---|---|---|"
+
+
+def _iso(moment: datetime | None) -> str | None:
+    return moment.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ") if moment else None
+
+
+def window_line(reports: Sequence[CandidateReport]) -> str:
+    """When the run happened, and when each candidate started.
+
+    The candidates are meant to run back-to-back inside one clock hour: DeepSeek
+    bills double inside its weekday windows, so two candidates priced under
+    different regimes are not comparable. The recorded stamps are what make that
+    checkable months later, and the per-pair overlap is what makes it exact.
+    """
+    started = [report.started_at for report in reports if report.started_at]
+    finished = [report.finished_at for report in reports if report.finished_at]
+    if not started or not finished:
+        return ""
+    first, last = min(started), max(finished)
+    stamps = ", ".join(
+        report.started_at.astimezone(UTC).strftime("%H:%M:%SZ")
+        if report.started_at
+        else "n/a"
+        for report in reports
+    )
+    hours = sorted({moment.astimezone(UTC).hour for moment in started})
+    if len(hours) == 1:
+        spread = f"all {len(started)} inside the {hours[0]:02d}:00 UTC hour"
+    else:
+        spread = (
+            "start hours " + ", ".join(f"{hour:02d}" for hour in hours) + " UTC — the "
+            "pricing regime may have moved between candidates"
+        )
+    return (
+        f"Run window {first.astimezone(UTC):%Y-%m-%d %H:%M:%SZ} → "
+        f"{last.astimezone(UTC):%H:%M:%SZ} "
+        f"({(last - first).total_seconds() / 60:.1f} min); candidates started {stamps} "
+        f"({spread})."
+    )
 
 
 def _interval(value: float | None, confidence: tuple[float | None, float | None]) -> str:
@@ -875,6 +1205,7 @@ def table_row(report: CandidateReport) -> str:
     stability = report.stability()
     cells = [
         report.candidate.label,
+        report.candidate.reasoning_effort or "provider default",
         _interval(report.tau_b(), report.tau_ci()),
         _interval(report.rho(), report.rho_ci()),
         "n/a" if stability is None else f"{stability:.2f}",
@@ -895,13 +1226,65 @@ def render_table(reports: Sequence[CandidateReport], *, pairs: int) -> str:
         "Agreement is Kendall's tau-b against the pair's bucket; Spearman is reported "
         "because the PRD names it. Confidence intervals are percentile bootstrap "
         "(2000 resamples, same seed). Stability is the mean tau-b between repeated "
-        "gradings of the same posting, extraction held fixed.",
+        "gradings of the same posting, extraction held fixed. Extraction drift is "
+        "measured separately and reported in the notes.",
         "",
-        TABLE_HEADER,
-        TABLE_RULE,
     ]
+    window = window_line(reports)
+    if window:
+        lines.extend([window, ""])
+    lines.extend([TABLE_HEADER, TABLE_RULE])
     lines.extend(table_row(report) for report in reports)
     return "\n".join(lines)
+
+
+def _drift_line(report: CandidateReport) -> str:
+    """The extraction's own variance, on its own line and never inside the judge's."""
+    drift = report.drift
+    if drift is None:
+        return "- extraction drift: not measured (the candidate never ran)"
+    counts = " / ".join(" ".join(str(value) for value in run) for run in drift.requirement_counts)
+    must = " / ".join(" ".join(str(value) for value in run) for run in drift.must_have_counts)
+    return (
+        f"- extraction drift, separate from the judge ({drift.repeats} repeats × "
+        f"{len(drift.pair_ids)} pairs {', '.join(drift.pair_ids)}): graded requirements "
+        f"{counts} (range {drift.count_range}) · must-haves {must} "
+        f"(range {drift.must_have_range}) · mean Jaccard {drift.mean_jaccard:.2f} · "
+        f"identical readings in {drift.identical_share:.0%} of the pairs · "
+        f"${drift.cost_usd:.6f}"
+    )
+
+
+def _disqualifier_line(report: CandidateReport) -> str:
+    values = report.disqualifiers()
+    if not values:
+        return "- disqualifiers extracted: none"
+    pairs = sum(1 for pair in report.pairs if pair.disqualifiers)
+    distinct = list(dict.fromkeys(values))
+    examples = "; ".join(repr(value) for value in distinct[:3])
+    return (
+        f"- disqualifiers extracted ({len(values)} in {pairs} pairs, "
+        f"{len(distinct)} distinct): reported, never graded (PRD F4.4) — {examples}"
+    )
+
+
+def _surcharge_line(report: CandidateReport) -> str:
+    windows = report.surcharge_windows()
+    if not windows:
+        return "- time-of-day price overrides: none recorded for this model"
+    described = ", ".join(
+        f"{'/'.join(_WEEKDAY_NAMES[day] for day in window.weekdays)} "
+        f"{window.start_hour:02d}:00-{window.end_hour or 24:02d}:00 UTC "
+        f"×{window.multiplier:g}"
+        for window in windows
+    )
+    overlap = report.surcharge_pairs()
+    verdict = (
+        "no pair ran inside one"
+        if overlap == 0
+        else f"{overlap} of {len(report.pairs)} pairs ran inside one, at the peak rate"
+    )
+    return f"- time-of-day price overrides {described}: {verdict}"
 
 
 def render_notes(reports: Sequence[CandidateReport]) -> str:
@@ -913,15 +1296,32 @@ def render_notes(reports: Sequence[CandidateReport]) -> str:
         if report.candidate.note:
             lines.append(f"- {report.candidate.note}")
         lines.append(
+            f"- reasoning effort: {report.candidate.reasoning_effort or 'provider default'}"
+            + (
+                " (sent as reasoning.effort; the provider's own default is higher)"
+                if report.candidate.reasoning_effort
+                else ""
+            )
+        )
+        lines.append(
             f"- provider: {report.probe.seed_note}"
             + (f" — {report.probe.error}" if report.probe.error else "")
         )
+        if report.started_at and report.finished_at:
+            lines.append(
+                f"- ran {report.started_at.astimezone(UTC):%Y-%m-%d %H:%M:%SZ} → "
+                f"{report.finished_at.astimezone(UTC):%H:%M:%SZ} "
+                f"({(report.finished_at - report.started_at).total_seconds() / 60:.1f} min)"
+            )
         lines.append(
             f"- repeated gradings byte-identical: {report.identical_repeat_share():.0%} of pairs"
         )
         lines.append(
             f"- ordinals that moved between repeats (PRD §9): {report.changed_ordinals():.1%}"
         )
+        lines.append(_drift_line(report))
+        lines.append(_disqualifier_line(report))
+        lines.append(_surcharge_line(report))
         lines.append(
             f"- cost per analysis: min ${low:.6f} / median ${middle:.6f} / max ${high:.6f} "
             f"(effective, billed) · list ${report.cost_list():.6f}"
@@ -943,6 +1343,25 @@ def report_to_json(report: CandidateReport) -> dict:
         "reference": report.candidate.reference,
         "seed": report.seed,
         "repeats": report.repeats,
+        "started_at": _iso(report.started_at),
+        "finished_at": _iso(report.finished_at),
+        "drift": (
+            {
+                "pair_ids": list(report.drift.pair_ids),
+                "repeats": report.drift.repeats,
+                "requirement_counts": [list(run) for run in report.drift.requirement_counts],
+                "must_have_counts": [list(run) for run in report.drift.must_have_counts],
+                "identical_pairs": list(report.drift.identical_pairs),
+                "count_range": report.drift.count_range,
+                "must_have_range": report.drift.must_have_range,
+                "mean_jaccard": report.drift.mean_jaccard,
+                "cost_usd": str(report.drift.cost_usd),
+                "started_at": _iso(report.drift.started_at),
+                "finished_at": _iso(report.drift.finished_at),
+            }
+            if report.drift
+            else None
+        ),
         "probe": {
             "ok": report.probe.ok,
             "seed_accepted": report.probe.seed_accepted,
@@ -965,6 +1384,8 @@ def report_to_json(report: CandidateReport) -> dict:
             "cost_list": str(report.cost_list()),
             "latency_median_s": report.latency_median(),
             "total_spend": str(report.total_spend()),
+            "disqualifiers": report.disqualifiers(),
+            "surcharge_pairs": report.surcharge_pairs(),
             "verdict": report.verdict(),
         },
         "pairs": [
@@ -984,6 +1405,10 @@ def report_to_json(report: CandidateReport) -> dict:
                 "prompt_tokens": pair.prompt_tokens,
                 "completion_tokens": pair.completion_tokens,
                 "latency_s": pair.latency_s,
+                "disqualifiers": list(pair.disqualifiers),
+                "started_at": _iso(pair.started_at),
+                "finished_at": _iso(pair.finished_at),
+                "in_surcharge_window": pair.in_surcharge_window,
             }
             for pair in report.pairs
         ],

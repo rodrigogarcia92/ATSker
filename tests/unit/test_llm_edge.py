@@ -3,6 +3,8 @@
 from decimal import Decimal
 
 import pytest
+from sqlalchemy import create_engine, text
+from sqlalchemy.orm import Session
 
 from src.extract import client
 from src.extract.client import (
@@ -10,6 +12,7 @@ from src.extract.client import (
     NoModelConfigured,
     ProviderUnavailable,
     StructuredOutputError,
+    TransactionHeldAcrossProviderCall,
     complete_json,
 )
 from src.extract.redaction import redact
@@ -149,6 +152,32 @@ def test_the_seed_and_reasoning_effort_reach_the_payload(session, test_settings,
     assert payload["reasoning"] == {"effort": "low"}
 
 
+def test_runtime_calls_pin_the_lowest_effort_from_the_setting(session, test_settings, monkeypatch):
+    """Left alone, the provider picks the effort; the runtime paths do not let it."""
+    seen = stub(monkeypatch, Answer(ANSWER))
+
+    call(session)
+
+    assert seen[0]["reasoning"] == {"effort": "low"}, (
+        "decision 27 applies to runtime calls, not only to the harness"
+    )
+
+
+def test_the_effort_setting_is_overridable_and_an_explicit_option_wins(
+    session, test_settings, monkeypatch
+):
+    monkeypatch.setenv("OPENROUTER_REASONING_EFFORT", "high")
+    from src.config import get_settings
+
+    get_settings.cache_clear()
+    seen = stub(monkeypatch, Answer(ANSWER))
+
+    call(session)
+    call(session, options=CallOptions(bypass_cache=True, reasoning_effort="max"))
+
+    assert [payload["reasoning"]["effort"] for payload in seen] == ["high", "max"]
+
+
 def test_a_seeded_call_does_not_serve_an_unseeded_answer_from_the_cache(
     session, test_settings, monkeypatch
 ):
@@ -174,8 +203,52 @@ def test_the_fingerprint_the_provider_echoes_is_kept(session, test_settings, mon
     assert completion.fingerprint == "fp_abc123"
 
 
+def test_a_held_transaction_stops_the_call_before_it_leaves(session, test_settings, monkeypatch):
+    """The connection the database kills is the caller's to release, not the client's."""
+    seen = stub(monkeypatch, Answer(ANSWER))
+
+    session.execute(text("select 1"))
+    with pytest.raises(TransactionHeldAcrossProviderCall, match="test:"):
+        call(session)
+
+    session.rollback()
+    session.add(
+        LlmCall(purpose="pending", prompt_version="t", model="m", input_hash="h", response_json={})
+    )
+    with pytest.raises(TransactionHeldAcrossProviderCall, match="test:"):
+        call(session)
+
+    assert seen == [], "nothing is sent while the caller holds database state"
+
+
+def test_a_ledger_failure_keeps_the_answer_and_reports_it(
+    tmp_path, session, test_settings, monkeypatch
+):
+    """Decision 21: a paid answer is never thrown away over a bookkeeping failure."""
+    seen = stub(monkeypatch, Answer(ANSWER))
+    good = client._client_session
+    broken = create_engine(f"sqlite:///{tmp_path}")  # a directory: nothing can connect
+    opened: list[int] = []
+
+    def flaky(bind_session):
+        opened.append(1)
+        return good(bind_session) if len(opened) == 1 else Session(bind=broken)
+
+    monkeypatch.setattr(client, "_client_session", flaky)
+
+    completion = call(session)
+
+    assert completion.data == {"role_id": None, "bullet_ids": [], "skills": [], "note": "ok"}
+    assert not completion.cached
+    assert completion.ledger_error is not None
+    assert len(seen) == 1, "the provider answered once, and the answer was kept"
+    assert session.query(LlmCall).count() == 0, "the missing row is reported, not hidden"
+
+
 def test_missing_model_is_reported_rather_than_defaulted(session, test_settings, monkeypatch):
-    monkeypatch.delenv("OPENROUTER_MODEL")
+    # An empty value, not a deleted one: a developer's .env would otherwise supply
+    # a real model and the test would leave for the network.
+    monkeypatch.setenv("OPENROUTER_MODEL", "")
     from src.config import get_settings
 
     get_settings.cache_clear()

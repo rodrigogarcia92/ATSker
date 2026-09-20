@@ -50,6 +50,35 @@ STORY_SUGGESTION = Prompt(
 )
 
 
+RESUME_EXTRACTION = Prompt(
+    version="resume_extract_v1",
+    # The rules and the vocabulary block are the system message, so repeated
+    # uploads share a cacheable prefix exactly like the JD call (decision 18).
+    system=(
+        "You convert a résumé or CV into structured data. You extract only what "
+        "the document states: never infer, complete or improve a date, an employer "
+        "or a claim, and leave a field out when the document does not say it.\n\n"
+        "The document's language is one of: {languages}. Return its ISO 639-1 code "
+        "and keep every extracted string in the document's own language, as printed.\n\n"
+        "Roles: one entry per position, with its bullet points exactly as written — "
+        "do not merge two bullets into one, do not split one into two, and do not "
+        "rephrase. A line without an employer or a title is not a role.\n\n"
+        "Education and certifications: the document may print both under one heading, "
+        "so return a single array of entries. For each entry give the name as printed "
+        "(the award or the credential), the issuer, the field of study if stated, "
+        "dates as YYYY-MM or YYYY, and a credential id or url only when one is "
+        "printed. Propose a kind — education, certification or unsure — from what "
+        "the document says; unsure is the right answer when it does not say.\n\n"
+        "Skills: choose only names from the vocabulary below, and only the ones the "
+        "document actually shows. Canonical name and kind:\n{skills}\n\n"
+        "Return the headline (a one-line tagline, if the document has one), a "
+        "summary paragraph if it has one, the roles with their bullets, the "
+        "education and certification entries, and the skills."
+    ),
+    template="{text}",
+)
+
+
 JD_EXTRACTION = Prompt(
     version="jd_extract_v2",
     # Everything here is identical for every posting; the posting itself is the

@@ -48,6 +48,10 @@ jobs:
           docker push "$IMAGE"
 
       - name: Deploy to Cloud Run
+        # OPENROUTER_MODEL is a model name, not a secret, so it rides in the
+        # environment. The value is a PROVISIONAL development placeholder (cheapest
+        # candidate, many extraction calls while N1 is tuned) and not a selection:
+        # the real choice comes from the golden set. See docs/ATSker_state.md.
         run: |
           gcloud run deploy atsker \
             --image="$IMAGE" \
@@ -60,7 +64,7 @@ jobs:
             --memory=512Mi \
             --timeout=120 \
             --service-account="${RUNTIME_SERVICE_ACCOUNT}" \
-            --set-env-vars=ENV=production \
+            --set-env-vars=ENV=production,OPENROUTER_MODEL=deepseek/deepseek-v4.1-flash \
             --set-secrets=OPENROUTER_API_KEY=openrouter-api-key:latest,DATABASE_URL=neon-database-url:latest,SESSION_SECRET=session-secret:latest
 
       - name: Report service URL

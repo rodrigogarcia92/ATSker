@@ -9,7 +9,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "technical"
   },
   {
     "canonical": "javascript",
@@ -22,7 +23,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "technical"
   },
   {
     "canonical": "typescript",
@@ -33,7 +35,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "technical"
   },
   {
     "canonical": "java",
@@ -44,7 +47,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "technical"
   },
   {
     "canonical": "c#",
@@ -56,7 +60,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "technical"
   },
   {
     "canonical": "c++",
@@ -68,7 +73,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "technical"
   },
   {
     "canonical": "go",
@@ -79,7 +85,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "technical"
   },
   {
     "canonical": "rust",
@@ -90,7 +97,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "technical"
   },
   {
     "canonical": "r",
@@ -102,7 +110,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "technical"
   },
   {
     "canonical": "scala",
@@ -113,7 +122,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "technical"
   },
   {
     "canonical": "kotlin",
@@ -124,7 +134,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "technical"
   },
   {
     "canonical": "swift",
@@ -135,7 +146,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "technical"
   },
   {
     "canonical": "php",
@@ -146,7 +158,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "technical"
   },
   {
     "canonical": "matlab",
@@ -157,7 +170,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "technical"
   },
   {
     "canonical": "bash",
@@ -169,7 +183,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "technical"
   },
   {
     "canonical": "powershell",
@@ -180,7 +195,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "technical"
   },
   {
     "canonical": "vba",
@@ -190,7 +206,8 @@
     ],
     "lang_tags": [
       "en"
-    ]
+    ],
+    "kind": "technical"
   },
   {
     "canonical": "sql",
@@ -202,7 +219,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "technical"
   },
   {
     "canonical": "mysql",
@@ -213,7 +231,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "tool"
   },
   {
     "canonical": "postgresql",
@@ -224,7 +243,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "tool"
   },
   {
     "canonical": "sql server",
@@ -235,7 +255,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "tool"
   },
   {
     "canonical": "oracle database",
@@ -247,7 +268,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "tool"
   },
   {
     "canonical": "snowflake",
@@ -257,7 +279,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "tool"
   },
   {
     "canonical": "bigquery",
@@ -268,7 +291,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "tool"
   },
   {
     "canonical": "amazon redshift",
@@ -279,7 +303,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "tool"
   },
   {
     "canonical": "databricks",
@@ -289,7 +314,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "tool"
   },
   {
     "canonical": "dbt",
@@ -299,7 +325,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "tool"
   },
   {
     "canonical": "power bi",
@@ -311,7 +338,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "tool"
   },
   {
     "canonical": "tableau",
@@ -321,7 +349,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "tool"
   },
   {
     "canonical": "looker",
@@ -332,7 +361,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "tool"
   },
   {
     "canonical": "etl",
@@ -343,7 +373,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "technical"
   },
   {
     "canonical": "data warehouse",
@@ -355,7 +386,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "technical"
   },
   {
     "canonical": "data lake",
@@ -366,7 +398,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "technical"
   },
   {
     "canonical": "data modeling",
@@ -378,7 +411,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "technical"
   },
   {
     "canonical": "data governance",
@@ -389,7 +423,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "domain"
   },
   {
     "canonical": "data quality",
@@ -400,7 +435,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "domain"
   },
   {
     "canonical": "apache spark",
@@ -410,7 +446,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "tool"
   },
   {
     "canonical": "apache kafka",
@@ -420,7 +457,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "tool"
   },
   {
     "canonical": "apache airflow",
@@ -431,7 +469,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "tool"
   },
   {
     "canonical": "hadoop",
@@ -442,7 +481,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "tool"
   },
   {
     "canonical": "version control",
@@ -453,7 +493,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "technical"
   },
   {
     "canonical": "data visualization",
@@ -464,7 +505,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "technical"
   },
   {
     "canonical": "web scraping",
@@ -476,7 +518,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "technical"
   },
   {
     "canonical": "data analysis",
@@ -488,7 +531,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "technical"
   },
   {
     "canonical": "aws",
@@ -499,7 +543,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "tool"
   },
   {
     "canonical": "microsoft azure",
@@ -509,7 +554,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "tool"
   },
   {
     "canonical": "google cloud platform",
@@ -520,7 +566,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "tool"
   },
   {
     "canonical": "docker",
@@ -531,7 +578,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "tool"
   },
   {
     "canonical": "kubernetes",
@@ -542,7 +590,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "tool"
   },
   {
     "canonical": "terraform",
@@ -552,7 +601,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "tool"
   },
   {
     "canonical": "infrastructure as code",
@@ -563,7 +613,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "technical"
   },
   {
     "canonical": "ci/cd",
@@ -576,7 +627,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "technical"
   },
   {
     "canonical": "git",
@@ -587,7 +639,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "tool"
   },
   {
     "canonical": "github actions",
@@ -598,7 +651,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "tool"
   },
   {
     "canonical": "linux",
@@ -610,7 +664,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "technical"
   },
   {
     "canonical": "unix",
@@ -621,7 +676,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "technical"
   },
   {
     "canonical": "machine learning",
@@ -634,7 +690,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "technical"
   },
   {
     "canonical": "deep learning",
@@ -645,7 +702,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "technical"
   },
   {
     "canonical": "neural networks",
@@ -657,7 +715,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "technical"
   },
   {
     "canonical": "natural language processing",
@@ -669,7 +728,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "technical"
   },
   {
     "canonical": "computer vision",
@@ -681,7 +741,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "technical"
   },
   {
     "canonical": "supervised learning",
@@ -691,7 +752,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "technical"
   },
   {
     "canonical": "unsupervised learning",
@@ -701,7 +763,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "technical"
   },
   {
     "canonical": "clustering",
@@ -713,7 +776,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "technical"
   },
   {
     "canonical": "regression analysis",
@@ -724,7 +788,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "technical"
   },
   {
     "canonical": "feature engineering",
@@ -735,7 +800,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "technical"
   },
   {
     "canonical": "model evaluation",
@@ -746,7 +812,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "technical"
   },
   {
     "canonical": "hyperparameter tuning",
@@ -757,7 +824,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "technical"
   },
   {
     "canonical": "forecasting",
@@ -769,7 +837,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "technical"
   },
   {
     "canonical": "time series analysis",
@@ -781,7 +850,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "technical"
   },
   {
     "canonical": "large language models",
@@ -793,7 +863,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "technical"
   },
   {
     "canonical": "prompt engineering",
@@ -803,7 +874,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "technical"
   },
   {
     "canonical": "mlops",
@@ -814,7 +886,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "technical"
   },
   {
     "canonical": "pandas",
@@ -824,7 +897,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "tool"
   },
   {
     "canonical": "numpy",
@@ -835,7 +909,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "tool"
   },
   {
     "canonical": "scikit-learn",
@@ -847,7 +922,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "tool"
   },
   {
     "canonical": "tensorflow",
@@ -857,7 +933,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "tool"
   },
   {
     "canonical": "pytorch",
@@ -867,7 +944,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "tool"
   },
   {
     "canonical": "recommendation systems",
@@ -878,7 +956,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "technical"
   },
   {
     "canonical": "data science",
@@ -888,7 +967,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "technical"
   },
   {
     "canonical": "statistics",
@@ -900,7 +980,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "technical"
   },
   {
     "canonical": "descriptive statistics",
@@ -910,7 +991,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "technical"
   },
   {
     "canonical": "inferential statistics",
@@ -920,7 +1002,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "technical"
   },
   {
     "canonical": "hypothesis testing",
@@ -931,7 +1014,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "technical"
   },
   {
     "canonical": "probability",
@@ -942,7 +1026,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "technical"
   },
   {
     "canonical": "bayesian statistics",
@@ -953,7 +1038,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "technical"
   },
   {
     "canonical": "sampling",
@@ -964,7 +1050,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "technical"
   },
   {
     "canonical": "statistical significance",
@@ -975,7 +1062,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "technical"
   },
   {
     "canonical": "quantitative analysis",
@@ -986,7 +1074,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "technical"
   },
   {
     "canonical": "experimental design",
@@ -997,7 +1086,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "technical"
   },
   {
     "canonical": "a/b testing",
@@ -1009,7 +1099,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "technical"
   },
   {
     "canonical": "project management",
@@ -1020,7 +1111,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "domain"
   },
   {
     "canonical": "agile",
@@ -1032,7 +1124,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "domain"
   },
   {
     "canonical": "scrum",
@@ -1043,7 +1136,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "domain"
   },
   {
     "canonical": "kanban",
@@ -1054,7 +1148,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "domain"
   },
   {
     "canonical": "product management",
@@ -1065,7 +1160,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "domain"
   },
   {
     "canonical": "roadmap planning",
@@ -1077,7 +1173,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "domain"
   },
   {
     "canonical": "backlog refinement",
@@ -1088,7 +1185,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "domain"
   },
   {
     "canonical": "stakeholder management",
@@ -1100,7 +1198,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "domain"
   },
   {
     "canonical": "requirements gathering",
@@ -1111,7 +1210,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "domain"
   },
   {
     "canonical": "risk management",
@@ -1122,7 +1222,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "domain"
   },
   {
     "canonical": "budget management",
@@ -1133,7 +1234,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "domain"
   },
   {
     "canonical": "change management",
@@ -1143,7 +1245,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "domain"
   },
   {
     "canonical": "okrs",
@@ -1153,7 +1256,8 @@
     ],
     "lang_tags": [
       "en"
-    ]
+    ],
+    "kind": "domain"
   },
   {
     "canonical": "kpis",
@@ -1163,7 +1267,8 @@
     ],
     "lang_tags": [
       "en"
-    ]
+    ],
+    "kind": "domain"
   },
   {
     "canonical": "quality assurance",
@@ -1175,7 +1280,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "domain"
   },
   {
     "canonical": "time management",
@@ -1186,7 +1292,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "soft"
   },
   {
     "canonical": "jira",
@@ -1196,7 +1303,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "tool"
   },
   {
     "canonical": "communication skills",
@@ -1207,7 +1315,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "soft"
   },
   {
     "canonical": "teamwork",
@@ -1218,7 +1327,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "soft"
   },
   {
     "canonical": "collaboration",
@@ -1229,7 +1339,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "soft"
   },
   {
     "canonical": "cross-functional collaboration",
@@ -1240,7 +1351,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "soft"
   },
   {
     "canonical": "problem solving",
@@ -1251,7 +1363,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "soft"
   },
   {
     "canonical": "critical thinking",
@@ -1262,7 +1375,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "soft"
   },
   {
     "canonical": "presentation skills",
@@ -1273,7 +1387,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "soft"
   },
   {
     "canonical": "public speaking",
@@ -1284,7 +1399,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "soft"
   },
   {
     "canonical": "written communication",
@@ -1294,7 +1410,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "soft"
   },
   {
     "canonical": "technical writing",
@@ -1305,7 +1422,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "soft"
   },
   {
     "canonical": "leadership",
@@ -1317,7 +1435,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "soft"
   },
   {
     "canonical": "adaptability",
@@ -1328,7 +1447,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "soft"
   },
   {
     "canonical": "attention to detail",
@@ -1339,7 +1459,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "soft"
   },
   {
     "canonical": "emotional intelligence",
@@ -1349,7 +1470,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "soft"
   },
   {
     "canonical": "conflict resolution",
@@ -1360,7 +1482,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "soft"
   },
   {
     "canonical": "active listening",
@@ -1370,7 +1493,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "soft"
   },
   {
     "canonical": "customer orientation",
@@ -1382,7 +1506,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "soft"
   },
   {
     "canonical": "negotiation",
@@ -1393,7 +1518,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "soft"
   },
   {
     "canonical": "mentoring",
@@ -1404,7 +1530,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "soft"
   },
   {
     "canonical": "microsoft excel",
@@ -1415,7 +1542,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "tool"
   },
   {
     "canonical": "spreadsheets",
@@ -1425,7 +1553,8 @@
     ],
     "lang_tags": [
       "es"
-    ]
+    ],
+    "kind": "technical"
   },
   {
     "canonical": "google sheets",
@@ -1436,7 +1565,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "tool"
   },
   {
     "canonical": "pivot tables",
@@ -1447,7 +1577,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "tool"
   },
   {
     "canonical": "vlookup",
@@ -1456,7 +1587,8 @@
     ],
     "lang_tags": [
       "es"
-    ]
+    ],
+    "kind": "tool"
   },
   {
     "canonical": "microsoft office",
@@ -1468,7 +1600,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "tool"
   },
   {
     "canonical": "microsoft word",
@@ -1479,7 +1612,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "tool"
   },
   {
     "canonical": "powerpoint",
@@ -1490,7 +1624,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "tool"
   },
   {
     "canonical": "google workspace",
@@ -1501,7 +1636,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "tool"
   },
   {
     "canonical": "excel macros",
@@ -1510,7 +1646,8 @@
     ],
     "lang_tags": [
       "es"
-    ]
+    ],
+    "kind": "tool"
   },
   {
     "canonical": "data entry",
@@ -1520,7 +1657,8 @@
     ],
     "lang_tags": [
       "es"
-    ]
+    ],
+    "kind": "technical"
   },
   {
     "canonical": "document management",
@@ -1531,7 +1669,8 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "technical"
   },
   {
     "canonical": "microsoft teams",
@@ -1542,6 +1681,59 @@
     "lang_tags": [
       "es",
       "en"
-    ]
+    ],
+    "kind": "tool"
+  },
+  {
+    "canonical": "fieldwork",
+    "aliases": [
+      "field work",
+      "trabajo de campo",
+      "trabajo en campo"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ],
+    "kind": "experience"
+  },
+  {
+    "canonical": "event organization",
+    "aliases": [
+      "event organisation",
+      "event planning",
+      "organización de eventos"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ],
+    "kind": "experience"
+  },
+  {
+    "canonical": "working with children",
+    "aliases": [
+      "trabajo con niños",
+      "childcare",
+      "cuidado de niños"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ],
+    "kind": "experience"
+  },
+  {
+    "canonical": "volunteering",
+    "aliases": [
+      "voluntariado",
+      "volunteer work",
+      "trabajo voluntario"
+    ],
+    "lang_tags": [
+      "es",
+      "en"
+    ],
+    "kind": "experience"
   }
 ]

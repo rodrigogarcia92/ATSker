@@ -14,6 +14,10 @@ from src.models import Skill, UnmappedTerm
 from src.normalize.text import fold
 from src.normalize.vocabulary import match_text, resolve_terms
 
+# PRD F3. An experience type matches exactly like `python` does; kind only groups
+# entries in the UI. The list lives here so a typo in the seed data fails the tests.
+SKILL_KINDS: tuple[str, ...] = ("technical", "tool", "domain", "soft", "experience")
+
 
 def alias_map(session: Session) -> dict[str, str]:
     """folded alias → canonical, including each canonical as its own alias."""
@@ -69,16 +73,25 @@ def seed_vocabulary(session: Session, entries: Iterable[Mapping[str, object]]) -
         canonical = str(entry["canonical"])
         aliases = [str(value) for value in entry["aliases"]]  # type: ignore[union-attr]
         lang_tags = [str(value) for value in entry["lang_tags"]]  # type: ignore[union-attr]
+        kind = str(entry.get("kind") or "technical")
         skill = existing.get(canonical)
         if skill is None:
-            skill = Skill(canonical=canonical, aliases=aliases, lang_tags=lang_tags)
+            skill = Skill(canonical=canonical, aliases=aliases, lang_tags=lang_tags, kind=kind)
             session.add(skill)
             existing[canonical] = skill
             created += 1
             continue
+        changed = False
         missing = [alias for alias in aliases if alias not in skill.aliases]
         if missing:
             skill.aliases = [*skill.aliases, *missing]
+            changed = True
+        # A kind is seed data, not something a human promoted, so re-running the
+        # seed corrects it (which is how the 140 pre-N1 rows get their real kinds).
+        if skill.kind != kind:
+            skill.kind = kind
+            changed = True
+        if changed:
             enriched += 1
     session.flush()
     return {"created": created, "enriched": enriched, "total": len(existing)}

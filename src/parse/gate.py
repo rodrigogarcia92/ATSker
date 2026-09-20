@@ -7,12 +7,14 @@ travels into a report, a log, or a model prompt (PRD 10).
 
 import json
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
 
 from src.normalize.text import fold
-from src.parse.pdf import DocumentText, PageText
+from src.parse.docx import DocxText
+from src.parse.pdf import DocumentText, PageText, Word
 
 Severity = Literal["blocker", "warning", "info"]
 
@@ -92,6 +94,17 @@ def apply_gate(uncapped: int, report: ParseReport) -> int:
     return uncapped if cap is None else min(uncapped, cap)
 
 
+# The DOCX gate answers the subset of F5.1 that needs no page geometry (decision 36).
+# The panel names the rest, so that "no findings" cannot read as a clean bill of
+# health (F5.1.1).
+_DOCX_NOT_RUN = ("image_bullets", "non_embedded_fonts")
+
+
+def checks_not_run(kind: str) -> tuple[str, ...]:
+    """The F5.1 checks this file format cannot honestly answer."""
+    return _DOCX_NOT_RUN if kind == "docx" else ()
+
+
 def _overlaps(
     word_box: tuple[float, float, float, float], box: tuple[float, float, float, float]
 ) -> bool:
@@ -116,7 +129,47 @@ def _vertical_extent(words, page_height: float) -> float:
     return (bottom - top) / page_height
 
 
-def _column_gap(page: PageText) -> float | None:
+@dataclass(frozen=True)
+class _Gutter:
+    """Where the columns separate, and how far down the page they run (F5.1.1)."""
+
+    gap_pt: float
+    x_range: tuple[float, float]
+    height_fraction: float
+
+
+def _box(bbox: tuple[float, float, float, float]) -> list[float]:
+    """A bounding box rounded for storage: a location, not a measurement."""
+    return [round(float(value), 1) for value in bbox]
+
+
+def _matched_words(words: list[Word], pattern: re.Pattern[str]) -> list[Word]:
+    """The words a pattern's matches cover, against the band's joined text.
+
+    Words split "renglón@ejemplo.com | ++00 111 222 333" into separate tokens, so the
+    patterns run against the joined text and the offsets map each match back to the
+    words that carry it.
+    """
+    parts: list[str] = []
+    spans: list[tuple[int, int]] = []
+    position = 0
+    for word in words:
+        if parts:
+            position += 1  # the space the join inserts
+        parts.append(word.text)
+        spans.append((position, position + len(word.text)))
+        position += len(word.text)
+    text = " ".join(parts)
+
+    found: set[int] = set()
+    for match in pattern.finditer(text):
+        for index, (start, end) in enumerate(spans):
+            if start < match.end() and end > match.start():
+                found.add(index)
+    return [words[index] for index in sorted(found)]
+
+
+def _column_gap(page: PageText) -> _Gutter | None:
     """Approximation of the bimodal x-midpoint histogram: an empty vertical gutter.
 
     The gutter must be at least 40pt wide and both sides must carry text over at
@@ -142,19 +195,30 @@ def _column_gap(page: PageText) -> float | None:
             _vertical_extent(left_words, page.height) >= COLUMN_HEIGHT_FRACTION
             and _vertical_extent(right_words, page.height) >= COLUMN_HEIGHT_FRACTION
         ):
-            return gap
+            both = [*left_words, *right_words]
+            top = min(word.bbox[1] for word in both)
+            bottom = max(word.bbox[3] for word in both)
+            return _Gutter(
+                gap_pt=round(gap, 1),
+                x_range=(round(left[1], 1), round(right[0], 1)),
+                height_fraction=round((bottom - top) / page.height, 2),
+            )
     return None
 
 
-def _heading_lines(page: PageText) -> list[str]:
+def _heading_lines_from(lines: Iterable[str]) -> list[str]:
     found: list[str] = []
-    for raw_line in page.text.splitlines():
+    for raw_line in lines:
         line = raw_line.strip().strip(":.").strip()
         if not line or len(line) > MAX_HEADING_LENGTH:
             continue
         if fold(line) in _FOLDED_HEADINGS:
             found.append(fold(line))
     return found
+
+
+def _heading_lines(page: PageText) -> list[str]:
+    return _heading_lines_from(page.text.splitlines())
 
 
 def check_document(document: DocumentText) -> ParseReport:
@@ -166,26 +230,33 @@ def check_document(document: DocumentText) -> ParseReport:
         findings.append(Finding("no_extractable_text", "blocker", {"pages": empty_pages}))
 
     for page in document.pages:
-        # Words split "renglón@ejemplo.com | ++00 111 222 333" into separate tokens, so the
-        # email and phone patterns are matched against the band's joined text.
-        header = " ".join(word.text for word in page.words if word.bbox[1] < MARGIN_PT)
-        footer = " ".join(
-            word.text for word in page.words if word.bbox[3] > page.height - MARGIN_PT
-        )
-        for band, text in (("header", header), ("footer", footer)):
-            if not text.strip():
-                continue
-            kinds = [
-                kind
-                for kind, pattern in (("email", EMAIL), ("phone", PHONE))
-                if pattern.search(text)
-            ]
+        # Words split "renglón@ejemplo.com | ++00 111 222 333" into separate tokens, so
+        # the patterns run against each band's joined text (F5.1.1 wants the boxes of
+        # the words they matched, so the offsets map back to words).
+        for band, band_words in (
+            ("header", [word for word in page.words if word.bbox[1] < MARGIN_PT]),
+            ("footer", [word for word in page.words if word.bbox[3] > page.height - MARGIN_PT]),
+        ):
+            kinds: list[str] = []
+            matched: list[Word] = []
+            for kind, pattern in (("email", EMAIL), ("phone", PHONE)):
+                hits = _matched_words(band_words, pattern)
+                if hits:
+                    kinds.append(kind)
+                    matched.extend(hits)
             if kinds:
                 findings.append(
                     Finding(
                         "contact_in_margin",
                         "blocker",
-                        {"page": page.number, "band": band, "kinds": kinds},
+                        {
+                            "page": page.number,
+                            "band": band,
+                            "kinds": kinds,
+                            "boxes": [
+                                _box(bbox) for bbox in sorted({word.bbox for word in matched})
+                            ],
+                        },
                     )
                 )
 
@@ -200,23 +271,42 @@ def check_document(document: DocumentText) -> ParseReport:
                     Finding(
                         "text_in_table",
                         "blocker",
-                        {"page": page.number, "words": len(inside), "tables": len(page.tables)},
+                        {
+                            "page": page.number,
+                            "words": len(inside),
+                            "tables": len(page.tables),
+                            "boxes": [_box(word.bbox) for word in inside],
+                            "table_boxes": [_box(table) for table in page.tables],
+                        },
                     )
                 )
 
-        if page.white_words:
+        if page.white_boxes:
             findings.append(
                 Finding(
                     "invisible_text",
                     "blocker",
-                    {"page": page.number, "words": len(page.white_words)},
+                    {
+                        "page": page.number,
+                        "words": len(page.white_boxes),
+                        "boxes": [_box(bbox) for bbox in page.white_boxes],
+                    },
                 )
             )
 
-        gap = _column_gap(page)
-        if gap is not None:
+        gutter = _column_gap(page)
+        if gutter is not None:
             findings.append(
-                Finding("multi_column", "warning", {"page": page.number, "gap_pt": round(gap, 1)})
+                Finding(
+                    "multi_column",
+                    "warning",
+                    {
+                        "page": page.number,
+                        "gap_pt": gutter.gap_pt,
+                        "gutter": list(gutter.x_range),
+                        "height_fraction": gutter.height_fraction,
+                    },
+                )
             )
 
         bullets = [
@@ -226,10 +316,97 @@ def check_document(document: DocumentText) -> ParseReport:
         ]
         if bullets:
             findings.append(
-                Finding("image_bullets", "info", {"page": page.number, "count": len(bullets)})
+                Finding(
+                    "image_bullets",
+                    "info",
+                    {
+                        "page": page.number,
+                        "count": len(bullets),
+                        "boxes": [_box(bbox) for bbox in bullets],
+                    },
+                )
             )
 
     if not any(_heading_lines(page) for page in document.pages):
+        findings.append(Finding("unrecognised_headings", "warning", {"headings_found": 0}))
+
+    for page in document.pages:
+        markers = [marker for marker in MOJIBAKE_MARKERS if marker in page.text]
+        if not markers:
+            continue
+        boxes = [word.bbox for word in page.words if any(marker in word.text for marker in markers)]
+        findings.append(
+            Finding(
+                "mojibake",
+                "warning",
+                {
+                    "page": page.number,
+                    "markers": markers,
+                    "count": sum(page.text.count(marker) for marker in markers),
+                    "boxes": [_box(bbox) for bbox in boxes],
+                },
+            )
+        )
+
+    first_page: dict[str, int] = {}
+    for page in document.pages:
+        for font in page.unembedded_fonts:
+            first_page.setdefault(font, page.number)
+    if first_page:
+        findings.append(
+            Finding(
+                "non_embedded_fonts",
+                "info",
+                {"fonts": sorted(first_page), "first_pages": first_page},
+            )
+        )
+
+    return ParseReport(findings=tuple(findings))
+
+
+def check_docx(document: DocxText) -> ParseReport:
+    """The F5.1 checks a Word file can honestly answer (`parse.docx` explains which).
+
+    Same severities as the PDF path and the same gate arithmetic, so a .docx and a
+    PDF carrying the same defect cap a score identically.
+    """
+    findings: list[Finding] = []
+
+    if not document.text.strip():
+        findings.append(Finding("no_extractable_text", "blocker", {}))
+
+    for band, lines in (("header", document.headers), ("footer", document.footers)):
+        text = " ".join(lines)
+        if not text.strip():
+            continue
+        kinds = [
+            kind
+            for kind, pattern in (("email", EMAIL), ("phone", PHONE))
+            if pattern.search(text)
+        ]
+        if kinds:
+            findings.append(
+                Finding("contact_in_margin", "blocker", {"band": band, "kinds": kinds})
+            )
+
+    populated = [table for table in document.tables if table]
+    if populated:
+        findings.append(
+            Finding(
+                "text_in_table",
+                "blocker",
+                {"tables": len(populated), "cells": sum(len(table) for table in populated)},
+            )
+        )
+
+    invisible = [*document.white_runs, *document.hidden_runs]
+    if invisible:
+        findings.append(Finding("invisible_text", "blocker", {"runs": len(invisible)}))
+
+    if document.columns > 1:
+        findings.append(Finding("multi_column", "warning", {"columns": document.columns}))
+
+    if not _heading_lines_from(document.text.splitlines()):
         findings.append(Finding("unrecognised_headings", "warning", {"headings_found": 0}))
 
     text = document.text
@@ -239,12 +416,8 @@ def check_document(document: DocumentText) -> ParseReport:
             Finding(
                 "mojibake",
                 "warning",
-                {"markers": markers, "count": sum(text.count(m) for m in markers)},
+                {"markers": markers, "count": sum(text.count(marker) for marker in markers)},
             )
         )
-
-    fonts = sorted({font for page in document.pages for font in page.unembedded_fonts})
-    if fonts:
-        findings.append(Finding("non_embedded_fonts", "info", {"fonts": fonts}))
 
     return ParseReport(findings=tuple(findings))

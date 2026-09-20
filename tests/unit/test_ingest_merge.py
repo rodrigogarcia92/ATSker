@@ -1,0 +1,328 @@
+"""The F2.5 merge: diff labels, history, and the rule that nothing overwrites silently.
+
+The acceptance path is here: a first upload creates, a second upload of the same
+content diffs as unchanged and duplicates nothing, and a changed bullet keeps the
+text it had.
+"""
+
+import hashlib
+
+from src.bullets import get_bullet, list_bullets, set_bullet_active
+from src.certifications import list_certifications
+from src.education import list_educations
+from src.ingest.draft import DraftBullet, DraftCertification, DraftEducation, DraftRole, ResumeDraft
+from src.ingest.merge import MergeResult, Selections, apply_merge, diff_draft
+from src.models import BulletRevision, Resume
+from src.resumes import create_resume
+from src.roles import list_roles
+
+
+def make_resume(session, profile_id, draft: ResumeDraft, name: str = "cv") -> Resume:
+    return create_resume(
+        profile_id,
+        session,
+        filename=f"{name}.docx",
+        data=b"bytes",
+        sha256=hashlib.sha256(name.encode()).hexdigest(),
+        gate={},
+        draft=draft.model_dump(mode="json"),
+    )
+
+
+def full_draft(bullet_text: str = "Modelé el riesgo de crédito con Python") -> ResumeDraft:
+    return ResumeDraft(
+        language="es",
+        headline="Analista de datos",
+        summary="Cinco años automatizando reportes.",
+        skills=["python"],
+        roles=[
+            DraftRole(
+                employer="Globex",
+                title="Data Scientist",
+                start_date="2021-01",
+                bullets=[DraftBullet(text=bullet_text, chips=["python"])],
+            )
+        ],
+        educations=[
+            DraftEducation(
+                institution="Universidad Nacional de Ingeniería",
+                award="Bachiller en Ingeniería de Sistemas",
+                end_date="2019",
+            )
+        ],
+        certifications=[
+            DraftCertification(name="Scrum Master", issuer="Scrum Alliance", issued_date="2020-03")
+        ],
+    )
+
+
+def select_all(plan) -> Selections:
+    return Selections(
+        roles=frozenset(range(len(plan.roles))),
+        bullets=frozenset(
+            (index, bullet)
+            for index, role in enumerate(plan.roles)
+            for bullet in range(len(role.bullets))
+        ),
+        educations=frozenset(range(len(plan.educations))),
+        certifications=frozenset(range(len(plan.certifications))),
+        skills=frozenset(range(len(plan.skills))),
+    )
+
+
+def test_a_first_upload_diffs_as_new_and_merges_everything(session, career):
+    profile_id = career.first_profile.id
+    draft = full_draft()
+    resume = make_resume(session, profile_id, draft)
+
+    plan = diff_draft(profile_id, session, draft)
+    assert [role.label for role in plan.roles] == ["new"]
+    assert [bullet.label for role in plan.roles for bullet in role.bullets] == ["new"]
+    assert [entry.label for entry in plan.educations] == ["new"]
+    assert [entry.label for entry in plan.certifications] == ["new"]
+    assert [entry.label for entry in plan.skills] == ["new"]
+    assert plan.label_counts() == {"new": 5, "changed": 0, "unchanged": 0}
+
+    result = apply_merge(
+        profile_id,
+        session,
+        resume_id=resume.id,
+        draft=draft,
+        plan=plan,
+        selections=select_all(plan),
+    )
+
+    assert result == MergeResult(
+        roles_created=1,
+        bullets_created=1,
+        educations_created=1,
+        certifications_created=1,
+        skills_added=1,
+    )
+    roles = list_roles(profile_id, session, active_only=False)
+    assert "Globex" in {role.employer for role in roles}
+    created = next(role for role in roles if role.employer == "Globex")
+    bullets = list_bullets(profile_id, session, active_only=True, role_id=created.id)
+    assert [bullet.text_es for bullet in bullets] == ["Modelé el riesgo de crédito con Python"]
+    assert bullets[0].skills == ["python"]
+    assert [entry.institution for entry in list_educations(profile_id, session)] == [
+        "Universidad Nacional de Ingeniería"
+    ]
+    assert [entry.name for entry in list_certifications(profile_id, session)] == ["Scrum Master"]
+    assert career.first_profile.skills == ["python"]
+    assert resume.merged_at is not None
+
+
+def test_a_second_upload_of_the_same_draft_is_unchanged_and_duplicates_nothing(session, career):
+    profile_id = career.first_profile.id
+    draft = full_draft()
+    first = make_resume(session, profile_id, draft, "first")
+    first_plan = diff_draft(profile_id, session, draft)
+    apply_merge(
+        profile_id,
+        session,
+        resume_id=first.id,
+        draft=draft,
+        plan=first_plan,
+        selections=select_all(first_plan),
+    )
+    counts_before = (
+        len(list_roles(profile_id, session, active_only=False)),
+        len(list_bullets(profile_id, session, active_only=False)),
+        len(list_educations(profile_id, session)),
+        len(list_certifications(profile_id, session)),
+    )
+
+    second = make_resume(session, profile_id, draft, "second")
+    plan = diff_draft(profile_id, session, draft)
+
+    assert [role.label for role in plan.roles] == ["unchanged"]
+    assert [bullet.label for role in plan.roles for bullet in role.bullets] == ["unchanged"]
+    assert [entry.label for entry in plan.educations] == ["unchanged"]
+    assert [entry.label for entry in plan.certifications] == ["unchanged"]
+    assert [entry.label for entry in plan.skills] == ["unchanged"]
+
+    result = apply_merge(
+        profile_id,
+        session,
+        resume_id=second.id,
+        draft=draft,
+        plan=plan,
+        selections=select_all(plan),
+    )
+
+    assert result == MergeResult(), "unchanged candidates write nothing"
+    assert counts_before == (
+        len(list_roles(profile_id, session, active_only=False)),
+        len(list_bullets(profile_id, session, active_only=False)),
+        len(list_educations(profile_id, session)),
+        len(list_certifications(profile_id, session)),
+    )
+
+
+def test_a_reworded_bullet_is_changed_and_keeps_the_old_text(session, career):
+    profile_id = career.first_profile.id
+    original = career.first_bullet
+    old_text = original.text_es
+    draft = ResumeDraft(
+        language="es",
+        roles=[
+            DraftRole(
+                employer="Acme",
+                title="Analista de datos",
+                bullets=[
+                    DraftBullet(
+                        text="Reduje el tiempo de reporte un 30% con Python",
+                        chips=["python"],
+                    )
+                ],
+            )
+        ],
+    )
+    resume = make_resume(session, profile_id, draft)
+
+    plan = diff_draft(profile_id, session, draft)
+    candidate = plan.roles[0].bullets[0]
+    assert plan.roles[0].label == "unchanged"
+    assert candidate.label == "changed"
+    assert candidate.old_text == old_text
+
+    result = apply_merge(
+        profile_id,
+        session,
+        resume_id=resume.id,
+        draft=draft,
+        plan=plan,
+        selections=select_all(plan),
+    )
+
+    assert result.bullets_updated == 1
+    assert result.bullets_created == 0
+    updated = get_bullet(profile_id, session, original.id)
+    assert updated.text_es == "Reduje el tiempo de reporte un 30% con Python"
+    revisions = session.query(BulletRevision).all()
+    assert [revision.text_es for revision in revisions] == [old_text]
+    assert revisions[0].resume_id == resume.id
+
+
+def test_an_identical_deactivated_bullet_is_flagged_for_reactivation(session, career):
+    profile_id = career.first_profile.id
+    set_bullet_active(profile_id, session, career.first_bullet.id, active=False)
+    draft = ResumeDraft(
+        language="es",
+        roles=[
+            DraftRole(
+                employer="Acme",
+                title="Analista de datos",
+                bullets=[DraftBullet(text=career.first_bullet.text_es, chips=["python"])],
+            )
+        ],
+    )
+    resume = make_resume(session, profile_id, draft)
+
+    plan = diff_draft(profile_id, session, draft)
+    candidate = plan.roles[0].bullets[0]
+
+    assert candidate.label == "changed"
+    assert candidate.reactivates is True
+    assert candidate.old_text is None, "nothing is rewritten, so there is no revision"
+
+    apply_merge(
+        profile_id,
+        session,
+        resume_id=resume.id,
+        draft=draft,
+        plan=plan,
+        selections=select_all(plan),
+    )
+
+    assert get_bullet(profile_id, session, career.first_bullet.id).active is True
+    assert session.query(BulletRevision).count() == 0
+
+
+def test_unchecked_candidates_change_nothing(session, career):
+    profile_id = career.first_profile.id
+    draft = full_draft()
+    resume = make_resume(session, profile_id, draft)
+    plan = diff_draft(profile_id, session, draft)
+
+    result = apply_merge(
+        profile_id,
+        session,
+        resume_id=resume.id,
+        draft=draft,
+        plan=plan,
+        selections=Selections(),
+    )
+
+    assert result == MergeResult()
+    employers = [role.employer for role in list_roles(profile_id, session, active_only=False)]
+    assert employers == ["Acme"]
+    assert resume.merged_at is not None
+
+
+def test_bullets_of_an_unchecked_new_role_are_counted_as_skipped(session, career):
+    profile_id = career.first_profile.id
+    draft = full_draft()
+    resume = make_resume(session, profile_id, draft)
+    plan = diff_draft(profile_id, session, draft)
+
+    result = apply_merge(
+        profile_id,
+        session,
+        resume_id=resume.id,
+        draft=draft,
+        plan=plan,
+        selections=Selections(bullets=frozenset({(0, 0)})),
+    )
+
+    assert result.skipped == 1
+    assert result.bullets_created == 0
+    assert len(list_bullets(profile_id, session, active_only=False)) == 1
+
+
+def test_a_changed_education_reports_which_fields_moved(session, career):
+    from src.education import create_education
+
+    profile_id = career.first_profile.id
+    create_education(
+        profile_id,
+        session,
+        institution="Universidad Nacional de Ingeniería",
+        degree="Bachiller en Ingeniería de Sistemas",
+        field="Ingeniería Industrial",
+        end_date=None,
+    )
+    draft = ResumeDraft(
+        language="es",
+        educations=[
+            DraftEducation(
+                institution="Universidad Nacional de Ingeniería",
+                award="Bachiller en Ingeniería de Sistemas",
+                field="Ingeniería de Sistemas",
+                end_date="2019",
+            )
+        ],
+    )
+
+    plan = diff_draft(profile_id, session, draft)
+
+    assert plan.educations[0].label == "changed"
+    assert plan.educations[0].changes == ("field", "dates")
+
+
+def test_a_foreign_resume_cannot_be_merged(session, career):
+    draft = full_draft()
+    resume = make_resume(session, career.first_profile.id, draft)
+
+    result = apply_merge(
+        career.second_profile.id,
+        session,
+        resume_id=resume.id,
+        draft=draft,
+        plan=diff_draft(career.second_profile.id, session, draft),
+        selections=Selections(),
+    )
+
+    assert result is None
+    assert resume.merged_at is None

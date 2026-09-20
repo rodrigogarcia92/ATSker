@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from src.db import short_session
 from src.extract import redaction
 from src.extract.client import CallOptions, Completion, complete_json
 from src.extract.prompts import JD_EXTRACTION
@@ -73,15 +74,16 @@ def extract_jd(
     if not normalized:
         raise ValueError("the job description is empty")
 
-    canonicals = vocabulary_canonicals(session)
+    # The vocabulary read is the function's own: the caller's transaction is never
+    # opened or ended here (client.complete_json refuses to run inside one).
+    with short_session(session) as reader:
+        canonicals = vocabulary_canonicals(reader)
+    system = JD_EXTRACTION.render_system(skills="\n".join(canonicals), languages="es, en")
     completion = complete_json(
         session,
         purpose=PURPOSE,
         prompt_version=JD_EXTRACTION.version,
-        system=JD_EXTRACTION.render_system(
-            skills="\n".join(canonicals),
-            languages="es, en",
-        ),
+        system=system,
         user=JD_EXTRACTION.render(text=redaction.redact(normalized)),
         schema=JDProposal,
         model=model,

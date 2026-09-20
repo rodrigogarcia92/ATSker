@@ -101,6 +101,7 @@ def test_the_same_posting_is_never_analysed_twice(
     calls = stub(monkeypatch)
 
     first, first_extraction = extract_jd(session, POSTING)
+    session.commit()  # the first call's vocabulary notes do not cross the second call
     second, second_extraction = extract_jd(session, POSTING)
 
     assert first_extraction.cached is False and second_extraction.cached is True
@@ -118,6 +119,7 @@ def test_whitespace_does_not_defeat_the_cache(
     reformatted = POSTING.replace("\n", "\r\n").replace("  ", " ") + "\n\n   "
 
     extract_jd(session, POSTING)
+    session.commit()  # the call sequence must not carry pending writes across a call
     extract_jd(session, reformatted)
 
     assert len(calls) == 1

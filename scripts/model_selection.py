@@ -17,21 +17,26 @@ with a stubbed provider, so the harness is green in CI without a key.
 
 import argparse
 import json
+import sys
 from pathlib import Path
 
-from src.config import get_settings
-from src.model_selection import (
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from src.config import get_settings  # noqa: E402
+from src.model_selection import (  # noqa: E402
     CANDIDATES,
     DEFAULT_REPEATS,
     DEFAULT_SEED,
     GLM_REFERENCE,
     Candidate,
     composition_notes,
+    drift_pairs,
     load_pairs,
     render_notes,
     render_table,
     report_to_json,
     run_experiment,
+    surcharge_warnings,
     verify_prices,
 )
 
@@ -48,7 +53,11 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Model-selection experiment (PRD §9)")
     parser.add_argument("--pairs", default="fixtures/golden", help="directory of golden *.toml")
     parser.add_argument("--out", default="fixtures/model_selection.json", help="JSON detail")
-    parser.add_argument("--models", default="", help="comma-separated model ids or labels")
+    parser.add_argument(
+        "--models",
+        default="",
+        help="comma-separated model ids or labels (a smoke subset: the comparison needs all three)",
+    )
     parser.add_argument("--repeats", type=int, default=DEFAULT_REPEATS)
     parser.add_argument("--seed", type=int, default=DEFAULT_SEED)
     parser.add_argument("--limit", type=int, default=0, help="first N pairs only (smoke run)")
@@ -73,9 +82,16 @@ def main(argv: list[str] | None = None) -> int:
         candidates = [*candidates, GLM_REFERENCE]
 
     print(f"{len(pairs)} pairs · repeats {args.repeats} · seed {args.seed} · cache bypassed")
+    sample = drift_pairs(pairs)
+    print(
+        f"  extraction drift measured separately: {args.repeats} repeats of the "
+        f"extraction call alone on {len(sample)} pairs ({', '.join(p.id for p in sample)})"
+    )
     for note in composition_notes(pairs):
         print(f"  ! {note}")
     for note in verify_prices(candidates):
+        print(f"  ! {note}")
+    for note in surcharge_warnings(candidates):
         print(f"  ! {note}")
     print()
 
