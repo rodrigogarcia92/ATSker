@@ -11,7 +11,7 @@ import unicodedata
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal, cast
 
 from src.normalize.text import fold
 from src.parse.docx import DocxText
@@ -100,6 +100,25 @@ class ParseReport:
                 for f in self.findings
             ],
         }
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> "ParseReport":
+        """The inverse of `to_dict` (F5.1).
+
+        A stored gate is JSON in a column, not an object: an analysis of a track has
+        to be capped by the document that produced the track, and the cap comes from
+        the findings. `cap` and `cap_reason` are derived here rather than read back,
+        so a stored report cannot disagree with its own findings.
+        """
+        findings = tuple(
+            Finding(
+                check=str(item.get("check")),
+                severity=cast(Severity, str(item.get("severity"))),
+                detail=dict(item.get("detail") or {}),
+            )
+            for item in payload.get("findings", [])
+        )
+        return cls(findings=findings)
 
 
 def apply_gate(uncapped: int, report: ParseReport) -> int:

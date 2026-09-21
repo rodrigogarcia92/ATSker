@@ -87,3 +87,20 @@ def mark_merged(
     session.flush()
     return resume
 
+
+def source_document_for_track(
+    profile_id: uuid.UUID, session: Session, track_id: str | uuid.UUID
+) -> Resume | None:
+    """The most recent active résumé uploaded for a track, or None (PRD F5.1).
+
+    A track built from an upload (F4 creation path 1) carries the document it came
+    from, and an analysis of that track is capped by that document's findings — not
+    by whatever else happens to sit in the profile. `list_resumes` is newest first,
+    so the first match is the most recent one.
+    """
+    wanted = str(track_id)
+    for resume in list_resumes(profile_id, session, active_only=True):
+        if resume.track_id is not None and str(resume.track_id) == wanted:
+            return resume
+    return None
+

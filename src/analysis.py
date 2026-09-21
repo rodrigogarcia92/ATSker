@@ -5,9 +5,13 @@ This module exists because the two halves may not know about each other: `score/
 makes no network calls and `extract/` imports neither `score/` nor `parse/`
 (PRD 5.1), so the composition lives here.
 
-Until M9 supplies embeddings, the semantic sub-score cannot be computed. The total
-is renormalised over the four that exist, and the omission, its reason and the
-effective weights are recorded in the report (state doc §4, option A).
+The four sub-scores are `w2` (PRD F5.5): `skills`, `experience`, `title`, `keywords`,
+with semantic fit removed rather than deferred, so nothing is declared unavailable and
+nothing is renormalised. The guard that refuses an undeclared omission stays in
+`aggregate()` all the same.
+
+An analysis of a track is scored against that track's selection and capped by the
+résumé the track was built from, when there is one (F5.1).
 """
 
 import uuid
@@ -26,18 +30,16 @@ from src.extract.prompts import EVIDENCE_GRADING, JD_EXTRACTION
 from src.jd import StructuredJD
 from src.models import Bullet, Profile, Track
 from src.parse.gate import ParseReport
+from src.resumes import source_document_for_track
 from src.roles import list_roles
 from src.score.aggregate import SubScore, aggregate
 from src.score.evidence import Level, evidence_coverage
 from src.score.experience import experience_score
 from src.score.keywords import keyword_context
 from src.score.title import title_alignment
-from src.score.weights import W1
+from src.score.weights import W2
 from src.tracks import track_bullets
 from src.vocabulary import alias_map
-
-# The reason recorded in every report while the semantic sub-score does not exist.
-UNAVAILABLE_UNTIL_M9 = {"semantic": "embeddings_not_available"}
 
 
 @dataclass(frozen=True)
@@ -129,6 +131,13 @@ def analyze(
             for bullet in track_bullets(profile_id, session, track.id)
             if bullet.active and bullet.role_id in role_ids
         ]
+        # F5.1: a track built from an upload is capped by the document that produced
+        # it. No source document — or no track — means no gate and no cap, which is
+        # also what an analysis against the master database has always been.
+        if gate is None:
+            source = source_document_for_track(profile_id, session, track.id)
+            if source is not None and source.gate:
+                gate = ParseReport.from_dict(source.gate)
     aliases = alias_map(session)
     today = date.today()
 
@@ -157,10 +166,10 @@ def analyze(
             role_titles=[role.title for role in roles],
             aliases=aliases,
         ),
-        "evidence": evidence_coverage(
+        "skills": evidence_coverage(
             [Level(entry.requirement, entry.level, entry.must_have) for entry in grading.levels]
         ),
-        "keyword": keyword_context(
+        "keywords": keyword_context(
             jd, [bullet_text(bullet) for bullet in bullets], aliases=aliases
         ),
         "experience": experience_score(
@@ -173,7 +182,7 @@ def analyze(
             today=today,
         ),
     }
-    score = aggregate(sub_scores, W1, gate=gate, unavailable=UNAVAILABLE_UNTIL_M9)
+    score = aggregate(sub_scores, W2, gate=gate)
 
     texts = {str(bullet.id): bullet_text(bullet) for bullet in bullets}
     calls = (extraction, *grading.calls)

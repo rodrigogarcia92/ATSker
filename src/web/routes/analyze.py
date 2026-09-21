@@ -21,9 +21,11 @@ from src.extract.client import (
 )
 from src.extract.grading import CitationViolation
 from src.i18n import t
-from src.score.aggregate import SUB_SCORES
+from src.parse.gate import checks_not_run
+from src.resumes import source_document_for_track
 from src.tracks import get_track, list_tracks
 from src.web.deps import DbSession, OwnProfile, SignedInUser
+from src.web.findings import document_kind, finding_rows
 from src.web.templating import render
 
 router = APIRouter()
@@ -114,6 +116,10 @@ def analyze_submit(
         prompt_versions=analysis.prompt_versions,
         token_cost_usd=analysis.cost_usd,
         track_id=track.id if track is not None else None,
+        # The findings of the document that capped the score, if one did (F5.1). The
+        # report already carries the same JSON under `gate`; the column is what the
+        # report page reads, and what N4's boolean recall will sit beside.
+        scan_readability=analysis.report.get("gate"),
     )
     session.commit()
     return RedirectResponse(f"/applications/{application.id}", status_code=303)
@@ -130,6 +136,13 @@ def application_report(
     application = get_application(profile.id, session, application_id)
     if application is None:
         return render(request, "not_found.html", user=user, status_code=404)
+    # The readability panel names the checks the file's format could not answer, so it
+    # needs the source document's kind — the résumé the track was built from.
+    source = (
+        source_document_for_track(profile.id, session, application.track_id)
+        if application.track_id
+        else None
+    )
     return render(
         request,
         "analyze/report.html",
@@ -137,6 +150,10 @@ def application_report(
         profile=profile,
         application=application,
         report=application.report,
-        sub_order=SUB_SCORES,
-        component_count=len(SUB_SCORES),
+        findings=finding_rows(application.scan_readability or {}, user.ui_lang),
+        not_run=(
+            checks_not_run(document_kind(source.filename))
+            if source is not None and application.scan_readability
+            else ()
+        ),
     )

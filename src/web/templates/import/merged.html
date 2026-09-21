@@ -25,6 +25,14 @@
 <p class="mt-2 text-sm text-slate-600">{{ t('import.merged_intro', lang) }}</p>
 {% endif %}
 
+{% if track %}
+{# F4 creation path 1: the merge can turn the document into a track, and this is it. #}
+<p class="mt-2 text-sm text-slate-600">
+  {{ t('import.track_created', lang, name=track.name) }}
+  <a href="/tracks/{{ track.id }}" class="underline">{{ t('import.track_view', lang) }}</a>
+</p>
+{% endif %}
+
 {% if result %}
 {% if result.is_empty %}
 {# F2.5: an all-zero result is a result. A blank summary reads as a broken page. #}

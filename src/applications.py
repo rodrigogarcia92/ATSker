@@ -26,6 +26,7 @@ def create_application(
     company: str | None = None,
     title: str | None = None,
     track_id: uuid.UUID | None = None,
+    scan_readability: dict | None = None,
 ) -> Application:
     """Persist one analysis. The schema exists from the first real application (F8)."""
     application = Application(
@@ -39,6 +40,7 @@ def create_application(
         prompt_versions=prompt_versions,
         token_cost_usd=token_cost_usd,
         track_id=track_id,
+        scan_readability=scan_readability,
     )
     session.add(application)
     session.flush()

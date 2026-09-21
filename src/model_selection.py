@@ -53,7 +53,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from src.analysis import UNAVAILABLE_UNTIL_M9, Analysis, analyze
+from src.analysis import Analysis, analyze
 from src.extract.client import CallOptions, complete_json
 from src.extract.grading import grade_evidence, requirements_of
 from src.extract.jd import extract_jd
@@ -62,7 +62,7 @@ from src.normalize.metrics import extract_metrics
 from src.normalize.text import fold
 from src.score.aggregate import SubScore, aggregate
 from src.score.evidence import Level, evidence_coverage
-from src.score.weights import W1
+from src.score.weights import W2
 from src.vocabulary import resolve_bullet_terms, seed_vocabulary
 
 # Deterministic ids, so a rerun of the same fixture produces the same citation
@@ -739,10 +739,10 @@ def _total_with_evidence(analysis: Analysis, levels: Sequence[Level]) -> int:
     sub_scores = {
         name: SubScore(name=name, value=float(entry["value"]))
         for name, entry in recorded.items()
-        if name != "evidence"
+        if name != "skills"
     }
-    sub_scores["evidence"] = evidence_coverage(levels)
-    return aggregate(sub_scores, W1, unavailable=UNAVAILABLE_UNTIL_M9).uncapped
+    sub_scores["skills"] = evidence_coverage(levels)
+    return aggregate(sub_scores, W2).uncapped
 
 
 def _in_surcharge(

@@ -14,7 +14,7 @@ from docx import Document
 from fastapi.testclient import TestClient
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, select
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import NullPool
 
@@ -24,13 +24,20 @@ from src.certifications import list_certifications
 from src.education import list_educations
 from src.extract import client as extract_client
 from src.extract.client import TransactionHeldAcrossProviderCall
-from src.models import Base, LlmCall, Resume
+from src.models import Application, Base, LlmCall, Resume, Track
 from src.roles import list_roles
+from src.tracks import list_tracks, track_bullets
 from src.web.deps import get_db
 from src.web.main import create_app
 from tests.conftest import PASSWORD, login
 
 DOCX_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+POSTING = """
+Analista de datos — Banco Demo (híbrido, Lima)
+Buscamos un analista con 3 años de experiencia en Python y machine learning.
+Imprescindible: título universitario.
+"""
 
 PROPOSAL = json.dumps(
     {
@@ -643,3 +650,102 @@ def test_the_import_panel_reports_invisible_glyphs_without_capping(
     assert "2 caracteres invisibles (de puntuación)" in text
     assert "no afectan a cómo un ATS lee este documento" in text
     assert "Bloqueante" not in text, "an export artifact is not a blocker"
+
+
+# --- 2.2/2.3: the gate reaches the score, and an upload can become a track ----
+
+
+def test_a_merge_can_turn_the_document_into_a_track(client, session, career, provider):
+    """F4 creation path 1: the parsed résumé becomes a track with its bullets selected."""
+    login(client, career.first.email)
+    data = docx_bytes("Experiencia", "Reduje el cierre un 30% con Python")
+    uploaded = upload(client, data)
+    client.post(f"{uploaded.headers['location']}/review", data=REVIEWED_FORM)
+
+    created = client.post(
+        f"{uploaded.headers['location']}/merge",
+        data={**MERGE_FORM, "merge_track": "on", "track_name": "Analista de datos (CV)"},
+    )
+
+    assert created.status_code == 200
+    assert "Puesto objetivo creado: Analista de datos (CV)" in plain(created.text)
+    track = session.scalar(select(Track).where(Track.name == "Analista de datos (CV)"))
+    assert track is not None
+    assert track.lang == "es"
+    bullets = [
+        bullet.text_es
+        for bullet in track_bullets(career.first_profile.id, session, track.id)
+    ]
+    assert bullets == ["Modelé el riesgo de crédito con Python"], "the document's own bullet"
+    session.expire_all()
+    assert session.query(Resume).one().track_id == track.id, "the source document is findable"
+
+
+def test_a_merge_without_the_checkbox_creates_no_track(client, session, career, provider):
+    """Off by default: a merge must not create a track by surprise."""
+    login(client, career.first.email)
+    before = len(list_tracks(career.first_profile.id, session, active_only=False))
+    uploaded = upload(client, docx_bytes("Experiencia", "Reduje el cierre un 30% con Python"))
+    client.post(f"{uploaded.headers['location']}/review", data=REVIEWED_FORM)
+
+    merged = client.post(f"{uploaded.headers['location']}/merge", data=MERGE_FORM)
+
+    assert "Puesto objetivo creado" not in plain(merged.text)
+    assert len(list_tracks(career.first_profile.id, session, active_only=False)) == before
+    session.expire_all()
+    assert session.query(Resume).one().track_id is None
+
+
+def test_a_tracks_analysis_is_capped_by_the_document_it_came_from(
+    client, session, career, provider
+):
+    """F5.1: nothing has ever capped a score, because the route passed no gate."""
+    login(client, career.first.email)
+    # A contact block parked in the header is a blocker: an ATS cannot read the page.
+    data = docx_bytes(
+        "Experiencia", "Reduje el cierre un 30% con Python", header="persona@example.com"
+    )
+    uploaded = upload(client, data)
+    client.post(f"{uploaded.headers['location']}/review", data=REVIEWED_FORM)
+    client.post(
+        f"{uploaded.headers['location']}/merge",
+        data={**MERGE_FORM, "merge_track": "on", "track_name": "Analista de datos (CV)"},
+    )
+    track = session.scalar(select(Track).where(Track.name == "Analista de datos (CV)"))
+
+    posted = client.post(
+        "/analyze",
+        data={"jd_text": POSTING, "company": "Banco Demo", "track_id": str(track.id)},
+        follow_redirects=False,
+    )
+
+    assert posted.status_code == 303, "the analysis ran"
+    application = session.query(Application).one()
+    score = application.report["score"]
+    assert score["cap"] == 40, "the gate reached the score"
+    assert score["cap_reason"] == "contact_in_margin"
+    assert score["capped"] == 40 <= score["uncapped"]
+    assert application.scan_readability is not None
+    assert [f["check"] for f in application.scan_readability["findings"]] == ["contact_in_margin"]
+
+    page = plain(client.get(posted.headers["location"]).text)
+    assert "El documento limita la puntuación: Datos de contacto en cabecera o pie" in page
+    assert "Lectura del documento" in page, "the same findings panel the upload screen shows"
+    assert "Bloqueante" in page
+    assert "No se ejecutaron para este formato" in page, "a DOCX cannot answer every check"
+
+
+def test_an_analysis_without_a_track_is_not_capped(client, session, career, provider):
+    """No track means no source document, which is exactly the behaviour until now."""
+    login(client, career.first.email)
+
+    posted = client.post(
+        "/analyze", data={"jd_text": POSTING}, follow_redirects=False
+    )
+
+    application = session.query(Application).one()
+    assert application.report["score"]["cap"] is None
+    assert application.scan_readability is None
+    assert "El documento limita la puntuación" not in plain(
+        client.get(posted.headers["location"]).text
+    )

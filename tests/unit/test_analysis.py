@@ -19,7 +19,7 @@ from src.extract.grading import grade_evidence
 from src.extract.jd import extract_jd
 from src.jd import StructuredJD, jd_hash
 from src.models import Application, LlmCall
-from src.score.weights import W1
+from src.score.weights import W2
 from src.tracks import create_track, set_track_bullets
 from tests.conftest import login
 
@@ -85,13 +85,15 @@ def test_an_analysis_records_its_weights_prompts_and_cost(session, career, provi
     analysis = analyze(career.first_profile.id, session, jd_text=POSTING, company="Banco Demo")
     score = analysis.report["score"]
 
-    assert analysis.weights_version == "w1"
-    assert score["unavailable"] == {"semantic": "embeddings_not_available"}
+    assert analysis.weights_version == "w2"
+    assert score["unavailable"] == {}, "w2 declares nothing missing"
     assert "semantic" not in score["sub_scores"]
-    assert sorted(score["sub_scores"]) == ["evidence", "experience", "keyword", "title"]
+    assert list(score["sub_scores"]) == ["skills", "experience", "title", "keywords"]
     assert sum(score["effective_weights"].values()) == pytest.approx(1.0)
     assert score["effective_weights_hash"].startswith("sha256:")
-    assert score["effective_weights_hash"] != score["weights_hash"]
+    assert score["effective_weights_hash"] == score["weights_hash"], (
+        "nothing is renormalised under w2"
+    )
     assert analysis.prompt_versions == {
         "jd_extract": "jd_extract_v2",
         "evidence_grade": "evidence_grade_v2",
@@ -129,17 +131,16 @@ def test_an_analysis_records_its_weights_prompts_and_cost(session, career, provi
     assert application.title == "Analista de datos"
     assert application.token_cost_usd == 2 * Decimal(COST_PER_CALL)
     assert application.prompt_versions["evidence_grade"] == "evidence_grade_v2"
-    assert application.report["score"]["unavailable"] == {"semantic": "embeddings_not_available"}
+    assert application.report["score"]["unavailable"] == {}
 
 
-def test_the_total_is_renormalised_over_the_four_available_components(session, career, provider):
-    """Hand-computed: Σ(nominal weight × value) over the four, divided by 0.90."""
+def test_the_total_is_the_hand_computed_weighted_sum_of_the_four(session, career, provider):
+    """PRD F5.5: Σ(w2 weight × value) over four components, nothing renormalised."""
     analysis = analyze(career.first_profile.id, session, jd_text=POSTING)
     score = analysis.report["score"]
     values = {name: entry["value"] for name, entry in score["sub_scores"].items()}
 
-    nominal = sum(getattr(W1, name) * value for name, value in values.items())
-    expected = nominal / 0.90
+    expected = sum(getattr(W2, name) * value for name, value in values.items())
 
     assert score["weighted"] == pytest.approx(expected)
     assert score["uncapped"] == round(100 * expected)
@@ -203,7 +204,7 @@ def test_the_invariant_prompt_prefix_is_byte_identical_across_postings(
     assert first[1]["content"] != second[1]["content"], "only the requirements vary"
 
 
-def test_the_report_page_shows_the_total_its_cost_and_the_renormalisation_line(
+def test_the_report_page_shows_the_total_its_cost_and_its_components(
     client, session, career, provider
 ):
     login(client, career.first.email)
@@ -222,8 +223,9 @@ def test_the_report_page_shows_the_total_its_cost_and_the_renormalisation_line(
     assert application.profile_id == career.first_profile.id
     assert "Banco Demo" in page
     assert f"{score['capped']} / 100" in page
-    assert "se renormaliza sobre 4 de 5 componentes" in page
-    assert "Encaje semántico" in page and "no disponible" in page
+    assert "se renormaliza" not in page, "w2 has nothing to renormalise"
+    assert "Habilidades" in page and "Palabras clave" in page
+    assert "Encaje semántico" not in page
     assert "$0.000246" in page, "the cost of the analysis that produced the report"
     assert "jd_extract_v2" in page
     assert career.first_bullet.text_es in page, "the citation is shown"
@@ -333,11 +335,12 @@ def test_a_tracks_analysis_scores_only_its_selected_bullets(session, career, pro
     assert str(career.first_bullet.id) in supplied
     assert str(outside.id) not in supplied
     assert outside.text_es not in supplied
-    assert analysis.report["score"]["sub_scores"]["keyword"]["detail"]["bullets"] == 1
+    assert analysis.report["score"]["sub_scores"]["keywords"]["detail"]["bullets"] == 1
     assert analysis.report["track"] == {
         "id": str(career.first_track.id),
         "name": career.first_track.name,
     }
+    assert analysis.report["gate"] is None, "a track with no source document is not capped"
 
 
 def test_the_same_posting_scores_differently_against_two_tracks(session, career, provider):
@@ -366,8 +369,8 @@ def test_the_same_posting_scores_differently_against_two_tracks(session, career,
     first = analyze(profile_id, session, jd_text=POSTING, track=narrow)
     second = analyze(profile_id, session, jd_text=POSTING, track=broad)
 
-    assert first.report["score"]["sub_scores"]["keyword"]["value"] > 0
-    assert second.report["score"]["sub_scores"]["keyword"]["value"] == 0
+    assert first.report["score"]["sub_scores"]["keywords"]["value"] > 0
+    assert second.report["score"]["sub_scores"]["keywords"]["value"] == 0
     assert first.report["score"]["capped"] > second.report["score"]["capped"]
     assert second.report["llm"]["calls"][1]["cached"] is False, "the judge really was re-run"
     assert first.report["track"]["name"] == "Con reportes"
@@ -409,7 +412,7 @@ def test_an_analysis_without_a_track_uses_every_active_bullet(session, career, p
     supplied = grading_message(provider)
     assert str(career.first_bullet.id) in supplied
     assert str(extra.id) in supplied
-    assert analysis.report["score"]["sub_scores"]["keyword"]["detail"]["bullets"] == 2
+    assert analysis.report["score"]["sub_scores"]["keywords"]["detail"]["bullets"] == 2
     assert "track" not in analysis.report
 
 
@@ -439,7 +442,7 @@ def test_a_deactivated_bullet_is_not_evidence_even_when_a_track_still_selects_it
     supplied = grading_message(provider)
     assert str(live.id) in supplied
     assert str(career.first_bullet.id) not in supplied
-    assert analysis.report["score"]["sub_scores"]["keyword"]["detail"]["bullets"] == 1
+    assert analysis.report["score"]["sub_scores"]["keywords"]["detail"]["bullets"] == 1
 
 
 def test_the_analysis_form_records_the_track_and_the_report_names_it(
@@ -465,7 +468,9 @@ def test_the_analysis_form_records_the_track_and_the_report_names_it(
     application = session.query(Application).one()
     assert application.track_id == career.first_track.id
     assert application.report["track"]["name"] == "Analista de datos"
-    assert "Enfoque: Analista de datos" in text_of(client.get(posted.headers["location"]).text)
+    assert "Puesto objetivo: Analista de datos" in text_of(
+        client.get(posted.headers["location"]).text
+    )
 
 
 def test_an_analysis_without_a_track_saves_no_track_and_says_so(client, session, career, provider):
@@ -479,7 +484,7 @@ def test_an_analysis_without_a_track_saves_no_track_and_says_so(client, session,
     application = session.query(Application).one()
     assert application.track_id is None
     page = text_of(client.get(posted.headers["location"]).text)
-    assert "Sin enfoque: se puntuaron todas las viñetas activas." in page
+    assert "Sin puesto objetivo: se puntuaron todas las viñetas activas." in page
 
 
 def test_a_track_from_another_profile_is_refused_by_the_form(client, session, career, provider):
@@ -492,3 +497,62 @@ def test_a_track_from_another_profile_is_refused_by_the_form(client, session, ca
     assert response.status_code == 404
     assert provider.calls == []
     assert session.query(Application).count() == 0
+
+
+def test_a_stored_w1_report_still_renders_from_its_own_keys(session, career, client):
+    """N3 renames the components; a report written before that keeps its own names."""
+    w1_report = {
+        "jd": {"title": "Analista de datos", "language": "es", "must_have": [], "nice_to_have": [],
+               "raw_keywords": [], "hard_requirements": [], "seniority": "mid"},
+        "grades": [],
+        "grading_note": "",
+        "gate": None,
+        "score": {
+            "weights_version": "w1",
+            "weights_hash": "sha256:aaa",
+            "weighted": 0.68,
+            "uncapped": 68,
+            "capped": 68,
+            "cap": None,
+            "cap_reason": None,
+            "unavailable": {"semantic": "embeddings_not_available"},
+            "effective_weights": {
+                "title": 0.2222, "evidence": 0.3889, "keyword": 0.1667, "experience": 0.2222,
+            },
+            "effective_weights_hash": "sha256:bbb",
+            "sub_scores": {
+                "title": {"name": "title", "value": 1.0, "matched": ["analista"], "missing": []},
+                "evidence": {"name": "evidence", "value": 0.5, "matched": [], "missing": []},
+                "keyword": {
+                    "name": "keyword",
+                    "value": 0.0,
+                    "matched": [],
+                    "missing": ["reportes"],
+                },
+                "experience": {"name": "experience", "value": 0.25, "matched": [], "missing": []},
+            },
+        },
+        "llm": {"cost_usd": "0", "calls": []},
+    }
+    application = create_application(
+        career.first_profile.id,
+        session,
+        jd_text="Una oferta antigua",
+        jd_hash="sha256:old",
+        report=w1_report,
+        weights_version="w1",
+        prompt_versions={"jd_extract": "jd_extract_v2"},
+        token_cost_usd=Decimal("0"),
+    )
+    session.commit()
+    login(client, career.first.email)
+
+    page = text_of(client.get(f"/applications/{application.id}").text)
+
+    assert "68 / 100" in page
+    assert "Cobertura de evidencia" in page, "the report's own component names"
+    assert "Contexto de palabras clave" in page
+    assert "renormaliza sobre 4 de 5 componentes" in page
+    assert "Encaje semántico" in page
+    assert "Habilidades" not in page, "the current names are not imposed on a stored report"
+    assert "w1" in page

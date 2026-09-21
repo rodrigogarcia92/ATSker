@@ -9,7 +9,7 @@
   {{ t('import.uploaded_at', lang) }} {{ resume.uploaded_at.strftime('%Y-%m-%d %H:%M') }}</p>
 {% endif %}
 
-{% include "import/_findings.html" %}
+{% include "_findings.html" %}
 
 {% if error %}
 <p class="mt-4 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">{{ error }}</p>

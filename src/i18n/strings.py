@@ -18,7 +18,7 @@ STRINGS: dict[str, dict[str, str]] = {
     "nav.dashboard": {"es": "Panel", "en": "Dashboard"},
     "nav.analyze": {"es": "Analizar", "en": "Analyse"},
     "nav.import": {"es": "Importar", "en": "Import"},
-    "nav.tracks": {"es": "Enfoques", "en": "Tracks"},
+    "nav.tracks": {"es": "Puestos objetivo", "en": "Tracks"},
     "nav.profile": {"es": "Perfil", "en": "Profile"},
     "nav.roles": {"es": "Trayectoria", "en": "Experience"},
     "nav.stories": {"es": "Historias", "en": "Stories"},
@@ -118,13 +118,14 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "No active bullets: without them there is no evidence to cite and "
         "coverage will be zero.",
     },
-    "analyze.track": {"es": "Enfoque (opcional)", "en": "Track (optional)"},
+    "analyze.track": {"es": "Puesto objetivo (opcional)", "en": "Track (optional)"},
     "analyze.track_none": {
-        "es": "Sin enfoque: todas las viñetas activas",
+        "es": "Sin puesto objetivo: todas las viñetas activas",
         "en": "No track: every active bullet",
     },
     "analyze.track_hint": {
-        "es": "Con un enfoque, la puntuación usa solo sus viñetas y, si lo tiene, su titular.",
+        "es": "Con un puesto objetivo, la puntuación usa solo sus viñetas y, si lo "
+        "tiene, su titular.",
         "en": "With a track, the score uses only its bullets and, when set, its headline.",
     },
     # Report
@@ -144,19 +145,26 @@ STRINGS: dict[str, dict[str, str]] = {
         "components.",
     },
     "report.cost_label": {"es": "Coste del análisis", "en": "Analysis cost"},
-    "report.track": {"es": "Enfoque: {name}", "en": "Track: {name}"},
+    "report.readability_capped": {
+        "es": "El documento limita la puntuación: {check}.",
+        "en": "The document caps the score: {check}.",
+    },
+    "report.track": {"es": "Puesto objetivo: {name}", "en": "Track: {name}"},
     "report.no_track": {
-        "es": "Sin enfoque: se puntuaron todas las viñetas activas.",
+        "es": "Sin puesto objetivo: se puntuaron todas las viñetas activas.",
         "en": "No track: every active bullet was scored.",
     },
     "report.sub_scores": {"es": "Componentes", "en": "Components"},
     "report.sub.title": {"es": "Alineación del título", "en": "Title alignment"},
+    "report.sub.skills": {"es": "Habilidades", "en": "Skills"},
+    "report.sub.keywords": {"es": "Palabras clave", "en": "Keywords"},
+    "report.sub.experience": {"es": "Experiencia", "en": "Experience"},
+    # `w1` reports keep their own component names: a stored report renders from its own
+    # keys, and `evidence`/`keyword`/`semantic` are what its JSON says.
     "report.sub.evidence": {"es": "Cobertura de evidencia", "en": "Evidence coverage"},
     "report.sub.keyword": {"es": "Contexto de palabras clave", "en": "Keyword context"},
     "report.sub.semantic": {"es": "Encaje semántico", "en": "Semantic fit"},
-    "report.sub.experience": {"es": "Experiencia", "en": "Experience"},
     "report.weight": {"es": "peso", "en": "weight"},
-    "report.component_unavailable": {"es": "no disponible", "en": "not available"},
     "report.disqualifiers": {"es": "Requisitos eliminatorios", "en": "Disqualifiers"},
     "report.disqualifiers_hint": {
         "es": "No entran en la puntuación: un requisito eliminatorio no es un porcentaje.",
@@ -239,18 +247,18 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "Deactivating keeps the role for reports already generated.",
     },
     # Tracks (N2)
-    "tracks.title": {"es": "Enfoques", "en": "Tracks"},
-    "tracks.new": {"es": "Nuevo enfoque", "en": "New track"},
+    "tracks.title": {"es": "Puestos objetivo", "en": "Tracks"},
+    "tracks.new": {"es": "Nuevo puesto objetivo", "en": "New track"},
     "tracks.intro": {
-        "es": "Un enfoque es un puesto objetivo con una selección ordenada de tus viñetas. "
-        "No copia contenido: la misma viñeta sirve a varios enfoques.",
+        "es": "Un puesto objetivo es un rol al que apuntas, con una selección "
+        "ordenada de tus viñetas. No copia contenido: la misma viñeta sirve a varios.",
         "en": "A track is a target role with an ordered selection of your bullets. It copies "
         "no content: the same bullet serves several tracks.",
     },
     "tracks.name": {"es": "Nombre", "en": "Name"},
     "tracks.applies_when": {"es": "Cuándo usarlo", "en": "When to use it"},
     "tracks.applies_hint": {
-        "es": "Lo lee el recomendador para elegir enfoque ante una oferta.",
+        "es": "Lo lee el recomendador para elegir el puesto objetivo ante una oferta.",
         "en": "The recommender reads this to pick a track for a posting.",
     },
     "tracks.lang": {"es": "Idioma", "en": "Language"},
@@ -265,7 +273,7 @@ STRINGS: dict[str, dict[str, str]] = {
     "tracks.summary": {"es": "Resumen", "en": "Summary"},
     "tracks.bullets": {"es": "viñetas", "en": "bullets"},
     "tracks.empty": {
-        "es": "Todavía no hay enfoques. Crea el primero.",
+        "es": "Todavía no hay puestos objetivo. Crea el primero.",
         "en": "No tracks yet. Create the first one.",
     },
     "tracks.selection": {"es": "Viñetas seleccionadas", "en": "Selected bullets"},
@@ -293,7 +301,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "Copies the fields and the selection, order included.",
     },
     "tracks.deactivate_hint": {
-        "es": "Desactivar conserva el enfoque para los informes ya generados.",
+        "es": "Desactivar conserva el puesto objetivo para los informes ya generados.",
         "en": "Deactivating keeps the track for reports already generated.",
     },
     # Bullets
@@ -609,6 +617,19 @@ STRINGS: dict[str, dict[str, str]] = {
         "es": "La fusión no escribió nada: tu base de datos queda como estaba.",
         "en": "The merge wrote nothing: your database is unchanged.",
     },
+    "import.track_label": {"es": "Puesto objetivo", "en": "Track"},
+    "import.track_create": {
+        "es": "Crear un puesto objetivo con estas viñetas",
+        "en": "Create a track with these bullets",
+    },
+    "import.merge_track_hint": {
+        "es": "Sin marcar, la importación no crea ningún puesto objetivo. Se guarda con "
+        "las viñetas del documento y puedes cambiarle el nombre después.",
+        "en": "Left unticked, the import creates no track. It is saved with the "
+        "document's bullets and you can rename it later.",
+    },
+    "import.track_created": {"es": "Puesto objetivo creado: {name}", "en": "Track created: {name}"},
+    "import.track_view": {"es": "Ver el puesto objetivo", "en": "View the track"},
     "import.merge_submit": {"es": "Importar la selección", "en": "Import the selection"},
     "import.merged_title": {"es": "Importación aplicada", "en": "Import applied"},
     "import.merged_at": {"es": "Importado el", "en": "Merged on"},

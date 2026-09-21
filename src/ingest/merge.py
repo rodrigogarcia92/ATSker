@@ -15,7 +15,7 @@ bullet's superseded text lands in `bullet_revisions` before the row is updated.
 """
 
 import uuid
-from dataclasses import dataclass, fields
+from dataclasses import dataclass
 from datetime import date
 from typing import Literal
 
@@ -29,6 +29,7 @@ from src.models import Bullet, BulletRevision, Certification, Education, Profile
 from src.normalize.text import fold
 from src.resumes import get_resume, mark_merged
 from src.roles import create_role, list_roles, update_role
+from src.tracks import create_track, set_track_bullets
 
 Label = Literal["new", "changed", "unchanged"]
 
@@ -134,15 +135,34 @@ class MergeResult:
     certifications_updated: int = 0
     skills_added: int = 0
     skipped: int = 0
+    # The track this merge created, when the user asked for one (F4 path 1).
+    track_id: uuid.UUID | None = None
+
+    # The counter fields, for the two questions below. `track_id` is deliberately not
+    # one of them: it reports an artefact, not a count.
+    COUNTERS = (
+        "roles_created",
+        "roles_updated",
+        "bullets_created",
+        "bullets_updated",
+        "educations_created",
+        "educations_updated",
+        "certifications_created",
+        "certifications_updated",
+        "skills_added",
+        "skipped",
+    )
 
     @property
     def is_empty(self) -> bool:
-        """True when the merge wrote nothing at all (F2.5) — not even a skip.
+        """True when the merge wrote nothing at all (F2.5) — not even a skip or a track.
 
         A screen that renders this as a blank summary reads as a failed page; the
         result has to say that the database is unchanged, on purpose.
         """
-        return not any(getattr(self, field.name) for field in fields(self))
+        return self.track_id is None and not any(
+            getattr(self, name) for name in self.COUNTERS
+        )
 
 
 def _tokens(text: str) -> frozenset[str]:
@@ -414,14 +434,25 @@ def apply_merge(
     draft: ResumeDraft,
     plan: MergePlan,
     selections: Selections,
+    track_name: str | None = None,
 ) -> MergeResult | None:
-    """Write the ticked candidates; None when the résumé belongs to someone else."""
+    """Write the ticked candidates; None when the résumé belongs to someone else.
+
+    `track_name` also turns the document into a track (F4 creation path 1): the same
+    plan the diff screen showed, so the track is what this document says rather than
+    what this import happened to write. A new bullet enters it only if the user
+    ticked it — the others do not exist — while a matched bullet enters it whether or
+    not it was ticked, because it is already in the master database.
+    """
     resume = get_resume(profile_id, session, resume_id)
     profile = session.get(Profile, profile_id)
     if resume is None or profile is None:
         return None
 
-    counts = {field.name: 0 for field in fields(MergeResult)}
+    counts = {name: 0 for name in MergeResult.COUNTERS}
+    # Which bullets this merge created, by plan position: the track's selection needs
+    # the ids, and only the ticked ones exist.
+    new_bullet_ids: dict[tuple[int, int], uuid.UUID] = {}
 
     role_ids: dict[int, uuid.UUID] = {}
     for index, role in enumerate(plan.roles):
@@ -467,7 +498,7 @@ def apply_merge(
                 continue
             text_en, text_es = _text_columns(draft.language, bullet.text)
             if bullet.label == "new":
-                create_bullet(
+                created_bullet = create_bullet(
                     profile_id,
                     session,
                     role_id=role_ids[index],
@@ -476,6 +507,7 @@ def apply_merge(
                     chips=bullet.chips,
                 )
                 counts["bullets_created"] += 1
+                new_bullet_ids[(index, bullet_index)] = created_bullet.id
             elif bullet.label == "changed":
                 existing = get_bullet(profile_id, session, bullet.existing_id)
                 if existing is None:
@@ -572,5 +604,30 @@ def apply_merge(
             counts["skills_added"] += 1
     profile.skills = current
 
+    track_id: uuid.UUID | None = None
+    if track_name:
+        # Document order, not selection order: the track is the document's shape.
+        selected: list[uuid.UUID] = []
+        for index, role in enumerate(plan.roles):
+            for bullet_index, bullet in enumerate(role.bullets):
+                if bullet.label == "new":
+                    created_id = new_bullet_ids.get((index, bullet_index))
+                    if created_id is not None:
+                        selected.append(created_id)
+                    continue
+                if bullet.existing_id is not None:
+                    selected.append(bullet.existing_id)
+        track = create_track(
+            profile_id,
+            session,
+            name=track_name,
+            # The document's own language: it is the only signal this screen has, and
+            # the track's language is what the résumé it produced is written in.
+            lang=draft.language,
+        )
+        set_track_bullets(profile_id, session, track.id, selected)
+        resume.track_id = track.id
+        track_id = track.id
+
     mark_merged(profile_id, session, resume.id)
-    return MergeResult(**counts)
+    return MergeResult(**counts, track_id=track_id)

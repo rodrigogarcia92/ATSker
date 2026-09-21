@@ -35,7 +35,7 @@ from src.ingest.draft import (
 )
 from src.ingest.merge import Selections, apply_merge, diff_draft
 from src.models import Resume, Track
-from src.parse.gate import checks_not_run, glyph_group
+from src.parse.gate import checks_not_run
 from src.resumes import (
     create_resume,
     get_resume,
@@ -45,6 +45,8 @@ from src.resumes import (
 )
 from src.tracks import get_track, list_tracks
 from src.web.deps import DbSession, OwnProfile, SignedInUser
+from src.web.findings import document_kind, finding_rows
+from src.web.forms import is_checked
 from src.web.templating import render
 
 router = APIRouter()
@@ -55,88 +57,8 @@ MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 
 EMPTY_FORM = {"filename": "", "track_id": ""}
 
-# Which stored checks carry a page number on a PDF; without one the finding came
-# from a DOCX and its detail sentence has no page to name.
-_PAGE_CHECKS = {
-    "contact_in_margin",
-    "text_in_table",
-    "invisible_text",
-    "invisible_glyphs",
-    "multi_column",
-    "mojibake",
-}
-
-
-def _document_kind(filename: str) -> str:
-    return Path(filename).suffix.lower().lstrip(".")
-
-
-def _finding_detail(check: str, detail: Mapping[str, Any], lang: str, severity: str = "") -> str:
-    """One finding's detail sentence. Page numbers, bands and counts only — never text."""
-    variant = ""
-    if check == "no_extractable_text":
-        variant = "" if detail.get("pages") else "_docx"
-    elif check == "multi_column":
-        variant = "" if "gap_pt" in detail else "_docx"
-    elif check == "invisible_glyphs":
-        # The sentence says why it did not cap (info) or why it did (warning), and a
-        # Word file has no page to name.
-        variant = ("_warning" if severity == "warning" else "") + (
-            "_docx" if detail.get("page") is None else ""
-        )
-    elif check in _PAGE_CHECKS and detail.get("page") is None:
-        variant = "_docx"
-    fonts = [str(font) for font in detail.get("fonts", [])]
-    first_pages = detail.get("first_pages") or {}
-    gutter = list(detail.get("gutter") or [])
-    categories = {str(key): int(value) for key, value in (detail.get("categories") or {}).items()}
-    group = glyph_group(categories)
-    values: dict[str, Any] = {
-        "page": detail.get("page") if detail.get("page") is not None else "",
-        "pages": ", ".join(str(value) for value in detail.get("pages", []))
-        or t("common.none", lang),
-        "band": t(f"gate.band.{detail.get('band', 'header')}", lang),
-        "kinds": ", ".join(t(f"gate.kind.{kind}", lang) for kind in detail.get("kinds", [])),
-        "words": detail.get("words", 0),
-        "cells": detail.get("cells", 0),
-        "tables": detail.get("tables", 0),
-        "runs": detail.get("runs", 0),
-        "white_runs": detail.get("white_runs", 0),
-        "hidden_runs": detail.get("hidden_runs", 0),
-        "chars": detail.get("chars", 0),
-        # A class name in parentheses, or nothing when the glyphs disagree on one.
-        "group": f"({t(f'gate.glyph_group.{group}', lang)})" if group else "",
-        "gap_pt": detail.get("gap_pt", 0),
-        "gutter_start": gutter[0] if len(gutter) == 2 else "",
-        "gutter_end": gutter[1] if len(gutter) == 2 else "",
-        "height_percent": round(float(detail.get("height_fraction") or 0) * 100),
-        "columns": detail.get("columns", 0),
-        "count": detail.get("count", 0),
-        "markers": ", ".join(str(marker) for marker in detail.get("markers", [])),
-        "fonts": ", ".join(
-            f"{font} (p. {first_pages[font]})" if font in first_pages else font for font in fonts
-        ),
-    }
-    return t(f"gate.detail.{check}{variant}", lang, **values)
-
-
-def _findings(gate: Mapping[str, Any], lang: str) -> list[dict[str, str]]:
-    """A stored gate report, translated for the template."""
-    rows: list[dict[str, str]] = []
-    for finding in gate.get("findings", []):
-        check = str(finding.get("check"))
-        detail = finding.get("detail") or {}
-        severity = str(finding.get("severity"))
-        rows.append(
-            {
-                "check": check,
-                "severity": severity,
-                "label": t(f"gate.check.{check}", lang),
-                "severity_label": t(f"gate.severity.{severity}", lang),
-                "detail": _finding_detail(check, detail, lang, severity),
-            }
-        )
-    return rows
+# The findings panel and its sentences live in `src.web.findings`: the report page
+# shows the same stored gate, and one translation serves both screens.
 
 
 def _credential_rows(draft: ResumeDraft) -> list[dict[str, Any]]:
@@ -355,7 +277,7 @@ def _review_page(
         profile=profile,
         resume=resume,
         gate=gate,
-        findings=_findings(gate, user.ui_lang),
+        findings=finding_rows(gate, user.ui_lang),
         document_kind=kind,
         not_run=checks_not_run(kind),
         draft=draft,
@@ -530,6 +452,7 @@ def import_review(
             resume=resume,
             draft=ResumeDraft.model_validate(resume.draft) if resume.draft else None,
             result=None,
+            track=get_track(profile.id, session, resume.track_id) if resume.track_id else None,
         )
     draft = ResumeDraft.model_validate(resume.draft) if resume.draft else None
     if draft is None:
@@ -542,7 +465,7 @@ def import_review(
             profile,
             resume=resume,
             gate=resume.gate or {},
-            kind=_document_kind(resume.filename),
+            kind=document_kind(resume.filename),
             error=t("import.extraction_failed", user.ui_lang),
         )
     return _review_page(
@@ -551,7 +474,7 @@ def import_review(
         profile,
         resume=resume,
         gate=resume.gate or {},
-        kind=_document_kind(resume.filename),
+        kind=document_kind(resume.filename),
         draft=draft,
     )
 
@@ -575,7 +498,7 @@ def import_retry(
     filename = resume.filename
     data = resume.file_bytes
     gate = resume.gate or {}
-    kind = _document_kind(filename)
+    kind = document_kind(filename)
     try:
         loaded = load_document(filename, data)
     except (UnsupportedDocument, UnreadableDocument):
@@ -660,6 +583,11 @@ async def import_merge(
         certifications=frozenset(_checked_indices(form, "merge_certification_")),
         skills=frozenset(_checked_indices(form, "merge_skill_")),
     )
+    # F4 creation path 1: the checkbox turns this document into a track. Unticked is
+    # the default, and a ticked-but-nameless field falls back to the file's name.
+    track_name = None
+    if is_checked(_str(form, "merge_track")):
+        track_name = _str(form, "track_name") or Path(resume.filename).stem
     result = apply_merge(
         profile.id,
         session,
@@ -667,6 +595,7 @@ async def import_merge(
         draft=draft,
         plan=plan,
         selections=selections,
+        track_name=track_name,
     )
     if result is None:
         raise HTTPException(status_code=404)
@@ -681,6 +610,7 @@ async def import_merge(
         resume=resume,
         draft=draft,
         result=result,
+        track=get_track(profile.id, session, result.track_id) if result.track_id else None,
     )
 
 

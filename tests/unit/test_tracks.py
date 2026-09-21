@@ -252,7 +252,7 @@ def test_the_nav_links_tracks_between_import_and_experience(client, career):
 
     assert page.index('href="/import"') < page.index('href="/tracks"')
     assert page.index('href="/tracks"') < page.index('href="/roles"')
-    assert "Enfoques" in page
+    assert "Puestos objetivo" in page, "one word for one concept"
 
 
 def test_creating_a_track_lands_on_its_detail_page(client, session, career):

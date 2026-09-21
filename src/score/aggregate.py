@@ -1,22 +1,22 @@
-"""Aggregation and the report shape (PRD F4.4).
+"""Aggregation and the report shape (PRD F4.4, F5.5).
 
 A sub-score without its matched and missing terms is not a report ATSker shows, so
 the two travel together in one object rather than as loose numbers.
 
-Until embeddings exist (M9) the semantic sub-score cannot be computed, so the total
-is renormalised over the components that do exist — and only when the omission is
-declared with a reason. Every report then records the omission, the weights that
-were actually applied and their hash, so a total that shifts when M9 lands is
-auditable rather than mysterious.
+`w2` declares nothing unavailable — semantic fit was removed, not deferred — so a
+current report renormalises nothing. The machinery stays anyway: a component that
+cannot be computed is still only accepted when the caller declares it with a reason,
+and the report then records the omission, the weights actually applied and their hash.
 """
 
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass, field
 
 from src.parse.gate import ParseReport, apply_gate
-from src.score.weights import W1, Weights, hash_values
+from src.score.weights import W2, WeightSet, hash_values
 
-SUB_SCORES = ("title", "evidence", "keyword", "semantic", "experience")
+# The order the report shows them in (PRD F5.5's table).
+SUB_SCORES = ("skills", "experience", "title", "keywords")
 
 
 @dataclass(frozen=True)
@@ -60,7 +60,7 @@ class ScoreReport:
 
 def aggregate(
     sub_scores: Mapping[str, SubScore],
-    weights: Weights = W1,
+    weights: WeightSet = W2,
     *,
     gate: ParseReport | None = None,
     unavailable: Mapping[str, str] | None = None,
@@ -71,7 +71,9 @@ def aggregate(
     accepted when the caller declares it unavailable with a reason: the total is
     then renormalised over the rest, which keeps reports comparable while saying
     out loud what is missing. Quietly dropping a component would make two reports
-    incomparable while looking identical, so that fails loudly instead.
+    incomparable while looking identical, so that fails loudly instead — `w2`
+    declares nothing, but the guard is what makes that a statement rather than a
+    silence (PRD F5.5).
     """
     declared = dict(unavailable or {})
     unknown = sorted(set(declared) - set(SUB_SCORES))
@@ -104,7 +106,10 @@ def aggregate(
     return ScoreReport(
         weights_version=weights.version,
         weights_hash=weights.config_hash(),
-        sub_scores=dict(sub_scores),
+        # Stored in the order the report shows them, whatever order the caller built
+        # its dict in: the report page renders its own keys, and a stored report's
+        # order is part of what it says.
+        sub_scores={name: sub_scores[name] for name in SUB_SCORES if name in sub_scores},
         weighted=weighted,
         uncapped=uncapped,
         capped=capped,
