@@ -8,9 +8,12 @@ opens a connection, uses it, and returns it.
 from collections.abc import Iterator
 from contextlib import contextmanager
 from functools import lru_cache
+from pathlib import Path
 
-from sqlalchemy import Engine, create_engine
-from sqlalchemy.exc import NoSuchModuleError
+from alembic.config import Config
+from alembic.script import ScriptDirectory
+from sqlalchemy import Engine, create_engine, text
+from sqlalchemy.exc import NoSuchModuleError, SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import NullPool
 
@@ -90,3 +93,39 @@ def session_scope() -> Iterator[Session]:
         except Exception:
             session.rollback()
             raise
+
+
+# The two revision strings `/health/schema` compares (2026-09-20: the image shipped
+# at `0004` while the database was at `0003` and every page behind the login 500'd
+# for a whole deploy cycle, with `/health` reporting `ok` throughout).
+ALEMBIC_CONFIG = Path(__file__).resolve().parents[1] / "alembic.ini"
+
+
+@lru_cache
+def code_head_revision() -> str | None:
+    """The head revision this code ships, read from `migrations/`, or None.
+
+    None means the migrations directory is not where the image expects it — a
+    finding in itself, and not something the endpoint should turn into a crash.
+    Cached because it is a property of the deployable artefact, not of a request.
+    """
+    try:
+        directory = ScriptDirectory.from_config(Config(str(ALEMBIC_CONFIG)))
+        return directory.get_current_head()
+    except Exception:  # noqa: BLE001 - a missing or broken migration tree is the answer
+        return None
+
+
+def database_revision(session: Session) -> str | None:
+    """What `alembic_version` says, or None when the table is not there at all.
+
+    An unstamped database is a real state (a fresh branch before its first upgrade),
+    and it has to read as "no revision" rather than as an error page.
+    """
+    try:
+        revision = session.scalar(text("SELECT version_num FROM alembic_version"))
+        session.rollback()  # a read is not a unit of work; leave the connection clean
+        return str(revision) if revision else None
+    except SQLAlchemyError:
+        session.rollback()
+        return None

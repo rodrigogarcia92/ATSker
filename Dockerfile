@@ -21,6 +21,12 @@ RUN uv sync --frozen --no-dev
 
 COPY src ./src
 
+# `/health/schema` compares the database's revision to the head this code ships, so
+# the migration tree has to be in the image: without it the running code cannot name
+# the revision it needs. Small, and nothing here runs at request time.
+COPY alembic.ini ./
+COPY migrations ./migrations
+
 RUN useradd --uid 10001 --create-home --shell /usr/sbin/nologin app \
     && chown -R app:app /app
 USER app
