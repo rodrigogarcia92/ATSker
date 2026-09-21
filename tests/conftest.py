@@ -21,6 +21,7 @@ from src.letters import create_letter
 from src.models import Base, Profile, Skill, User
 from src.roles import create_role
 from src.stories import create_story, set_linked_bullets
+from src.tracks import create_track, set_track_bullets
 from src.web.deps import get_db
 from src.web.main import create_app
 
@@ -163,6 +164,23 @@ def career(session, two_accounts, vocabulary) -> SimpleNamespace:
         presentation="Me presento.",
         achievements="Logros.",
     )
+    first_track = create_track(
+        first_profile.id,
+        session,
+        name="Analista de datos",
+        applies_when="Puestos de analista de datos",
+        lang="es",
+        headline="Analista de datos",
+    )
+    second_track = create_track(
+        second_profile.id,
+        session,
+        name="Riesgo",
+        applies_when="Puestos de riesgo",
+        lang="es",
+    )
+    set_track_bullets(first_profile.id, session, first_track.id, [first_bullet.id])
+    set_track_bullets(second_profile.id, session, second_track.id, [second_bullet.id])
     session.commit()
     return SimpleNamespace(
         first=first,
@@ -177,6 +195,8 @@ def career(session, two_accounts, vocabulary) -> SimpleNamespace:
         second_story=second_story,
         first_letter=first_letter,
         second_letter=second_letter,
+        first_track=first_track,
+        second_track=second_track,
     )
 
 
