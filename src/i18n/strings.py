@@ -17,6 +17,7 @@ STRINGS: dict[str, dict[str, str]] = {
     # Shell
     "nav.dashboard": {"es": "Panel", "en": "Dashboard"},
     "nav.analyze": {"es": "Analizar", "en": "Analyse"},
+    "nav.applications": {"es": "Historial", "en": "History"},
     "nav.import": {"es": "Importar", "en": "Import"},
     "nav.tracks": {"es": "Puestos objetivo", "en": "Tracks"},
     "nav.profile": {"es": "Perfil", "en": "Profile"},
@@ -127,6 +128,38 @@ STRINGS: dict[str, dict[str, str]] = {
         "es": "Con un puesto objetivo, la puntuación usa solo sus viñetas y, si lo "
         "tiene, su titular.",
         "en": "With a track, the score uses only its bullets and, when set, its headline.",
+    },
+    # Application history (F9)
+    "applications.title": {"es": "Historial", "en": "History"},
+    "applications.new": {"es": "Analizar una oferta", "en": "Analyse a posting"},
+    "applications.intro": {
+        "es": "Cada análisis queda guardado con su puntuación, su puesto objetivo y su "
+        "coste. Esta tabla es el conjunto de datos: con suficientes candidaturas dirá si "
+        "las componentes predicen una respuesta.",
+        "en": "Every analysis is kept with its score, its track and its cost. This table "
+        "is the dataset: with enough applications it says whether the sub-scores "
+        "predict a callback.",
+    },
+    "applications.weights_hint": {
+        "es": "Dos puntuaciones con pesos distintos no son comparables: la versión va al "
+        "lado del número.",
+        "en": "Two scores under different weights are not comparable: the version sits "
+        "beside the number.",
+    },
+    "applications.date": {"es": "Fecha", "en": "Date"},
+    "applications.company": {"es": "Empresa", "en": "Company"},
+    "applications.position": {"es": "Puesto", "en": "Role"},
+    "applications.track": {"es": "Puesto objetivo", "en": "Track"},
+    "applications.score": {"es": "Encaje", "en": "Fit"},
+    "applications.outcome": {"es": "Resultado", "en": "Outcome"},
+    "applications.outcome.no_reply": {"es": "Sin respuesta", "en": "No reply"},
+    "applications.outcome.screen": {"es": "Criba", "en": "Screen"},
+    "applications.outcome.interview": {"es": "Entrevista", "en": "Interview"},
+    "applications.outcome.offer": {"es": "Oferta", "en": "Offer"},
+    "applications.outcome.rejected": {"es": "Rechazado", "en": "Rejected"},
+    "applications.empty": {
+        "es": "Todavía no hay análisis. Pega una oferta y aparecerá aquí.",
+        "en": "No analyses yet. Paste a posting and it will appear here.",
     },
     # Report
     "report.title": {"es": "Informe", "en": "Report"},

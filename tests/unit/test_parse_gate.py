@@ -359,3 +359,30 @@ def test_glyphs_of_two_categories_stay_information(tmp_path):
     glyphs = [f for f in report.findings if f.check == "invisible_glyphs"]
     assert glyphs and all(finding.severity == "info" for finding in glyphs)
     assert report.cap is None
+
+
+def test_a_job_description_pasted_into_the_footer_is_caught(tmp_path):
+    """PRD §9: keyword stuffing in a footer must be reported, not rewarded.
+
+    The posting that gets pasted there ends with its own contact line, which is what
+    the footer band check reads. One point of type is invisible to a human reader and
+    perfectly readable to an ATS, which is the whole reason the band is checked.
+    """
+    posting = (
+        "Buscamos analista de datos con Python, SQL y machine learning. "
+        "Imprescindible experiencia con reportes. Enviar CV a rrhh@acme.example"
+    )
+
+    def draw(pdf: canvas.Canvas) -> None:
+        clean_body(pdf)
+        pdf.setFont("Helvetica", 1)
+        pdf.setFillColorRGB(0, 0, 0)
+        pdf.drawString(20, 12, posting)
+
+    report = check_document(read_pdf(build(tmp_path, "footer_jd", draw)))
+
+    finding = next(f for f in report.blockers if f.check == "contact_in_margin")
+    assert finding.detail["band"] == "footer"
+    assert finding.detail["kinds"] == ["email"]
+    assert report.cap == BLOCKER_CAP
+    assert "rrhh@acme.example" not in str(finding.detail), "no text in a finding"

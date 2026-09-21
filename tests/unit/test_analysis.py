@@ -5,6 +5,7 @@ extraction, grading, the four sub-scores, the renormalised total, the cost ledge
 and the page the user reads.
 """
 
+import hashlib
 import json
 import re
 from decimal import Decimal
@@ -15,6 +16,7 @@ from src.analysis import analyze
 from src.applications import create_application, get_application
 from src.bullets import create_bullet, set_bullet_active
 from src.extract import client as extract_client
+from src.extract.client import CallOptions
 from src.extract.grading import grade_evidence
 from src.extract.jd import extract_jd
 from src.jd import StructuredJD, jd_hash
@@ -556,3 +558,26 @@ def test_a_stored_w1_report_still_renders_from_its_own_keys(session, career, cli
     assert "Encaje semántico" in page
     assert "Habilidades" not in page, "the current names are not imposed on a stored report"
     assert "w1" in page
+
+
+def test_two_identical_runs_produce_identical_reports(session, career, provider):
+    """PRD §9 stability: the same input, twice, with the cache bypassed.
+
+    Bypassed on purpose — a cached re-run measures the cache, not the analysis — and
+    that is also what makes the two reports comparable: an uncached run that cost
+    nothing would differ from one that was paid for, in the ledger section alone.
+    """
+    options = CallOptions(bypass_cache=True)
+
+    first = analyze(career.first_profile.id, session, jd_text=POSTING, options=options)
+    second = analyze(career.first_profile.id, session, jd_text=POSTING, options=options)
+
+    def digest(report: dict) -> str:
+        return hashlib.sha256(
+            json.dumps(report, sort_keys=True, ensure_ascii=False).encode("utf-8")
+        ).hexdigest()
+
+    assert digest(first.report) == digest(second.report)
+    assert first.report["score"] == second.report["score"]
+    assert first.report["grades"] == second.report["grades"]
+    assert "date" not in json.dumps(first.report["score"]), "no clock inside the score"
