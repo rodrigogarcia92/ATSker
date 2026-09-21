@@ -654,6 +654,7 @@ STRINGS: dict[str, dict[str, str]] = {
     },
     "gate.check.text_in_table": {"es": "Texto dentro de tablas", "en": "Text inside tables"},
     "gate.check.invisible_text": {"es": "Texto invisible", "en": "Invisible text"},
+    "gate.check.invisible_glyphs": {"es": "Glifos invisibles", "en": "Invisible glyphs"},
     "gate.check.multi_column": {"es": "Cuerpo a varias columnas", "en": "Multi-column body"},
     "gate.check.unrecognised_headings": {
         "es": "Encabezados de sección no reconocidos",
@@ -698,9 +699,41 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "Page {page}: {words} invisible words.",
     },
     "gate.detail.invisible_text_docx": {
-        "es": "{runs} fragmentos con color blanco o texto oculto.",
-        "en": "{runs} runs painted white or hidden.",
+        "es": "{runs} fragmentos con texto legible para un ATS: {white_runs} en blanco y "
+        "{hidden_runs} ocultos.",
+        "en": "{runs} runs carrying text an ATS would index: {white_runs} painted white "
+        "and {hidden_runs} hidden.",
     },
+    "gate.detail.invisible_glyphs": {
+        "es": "Página {page}: {chars} caracteres invisibles {group}, típicos de una "
+        "exportación de plantilla — no afectan a cómo un ATS lee este documento.",
+        "en": "Page {page}: {chars} invisible characters {group}, typical of a "
+        "résumé-builder export — they do not affect how an ATS reads this document.",
+    },
+    "gate.detail.invisible_glyphs_warning": {
+        "es": "Página {page}: {chars} caracteres invisibles {group} — más de lo que "
+        "produce una exportación de plantilla; revisa que el documento no oculte nada.",
+        "en": "Page {page}: {chars} invisible characters {group} — more than a "
+        "résumé-builder export produces; check that the document hides nothing.",
+    },
+    "gate.detail.invisible_glyphs_docx": {
+        "es": "{chars} caracteres invisibles {group} entre el texto en blanco y el "
+        "oculto, típicos de una exportación de plantilla — no afectan a cómo un ATS lee "
+        "este documento.",
+        "en": "{chars} invisible characters {group} across the white and hidden runs, "
+        "typical of a builder export — they do not affect how an ATS reads this document.",
+    },
+    "gate.detail.invisible_glyphs_warning_docx": {
+        "es": "{chars} caracteres invisibles {group} entre el texto en blanco y el "
+        "oculto — más de lo que produce una exportación de plantilla; revisa que el "
+        "documento no oculte nada.",
+        "en": "{chars} invisible characters {group} across the white and hidden runs — "
+        "more than a builder export produces; check that the document hides nothing.",
+    },
+    "gate.glyph_group.punctuation": {"es": "de puntuación", "en": "punctuation"},
+    "gate.glyph_group.symbol": {"es": "de símbolo", "en": "symbol"},
+    "gate.glyph_group.space": {"es": "de espacio", "en": "space"},
+    "gate.glyph_group.format": {"es": "de formato", "en": "format"},
     "gate.detail.multi_column": {
         "es": "Página {page}: dos columnas con {gap_pt} pt entre ellas (x {gutter_start}–"
         "{gutter_end}; {height_percent} % de la altura).",

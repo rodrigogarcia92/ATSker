@@ -7,7 +7,8 @@ travels into a report, a log, or a model prompt (PRD 10).
 
 import json
 import re
-from collections.abc import Iterable
+import unicodedata
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
@@ -32,6 +33,18 @@ MAX_HEADING_LENGTH = 60
 EMAIL = re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+")
 PHONE = re.compile(r"(?<!\w)(?:\+\d{1,3}[\s.-]?)?(?:\(\d{1,4}\)[\s.-]?)?\d[\d\s.-]{6,}\d(?!\w)")
 MOJIBAKE_MARKERS = ("Ã", "â€", "\ufffd")
+
+# F5.1.2: what makes hidden text dangerous is what it says, not how much of it there
+# is. A count threshold is both wrong and gameable — two hidden words can be
+# `data scientist`, twenty can be twenty white bullet glyphs — so the discriminator
+# is whether the glyphs carry anything an ATS would index, and the inert leftovers
+# are bounded by size and variety instead.
+INERT_CHAR_LIMIT = 8
+INERT_CATEGORY_LIMIT = 2
+
+# The Unicode general category groups an inert glyph can belong to, for the sentence
+# the panel shows. A class, never a character (decision 9).
+_GLYPH_GROUPS = {"P": "punctuation", "S": "symbol", "Z": "space", "C": "format"}
 
 _HEADINGS: dict[str, list[str]] = json.loads(
     (Path(__file__).parent / "section_headings.json").read_text(encoding="utf-8")
@@ -143,6 +156,40 @@ def _box(bbox: tuple[float, float, float, float]) -> list[float]:
     return [round(float(value), 1) for value in bbox]
 
 
+def is_alphanumeric(text: str) -> bool:
+    """Content an ATS would index: the glyphs include a Unicode letter or digit."""
+    return any(character.isalnum() for character in text)
+
+
+def _categories(text: str) -> dict[str, int]:
+    """Unicode general categories of the text's characters, counted (F5.1.2).
+
+    A category is a class — `Po`, `Zs`, `Cf` — so a finding can say "two invisible
+    punctuation characters" without the document's text entering a stored report
+    (decision 9).
+    """
+    counts: dict[str, int] = {}
+    for character in text:
+        category = unicodedata.category(character)
+        counts[category] = counts.get(category, 0) + 1
+    return counts
+
+
+def glyph_group(categories: Mapping[str, int]) -> str | None:
+    """The single group the categories belong to, when they agree on one."""
+    groups = {_GLYPH_GROUPS.get(category[0]) for category in categories}
+    return groups.pop() if len(groups) == 1 and None not in groups else None
+
+
+def inert_severity(texts: Sequence[str]) -> Severity:
+    """info below both limits, warning past either (F5.1.2), document-wide."""
+    characters = sum(len(text) for text in texts)
+    seen = {category for text in texts for category in _categories(text)}
+    if characters <= INERT_CHAR_LIMIT and len(seen) <= INERT_CATEGORY_LIMIT:
+        return "info"
+    return "warning"
+
+
 def _matched_words(words: list[Word], pattern: re.Pattern[str]) -> list[Word]:
     """The words a pattern's matches cover, against the band's joined text.
 
@@ -224,6 +271,12 @@ def _heading_lines(page: PageText) -> list[str]:
 def check_document(document: DocumentText) -> ParseReport:
     """Run every F4.1 check. Deterministic: same bytes in, same findings out."""
     findings: list[Finding] = []
+    # F5.1.2: the two causes are decided document-wide. One hidden readable word
+    # anywhere is a blocker; the inert leftovers are judged by their document totals.
+    hidden_words = [word for page in document.pages for word in page.white_words]
+    readable_hidden = [word for word in hidden_words if is_alphanumeric(word.text)]
+    inert_hidden = [word.text for word in hidden_words if not is_alphanumeric(word.text)]
+    inert_severity_value = inert_severity(inert_hidden)
 
     empty_pages = [page.number for page in document.pages if page.char_count == 0]
     if empty_pages:
@@ -281,15 +334,37 @@ def check_document(document: DocumentText) -> ParseReport:
                     )
                 )
 
-        if page.white_boxes:
+        hidden_here = [
+            word for word in page.white_words if is_alphanumeric(word.text)
+        ]
+        if hidden_here:
+            # F5.1.2: real words, hidden from the reader, present for the machine.
             findings.append(
                 Finding(
                     "invisible_text",
                     "blocker",
                     {
                         "page": page.number,
-                        "words": len(page.white_boxes),
-                        "boxes": [_box(bbox) for bbox in page.white_boxes],
+                        "words": len(hidden_here),
+                        "boxes": [_box(word.bbox) for word in hidden_here],
+                    },
+                )
+            )
+        elif page.white_words and not readable_hidden:
+            # Only inert glyphs in the whole document: a builder's spacer or
+            # separator, reported without capping (info) unless it goes past the
+            # limits, which is when it stops looking like an export artifact.
+            texts = [word.text for word in page.white_words]
+            findings.append(
+                Finding(
+                    "invisible_glyphs",
+                    inert_severity_value,
+                    {
+                        "page": page.number,
+                        "words": len(page.white_words),
+                        "chars": sum(len(text) for text in texts),
+                        "boxes": [_box(word.bbox) for word in page.white_words],
+                        "categories": _categories("".join(texts)),
                     },
                 )
             )
@@ -399,9 +474,40 @@ def check_docx(document: DocxText) -> ParseReport:
             )
         )
 
-    invisible = [*document.white_runs, *document.hidden_runs]
-    if invisible:
-        findings.append(Finding("invisible_text", "blocker", {"runs": len(invisible)}))
+    # F5.1.2 runs over the same classification as the PDF path, with the two ways a run
+    # can be invisible kept apart in the detail: the fix differs (clear a colour, or
+    # turn off `w:vanish`).
+    white_named = [run for run in document.white_runs if is_alphanumeric(run)]
+    hidden_named = [run for run in document.hidden_runs if is_alphanumeric(run)]
+    white_inert = [run for run in document.white_runs if not is_alphanumeric(run)]
+    hidden_inert = [run for run in document.hidden_runs if not is_alphanumeric(run)]
+    if white_named or hidden_named:
+        findings.append(
+            Finding(
+                "invisible_text",
+                "blocker",
+                {
+                    "runs": len(white_named) + len(hidden_named),
+                    "white_runs": len(white_named),
+                    "hidden_runs": len(hidden_named),
+                },
+            )
+        )
+    elif white_inert or hidden_inert:
+        inert = [*white_inert, *hidden_inert]
+        findings.append(
+            Finding(
+                "invisible_glyphs",
+                inert_severity(inert),
+                {
+                    "runs": len(inert),
+                    "white_runs": len(white_inert),
+                    "hidden_runs": len(hidden_inert),
+                    "chars": sum(len(run) for run in inert),
+                    "categories": _categories("".join(inert)),
+                },
+            )
+        )
 
     if document.columns > 1:
         findings.append(Finding("multi_column", "warning", {"columns": document.columns}))

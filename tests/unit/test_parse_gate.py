@@ -150,7 +150,12 @@ def test_white_text_over_a_dark_banner_is_visible_and_not_reported(tmp_path):
 
     report = check_document(read_pdf(build(tmp_path, "banner", draw)))
 
-    assert [finding.check for finding in report.findings if finding.check == "invisible_text"] == []
+    invisible = [
+        finding.check
+        for finding in report.findings
+        if finding.check in {"invisible_text", "invisible_glyphs"}
+    ]
+    assert invisible == [], "white on navy is readable: no finding of either kind (F5.1.2)"
     assert report.blockers == ()
 
 
@@ -276,3 +281,81 @@ def test_checks_not_run_names_what_a_format_cannot_answer():
 
     assert checks_not_run("docx") == ("image_bullets", "non_embedded_fonts")
     assert checks_not_run("pdf") == ()
+
+
+# --- F5.1.2: invisible text has two causes, and only one of them is cheating ----
+
+
+def _draw_white(pdf: canvas.Canvas, lines: list[tuple[float, float, str]], size: int = 12) -> None:
+    """Invisible words, drawn directly: the line helper resets the fill colour."""
+    pdf.setFillColorRGB(1, 1, 1)
+    pdf.setFont("Helvetica", size)
+    for x, y, text in lines:
+        pdf.drawString(x, y, text)
+
+
+def test_two_invisible_punctuation_characters_are_reported_without_capping(tmp_path):
+    """The operator's own builder export: it used to be a blocker, and it is not one."""
+
+    def draw(pdf: canvas.Canvas) -> None:
+        clean_body(pdf)
+        _draw_white(pdf, [(500, HEIGHT - 300, "·"), (520, HEIGHT - 300, "·")])
+
+    report = check_document(read_pdf(build(tmp_path, "inert", draw)))
+
+    finding = next(f for f in report.findings if f.check == "invisible_glyphs")
+    assert finding.severity == "info"
+    assert finding.detail["chars"] == 2
+    assert finding.detail["categories"] == {"Po": 2}, "a class, never a character"
+    assert finding.detail["boxes"], "one box per glyph (F5.1.1)"
+    assert report.blockers == ()
+    assert report.cap is None, "an export artifact does not cap the document"
+    assert "·" not in str(finding.detail), "the glyph itself never reaches a finding"
+
+
+def test_one_hidden_word_among_inert_glyphs_is_still_a_blocker(tmp_path):
+    def draw(pdf: canvas.Canvas) -> None:
+        clean_body(pdf)
+        _draw_white(pdf, [(500, HEIGHT - 300, "·"), (500, HEIGHT - 330, "kubernetes")])
+
+    report = check_document(read_pdf(build(tmp_path, "one_word", draw)))
+
+    finding = next(f for f in report.blockers if f.check == "invisible_text")
+    assert finding.detail["words"] == 1, "the readable word, not the punctuation"
+    assert report.cap == BLOCKER_CAP
+    assert "invisible_glyphs" not in [f.check for f in report.findings], (
+        "the inert case applies only when nothing readable is hidden"
+    )
+
+
+def test_ten_invisible_bullet_glyphs_go_past_the_limit_and_warn(tmp_path):
+    """Past the limits it stops looking like an export artifact, so it warns."""
+
+    def draw(pdf: canvas.Canvas) -> None:
+        clean_body(pdf)
+        # U+00B7, the glyph the operator's own export hides. The typographic bullet
+        # U+2022 is not usable here: reportlab's standard font has no mapping for it
+        # and pdfplumber extracts it as `(cid:127)`, which is a letter-and-digit
+        # string and therefore readable text by the rule — a fixture artifact.
+        _draw_white(pdf, [(60, HEIGHT - 200 - index * 20, "·") for index in range(10)])
+
+    report = check_document(read_pdf(build(tmp_path, "many_glyphs", draw)))
+
+    finding = next(f for f in report.warnings if f.check == "invisible_glyphs")
+    assert finding.detail["chars"] == 10
+    assert report.cap == WARNING_CAP
+    assert report.blockers == ()
+
+
+def test_glyphs_of_two_categories_stay_information(tmp_path):
+    """The second limit is variety: two categories are still export-shaped."""
+
+    def draw(pdf: canvas.Canvas) -> None:
+        clean_body(pdf)
+        _draw_white(pdf, [(500, HEIGHT - 300, "·"), (520, HEIGHT - 300, " ")])
+
+    report = check_document(read_pdf(build(tmp_path, "two_categories", draw)))
+
+    glyphs = [f for f in report.findings if f.check == "invisible_glyphs"]
+    assert glyphs and all(finding.severity == "info" for finding in glyphs)
+    assert report.cap is None

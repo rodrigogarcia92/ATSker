@@ -35,7 +35,7 @@ from src.ingest.draft import (
 )
 from src.ingest.merge import Selections, apply_merge, diff_draft
 from src.models import Resume, Track
-from src.parse.gate import checks_not_run
+from src.parse.gate import checks_not_run, glyph_group
 from src.resumes import (
     create_resume,
     get_resume,
@@ -61,6 +61,7 @@ _PAGE_CHECKS = {
     "contact_in_margin",
     "text_in_table",
     "invisible_text",
+    "invisible_glyphs",
     "multi_column",
     "mojibake",
 }
@@ -70,18 +71,26 @@ def _document_kind(filename: str) -> str:
     return Path(filename).suffix.lower().lstrip(".")
 
 
-def _finding_detail(check: str, detail: Mapping[str, Any], lang: str) -> str:
+def _finding_detail(check: str, detail: Mapping[str, Any], lang: str, severity: str = "") -> str:
     """One finding's detail sentence. Page numbers, bands and counts only — never text."""
     variant = ""
     if check == "no_extractable_text":
         variant = "" if detail.get("pages") else "_docx"
     elif check == "multi_column":
         variant = "" if "gap_pt" in detail else "_docx"
+    elif check == "invisible_glyphs":
+        # The sentence says why it did not cap (info) or why it did (warning), and a
+        # Word file has no page to name.
+        variant = ("_warning" if severity == "warning" else "") + (
+            "_docx" if detail.get("page") is None else ""
+        )
     elif check in _PAGE_CHECKS and detail.get("page") is None:
         variant = "_docx"
     fonts = [str(font) for font in detail.get("fonts", [])]
     first_pages = detail.get("first_pages") or {}
     gutter = list(detail.get("gutter") or [])
+    categories = {str(key): int(value) for key, value in (detail.get("categories") or {}).items()}
+    group = glyph_group(categories)
     values: dict[str, Any] = {
         "page": detail.get("page") if detail.get("page") is not None else "",
         "pages": ", ".join(str(value) for value in detail.get("pages", []))
@@ -92,6 +101,11 @@ def _finding_detail(check: str, detail: Mapping[str, Any], lang: str) -> str:
         "cells": detail.get("cells", 0),
         "tables": detail.get("tables", 0),
         "runs": detail.get("runs", 0),
+        "white_runs": detail.get("white_runs", 0),
+        "hidden_runs": detail.get("hidden_runs", 0),
+        "chars": detail.get("chars", 0),
+        # A class name in parentheses, or nothing when the glyphs disagree on one.
+        "group": f"({t(f'gate.glyph_group.{group}', lang)})" if group else "",
         "gap_pt": detail.get("gap_pt", 0),
         "gutter_start": gutter[0] if len(gutter) == 2 else "",
         "gutter_end": gutter[1] if len(gutter) == 2 else "",
@@ -119,7 +133,7 @@ def _findings(gate: Mapping[str, Any], lang: str) -> list[dict[str, str]]:
                 "severity": severity,
                 "label": t(f"gate.check.{check}", lang),
                 "severity_label": t(f"gate.severity.{severity}", lang),
-                "detail": _finding_detail(check, detail, lang),
+                "detail": _finding_detail(check, detail, lang, severity),
             }
         )
     return rows

@@ -162,3 +162,40 @@ def test_normalize_document_text_keeps_lines_and_collapses_spaces():
     text = "Experiencia\r\n  Analista   de\u00a0datos \n\n  Reduje 30%  \r\n"
 
     assert normalize_document_text(text) == "Experiencia\nAnalista de datos\nReduje 30%"
+
+def test_an_inert_white_run_is_a_glyph_finding_and_not_a_blocker():
+    """F5.1.2 on the DOCX side: a builder's separator is not hidden content."""
+    document = Document()
+    document.add_paragraph("Experiencia")
+    run = document.add_paragraph().add_run("·")
+    run.font.color.rgb = RGBColor(0xFF, 0xFF, 0xFF)
+    buffer = BytesIO()
+    document.save(buffer)
+
+    report = check_docx(read_docx(BytesIO(buffer.getvalue())))
+
+    finding = next(f for f in report.findings if f.check == "invisible_glyphs")
+    assert finding.severity == "info"
+    assert finding.detail["runs"] == 1
+    assert finding.detail["white_runs"] == 1 and finding.detail["hidden_runs"] == 0
+    assert finding.detail["chars"] == 1
+    assert report.cap is None
+
+
+def test_a_hidden_word_and_a_white_separator_are_reported_apart():
+    """A `w:vanish` run and a white run are different fixes, so they are counted apart."""
+    document = Document()
+    document.add_paragraph("Experiencia")
+    word = document.add_paragraph().add_run("kubernetes")
+    word.font.hidden = True
+    separator = document.add_paragraph().add_run("—")
+    separator.font.color.rgb = RGBColor(0xFF, 0xFF, 0xFF)
+    buffer = BytesIO()
+    document.save(buffer)
+
+    report = check_docx(read_docx(BytesIO(buffer.getvalue())))
+
+    finding = next(f for f in report.blockers if f.check == "invisible_text")
+    assert finding.detail == {"runs": 1, "white_runs": 0, "hidden_runs": 1}
+    assert "invisible_glyphs" not in [f.check for f in report.findings]
+    assert report.cap == BLOCKER_CAP

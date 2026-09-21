@@ -610,3 +610,36 @@ def test_a_merge_that_writes_nothing_says_the_database_is_unchanged(
 
     assert merged.status_code == 200
     assert "La fusión no escribió nada" in plain(merged.text)
+
+
+# --- F5.1.2: the invisible-glyph finding, rendered ---------------------------
+
+
+def glyph_pdf() -> bytes:
+    """A clean page with two invisible U+00B7, the operator's own builder artifact."""
+    buffer = BytesIO()
+    pdf = canvas.Canvas(buffer, pagesize=letter)
+    pdf.setFont("Helvetica", 10)
+    pdf.drawString(60, 700, "Experiencia")
+    pdf.setFillColorRGB(1, 1, 1)
+    pdf.drawString(500, 650, "·")
+    pdf.drawString(520, 650, "·")
+    pdf.showPage()
+    pdf.save()
+    return buffer.getvalue()
+
+
+def test_the_import_panel_reports_invisible_glyphs_without_capping(
+    client, session, career, provider
+):
+    """A downgrade the user cannot see is indistinguishable from a check that stopped running."""
+    login(client, career.first.email)
+
+    response = upload(client, glyph_pdf(), name="cv.pdf", content_type="application/pdf")
+    page = client.get(response.headers["location"]) if response.status_code == 303 else response
+
+    text = plain(page.text)
+    assert "Glifos invisibles" in text
+    assert "2 caracteres invisibles (de puntuación)" in text
+    assert "no afectan a cómo un ATS lee este documento" in text
+    assert "Bloqueante" not in text, "an export artifact is not a blocker"

@@ -40,7 +40,9 @@ class PageText:
     images: list[BBox] = field(default_factory=list)
     fonts: list[str] = field(default_factory=list)
     unembedded_fonts: list[str] = field(default_factory=list)
-    white_boxes: list[BBox] = field(default_factory=list)
+    # F5.1.2: the gate has to read what the hidden glyphs say before it can judge
+    # them, so the words travel in memory. They never reach a finding's detail.
+    white_words: list[Word] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -194,8 +196,8 @@ def read_pdf(source: str | Path | IO[bytes]) -> DocumentText:
                     images=images,
                     fonts=sorted({word.fontname for word in words if word.fontname}),
                     unembedded_fonts=_unembedded_fonts(page),
-                    white_boxes=[
-                        word.bbox for word in words if _invisible_white(word, backgrounds)
+                    white_words=[
+                        word for word in words if _invisible_white(word, backgrounds)
                     ],
                 )
             )
