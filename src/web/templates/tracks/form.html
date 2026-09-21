@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}{{ t('tracks.new', lang) if not track else track.name }} — {{ t('app.name', lang) }}{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-semibold tracking-tight">
+  {{ t('tracks.new', lang) if not track else t('common.edit', lang) }}
+</h1>
+
+<form method="post" action="{{ '/tracks' if not track else '/tracks/' ~ track.id }}"
+      class="mt-6 space-y-4 rounded-lg border border-slate-200 bg-white p-5">
+  <div>
+    <label for="name" class="mb-1 block text-sm font-medium">{{ t('tracks.name', lang) }}</label>
+    <input id="name" name="name" required value="{{ track.name if track else '' }}"
+           class="w-full rounded border border-slate-300 px-3 py-2 text-sm">
+  </div>
+  <div>
+    <label for="applies_when" class="mb-1 block text-sm font-medium">{{ t('tracks.applies_when', lang) }}</label>
+    <input id="applies_when" name="applies_when" value="{{ track.applies_when if track else '' }}"
+           class="w-full rounded border border-slate-300 px-3 py-2 text-sm">
+    <p class="mt-1 text-xs text-slate-500">{{ t('tracks.applies_hint', lang) }}</p>
+  </div>
+  <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+    <div>
+      <label for="lang" class="mb-1 block text-sm font-medium">{{ t('tracks.lang', lang) }}</label>
+      <select id="lang" name="lang" class="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm">
+        <option value="es" {% if not track or track.lang == 'es' %}selected{% endif %}>ES</option>
+        <option value="en" {% if track and track.lang == 'en' %}selected{% endif %}>EN</option>
+      </select>
+    </div>
+    <div>
+      <label for="target_seniority" class="mb-1 block text-sm font-medium">{{ t('tracks.seniority', lang) }}</label>
+      <input id="target_seniority" name="target_seniority"
+             value="{{ track.target_seniority or '' if track else '' }}"
+             class="w-full rounded border border-slate-300 px-3 py-2 text-sm">
+      <p class="mt-1 text-xs text-slate-500">{{ t('tracks.seniority_hint', lang) }}</p>
+    </div>
+  </div>
+  <div>
+    <label for="headline" class="mb-1 block text-sm font-medium">{{ t('tracks.headline', lang) }}</label>
+    <input id="headline" name="headline" value="{{ track.headline or '' if track else '' }}"
+           class="w-full rounded border border-slate-300 px-3 py-2 text-sm">
+    <p class="mt-1 text-xs text-slate-500">{{ t('tracks.headline_hint', lang) }}</p>
+  </div>
+  <div>
+    <label for="summary" class="mb-1 block text-sm font-medium">{{ t('tracks.summary', lang) }}</label>
+    <textarea id="summary" name="summary" rows="4"
+              class="w-full rounded border border-slate-300 px-3 py-2 text-sm">{{ track.summary or '' if track else '' }}</textarea>
+  </div>
+
+  {% if track %}
+  <label class="flex items-center gap-2 text-sm">
+    <input type="checkbox" name="active" value="on" {% if track.active %}checked{% endif %}>
+    {{ t('common.active', lang) }}
+  </label>
+  <p class="text-xs text-slate-500">{{ t('tracks.deactivate_hint', lang) }}</p>
+  {% endif %}
+
+  <div class="flex items-center gap-4">
+    <button type="submit" class="rounded bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800">
+      {{ t('common.save', lang) }}
+    </button>
+    <a href="{{ '/tracks' if not track else '/tracks/' ~ track.id }}" class="text-sm underline">
+      {{ t('common.cancel', lang) }}
+    </a>
+  </div>
+</form>
+{% endblock %}

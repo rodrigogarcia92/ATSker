@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}{{ t('tracks.title', lang) }} — {{ t('app.name', lang) }}{% endblock %}
+{% block content %}
+<div class="flex items-center justify-between gap-4">
+  <h1 class="text-2xl font-semibold tracking-tight">{{ t('tracks.title', lang) }}</h1>
+  <a href="/tracks/new" class="rounded bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800">
+    {{ t('tracks.new', lang) }}
+  </a>
+</div>
+<p class="mt-1 text-sm text-slate-600">{{ t('tracks.intro', lang) }}</p>
+
+<ul class="mt-6 divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white">
+  {% for track in tracks %}
+  <li class="flex flex-wrap items-center gap-x-4 gap-y-1 p-4">
+    <a href="/tracks/{{ track.id }}" class="font-medium hover:underline">{{ track.name }}</a>
+    <span class="text-sm text-slate-600">{{ track.applies_when }}</span>
+    <span class="text-xs uppercase text-slate-500">{{ track.lang }}</span>
+    <span class="text-xs text-slate-500">{{ sizes.get(track.id, 0) }} {{ t('tracks.bullets', lang) }}</span>
+    {% if not track.active %}
+    <span class="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-600">{{ t('common.inactive', lang) }}</span>
+    {% endif %}
+  </li>
+  {% else %}
+  <li class="p-4 text-sm text-slate-600">{{ t('tracks.empty', lang) }}</li>
+  {% endfor %}
+</ul>
+{% endblock %}

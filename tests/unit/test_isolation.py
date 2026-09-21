@@ -3,9 +3,10 @@
 The requirement is that user A gets 404 — not 403 — for user B's records by id, so
 that the response says nothing about whether the id exists. The profile itself is
 addressed as `/profile` without an id, so the records under test are the career
-rows: roles, bullets, stories and letter templates.
+rows: roles, bullets, stories, letter templates and tracks.
 """
 
+from src.tracks import track_bullets
 from tests.conftest import login
 
 
@@ -62,3 +63,34 @@ def test_profile_page_shows_only_the_signed_in_user(client, career):
 
     assert "Ana" in page
     assert "Bea" not in page
+
+
+def test_another_users_track_is_404_on_every_route(client, session, career):
+    """F4 adds a second addressable record; it answers exactly like the first (F1)."""
+    login(client, career.first.email)
+    track_id = career.second_track.id
+
+    assert client.get(f"/tracks/{career.first_track.id}").status_code == 200
+    assert client.get(f"/tracks/{track_id}").status_code == 404
+    assert client.get(f"/tracks/{track_id}/edit").status_code == 404
+    assert client.get(f"/tracks/{track_id}/bullets").status_code == 404
+    assert client.post(f"/tracks/{track_id}", data={"name": "Robada"}).status_code == 404
+    assert client.post(f"/tracks/{track_id}/clone", data={"name": "Copia"}).status_code == 404
+    assert client.post(f"/tracks/{track_id}/active", data={"active": "off"}).status_code == 404
+    assert (
+        client.post(
+            f"/tracks/{track_id}/bullets",
+            data={"pick": str(career.second_bullet.id), "row": str(career.second_bullet.id)},
+        ).status_code
+        == 404
+    )
+
+    session.expire_all()
+    assert career.second_track.name == "Riesgo"
+    assert career.second_track.active is True
+    assert [
+        bullet.id
+        for bullet in track_bullets(
+            career.second_profile.id, session, career.second_track.id
+        )
+    ] == [career.second_bullet.id]

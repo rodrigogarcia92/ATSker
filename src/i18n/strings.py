@@ -18,6 +18,7 @@ STRINGS: dict[str, dict[str, str]] = {
     "nav.dashboard": {"es": "Panel", "en": "Dashboard"},
     "nav.analyze": {"es": "Analizar", "en": "Analyse"},
     "nav.import": {"es": "Importar", "en": "Import"},
+    "nav.tracks": {"es": "Enfoques", "en": "Tracks"},
     "nav.profile": {"es": "Perfil", "en": "Profile"},
     "nav.roles": {"es": "Trayectoria", "en": "Experience"},
     "nav.stories": {"es": "Historias", "en": "Stories"},
@@ -222,6 +223,64 @@ STRINGS: dict[str, dict[str, str]] = {
     "roles.deactivate_hint": {
         "es": "Desactivar conserva el puesto para los informes ya generados.",
         "en": "Deactivating keeps the role for reports already generated.",
+    },
+    # Tracks (N2)
+    "tracks.title": {"es": "Enfoques", "en": "Tracks"},
+    "tracks.new": {"es": "Nuevo enfoque", "en": "New track"},
+    "tracks.intro": {
+        "es": "Un enfoque es un puesto objetivo con una selección ordenada de tus viñetas. "
+        "No copia contenido: la misma viñeta sirve a varios enfoques.",
+        "en": "A track is a target role with an ordered selection of your bullets. It copies "
+        "no content: the same bullet serves several tracks.",
+    },
+    "tracks.name": {"es": "Nombre", "en": "Name"},
+    "tracks.applies_when": {"es": "Cuándo usarlo", "en": "When to use it"},
+    "tracks.applies_hint": {
+        "es": "Lo lee el recomendador para elegir enfoque ante una oferta.",
+        "en": "The recommender reads this to pick a track for a posting.",
+    },
+    "tracks.lang": {"es": "Idioma", "en": "Language"},
+    "tracks.seniority": {"es": "Seniority objetivo", "en": "Target seniority"},
+    "tracks.seniority_hint": {"es": "Opcional.", "en": "Optional."},
+    "tracks.headline": {"es": "Titular", "en": "Headline"},
+    "tracks.headline_hint": {
+        "es": "Si lo rellenas, sustituye al titular del perfil al puntuar el encaje de "
+        "puesto.",
+        "en": "When set, it replaces the profile headline when scoring title alignment.",
+    },
+    "tracks.summary": {"es": "Resumen", "en": "Summary"},
+    "tracks.bullets": {"es": "viñetas", "en": "bullets"},
+    "tracks.empty": {
+        "es": "Todavía no hay enfoques. Crea el primero.",
+        "en": "No tracks yet. Create the first one.",
+    },
+    "tracks.selection": {"es": "Viñetas seleccionadas", "en": "Selected bullets"},
+    "tracks.selection_hint": {
+        "es": "En este orden. El análisis puntúa solo estas viñetas.",
+        "en": "In this order. An analysis scores only these bullets.",
+    },
+    "tracks.no_bullets": {"es": "Sin viñetas seleccionadas.", "en": "No bullets selected yet."},
+    "tracks.pick": {"es": "Elegir viñetas", "en": "Pick bullets"},
+    "tracks.pick_title": {"es": "Viñetas de {name}", "en": "Bullets for {name}"},
+    "tracks.pick_hint": {
+        "es": "Marca las viñetas y ordénalas con el número. Las que no lleven número van al "
+        "final, en el orden en que aparecen.",
+        "en": "Tick the bullets and order them with the number. Unnumbered ones go last, in "
+        "the order they appear.",
+    },
+    "tracks.order": {"es": "Orden", "en": "Order"},
+    "tracks.no_master_bullets": {
+        "es": "No hay viñetas activas en la base maestra.",
+        "en": "No active bullets in the master database.",
+    },
+    "tracks.clone": {"es": "Clonar", "en": "Clone"},
+    "tracks.clone_hint": {
+        "es": "Copia los campos y la selección, con su orden.",
+        "en": "Copies the fields and the selection, order included.",
+    },
+    "tracks.deactivate_hint": {
+        "es": "Desactivar conserva el enfoque para los informes ya generados.",
+        "en": "Deactivating keeps the track for reports already generated.",
     },
     # Bullets
     "bullets.title": {"es": "Viñetas", "en": "Bullets"},
