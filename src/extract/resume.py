@@ -8,6 +8,7 @@ with deterministic rules first, and only the leftovers follow the model's own
 `kind` proposal, flagged for the review screen.
 """
 
+from dataclasses import replace
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -25,7 +26,32 @@ PURPOSE = "resume_extract"
 # One retry for a schema violation, like the other extraction calls.
 RETRIES = 1
 
+# Below this many characters of source text, an empty answer is plausible — a
+# near-empty document legitimately extracts to nothing, and "this document has no
+# text" is the message that fits. At or above it, an answer with no roles, no
+# credentials and no skills is a failed extraction however well-formed it is: the
+# observed defect was 6,793 characters in, 9 completion tokens out (F2.3.1). Two
+# hundred characters is a couple of lines of prose — far below anything with a job
+# to parse, far above a document that has no content to lose.
+MIN_SUBSTANTIAL_CHARS = 200
+
 CredentialKind = Literal["education", "certification", "unsure"]
+
+
+class EmptyExtraction(RuntimeError):
+    """The document had text and the model returned nothing (F2.3.1).
+
+    Distinct from `ProviderUnavailable` (nothing was paid, nothing was learned) and
+    from `StructuredOutputError` (the answer did not fit the schema): here the answer
+    fitted the schema and said nothing. The character count travels with the error so
+    the screen can report what went in.
+    """
+
+    def __init__(self, characters: int) -> None:
+        super().__init__(
+            f"{characters} characters of source text produced an empty extraction"
+        )
+        self.characters = characters
 
 
 class ExtractedCredential(BaseModel):
@@ -70,6 +96,18 @@ def vocabulary_rows(session: Session) -> list[str]:
     return [f"{skill.canonical} — {skill.kind}" for skill in skills]
 
 
+def is_degenerate(extraction: ResumeExtraction) -> bool:
+    """True when the answer carries no career content at all (F2.3.1).
+
+    Schema-valid and empty at the same time: every field on `ResumeExtraction` has a
+    default, so `{}` validates. The headline and summary are deliberately not
+    evidence of success — a model that returns only a headline has still failed to
+    parse the document, and a draft built from it would be an empty review screen
+    again.
+    """
+    return not extraction.roles and not extraction.credentials and not extraction.skills
+
+
 def extract_resume(
     session: Session,
     text: str,
@@ -83,6 +121,11 @@ def extract_resume(
     The text arrives already normalised (`ingest.documents.normalize_document_text`)
     so that the same upload hashes to the same cache entry; contact details are
     redacted before anything leaves for the provider (PRD 10).
+
+    A degenerate answer gets one more attempt, uncached, and if that is degenerate
+    too the extraction is reported as failed rather than handed to the review screen
+    as an empty draft (F2.3.1). Both attempts are marked in the ledger, so neither
+    can be served back by the cache.
     """
     if not text.strip():
         raise ValueError("the document has no text to extract")
@@ -92,15 +135,50 @@ def extract_resume(
     with short_session(session) as reader:
         skills = vocabulary_rows(reader)
     system = RESUME_EXTRACTION.render_system(skills="\n".join(skills), languages="es, en")
+    source = redaction.redact(text, known_names=known_names)
+    user = RESUME_EXTRACTION.render(text=source)
+    # The caller's own verdict on its own answers: the count is of the text the call
+    # was made over, which is the same text the content hash covers.
+    substantial = len(source) >= MIN_SUBSTANTIAL_CHARS
+    opts = options or CallOptions()
+    if substantial:
+        opts = replace(opts, degenerate=lambda answer: is_degenerate(_validated(answer)))
+
     completion = complete_json(
         session,
         purpose=PURPOSE,
         prompt_version=RESUME_EXTRACTION.version,
         system=system,
-        user=RESUME_EXTRACTION.render(text=redaction.redact(text, known_names=known_names)),
+        user=user,
         schema=ResumeExtraction,
         model=model,
         retries=RETRIES,
-        options=options,
+        options=opts,
     )
-    return ResumeExtraction.model_validate(completion.data), completion
+    extraction = ResumeExtraction.model_validate(completion.data)
+    if not substantial or not is_degenerate(extraction):
+        return extraction, completion
+
+    # One more attempt, fresh: the cached answer is the degenerate one just returned,
+    # so retrying through the cache would only serve it again.
+    retry = complete_json(
+        session,
+        purpose=PURPOSE,
+        prompt_version=RESUME_EXTRACTION.version,
+        system=system,
+        user=user,
+        schema=ResumeExtraction,
+        model=model,
+        retries=RETRIES,
+        options=replace(opts, bypass_cache=True),
+    )
+    extraction = ResumeExtraction.model_validate(retry.data)
+    if is_degenerate(extraction):
+        raise EmptyExtraction(len(source))
+    # Both calls were paid for; report a ledger gap from either one.
+    return extraction, replace(retry, ledger_error=completion.ledger_error or retry.ledger_error)
+
+
+def _validated(answer: dict) -> ResumeExtraction:
+    """The parsed answer the client already schema-checked, as a model."""
+    return ResumeExtraction.model_validate(answer)

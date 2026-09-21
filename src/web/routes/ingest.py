@@ -7,12 +7,14 @@ step, and the uploaded file is archived with its SHA-256 from the first (F2.6).
 """
 
 import hashlib
+import uuid
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Annotated, Any
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import RedirectResponse
+from sqlalchemy.orm import Session
 
 from src.extract.client import (
     NoModelConfigured,
@@ -20,7 +22,7 @@ from src.extract.client import (
     StructuredOutputError,
     model_configured,
 )
-from src.extract.resume import extract_resume
+from src.extract.resume import EmptyExtraction, extract_resume
 from src.i18n import t
 from src.ingest.documents import UnreadableDocument, UnsupportedDocument, load_document
 from src.ingest.draft import (
@@ -32,6 +34,7 @@ from src.ingest.draft import (
     build_draft,
 )
 from src.ingest.merge import Selections, apply_merge, diff_draft
+from src.models import Resume, Track
 from src.parse.gate import checks_not_run
 from src.resumes import (
     create_resume,
@@ -279,6 +282,75 @@ def draft_from_form(form: Mapping[str, Any], *, language: str) -> ResumeDraft:
     )
 
 
+def _failure_message(failure: Exception, lang: str) -> str:
+    """What to say when an extraction produced nothing (F2.3.1).
+
+    `EmptyExtraction` is its own case: the document was read and the answer said
+    nothing, which is a different problem from a provider that could not be reached
+    and has a different fix.
+    """
+    if isinstance(failure, EmptyExtraction):
+        return t("import.empty_extraction", lang, characters=failure.characters)
+    return t("import.failed", lang)
+
+
+def _archive_resume(
+    profile_id: uuid.UUID,
+    session: Session,
+    *,
+    filename: str,
+    data: bytes,
+    gate: dict,
+    track: Track | None,
+    draft: dict | None = None,
+) -> Resume:
+    """Store the upload with its findings, draft or not (F2.6, F2.3.1)."""
+    return create_resume(
+        profile_id,
+        session,
+        filename=filename,
+        data=data,
+        sha256=hashlib.sha256(data).hexdigest(),
+        track_id=track.id if track else None,
+        gate=gate,
+        draft=draft,
+    )
+
+
+def _review_page(
+    request: Request,
+    user,
+    profile,
+    *,
+    resume,
+    gate: Mapping[str, Any],
+    kind: str,
+    draft: ResumeDraft | None = None,
+    error: str | None = None,
+):
+    """The draft screen in all its states: editable draft, failed extraction, no text.
+
+    `can_retry` is true exactly when there is an archived row with no draft and a
+    model to call — the retry runs on the stored bytes, which is what the archive is
+    for (F2.3.1).
+    """
+    return render(
+        request,
+        "import/review.html",
+        user=user,
+        profile=profile,
+        resume=resume,
+        gate=gate,
+        findings=_findings(gate, user.ui_lang),
+        document_kind=kind,
+        not_run=checks_not_run(kind),
+        draft=draft,
+        credentials=_credential_rows(draft) if draft else [],
+        error=error,
+        can_retry=bool(resume is not None and draft is None and model_configured()),
+    )
+
+
 def _upload_page(
     request: Request,
     user,
@@ -353,24 +425,20 @@ async def import_upload(
     if not loaded.text.strip():
         # Nothing for an ATS to read and nothing to extract: show the findings and
         # store nothing — there is no draft to review and no merge to make.
-        return render(
+        return _review_page(
             request,
-            "import/review.html",
-            user=user,
-            profile=profile,
+            user,
+            profile,
             resume=None,
             gate=gate,
-            findings=_findings(gate, user.ui_lang),
-            document_kind=loaded.kind,
-            not_run=checks_not_run(loaded.kind),
-            draft=None,
-            credentials=[],
+            kind=loaded.kind,
             error=t("import.no_text", user.ui_lang),
         )
 
-    # The route owns its transaction: the session's reads (the signed-in profile
-    # among them) are released before the provider call, and `complete_json` refuses
-    # to run while a transaction is held.
+    # The route owns its transaction: the session's reads (the signed-in profile and
+    # the intended track among them) are released before the provider call, and
+    # `complete_json` refuses to run while a transaction is held.
+    track = get_track(profile.id, session, track_id) if track_id else None
     session.commit()
     try:
         extraction, completion = extract_resume(
@@ -379,58 +447,56 @@ async def import_upload(
             known_names=[profile.display_name] if profile.display_name else None,
         )
     except NoModelConfigured:
+        # No call was attempted and nothing was paid for: there is no answer to purge
+        # and none to retry, so the findings are shown and nothing is archived.
         message = t("import.no_model", user.ui_lang)
-    except (ProviderUnavailable, StructuredOutputError):
-        # The calls that were paid for stay in the ledger; nothing is archived from
-        # an import that did not produce a draft.
+    except (ProviderUnavailable, StructuredOutputError, EmptyExtraction) as failure:
+        # The calls that were paid for stay in the ledger. The document is archived
+        # with no draft (F2.3.1), which is what makes the retry cheap: it runs on the
+        # stored bytes instead of asking the user to upload the file again.
         session.commit()
-        message = t("import.failed", user.ui_lang)
+        resume = _archive_resume(
+            profile.id, session, filename=filename, data=data, gate=gate, track=track
+        )
+        session.commit()
+        return _review_page(
+            request,
+            user,
+            profile,
+            resume=resume,
+            gate=gate,
+            kind=loaded.kind,
+            error=_failure_message(failure, user.ui_lang),
+        )
     else:
         draft = build_draft(session, extraction, language_hint=user.ui_lang)
-        track = get_track(profile.id, session, track_id) if track_id else None
-        resume = create_resume(
+        resume = _archive_resume(
             profile.id,
             session,
             filename=filename,
             data=data,
-            sha256=hashlib.sha256(data).hexdigest(),
-            track_id=track.id if track else None,
             gate=gate,
+            track=track,
             draft=draft.model_dump(mode="json"),
         )
         session.commit()
         if completion.ledger_error:
             # The draft is real; the ledger row is not. Show the review screen with
             # the warning instead of redirecting into a page that would read as clean.
-            return render(
+            return _review_page(
                 request,
-                "import/review.html",
-                user=user,
-                profile=profile,
+                user,
+                profile,
                 resume=resume,
                 gate=gate,
-                findings=_findings(gate, user.ui_lang),
-                document_kind=loaded.kind,
-                not_run=checks_not_run(loaded.kind),
+                kind=loaded.kind,
                 draft=draft,
-                credentials=_credential_rows(draft),
                 error=t("common.ledger_unrecorded", user.ui_lang),
             )
         return RedirectResponse(f"/import/{resume.id}", status_code=303)
 
-    return render(
-        request,
-        "import/review.html",
-        user=user,
-        profile=profile,
-        resume=None,
-        gate=gate,
-        findings=_findings(gate, user.ui_lang),
-        document_kind=loaded.kind,
-        not_run=checks_not_run(loaded.kind),
-        draft=None,
-        credentials=[],
-        error=message,
+    return _review_page(
+        request, user, profile, resume=None, gate=gate, kind=loaded.kind, error=message
     )
 
 
@@ -453,22 +519,82 @@ def import_review(
         )
     draft = ResumeDraft.model_validate(resume.draft) if resume.draft else None
     if draft is None:
-        # A draft is always stored at upload; a merged or discarded row is the only
-        # other state, so this is a row from a future version, not a user action.
-        raise HTTPException(status_code=404)
-    return render(
+        # F2.3.1: the row is here because the upload was archived before its
+        # extraction failed. Say so and offer the retry, rather than a 404 that
+        # would read as "this document is gone".
+        return _review_page(
+            request,
+            user,
+            profile,
+            resume=resume,
+            gate=resume.gate or {},
+            kind=_document_kind(resume.filename),
+            error=t("import.extraction_failed", user.ui_lang),
+        )
+    return _review_page(
         request,
-        "import/review.html",
-        user=user,
-        profile=profile,
+        user,
+        profile,
         resume=resume,
         gate=resume.gate or {},
-        findings=_findings(resume.gate or {}, user.ui_lang),
-        document_kind=_document_kind(resume.filename),
-        not_run=checks_not_run(_document_kind(resume.filename)),
+        kind=_document_kind(resume.filename),
         draft=draft,
-        credentials=_credential_rows(draft),
-        error=None,
+    )
+
+
+@router.post("/import/{resume_id}/retry")
+def import_retry(
+    resume_id: str, request: Request, user: SignedInUser, session: DbSession, profile: OwnProfile
+):
+    """Re-run the extraction on the archived bytes (F2.3.1).
+
+    The file was stored for exactly this: a failed extraction whose paid answer has
+    since been purged, or a provider that was down, must not cost the user the upload
+    again.
+    """
+    resume = get_resume(profile.id, session, resume_id)
+    if resume is None or resume.merged_at is not None:
+        return render(request, "not_found.html", user=user, status_code=404)
+    if resume.draft is not None:
+        return RedirectResponse(f"/import/{resume_id}", status_code=303)
+
+    filename = resume.filename
+    data = resume.file_bytes
+    gate = resume.gate or {}
+    kind = _document_kind(filename)
+    try:
+        loaded = load_document(filename, data)
+    except (UnsupportedDocument, UnreadableDocument):
+        return _review_page(
+            request,
+            user,
+            profile,
+            resume=resume,
+            gate=gate,
+            kind=kind,
+            error=t("import.unreadable", user.ui_lang),
+        )
+
+    session.commit()
+    try:
+        extraction, completion = extract_resume(
+            session,
+            loaded.text,
+            known_names=[profile.display_name] if profile.display_name else None,
+        )
+    except NoModelConfigured:
+        message = t("import.no_model", user.ui_lang)
+    except (ProviderUnavailable, StructuredOutputError, EmptyExtraction) as failure:
+        session.commit()
+        message = _failure_message(failure, user.ui_lang)
+    else:
+        draft = build_draft(session, extraction, language_hint=user.ui_lang)
+        save_draft(profile.id, session, resume_id, draft.model_dump(mode="json"))
+        session.commit()
+        return RedirectResponse(f"/import/{resume_id}", status_code=303)
+
+    return _review_page(
+        request, user, profile, resume=resume, gate=gate, kind=kind, error=message
     )
 
 

@@ -1,5 +1,6 @@
 """The model edge: caching, cost capture, schema strictness, redaction."""
 
+import json
 from decimal import Decimal
 
 import pytest
@@ -289,3 +290,227 @@ def test_redaction_strips_contact_details_and_known_names():
     assert "999" not in cleaned
     assert "Ana" not in cleaned
     assert "[email]" in cleaned and "[phone]" in cleaned and "[name]" in cleaned
+
+
+def test_a_second_identical_call_after_a_degenerate_one_is_not_served_from_the_cache(
+    session, test_settings, monkeypatch
+):
+    """F2.3.1: a marked row keeps its cost and loses its place in the cache."""
+    seen = stub(monkeypatch, Answer(ANSWER))
+    marked = lambda answer: True  # noqa: E731 - the caller's verdict, stated inline
+
+    first = complete_json(
+        session,
+        purpose="test",
+        prompt_version="test_v1",
+        system="system",
+        user="user",
+        schema=StorySuggestionSchema,
+        options=CallOptions(degenerate=marked),
+    )
+    second = complete_json(
+        session,
+        purpose="test",
+        prompt_version="test_v1",
+        system="system",
+        user="user",
+        schema=StorySuggestionSchema,
+        options=CallOptions(degenerate=marked),
+    )
+
+    assert first.cached is False and second.cached is False
+    assert len(seen) == 2, "the second call paid again rather than reading the marked row"
+    rows = session.query(LlmCall).order_by(LlmCall.id).all()
+    assert [row.degenerate for row in rows] == [True, True]
+    assert all(row.cost_usd > 0 for row in rows), "the ledger keeps what was spent"
+
+
+def test_the_callers_verdict_is_evaluated_before_the_ledger_write(
+    session, test_settings, monkeypatch
+):
+    """A healthy answer under the same options is cached as usual."""
+    stub(monkeypatch, Answer(ANSWER))
+    verdicts: list[dict] = []
+
+    def keep_only_empty(answer: dict) -> bool:
+        verdicts.append(answer)
+        return answer.get("note") == ""
+
+    for _ in range(2):
+        complete_json(
+            session,
+            purpose="test",
+            prompt_version="test_v1",
+            system="system",
+            user="user",
+            schema=StorySuggestionSchema,
+            options=CallOptions(degenerate=keep_only_empty),
+        )
+
+    assert len(verdicts) == 1, "the judgement runs once, on the fresh answer"
+    assert session.query(LlmCall).one().degenerate is False
+
+
+def test_the_cache_returns_the_answer_paid_for_first(session, test_settings, monkeypatch):
+    """Two rows for one hash: a bypassed run wrote the second, the first is the answer."""
+    seen = stub(monkeypatch, Answer(ANSWER))
+    complete_json(
+        session,
+        purpose="test",
+        prompt_version="test_v1",
+        system="system",
+        user="user",
+        schema=StorySuggestionSchema,
+    )
+    first_row = session.query(LlmCall).one()
+    first_row.response_json = {"role_id": None, "bullet_ids": [], "skills": [], "note": "primero"}
+    session.commit()
+
+    # A `bypass_cache` run of the same input writes a second row for the same hash.
+    complete_json(
+        session,
+        purpose="test",
+        prompt_version="test_v1",
+        system="system",
+        user="user",
+        schema=StorySuggestionSchema,
+        options=CallOptions(bypass_cache=True),
+    )
+    second_row = session.query(LlmCall).order_by(LlmCall.id.desc()).first()
+    second_row.response_json = {"role_id": None, "bullet_ids": [], "skills": [], "note": "segundo"}
+    session.commit()
+    assert first_row.id != second_row.id and len(seen) == 2
+
+    third = complete_json(
+        session,
+        purpose="test",
+        prompt_version="test_v1",
+        system="system",
+        user="user",
+        schema=StorySuggestionSchema,
+    )
+
+    assert third.cached is True
+    assert third.data["note"] == "primero", "the oldest row for the hash wins"
+
+
+@pytest.fixture
+def script_session(monkeypatch, session):
+    """Point the ledger script at the test session instead of the developer's .env.
+
+    `scripts/llm_costs.py` opens its own session through `src.db.session_scope`, which
+    reads DATABASE_URL; a test must never reach that database.
+    """
+    from contextlib import contextmanager
+
+    import scripts.llm_costs as llm_costs
+
+    @contextmanager
+    def scope():
+        # The real `session_scope` commits on success; the script relies on that.
+        try:
+            yield session
+            session.commit()
+        except Exception:
+            session.rollback()
+            raise
+
+    monkeypatch.setattr(llm_costs, "session_scope", scope)
+    return session
+
+
+def test_purging_a_hash_marks_every_row_for_it_and_keeps_the_cost(
+    script_session, test_settings, monkeypatch, capsys
+):
+    """F2.3.1: the operator's path for an answer that is already stored."""
+    from scripts.llm_costs import cmd_purge
+
+    session = script_session
+    stub(monkeypatch, Answer(ANSWER))
+    call(session)
+    call(session, options=CallOptions(bypass_cache=True))
+    rows = session.query(LlmCall).all()
+    assert len(rows) == 2 and rows[0].input_hash == rows[1].input_hash
+    digest = rows[0].input_hash
+
+    # Dry run: it prints what it would touch and writes nothing.
+    assert cmd_purge(digest, confirm=False) == 0
+    printed = capsys.readouterr().out
+    assert digest in printed and "dry run" in printed
+    assert session.query(LlmCall).filter(LlmCall.degenerate.is_(True)).count() == 0
+
+    assert cmd_purge(digest, confirm=True) == 0
+
+    assert session.query(LlmCall).filter(LlmCall.degenerate.is_(True)).count() == 2
+    assert session.query(LlmCall).count() == 2, "the ledger keeps the rows"
+    assert all(row.cost_usd == Decimal("0.000123") for row in session.query(LlmCall).all())
+
+    # And the cache stops serving them: a matching call pays again.
+    session.commit()  # the assertions above opened a read; a call refuses to start inside it
+    seen = stub(monkeypatch, Answer(ANSWER))
+    assert call(session).cached is False
+    assert len(seen) == 1
+
+
+def test_purging_an_unknown_hash_says_so_and_writes_nothing(script_session, capsys):
+    from scripts.llm_costs import cmd_purge
+
+    assert cmd_purge("0" * 64, confirm=True) == 1
+
+    assert "no call matches" in capsys.readouterr().out
+    assert script_session.query(LlmCall).count() == 0
+
+
+def test_a_degenerate_extraction_is_empty_content_not_a_missing_field():
+    """F2.3.1: the predicate, without a provider in sight."""
+    from src.extract.resume import ResumeExtraction, is_degenerate
+
+    assert is_degenerate(ResumeExtraction()) is True
+    assert is_degenerate(ResumeExtraction(headline="Analista de datos")) is True, (
+        "a headline is not parsed content"
+    )
+    assert is_degenerate(ResumeExtraction(summary="Cinco años con Python")) is True
+    assert is_degenerate(ResumeExtraction(skills=["python"])) is False
+    assert (
+        is_degenerate(
+            ResumeExtraction(roles=[{"employer": "Acme", "title": "Analista", "bullets": ["x"]}])
+        )
+        is False
+    )
+    assert (
+        is_degenerate(ResumeExtraction(credentials=[{"kind": "education", "name": "Bachiller"}]))
+        is False
+    )
+
+
+def test_a_degenerate_resume_extraction_raises_naming_the_input_characters(
+    session, test_settings, monkeypatch
+):
+    """The retry is the last attempt: after it, the caller gets a named failure."""
+    from src.extract.resume import EmptyExtraction, extract_resume
+
+    stub(monkeypatch, Answer(json.dumps({"roles": [], "credentials": [], "skills": []})))
+    text = "Experiencia profesional en análisis de datos. " * 12
+    assert len(text) >= 200, "the fixture has to be substantial or the check does not apply"
+
+    with pytest.raises(EmptyExtraction) as raised:
+        extract_resume(session, text)
+
+    assert raised.value.characters == len(text)
+    assert str(len(text)) in str(raised.value)
+    assert session.query(LlmCall).count() == 2, "both attempts are in the ledger"
+    assert all(row.degenerate for row in session.query(LlmCall).all())
+
+
+def test_a_short_document_with_an_empty_answer_is_not_called_degenerate(
+    session, test_settings, monkeypatch
+):
+    """Below the threshold an empty answer is plausible: nothing to parse, nothing lost."""
+    from src.extract.resume import extract_resume
+
+    stub(monkeypatch, Answer(json.dumps({"roles": [], "credentials": [], "skills": []})))
+
+    extraction, completion = extract_resume(session, "Analista de datos, Lima")
+
+    assert extraction.roles == [] and completion.cached is False
+    assert session.query(LlmCall).one().degenerate is False

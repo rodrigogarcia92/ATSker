@@ -13,6 +13,7 @@ provider thinks is the one the database kills mid-flight (2026-09-20, defect 1).
 
 import hashlib
 import json
+from collections.abc import Callable
 from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any, TypeVar
@@ -79,11 +80,17 @@ class CallOptions:
     turns the cache off so that repeated runs measure the judge rather than the
     cache, and pins a seed and a reasoning effort so the repeats are as comparable
     as the provider allows; an explicit value here wins over the setting.
+
+    `degenerate` is the caller's judgement about its *own* answer (F2.3.1): the
+    client does not know what "empty" means for a given purpose, so the caller
+    supplies a predicate over the parsed answer, evaluated before the ledger write.
+    A row it rejects keeps its cost but is never served from the cache again.
     """
 
     bypass_cache: bool = False
     seed: int | None = None
     reasoning_effort: str | None = None
+    degenerate: Callable[[dict[str, Any]], bool] | None = None
 
 
 @dataclass(frozen=True)
@@ -170,12 +177,17 @@ def _write_ledger(
     prompt_tokens: int,
     completion_tokens: int,
     cost_usd: Decimal,
+    degenerate: bool = False,
 ) -> None:
     """Write the paid call's row on the client's own connection, with one retry.
 
     The row is also the cache entry (decision 21), so the retry is not only about
     the record: it is what stops the next identical call from paying again. A fresh
     connection cannot be the one the database killed while the provider worked.
+
+    `degenerate` is the caller's verdict on its own answer (F2.3.1). The row is
+    written either way — the call was paid for — and the flag is what excludes it
+    from the cache lookup.
     """
     error: SQLAlchemyError | None = None
     for _ in range(2):
@@ -191,6 +203,7 @@ def _write_ledger(
                         prompt_tokens=prompt_tokens,
                         completion_tokens=completion_tokens,
                         cost_usd=cost_usd,
+                        degenerate=degenerate,
                     )
                 )
                 ledger.commit()
@@ -237,11 +250,19 @@ def complete_json(
     if not opts.bypass_cache:
         with _client_session(session) as reader:
             cached = reader.scalar(
-                select(LlmCall).where(
+                select(LlmCall)
+                .where(
                     LlmCall.purpose == purpose,
                     LlmCall.prompt_version == prompt_version,
                     LlmCall.input_hash == digest,
+                    # F2.3.1: a rejected answer keeps its cost but is never served
+                    # back, or the first bad answer would be the permanent one.
+                    LlmCall.degenerate.is_(False),
                 )
+                # Duplicate rows for one hash exist — a `bypass_cache` run writes a
+                # second one — so the lookup has to be deterministic: answer first
+                # paid for, first returned. Without this the planner decided.
+                .order_by(LlmCall.id)
             )
     if cached is not None:
         return Completion(
@@ -298,6 +319,10 @@ def complete_json(
     prompt_tokens = int(usage.get("prompt_tokens") or 0)
     completion_tokens = int(usage.get("completion_tokens") or 0)
     answer = parsed.model_dump(mode="json")
+    # The caller knows what an empty answer means for its own purpose; the client
+    # only records the verdict. Evaluated here, once, so one code path marks the row
+    # and nothing else about the call changes.
+    degenerate = bool(opts.degenerate and opts.degenerate(answer))
 
     ledger_error: str | None = None
     try:
@@ -311,6 +336,7 @@ def complete_json(
             prompt_tokens=prompt_tokens,
             completion_tokens=completion_tokens,
             cost_usd=cost,
+            degenerate=degenerate,
         )
     except LedgerWriteError as exc:
         # The answer was paid for: return it, and let the caller surface that the

@@ -338,7 +338,10 @@ class LlmCall(Base):
     """One model call: the cost ledger (PRD 7) and the content-hash cache.
 
     `response_json` is stored so a repeat of the same input and prompt version makes
-    no network call and returns byte-identical output.
+    no network call and returns byte-identical output. A `degenerate` row is the
+    exception the cache must forget (F2.3.1): an answer the caller's own check
+    rejected keeps its cost — a paid call stays in the ledger (decision 21) — but is
+    never served back, so one bad answer cannot become permanent.
     """
 
     __tablename__ = "llm_calls"
@@ -353,6 +356,7 @@ class LlmCall(Base):
     prompt_tokens: Mapped[int] = mapped_column(Integer, default=0)
     completion_tokens: Mapped[int] = mapped_column(Integer, default=0)
     cost_usd: Mapped[Decimal] = mapped_column(Numeric(10, 6), default=Decimal("0"))
+    degenerate: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

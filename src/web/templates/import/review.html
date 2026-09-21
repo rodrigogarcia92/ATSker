@@ -15,6 +15,16 @@
 <p class="mt-4 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">{{ error }}</p>
 {% endif %}
 
+{% if can_retry %}
+{# F2.3.1: the file and its findings are archived, so a failed extraction is retried
+   from the stored bytes instead of asking for the upload again. #}
+<form method="post" action="/import/{{ resume.id }}/retry" class="mt-4">
+  <button type="submit" class="rounded bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800">
+    {{ t('import.retry', lang) }}
+  </button>
+</form>
+{% endif %}
+
 {% if draft %}
 <p class="mt-6 text-sm text-slate-600">{{ t('import.review_hint', lang) }}</p>
 <p class="mt-2 text-xs text-slate-500">{{ t('import.remove_hint', lang) }}</p>

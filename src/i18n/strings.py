@@ -451,9 +451,26 @@ STRINGS: dict[str, dict[str, str]] = {
         "still shown, but the extraction cannot run.",
     },
     "import.failed": {
-        "es": "La extracción no se pudo completar; no se ha guardado nada.",
-        "en": "The extraction could not be completed; nothing was saved.",
+        "es": "La extracción no se pudo completar; el documento queda guardado para "
+        "reintentarla.",
+        "en": "The extraction could not be completed; the document is kept so you can "
+        "retry it.",
     },
+    "import.empty_extraction": {
+        "es": "Entraron {characters} caracteres y no volvió nada: el documento se leyó, "
+        "pero no se pudo interpretar. Reintenta la extracción sobre el archivo "
+        "guardado.",
+        "en": "{characters} characters went in and nothing came back: the document was "
+        "read but could not be parsed. Retry the extraction on the stored file.",
+    },
+    "import.extraction_failed": {
+        "es": "La extracción de este documento falló y no hay borrador. El archivo y "
+        "sus hallazgos están guardados; puedes reintentar la extracción sin volver a "
+        "subirlo.",
+        "en": "This document's extraction failed and it has no draft. The file and its "
+        "findings are stored; you can retry the extraction without uploading it again.",
+    },
+    "import.retry": {"es": "Reintentar la extracción", "en": "Retry the extraction"},
     "import.uploads": {"es": "Importaciones", "en": "Uploads"},
     "import.none_yet": {
         "es": "Todavía no has subido ningún currículum.",

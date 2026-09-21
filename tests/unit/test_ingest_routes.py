@@ -469,3 +469,81 @@ def test_an_unrecorded_call_keeps_the_draft_and_shows_the_warning(
     assert "Modelé el riesgo de crédito con Python" in page, "the draft is still reviewable"
     assert session.query(Resume).count() == 1
     assert session.query(LlmCall).count() == 0
+
+
+# --- F2.3.1: an empty extraction is a failure, not a draft ------------------
+
+EMPTY = json.dumps(
+    {"language": "es", "headline": "", "summary": "", "roles": [], "credentials": [], "skills": []}
+)
+
+
+def long_cv() -> bytes:
+    """A document with enough text that an empty answer is a failure, not a shrug."""
+    return docx_bytes(
+        "Experiencia",
+        "Reduje el cierre mensual un 30% automatizando los reportes con Python y SQL",
+        "Mantuve dashboards en producción para tres áreas de negocio distintas",
+        "Enseñé SQL a dos analistas junior durante seis meses de trabajo conjunto",
+        "Coordiné la migración del reporte manual a un proceso programado",
+        "Documenté el proceso y lo dejé en manos del equipo de operaciones",
+    )
+
+
+def test_an_empty_extraction_retries_once_and_reports_the_character_count(
+    client, session, career, monkeypatch
+):
+    empty = Provider(EMPTY)
+    monkeypatch.setattr(extract_client, "_post", empty)
+    login(client, career.first.email)
+
+    response = upload(client, long_cv())
+
+    page = plain(response.text)
+    assert len(empty.calls) == 2, "one retry, then the truth"
+    assert re.search(r"\d{3,} caracteres y no volvió nada", page)
+    assert "Revisar la extracción" in page, "the findings screen is still the screen"
+
+    rows = session.query(LlmCall).order_by(LlmCall.id).all()
+    assert len(rows) == 2
+    assert all(row.degenerate is True for row in rows), "neither answer is a cache entry"
+    assert all(row.cost_usd > 0 for row in rows), "both were paid for and both stay in the ledger"
+
+    resume = session.query(Resume).one()
+    assert resume.draft is None, "archived with no draft to review"
+    assert resume.gate is not None, "the findings travel with the file"
+    assert resume.file_bytes, "the document is kept for the retry"
+
+    # A second identical upload is not served the empty answer from the cache.
+    empty.calls.clear()
+    upload(client, long_cv())
+
+    assert len(empty.calls) == 2, "the marked rows are never served back"
+    assert session.query(Resume).count() == 2
+
+
+def test_a_failed_extraction_is_retried_from_the_stored_bytes(client, session, career, monkeypatch):
+    """The archive is the point: a retry must not cost another upload."""
+    empty = Provider(EMPTY)
+    monkeypatch.setattr(extract_client, "_post", empty)
+    login(client, career.first.email)
+    upload(client, long_cv())
+    resume = session.query(Resume).one()
+
+    # The row's own page says what happened and offers the retry, instead of a 404.
+    page = client.get(f"/import/{resume.id}").text
+    assert "no hay borrador" in plain(page)
+    assert f'action="/import/{resume.id}/retry"' in page
+
+    good = Provider()
+    monkeypatch.setattr(extract_client, "_post", good)
+
+    retried = client.post(f"/import/{resume.id}/retry", follow_redirects=False)
+
+    assert retried.status_code == 303
+    assert retried.headers["location"] == f"/import/{resume.id}"
+    session.expire_all()
+    assert resume.draft is not None, "the retry wrote the draft the first attempt could not"
+    assert "Modelé el riesgo de crédito con Python" in plain(
+        client.get(f"/import/{resume.id}").text
+    )
