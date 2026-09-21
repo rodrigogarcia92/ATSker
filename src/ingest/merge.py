@@ -135,6 +135,15 @@ class MergeResult:
     skills_added: int = 0
     skipped: int = 0
 
+    @property
+    def is_empty(self) -> bool:
+        """True when the merge wrote nothing at all (F2.5) — not even a skip.
+
+        A screen that renders this as a blank summary reads as a failed page; the
+        result has to say that the database is unchanged, on purpose.
+        """
+        return not any(getattr(self, field.name) for field in fields(self))
+
 
 def _tokens(text: str) -> frozenset[str]:
     return frozenset(token for token in fold(text).split() if len(token) > 1)

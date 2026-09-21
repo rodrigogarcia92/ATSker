@@ -17,7 +17,20 @@
 {% block title %}{{ t('import.merge_title', lang) }} — {{ t('app.name', lang) }}{% endblock %}
 {% block content %}
 {% set counts = plan.label_counts() %}
+{% set compared = counts.new + counts.changed + counts.unchanged %}
+{% set nothing_to_merge = compared > 0 and counts.new == 0 and counts.changed == 0 %}
 <h1 class="text-2xl font-semibold tracking-tight">{{ t('import.merge_title', lang) }}</h1>
+{% if nothing_to_merge %}
+{# F2.5: a list of rows with every box unchecked reads as "the app found nothing".
+   All-unchanged is a result, and it is the one the user needs stated. #}
+<p class="mt-2 rounded border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
+  {{ t('import.nothing_to_merge', lang, compared=compared) }}
+</p>
+{% elif compared == 0 %}
+<p class="mt-2 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+  {{ t('import.nothing_compared', lang) }}
+</p>
+{% endif %}
 <p class="mt-1 text-sm text-slate-600">{{ t('import.merge_intro', lang) }}</p>
 <p class="mt-2 text-sm text-slate-500">
   {{ counts.new }} {{ t('import.count_new', lang) }} ·
@@ -26,7 +39,13 @@
 </p>
 <p class="mt-1 text-xs text-slate-500">{{ t('import.role_children_hint', lang) }}</p>
 
-<form method="post" action="/import/{{ resume.id }}/merge" class="mt-6 space-y-8">
+{# Collapsed when every candidate is unchanged: the rows stay reachable, but they
+   are not what the screen is about. Open in every other case. #}
+<details class="mt-6" {% if not nothing_to_merge %}open{% endif %}>
+  <summary class="cursor-pointer text-sm text-slate-600">
+    {{ t('import.merge_candidates', lang) }} · {{ compared }}
+  </summary>
+<form method="post" action="/import/{{ resume.id }}/merge" class="mt-4 space-y-8">
   <section>
     <h2 class="text-lg font-semibold">{{ t('import.roles', lang) }}</h2>
     <div class="mt-3 space-y-4">
@@ -145,4 +164,5 @@
     {{ t('import.merge_submit', lang) }}
   </button>
 </form>
+</details>
 {% endblock %}

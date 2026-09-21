@@ -26,6 +26,12 @@
 {% endif %}
 
 {% if result %}
+{% if result.is_empty %}
+{# F2.5: an all-zero result is a result. A blank summary reads as a broken page. #}
+<p class="mt-6 rounded border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
+  {{ t('import.merged_nothing', lang) }}
+</p>
+{% else %}
 <dl class="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
   {% for field, key in rows %}
   {% set value = result | attr(field) %}
@@ -37,6 +43,7 @@
   {% endif %}
   {% endfor %}
 </dl>
+{% endif %}
 {% if result.skipped %}
 <p class="mt-2 text-xs text-slate-500">{{ t('import.skipped_hint', lang) }}</p>
 {% endif %}

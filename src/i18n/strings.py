@@ -592,6 +592,23 @@ STRINGS: dict[str, dict[str, str]] = {
         "es": "Las viñetas de un puesto nuevo solo entran si el puesto entra.",
         "en": "A new role's bullets come in only if the role does.",
     },
+    "import.merge_candidates": {"es": "Candidatos comparados", "en": "Compared items"},
+    "import.nothing_to_merge": {
+        "es": "Esta versión coincide con lo que ya tienes: no hay nada que fusionar. Se "
+        "compararon {compared} elementos y ninguno es nuevo ni cambia.",
+        "en": "This version matches what you already have: there is nothing to merge. "
+        "{compared} items were compared and none is new or changed.",
+    },
+    "import.nothing_compared": {
+        "es": "No se extrajo nada que comparar: la extracción no produjo ningún "
+        "candidato. Revisa el documento o reintenta la extracción.",
+        "en": "Nothing was extracted to compare: the extraction produced no candidate "
+        "at all. Check the document, or retry the extraction.",
+    },
+    "import.merged_nothing": {
+        "es": "La fusión no escribió nada: tu base de datos queda como estaba.",
+        "en": "The merge wrote nothing: your database is unchanged.",
+    },
     "import.merge_submit": {"es": "Importar la selección", "en": "Import the selection"},
     "import.merged_title": {"es": "Importación aplicada", "en": "Import applied"},
     "import.merged_at": {"es": "Importado el", "en": "Merged on"},

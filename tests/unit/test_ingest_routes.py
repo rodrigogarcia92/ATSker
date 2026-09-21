@@ -547,3 +547,66 @@ def test_a_failed_extraction_is_retried_from_the_stored_bytes(client, session, c
     assert "Modelé el riesgo de crédito con Python" in plain(
         client.get(f"/import/{resume.id}").text
     )
+
+
+# --- F2.5: "nothing changed" is a result, and must be said out loud ----------
+
+
+def test_a_reimport_of_data_that_already_matches_says_nothing_to_merge(
+    client, session, career, provider
+):
+    """The all-unchanged plan is stated as a result, and the rows stay reachable."""
+    login(client, career.first.email)
+    data = docx_bytes("Experiencia", "Reduje el cierre un 30% con Python")
+
+    first = upload(client, data)
+    client.post(f"{first.headers['location']}/review", data=REVIEWED_FORM)
+    client.post(f"{first.headers['location']}/merge", data=MERGE_FORM)
+
+    second = upload(client, data)
+    page = client.post(f"{second.headers['location']}/review", data=REVIEWED_FORM)
+    text = plain(page.text)
+
+    assert "no hay nada que fusionar" in text
+    assert "Se compararon 5 elementos" in text, "new + changed + unchanged, named"
+    assert "0 nuevos" in text and "0 cambian" in text, "the counts are still shown"
+    assert "<details" in page.text and "open" not in page.text.split("<details")[1][:40], (
+        "the candidate list stays below, collapsed"
+    )
+
+
+def test_a_plan_with_no_candidates_says_nothing_was_extracted_to_compare(
+    client, session, career, monkeypatch
+):
+    """The other message: zero candidates points back at the extraction, not at the data."""
+    monkeypatch.setattr(extract_client, "_post", Provider(EMPTY))
+    login(client, career.first.email)
+
+    # A short document whose answer is empty is a thin draft, not a failed extraction.
+    uploaded = upload(client, docx_bytes("Experiencia", "Sin contenido que extraer"))
+    page = client.post(f"{uploaded.headers['location']}/review", data={"language": "es"})
+
+    text = plain(page.text)
+    assert "No se extrajo nada que comparar" in text
+    assert "no hay nada que fusionar" not in text
+    assert "Candidatos comparados · 0" in text
+    assert "open" in page.text.split("<details")[1][:40], "only the all-unchanged plan collapses"
+
+
+def test_a_merge_that_writes_nothing_says_the_database_is_unchanged(
+    client, session, career, provider
+):
+    """An all-zero MergeResult is rendered as a statement, not as a blank summary."""
+    login(client, career.first.email)
+    data = docx_bytes("Experiencia", "Reduje el cierre un 30% con Python")
+
+    first = upload(client, data)
+    client.post(f"{first.headers['location']}/review", data=REVIEWED_FORM)
+    client.post(f"{first.headers['location']}/merge", data=MERGE_FORM)
+
+    second = upload(client, data)
+    client.post(f"{second.headers['location']}/review", data=REVIEWED_FORM)
+    merged = client.post(f"{second.headers['location']}/merge", data={})
+
+    assert merged.status_code == 200
+    assert "La fusión no escribió nada" in plain(merged.text)
