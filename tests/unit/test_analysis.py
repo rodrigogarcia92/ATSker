@@ -13,12 +13,14 @@ import pytest
 
 from src.analysis import analyze
 from src.applications import create_application, get_application
+from src.bullets import create_bullet, set_bullet_active
 from src.extract import client as extract_client
 from src.extract.grading import grade_evidence
 from src.extract.jd import extract_jd
 from src.jd import StructuredJD, jd_hash
 from src.models import Application, LlmCall
 from src.score.weights import W1
+from src.tracks import create_track, set_track_bullets
 from tests.conftest import login
 
 POSTING = """
@@ -302,3 +304,191 @@ def test_a_provider_failure_is_reported_and_the_ledger_keeps_what_was_spent(
     assert "no se pudo completar" in text_of(response.text)
     assert session.query(Application).count() == 0
     assert [call.purpose for call in session.query(LlmCall).all()] == ["jd_extract"]
+
+
+# --- Per-track analysis (PRD F4) --------------------------------------------
+
+
+def grading_message(provider: Provider) -> str:
+    """What the judge was given: the requirements and the bullets it may cite."""
+    return messages_for(provider, "EvidenceGrading")[0][1]["content"]
+
+
+def test_a_tracks_analysis_scores_only_its_selected_bullets(session, career, provider):
+    """F4: the selection is the evidence, and a bullet outside it is not sent."""
+    outside = create_bullet(
+        career.first_profile.id,
+        session,
+        role_id=career.first_role.id,
+        text_es="Coordiné reuniones semanales del equipo",
+        text_en=None,
+    )
+    session.commit()
+
+    analysis = analyze(
+        career.first_profile.id, session, jd_text=POSTING, track=career.first_track
+    )
+
+    supplied = grading_message(provider)
+    assert str(career.first_bullet.id) in supplied
+    assert str(outside.id) not in supplied
+    assert outside.text_es not in supplied
+    assert analysis.report["score"]["sub_scores"]["keyword"]["detail"]["bullets"] == 1
+    assert analysis.report["track"] == {
+        "id": str(career.first_track.id),
+        "name": career.first_track.name,
+    }
+
+
+def test_the_same_posting_scores_differently_against_two_tracks(session, career, provider):
+    """N2's acceptance criterion: two tracks, one posting, two answers."""
+    profile_id = career.first_profile.id
+    with_keyword = create_bullet(
+        profile_id,
+        session,
+        role_id=career.first_role.id,
+        text_es="Armé los reportes mensuales para el comité",
+        text_en=None,
+    )
+    without_keyword = create_bullet(
+        profile_id,
+        session,
+        role_id=career.first_role.id,
+        text_es="Coordiné la agenda del equipo",
+        text_en=None,
+    )
+    narrow = create_track(profile_id, session, name="Con reportes", lang="es")
+    broad = create_track(profile_id, session, name="Sin reportes", lang="es")
+    set_track_bullets(profile_id, session, narrow.id, [career.first_bullet.id, with_keyword.id])
+    set_track_bullets(profile_id, session, broad.id, [career.first_bullet.id, without_keyword.id])
+    session.commit()
+
+    first = analyze(profile_id, session, jd_text=POSTING, track=narrow)
+    second = analyze(profile_id, session, jd_text=POSTING, track=broad)
+
+    assert first.report["score"]["sub_scores"]["keyword"]["value"] > 0
+    assert second.report["score"]["sub_scores"]["keyword"]["value"] == 0
+    assert first.report["score"]["capped"] > second.report["score"]["capped"]
+    assert second.report["llm"]["calls"][1]["cached"] is False, "the judge really was re-run"
+    assert first.report["track"]["name"] == "Con reportes"
+    assert second.report["track"]["name"] == "Sin reportes"
+
+
+def test_a_tracks_headline_replaces_the_profiles_for_title_alignment(session, career, provider):
+    profile_id = career.first_profile.id
+    career.first_profile.headline = "Camarero de eventos"
+    provider.answers["JDProposal"] = json.dumps(
+        {**json.loads(PROPOSAL), "title": "Data Scientist"}
+    )
+    track = create_track(
+        profile_id, session, name="Data Scientist", lang="en", headline="Data Scientist"
+    )
+    set_track_bullets(profile_id, session, track.id, [career.first_bullet.id])
+    session.commit()
+
+    without = analyze(profile_id, session, jd_text=POSTING)
+    with_track = analyze(profile_id, session, jd_text=POSTING, track=track)
+
+    assert without.report["score"]["sub_scores"]["title"]["value"] == 0.0
+    assert with_track.report["score"]["sub_scores"]["title"]["value"] == 1.0
+
+
+def test_an_analysis_without_a_track_uses_every_active_bullet(session, career, provider):
+    """The no-track path is unchanged: no track recorded, no selection applied."""
+    extra = create_bullet(
+        career.first_profile.id,
+        session,
+        role_id=career.first_role.id,
+        text_es="Otra viñeta activa",
+        text_en=None,
+    )
+    session.commit()
+
+    analysis = analyze(career.first_profile.id, session, jd_text=POSTING)
+
+    supplied = grading_message(provider)
+    assert str(career.first_bullet.id) in supplied
+    assert str(extra.id) in supplied
+    assert analysis.report["score"]["sub_scores"]["keyword"]["detail"]["bullets"] == 2
+    assert "track" not in analysis.report
+
+
+def test_a_deactivated_bullet_is_not_evidence_even_when_a_track_still_selects_it(
+    session, career, provider
+):
+    profile_id = career.first_profile.id
+    live = create_bullet(
+        profile_id, session, role_id=career.first_role.id, text_es="Viñeta viva", text_en=None
+    )
+    track = create_track(profile_id, session, name="Con una desactivada", lang="es")
+    set_track_bullets(profile_id, session, track.id, [live.id, career.first_bullet.id])
+    set_bullet_active(profile_id, session, career.first_bullet.id, active=False)
+    provider.answers["EvidenceGrading"] = json.dumps(
+        {
+            "grades": [
+                {"index": 0, "level": 2, "bullet_id": str(live.id)},
+                {"index": 1, "level": 0, "bullet_id": None},
+            ],
+            "note": "una nota",
+        }
+    )
+    session.commit()
+
+    analysis = analyze(profile_id, session, jd_text=POSTING, track=track)
+
+    supplied = grading_message(provider)
+    assert str(live.id) in supplied
+    assert str(career.first_bullet.id) not in supplied
+    assert analysis.report["score"]["sub_scores"]["keyword"]["detail"]["bullets"] == 1
+
+
+def test_the_analysis_form_records_the_track_and_the_report_names_it(
+    client, session, career, provider
+):
+    login(client, career.first.email)
+
+    form = client.get("/analyze").text
+    posted = client.post(
+        "/analyze",
+        data={
+            "jd_text": POSTING,
+            "company": "Banco Demo",
+            "title": "",
+            "track_id": str(career.first_track.id),
+        },
+        follow_redirects=False,
+    )
+
+    assert f'value="{career.first_track.id}"' in form
+    assert "Analista de datos — Puestos de analista de datos" in form
+    assert posted.status_code == 303
+    application = session.query(Application).one()
+    assert application.track_id == career.first_track.id
+    assert application.report["track"]["name"] == "Analista de datos"
+    assert "Enfoque: Analista de datos" in text_of(client.get(posted.headers["location"]).text)
+
+
+def test_an_analysis_without_a_track_saves_no_track_and_says_so(client, session, career, provider):
+    login(client, career.first.email)
+
+    posted = client.post(
+        "/analyze", data={"jd_text": POSTING, "company": "Banco Demo", "title": ""},
+        follow_redirects=False,
+    )
+
+    application = session.query(Application).one()
+    assert application.track_id is None
+    page = text_of(client.get(posted.headers["location"]).text)
+    assert "Sin enfoque: se puntuaron todas las viñetas activas." in page
+
+
+def test_a_track_from_another_profile_is_refused_by_the_form(client, session, career, provider):
+    login(client, career.first.email)
+
+    response = client.post(
+        "/analyze", data={"jd_text": POSTING, "track_id": str(career.second_track.id)}
+    )
+
+    assert response.status_code == 404
+    assert provider.calls == []
+    assert session.query(Application).count() == 0

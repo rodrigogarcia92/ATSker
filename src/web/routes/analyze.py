@@ -7,7 +7,7 @@ drift from it.
 
 from typing import Annotated
 
-from fastapi import APIRouter, Form, Request
+from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
 
 from src.analysis import analyze
@@ -22,12 +22,13 @@ from src.extract.client import (
 from src.extract.grading import CitationViolation
 from src.i18n import t
 from src.score.aggregate import SUB_SCORES
+from src.tracks import get_track, list_tracks
 from src.web.deps import DbSession, OwnProfile, SignedInUser
 from src.web.templating import render
 
 router = APIRouter()
 
-EMPTY_FORM = {"jd_text": "", "company": "", "title": ""}
+EMPTY_FORM = {"jd_text": "", "company": "", "title": "", "track_id": ""}
 
 
 def _form(
@@ -46,6 +47,7 @@ def _form(
         profile=profile,
         values=values or EMPTY_FORM,
         active_bullets=len(list_bullets(profile.id, session, active_only=True)),
+        tracks=list_tracks(profile.id, session, active_only=True),
         can_analyze=model_configured(),
         error=error,
     )
@@ -65,14 +67,31 @@ def analyze_submit(
     jd_text: Annotated[str, Form()],
     company: Annotated[str | None, Form()] = None,
     title: Annotated[str | None, Form()] = None,
+    track_id: Annotated[str | None, Form()] = None,
 ):
-    values = {"jd_text": jd_text, "company": company or "", "title": title or ""}
+    values = {
+        "jd_text": jd_text,
+        "company": company or "",
+        "title": title or "",
+        "track_id": track_id or "",
+    }
     if not jd_text.strip():
         message = t("analyze.need_text", user.ui_lang)
         return _form(request, user, session, profile, values=values, error=message)
 
+    track = None
+    if track_id:
+        # An id from a form is as untrusted as one from a URL: not ours is not found,
+        # and an analysis silently scored against every bullet instead of the chosen
+        # track would be a wrong answer, not a degraded one.
+        track = get_track(profile.id, session, track_id)
+        if track is None:
+            raise HTTPException(status_code=404)
+
     try:
-        analysis = analyze(profile.id, session, jd_text=jd_text, company=company, title=title)
+        analysis = analyze(
+            profile.id, session, jd_text=jd_text, company=company, title=title, track=track
+        )
     except NoModelConfigured:
         message = t("analyze.no_model", user.ui_lang)
         return _form(request, user, session, profile, values=values, error=message)
@@ -94,6 +113,7 @@ def analyze_submit(
         weights_version=analysis.weights_version,
         prompt_versions=analysis.prompt_versions,
         token_cost_usd=analysis.cost_usd,
+        track_id=track.id if track is not None else None,
     )
     session.commit()
     return RedirectResponse(f"/applications/{application.id}", status_code=303)

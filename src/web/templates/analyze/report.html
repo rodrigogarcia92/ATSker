@@ -21,6 +21,11 @@
   <p class="mt-1 text-4xl font-semibold">
     {{ report.score.capped }}<span class="text-lg text-slate-500"> / 100</span>
   </p>
+  {% if report.track %}
+  <p class="mt-1 text-sm text-slate-600">{{ t('report.track', lang, name=report.track.name) }}</p>
+  {% else %}
+  <p class="mt-1 text-sm text-slate-500">{{ t('report.no_track', lang) }}</p>
+  {% endif %}
   {% if report.score.cap %}
   <p class="mt-1 text-sm text-amber-900">
     {{ t('report.capped', lang, cap=report.score.cap, uncapped=report.score.uncapped,

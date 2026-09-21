@@ -370,6 +370,11 @@ class Application(Base):
     profile_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("profiles.id", ondelete="CASCADE"), index=True
     )
+    # The track whose selection produced the score (F4). SET NULL, so removing a
+    # track cannot take an analysis with it; the report names the track it used.
+    track_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("tracks.id", ondelete="SET NULL"), index=True
+    )
     company: Mapped[str | None] = mapped_column(String(200))
     title: Mapped[str | None] = mapped_column(String(200))
     jd_text: Mapped[str] = mapped_column(Text)

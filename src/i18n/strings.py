@@ -118,6 +118,15 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "No active bullets: without them there is no evidence to cite and "
         "coverage will be zero.",
     },
+    "analyze.track": {"es": "Enfoque (opcional)", "en": "Track (optional)"},
+    "analyze.track_none": {
+        "es": "Sin enfoque: todas las viñetas activas",
+        "en": "No track: every active bullet",
+    },
+    "analyze.track_hint": {
+        "es": "Con un enfoque, la puntuación usa solo sus viñetas y, si lo tiene, su titular.",
+        "en": "With a track, the score uses only its bullets and, when set, its headline.",
+    },
     # Report
     "report.title": {"es": "Informe", "en": "Report"},
     "report.analysed_on": {"es": "Analizado el", "en": "Analysed on"},
@@ -135,6 +144,11 @@ STRINGS: dict[str, dict[str, str]] = {
         "components.",
     },
     "report.cost_label": {"es": "Coste del análisis", "en": "Analysis cost"},
+    "report.track": {"es": "Enfoque: {name}", "en": "Track: {name}"},
+    "report.no_track": {
+        "es": "Sin enfoque: se puntuaron todas las viñetas activas.",
+        "en": "No track: every active bullet was scored.",
+    },
     "report.sub_scores": {"es": "Componentes", "en": "Components"},
     "report.sub.title": {"es": "Alineación del título", "en": "Title alignment"},
     "report.sub.evidence": {"es": "Cobertura de evidencia", "en": "Evidence coverage"},

@@ -24,7 +24,7 @@ from src.extract.grading import grade_evidence
 from src.extract.jd import extract_jd
 from src.extract.prompts import EVIDENCE_GRADING, JD_EXTRACTION
 from src.jd import StructuredJD
-from src.models import Bullet, Profile
+from src.models import Bullet, Profile, Track
 from src.parse.gate import ParseReport
 from src.roles import list_roles
 from src.score.aggregate import SubScore, aggregate
@@ -33,6 +33,7 @@ from src.score.experience import experience_score
 from src.score.keywords import keyword_context
 from src.score.title import title_alignment
 from src.score.weights import W1
+from src.tracks import track_bullets
 from src.vocabulary import alias_map
 
 # The reason recorded in every report while the semantic sub-score does not exist.
@@ -90,6 +91,7 @@ def analyze(
     gate: ParseReport | None = None,
     model: str | None = None,
     options: CallOptions | None = None,
+    track: Track | None = None,
 ) -> Analysis:
     """Run the whole pipeline for one pasted posting.
 
@@ -97,6 +99,12 @@ def analyze(
     it stays None until M2b stores résumé files, so today the score is never capped
     by a document. Nothing is persisted here except the model calls themselves —
     the caller writes the application.
+
+    `track` narrows the evidence to that track's selection, in its order (F4), and
+    lets its headline stand in for the profile's when the title is scored. Without
+    a track the evidence is every active bullet, exactly as before: the same posting
+    scored against two tracks must differ, and that difference must not come from a
+    changed default.
 
     `options` exists for the model-selection experiment, which must bypass the
     content-hash cache to measure the judge rather than the cache.
@@ -107,11 +115,20 @@ def analyze(
 
     roles = list_roles(profile_id, session, active_only=True)
     role_ids = {role.id for role in roles}
-    bullets = [
-        bullet
-        for bullet in list_bullets(profile_id, session, active_only=True)
-        if bullet.role_id in role_ids
-    ]
+    if track is None:
+        bullets = [
+            bullet
+            for bullet in list_bullets(profile_id, session, active_only=True)
+            if bullet.role_id in role_ids
+        ]
+    else:
+        # A bullet the user has since deactivated, or whose role was, is not evidence
+        # even when a track still selects it — the same rule as the no-track path.
+        bullets = [
+            bullet
+            for bullet in track_bullets(profile_id, session, track.id)
+            if bullet.active and bullet.role_id in role_ids
+        ]
     aliases = alias_map(session)
     today = date.today()
 
@@ -136,7 +153,7 @@ def analyze(
     sub_scores: dict[str, SubScore] = {
         "title": title_alignment(
             jd,
-            headline=profile.headline,
+            headline=(track.headline if track is not None else None) or profile.headline,
             role_titles=[role.title for role in roles],
             aliases=aliases,
         ),
@@ -181,6 +198,10 @@ def analyze(
         "score": score.to_dict(),
         "llm": _llm_section(calls, cost),
     }
+    if track is not None:
+        # Snapshotted like a citation: renaming the track must not rewrite what a
+        # stored report says it was scored against.
+        report["track"] = {"id": str(track.id), "name": track.name}
 
     return Analysis(
         report=report,
