@@ -161,6 +161,46 @@ STRINGS: dict[str, dict[str, str]] = {
         "es": "Todavía no hay análisis. Pega una oferta y aparecerá aquí.",
         "en": "No analyses yet. Paste a posting and it will appear here.",
     },
+    # Scan B — boolean recall (F5.2)
+    "recall.title": {"es": "Recuperación booleana", "en": "Boolean recall"},
+    "recall.intro": {
+        "es": "Las consultas que un reclutador escribiría en un ATS o en un portal, y "
+        "si tu puesto objetivo aparecería en sus resultados. No entra en el Encaje "
+        "total: una consulta es una puerta, no un porcentaje.",
+        "en": "The queries a recruiter would type in an ATS or a job board, and whether "
+        "your track would come back in the results. It does not enter the Job Match "
+        "number: a query is a gate, not a percentage.",
+    },
+    "recall.summary": {
+        "es": "Pasan {passed} de {total} consultas.",
+        "en": "{passed} of {total} queries pass.",
+    },
+    "recall.pass": {"es": "Pasa", "en": "Pass"},
+    "recall.fails": {"es": "Falla", "en": "Fails"},
+    "recall.unlabelled": {"es": "Consulta", "en": "Query"},
+    "recall.fail.missing": {
+        "es": "Falla en «{term}»: no aparece ningún alias de este término en este puesto "
+        "objetivo.",
+        "en": "Fails on “{term}” — no alias of this term appears in this track.",
+    },
+    "recall.fail.present": {
+        "es": "Falla en «{term}»: aparece en este puesto objetivo y la consulta lo "
+        "excluye.",
+        "en": "Fails on “{term}” — it appears in this track and the query excludes it.",
+    },
+    "recall.clause_met": {"es": "{term} — lo cumple {unit}", "en": "{term} — met by {unit}"},
+    "recall.clause_missing": {"es": "{term} — no aparece", "en": "{term} — absent"},
+    "recall.unit.bullet": {"es": "una viñeta", "en": "a bullet"},
+    "recall.unit.skill": {"es": "una habilidad", "en": "a skill"},
+    "recall.unit.headline": {"es": "el titular", "en": "the headline"},
+    "recall.unit.summary": {"es": "el resumen", "en": "the summary"},
+    "recall.unit.role": {"es": "un puesto de tu trayectoria", "en": "a role title"},
+    "recall.unit.education": {"es": "tu formación", "en": "your education"},
+    "recall.unit.certification": {"es": "una certificación", "en": "a certification"},
+    "recall.empty": {
+        "es": "No se derivaron consultas para esta oferta.",
+        "en": "No queries were derived for this posting.",
+    },
     # Report
     "report.title": {"es": "Informe", "en": "Report"},
     "report.analysed_on": {"es": "Analizado el", "en": "Analysed on"},

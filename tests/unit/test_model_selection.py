@@ -88,6 +88,7 @@ class FakeProvider:
         self.calls: list[dict] = []
         self.extract_calls = 0
         self.grading_calls = 0
+        self.boolean_calls = 0
         self.cost = cost
         self.vary = vary
         self.drift = drift
@@ -98,6 +99,21 @@ class FakeProvider:
         name = payload["response_format"]["json_schema"]["name"]
         if name == "ProbeAnswer":
             content = json.dumps({"ok": True})
+        elif name == "BooleanQuerySet":
+            # F5.2's derivation is a third call per analysis; the harness answers it the
+            # way it answers everything else, from the fixture, and counts it apart.
+            self.boolean_calls += 1
+            proposal = json.loads(PROPOSAL)
+            content = json.dumps(
+                {
+                    "queries": [
+                        {
+                            "label": "broad",
+                            "expr": {"and": [proposal["title"], *proposal["must_have"]]},
+                        }
+                    ]
+                }
+            )
         elif name == "JDProposal":
             self.extract_calls += 1
             proposal = json.loads(PROPOSAL)
@@ -251,18 +267,19 @@ def test_the_stability_path_never_reads_the_cache(provider, pairs):
         profile_id, session, jd_text=pair.jd.text, model=CANDIDATE.model, options=options
     )
     warmup_levels = tuple(int(grade["level"]) for grade in warmup.report["grades"])
-    calls_before = (provider.extract_calls, provider.grading_calls)
+    calls_before = (provider.extract_calls, provider.grading_calls, provider.boolean_calls)
     rows_before = session.query(LlmCall).count()
 
     result = run_pair(
         CANDIDATE, pair, seed=11, repeats=3, session=session, profile_id=profile_id
     )
 
-    assert (provider.extract_calls, provider.grading_calls) == (
+    assert (provider.extract_calls, provider.grading_calls, provider.boolean_calls) == (
         calls_before[0] + 1,
         calls_before[1] + 3,
-    ), "one extraction and three gradings must reach the provider"
-    assert session.query(LlmCall).count() == rows_before + 4, (
+        calls_before[2] + 1,
+    ), "one extraction, three gradings and the derivation must reach the provider"
+    assert session.query(LlmCall).count() == rows_before + 5, (
         "a bypassed call is still paid for and still written to the ledger"
     )
     assert result.levels != warmup_levels, "the cached answer must not be what came back"
@@ -408,7 +425,9 @@ def test_the_experiment_reports_every_column_of_the_table(provider, pairs):
     assert report.tau_b() is not None
     assert report.rho() is not None
     assert report.stability() is not None
-    assert report.cost_effective() == Decimal("0.000200"), "extraction plus grading"
+    assert report.cost_effective() == Decimal("0.000300"), (
+        "extraction, grading and the boolean queries"
+    )
     assert report.cost_list() > 0
     assert report.latency_median() >= 0
 

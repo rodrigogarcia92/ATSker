@@ -47,6 +47,20 @@ PROPOSAL = json.dumps(
 
 COST_PER_CALL = "0.000123"
 
+# The recruiter's side of the posting (F5.2): a broad query Ana's profile answers, and
+# a strict one it does not — `machine learning` is nowhere in her bullets.
+QUERIES = json.dumps(
+    {
+        "queries": [
+            {"label": "broad", "expr": {"and": ["analista de datos", "python"]}},
+            {
+                "label": "strict",
+                "expr": {"and": ["python", "machine learning", {"not": ["excel"]}]},
+            },
+        ]
+    }
+)
+
 
 class Provider:
     """One extraction answer and one grading answer, each billed at the same rate."""
@@ -56,6 +70,7 @@ class Provider:
         self.cost = cost
         self.answers = {
             "JDProposal": PROPOSAL,
+            "BooleanQuerySet": QUERIES,
             "EvidenceGrading": json.dumps(
                 {
                     "grades": [
@@ -99,16 +114,17 @@ def test_an_analysis_records_its_weights_prompts_and_cost(session, career, provi
     assert analysis.prompt_versions == {
         "jd_extract": "jd_extract_v2",
         "evidence_grade": "evidence_grade_v2",
+        "boolean_queries": "boolean_recall_v1",
     }
 
     # Cost instrumentation is part of the milestone: the ledger rows exist and the
     # analysis carries what it actually spent.
     calls = session.query(LlmCall).order_by(LlmCall.id).all()
-    assert [call.purpose for call in calls] == ["jd_extract", "evidence_grade"]
+    assert [call.purpose for call in calls] == ["jd_extract", "evidence_grade", "boolean_queries"]
     assert all(call.prompt_tokens == 2200 and call.completion_tokens == 140 for call in calls)
     assert all(call.cost_usd == Decimal(COST_PER_CALL) for call in calls)
-    assert analysis.cost_usd == 2 * Decimal(COST_PER_CALL)
-    assert analysis.report["llm"]["cost_usd"] == str(2 * Decimal(COST_PER_CALL))
+    assert analysis.cost_usd == 3 * Decimal(COST_PER_CALL)
+    assert analysis.report["llm"]["cost_usd"] == str(3 * Decimal(COST_PER_CALL))
 
     # The citation is snapshotted with the text that was graded.
     graded = analysis.report["grades"]
@@ -131,7 +147,7 @@ def test_an_analysis_records_its_weights_prompts_and_cost(session, career, provi
 
     assert application.jd_hash == jd_hash(POSTING)
     assert application.title == "Analista de datos"
-    assert application.token_cost_usd == 2 * Decimal(COST_PER_CALL)
+    assert application.token_cost_usd == 3 * Decimal(COST_PER_CALL)
     assert application.prompt_versions["evidence_grade"] == "evidence_grade_v2"
     assert application.report["score"]["unavailable"] == {}
 
@@ -156,9 +172,9 @@ def test_a_second_analysis_of_the_same_pair_makes_no_call_and_costs_nothing(
     first = analyze(career.first_profile.id, session, jd_text=POSTING)
     second = analyze(career.first_profile.id, session, jd_text=POSTING)
 
-    assert len(provider.calls) == 2, "one extraction and one grading call, once"
-    assert session.query(LlmCall).count() == 2
-    assert first.cost_usd == 2 * Decimal(COST_PER_CALL)
+    assert len(provider.calls) == 3, "extraction, grading and the boolean queries, once"
+    assert session.query(LlmCall).count() == 3
+    assert first.cost_usd == 3 * Decimal(COST_PER_CALL)
     assert second.cost_usd == 0
     assert all(call["cached"] is True for call in second.report["llm"]["calls"])
 
@@ -228,7 +244,7 @@ def test_the_report_page_shows_the_total_its_cost_and_its_components(
     assert "se renormaliza" not in page, "w2 has nothing to renormalise"
     assert "Habilidades" in page and "Palabras clave" in page
     assert "Encaje semántico" not in page
-    assert "$0.000246" in page, "the cost of the analysis that produced the report"
+    assert "$0.000369" in page, "the cost of the analysis that produced the report"
     assert "jd_extract_v2" in page
     assert career.first_bullet.text_es in page, "the citation is shown"
     disqualifier = application.report["jd"]["hard_requirements"][0]
@@ -581,3 +597,76 @@ def test_two_identical_runs_produce_identical_reports(session, career, provider)
     assert first.report["score"] == second.report["score"]
     assert first.report["grades"] == second.report["grades"]
     assert "date" not in json.dumps(first.report["score"]), "no clock inside the score"
+
+
+# --- Scan B: boolean recall (PRD F5.2) ---------------------------------------
+
+
+def test_the_recall_names_the_clause_that_would_exclude_the_track(session, career, provider):
+    """N4's criterion: a track missing a must-have term fails the narrow query, named."""
+    analysis = analyze(career.first_profile.id, session, jd_text=POSTING)
+    recall = analysis.report["recall"]
+
+    assert recall["checked"] is True
+    assert recall["passed"] == 1 and recall["failed"] == 1
+
+    broad, strict = recall["queries"]
+    assert broad["label"] == "broad" and broad["passed"] is True
+    assert strict["passed"] is False
+    assert strict["failing_kind"] == "missing"
+    assert strict["failing_term"] == "machine learning"
+    assert str(career.first_bullet.id) in str(broad["clauses"]), "the citation travels"
+
+
+def test_the_boolean_scan_does_not_change_the_job_match_number(session, career, monkeypatch):
+    """F5.2: recall is a gate beside the score, never a term in it."""
+    with_scan = analyze(career.first_profile.id, session, jd_text=POSTING)
+    baseline = with_scan.report["score"]
+
+    # The same analysis with the derivation answering nothing at all.
+    import src.extract.boolean as boolean_module
+
+    def no_queries(session_, jd_text, *, model=None, options=None):
+        completion = with_scan.report["llm"]["calls"][-1]
+        from src.extract.client import Completion
+
+        return (
+            boolean_module.BooleanQuerySet(),
+            Completion(
+                data={"queries": []},
+                cached=True,
+                prompt_tokens=0,
+                completion_tokens=0,
+                cost_usd=Decimal("0"),
+                purpose="boolean_queries",
+                prompt_version="boolean_recall_v1",
+                model=completion["model"],
+            ),
+        )
+
+    monkeypatch.setattr(boolean_module, "derive_boolean_queries", no_queries)
+    import src.analysis as analysis_module
+
+    monkeypatch.setattr(analysis_module, "derive_boolean_queries", no_queries)
+    without_scan = analyze(career.first_profile.id, session, jd_text=POSTING)
+
+    assert without_scan.report["recall"]["checked"] is False
+    assert without_scan.report["score"]["capped"] == baseline["capped"]
+    assert without_scan.report["score"]["uncapped"] == baseline["uncapped"]
+    assert without_scan.report["score"]["sub_scores"] == baseline["sub_scores"]
+
+
+def test_the_report_page_shows_the_recall_panel(client, session, career, provider):
+    login(client, career.first.email)
+    posted = client.post("/analyze", data={"jd_text": POSTING}, follow_redirects=False)
+    application = session.query(Application).one()
+
+    page = text_of(client.get(posted.headers["location"]).text)
+
+    assert application.scan_boolean is not None
+    assert application.scan_boolean["failed"] == 1
+    assert "Recuperación booleana" in page
+    assert "Falla en «machine learning»" in page
+    assert "no aparece ningún alias de este término" in page
+    assert "No entra en el Encaje total" in page, "the panel says it is not part of the score"
+    assert "Pasan 1 de 2 consultas" in page

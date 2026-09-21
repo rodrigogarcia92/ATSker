@@ -67,6 +67,10 @@
   {% endfor %}
 </div>
 
+{% if application.scan_boolean %}
+{% include "_recall.html" %}
+{% endif %}
+
 {% if application.scan_readability %}
 {# F5.1: the document's findings, the same panel the upload screen shows. The cap
    itself, its reason and the uncapped score sit in the total block above. #}

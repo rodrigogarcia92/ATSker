@@ -1,0 +1,43 @@
+{# Scan B — boolean search recall (PRD F5.2). Reported beside the score, never in it. #}
+<h2 class="mt-8 text-lg font-semibold">{{ t('recall.title', lang) }}</h2>
+<p class="mt-1 text-xs text-slate-500">{{ t('recall.intro', lang) }}</p>
+
+{% if recall.rows %}
+<p class="mt-2 text-sm text-slate-600">
+  {{ t('recall.summary', lang, passed=recall.rows | selectattr('passed') | list | length,
+        total=recall.rows | length) }}
+</p>
+<ul class="mt-3 space-y-2">
+  {% for query in recall.rows %}
+  <li class="rounded border px-3 py-2 text-sm
+             {% if query.passed %}border-emerald-200 bg-emerald-50
+             {% else %}border-red-200 bg-red-50{% endif %}">
+    <span class="font-medium">{{ query.label or t('recall.unlabelled', lang) }}</span>
+    <span class="rounded bg-white/70 px-2 py-0.5 text-xs">
+      {{ t('recall.pass', lang) if query.passed else t('recall.fails', lang) }}
+    </span>
+    {% if query.failing %}
+    <span class="mt-1 block text-xs">{{ query.failing }}</span>
+    {% endif %}
+    {% if query.clauses %}
+    <ul class="mt-2 space-y-1">
+      {% for clause in query.clauses %}
+      <li class="text-xs {% if clause.matched %}text-slate-700{% else %}text-slate-500{% endif %}">
+        {% if clause.matched %}
+        <span aria-hidden="true">✓</span> {{ t('recall.clause_met', lang, term=clause.term, unit=clause.unit) }}
+        {% if clause.text %}<span class="block text-slate-500">{{ clause.text }}</span>{% endif %}
+        {% else %}
+        <span aria-hidden="true">✗</span> {{ t('recall.clause_missing', lang, term=clause.term) }}
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="mt-3 rounded border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600">
+  {{ t('recall.empty', lang) }}
+</p>
+{% endif %}

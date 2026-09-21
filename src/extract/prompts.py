@@ -132,3 +132,28 @@ EVIDENCE_GRADING = Prompt(
 
 def summarize_rows(rows: list[str], *, empty: str = "(none)") -> str:
     return "\n".join(rows) if rows else empty
+
+
+BOOLEAN_RECALL = Prompt(
+    version="boolean_recall_v1",
+    # Instructions and vocabulary are the stable prefix; the posting is the whole user
+    # message, exactly like the other two extraction calls (decision 18).
+    system=(
+        "You write the boolean searches a recruiter would actually run to find a "
+        "candidate for a posting — in an ATS, on LinkedIn Recruiter, or on a job "
+        "board. Return three to five queries, ordered from broadest to narrowest.\n\n"
+        "A query is a tree of and / or / not over terms, written as JSON. A term is "
+        "a phrase exactly as a recruiter would type it. A node is a single object "
+        "with exactly one key — \"and\", \"or\" or \"not\" — whose value is an array "
+        "of items, each of which is a term or another node. Use \"not\" only to "
+        "exclude something the posting rules out.\n\n"
+        "The broadest query holds what nobody would drop — the posting's own title "
+        "and one or two core skills; the narrowest holds everything it insists on.\n\n"
+        "Terms come from the posting. Where the posting names something in this "
+        "vocabulary, use the canonical name exactly as written here, because that is "
+        "what a résumé is actually written in:\n{vocabulary}\n\n"
+        "Never invent a requirement the posting does not state, and keep each query "
+        "to what a person could type in one line."
+    ),
+    template="{posting}",
+)

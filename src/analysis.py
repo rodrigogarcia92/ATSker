@@ -11,7 +11,9 @@ nothing is renormalised. The guard that refuses an undeclared omission stays in
 `aggregate()` all the same.
 
 An analysis of a track is scored against that track's selection and capped by the
-résumé the track was built from, when there is one (F5.1).
+résumé the track was built from, when there is one (F5.1). It also runs Scan B (F5.2):
+one call derives the boolean queries a recruiter would run, and the deterministic
+evaluator in `src.search` says which of them this track's text would be returned by.
 """
 
 import uuid
@@ -23,10 +25,11 @@ from decimal import Decimal
 from sqlalchemy.orm import Session
 
 from src.bullets import bullet_text, list_bullets
+from src.extract.boolean import derive_boolean_queries
 from src.extract.client import CallOptions, Completion
 from src.extract.grading import grade_evidence
 from src.extract.jd import extract_jd
-from src.extract.prompts import EVIDENCE_GRADING, JD_EXTRACTION
+from src.extract.prompts import BOOLEAN_RECALL, EVIDENCE_GRADING, JD_EXTRACTION
 from src.jd import StructuredJD
 from src.models import Bullet, Profile, Track
 from src.parse.gate import ParseReport
@@ -38,6 +41,8 @@ from src.score.experience import experience_score
 from src.score.keywords import keyword_context
 from src.score.title import title_alignment
 from src.score.weights import W2
+from src.search.boolean import RecallReport, evaluate
+from src.search.sources import searchable_units
 from src.tracks import track_bullets
 from src.vocabulary import alias_map
 
@@ -60,6 +65,7 @@ class Analysis:
     company: str | None
     jd: StructuredJD
     bullets: tuple[Bullet, ...]
+    recall: RecallReport = RecallReport()
 
 
 def _llm_section(calls: Sequence[Completion], cost: Decimal) -> dict[str, object]:
@@ -158,6 +164,24 @@ def analyze(
         known_names=[profile.display_name] if profile.display_name else None,
         options=options,
     )
+    # F5.2's scan is its own provider call, so the same boundary applies: the reads
+    # below happen after it, and the call starts with nothing held.
+    session.commit()
+    queries, recall_call = derive_boolean_queries(
+        session, jd_text, model=model, options=options
+    )
+    recall = evaluate(
+        queries.queries,
+        searchable_units(
+            profile_id,
+            session,
+            bullets=bullets,
+            headline=(track.headline if track is not None else None) or profile.headline,
+            summary=(track.summary if track is not None else None) or profile.summary,
+            role_titles=[role.title for role in roles],
+        ),
+        alias_map(session),
+    )
 
     sub_scores: dict[str, SubScore] = {
         "title": title_alignment(
@@ -185,7 +209,7 @@ def analyze(
     score = aggregate(sub_scores, W2, gate=gate)
 
     texts = {str(bullet.id): bullet_text(bullet) for bullet in bullets}
-    calls = (extraction, *grading.calls)
+    calls = (extraction, *grading.calls, recall_call)
     cost = sum((call.cost_usd for call in calls), Decimal("0"))
 
     report: dict[str, object] = {
@@ -204,6 +228,9 @@ def analyze(
         ],
         "grading_note": grading.note,
         "gate": gate.to_dict() if gate is not None else None,
+        # F5.2's recall is reported beside the score and never inside it: a recruiter's
+        # query is a gate, like a disqualifier, not a percentage.
+        "recall": recall.to_dict(),
         "score": score.to_dict(),
         "llm": _llm_section(calls, cost),
     }
@@ -217,6 +244,7 @@ def analyze(
         prompt_versions={
             "jd_extract": JD_EXTRACTION.version,
             "evidence_grade": EVIDENCE_GRADING.version,
+            "boolean_queries": BOOLEAN_RECALL.version,
         },
         weights_version=score.weights_version,
         cost_usd=cost,
@@ -225,4 +253,5 @@ def analyze(
         company=(company or "").strip() or None,
         jd=jd,
         bullets=tuple(bullets),
+        recall=recall,
     )

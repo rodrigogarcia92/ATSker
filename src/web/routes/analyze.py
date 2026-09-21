@@ -26,6 +26,7 @@ from src.resumes import source_document_for_track
 from src.tracks import get_track, list_tracks
 from src.web.deps import DbSession, OwnProfile, SignedInUser
 from src.web.findings import document_kind, finding_rows
+from src.web.recall import query_rows
 from src.web.templating import render
 
 router = APIRouter()
@@ -120,6 +121,9 @@ def analyze_submit(
         # report already carries the same JSON under `gate`; the column is what the
         # report page reads, and what N4's boolean recall will sit beside.
         scan_readability=analysis.report.get("gate"),
+        # Scan B (F5.2): the queries and what they found, beside the score and never in
+        # it. The report carries the same JSON for the snapshot the page renders.
+        scan_boolean=analysis.report.get("recall"),
     )
     session.commit()
     return RedirectResponse(f"/applications/{application.id}", status_code=303)
@@ -151,6 +155,7 @@ def application_report(
         application=application,
         report=application.report,
         findings=finding_rows(application.scan_readability or {}, user.ui_lang),
+        recall={"rows": query_rows(application.scan_boolean or {}, user.ui_lang)},
         not_run=(
             checks_not_run(document_kind(source.filename))
             if source is not None and application.scan_readability

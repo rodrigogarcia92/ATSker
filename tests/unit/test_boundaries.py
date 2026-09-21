@@ -1,8 +1,12 @@
-"""The two architectural rules of PRD 5.1, enforced instead of documented.
+"""The architectural rules of PRD 5.1, enforced instead of documented.
 
-`score/` may not make network calls and `parse/` may not import `extract/`. Reading
-the imports is the only way to keep that true as the code grows, because the rule
-is about what does *not* appear.
+`score/` and `search/` may not make network calls and `parse/` may not import
+`extract/`. Reading the imports is the only way to keep that true as the code grows,
+because the rule is about what does *not* appear.
+
+`search/` is the deterministic half of Scan B (F5.2): deciding whether a recruiter's
+boolean query returns a track is arithmetic over the track's own text, and the moment
+it could reach a provider it would stop being reproducible.
 """
 
 import ast
@@ -27,10 +31,11 @@ def package_files(package: str) -> list[Path]:
     return sorted((ROOT / package).rglob("*.py"))
 
 
-def test_score_makes_no_network_calls():
-    for path in package_files("score"):
-        offenders = imports_of(path) & NETWORK_MODULES
-        assert not offenders, f"{path.name} imports {offenders}"
+def test_the_deterministic_core_makes_no_network_calls():
+    for package in ("score", "search"):
+        for path in package_files(package):
+            offenders = imports_of(path) & NETWORK_MODULES
+            assert not offenders, f"{package}/{path.name} imports {offenders}"
 
 
 def test_parse_does_not_import_extract():
