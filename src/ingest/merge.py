@@ -25,11 +25,11 @@ from src.bullets import bullet_text, create_bullet, get_bullet, list_bullets, up
 from src.certifications import create_certification, list_certifications, update_certification
 from src.education import create_education, list_educations, update_education
 from src.ingest.draft import DraftCertification, DraftEducation, ResumeDraft, parse_partial_date
-from src.models import Bullet, BulletRevision, Certification, Education, Profile, Role
+from src.models import Bullet, BulletRevision, Certification, Education, Profile, Role, TrackBullet
 from src.normalize.text import fold
 from src.resumes import get_resume, mark_merged
 from src.roles import create_role, list_roles, update_role
-from src.tracks import create_track, set_track_bullets
+from src.tracks import create_track, get_track, set_track_bullets, track_bullets
 
 Label = Literal["new", "changed", "unchanged"]
 
@@ -135,6 +135,8 @@ class MergeResult:
     certifications_updated: int = 0
     skills_added: int = 0
     skipped: int = 0
+    # Bullets appended to the track this résumé was tagged with (F4 path 1).
+    track_bullets_added: int = 0
     # The track this merge created, when the user asked for one (F4 path 1).
     track_id: uuid.UUID | None = None
 
@@ -151,6 +153,7 @@ class MergeResult:
         "certifications_updated",
         "skills_added",
         "skipped",
+        "track_bullets_added",
     )
 
     @property
@@ -426,6 +429,28 @@ def _text_columns(language: str, text: str) -> tuple[str | None, str | None]:
     return (text, None) if language == "en" else (None, text)
 
 
+def _contributed_bullet_ids(
+    plan: MergePlan, new_bullet_ids: dict[tuple[int, int], uuid.UUID]
+) -> list[uuid.UUID]:
+    """The bullets this document contributes, in document order (F4 path 1).
+
+    A new bullet exists only if the user ticked it — the others were never created —
+    while a matched bullet joins whether or not it was ticked, because it is already
+    in the master database and this document says it belongs to the résumé's shape.
+    """
+    contributed: list[uuid.UUID] = []
+    for index, role in enumerate(plan.roles):
+        for bullet_index, bullet in enumerate(role.bullets):
+            if bullet.label == "new":
+                created_id = new_bullet_ids.get((index, bullet_index))
+                if created_id is not None:
+                    contributed.append(created_id)
+                continue
+            if bullet.existing_id is not None:
+                contributed.append(bullet.existing_id)
+    return contributed
+
+
 def apply_merge(
     profile_id: uuid.UUID,
     session: Session,
@@ -442,7 +467,9 @@ def apply_merge(
     plan the diff screen showed, so the track is what this document says rather than
     what this import happened to write. A new bullet enters it only if the user
     ticked it — the others do not exist — while a matched bullet enters it whether or
-    not it was ticked, because it is already in the master database.
+    not it was ticked, because it is already in the master database. Without a
+    `track_name`, a résumé that already carries a track joins that track's selection
+    by appending: never replacing what is already there.
     """
     resume = get_resume(profile_id, session, resume_id)
     profile = session.get(Profile, profile_id)
@@ -605,18 +632,9 @@ def apply_merge(
     profile.skills = current
 
     track_id: uuid.UUID | None = None
+    contributed = _contributed_bullet_ids(plan, new_bullet_ids)
     if track_name:
         # Document order, not selection order: the track is the document's shape.
-        selected: list[uuid.UUID] = []
-        for index, role in enumerate(plan.roles):
-            for bullet_index, bullet in enumerate(role.bullets):
-                if bullet.label == "new":
-                    created_id = new_bullet_ids.get((index, bullet_index))
-                    if created_id is not None:
-                        selected.append(created_id)
-                    continue
-                if bullet.existing_id is not None:
-                    selected.append(bullet.existing_id)
         track = create_track(
             profile_id,
             session,
@@ -625,9 +643,28 @@ def apply_merge(
             # the track's language is what the résumé it produced is written in.
             lang=draft.language,
         )
-        set_track_bullets(profile_id, session, track.id, selected)
+        set_track_bullets(profile_id, session, track.id, contributed)
         resume.track_id = track.id
         track_id = track.id
+    elif resume.track_id is not None:
+        # The other half of F4 path 1: a résumé tagged with an existing track joins
+        # it. Append, never replace — the selection may hold other documents' bullets
+        # and hand-picked ones — and a bullet already there stays where it is.
+        target = get_track(profile_id, session, resume.track_id)
+        if target is not None:
+            already = {bullet.id for bullet in track_bullets(profile_id, session, target.id)}
+            position = len(already)
+            seen: set[uuid.UUID] = set()
+            for bullet_id in contributed:
+                if bullet_id in already or bullet_id in seen:
+                    continue
+                seen.add(bullet_id)
+                session.add(
+                    TrackBullet(track_id=target.id, bullet_id=bullet_id, position=position)
+                )
+                position += 1
+                counts["track_bullets_added"] += 1
+            session.flush()
 
     mark_merged(profile_id, session, resume.id)
     return MergeResult(**counts, track_id=track_id)

@@ -36,6 +36,8 @@ def create_track(
     applies_when: str = "",
     lang: str = "es",
     target_seniority: str | None = None,
+    organisation_kind: str | None = None,
+    specialisation: str | None = None,
     headline: str | None = None,
     summary: str | None = None,
 ) -> Track:
@@ -46,6 +48,8 @@ def create_track(
         applies_when=applies_when.strip(),
         lang=(lang or "es")[:5],
         target_seniority=_clean(target_seniority),
+        organisation_kind=_clean(organisation_kind),
+        specialisation=_clean(specialisation),
         headline=_clean(headline),
         summary=_clean(summary),
     )
@@ -63,6 +67,8 @@ def update_track(
     applies_when: str = "",
     lang: str = "es",
     target_seniority: str | None = None,
+    organisation_kind: str | None = None,
+    specialisation: str | None = None,
     headline: str | None = None,
     summary: str | None = None,
     active: bool = True,
@@ -74,6 +80,8 @@ def update_track(
     track.applies_when = applies_when.strip()
     track.lang = (lang or "es")[:5]
     track.target_seniority = _clean(target_seniority)
+    track.organisation_kind = _clean(organisation_kind)
+    track.specialisation = _clean(specialisation)
     track.headline = _clean(headline)
     track.summary = _clean(summary)
     track.active = active
@@ -95,6 +103,8 @@ def clone_track(
         applies_when=source.applies_when,
         lang=source.lang,
         target_seniority=source.target_seniority,
+        organisation_kind=source.organisation_kind,
+        specialisation=source.specialisation,
         headline=source.headline,
         summary=source.summary,
     )

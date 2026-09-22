@@ -86,6 +86,9 @@ class Profile(Base):
     # else to put them and §6 has no column). Annotation only: evidence and every
     # score still read bullet chips, so a skill listed here cannot inflate a number.
     skills: Mapped[list[str]] = mapped_column(_StringList, default=list)
+    # What could work against an application before a posting is read (F6.1): free
+    # text the gap interpretation weighs. Never scored, never inferred.
+    standing_risks: Mapped[list[str]] = mapped_column(_StringList, default=list)
 
 
 class Education(Base):
@@ -275,6 +278,11 @@ class Track(Base):
     applies_when: Mapped[str] = mapped_column(Text, default="")
     lang: Mapped[str] = mapped_column(String(5), default="es")
     target_seniority: Mapped[str | None] = mapped_column(String(20))
+    # The two axes (PRD F4, 2026-09-21): the kind of employer this track targets and
+    # the role's own axis. Free text, optional; N6's recommender reads them and
+    # nothing ranks on them yet.
+    organisation_kind: Mapped[str | None] = mapped_column(String(60))
+    specialisation: Mapped[str | None] = mapped_column(String(60))
     headline: Mapped[str | None] = mapped_column(String(200))
     summary: Mapped[str | None] = mapped_column(Text)
     active: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))

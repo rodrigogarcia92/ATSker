@@ -15,6 +15,12 @@
     <a href="/tracks/{{ track.id }}" class="font-medium hover:underline">{{ track.name }}</a>
     <span class="text-sm text-slate-600">{{ track.applies_when }}</span>
     <span class="text-xs uppercase text-slate-500">{{ track.lang }}</span>
+    {% if track.organisation_kind %}
+    <span class="text-xs text-slate-500">{{ t('tracks.organisation_kind', lang) }}: {{ track.organisation_kind }}</span>
+    {% endif %}
+    {% if track.specialisation %}
+    <span class="text-xs text-slate-500">{{ t('tracks.specialisation', lang) }}: {{ track.specialisation }}</span>
+    {% endif %}
     <span class="text-xs text-slate-500">{{ sizes.get(track.id, 0) }} {{ t('tracks.bullets', lang) }}</span>
     {% if not track.active %}
     <span class="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-600">{{ t('common.inactive', lang) }}</span>

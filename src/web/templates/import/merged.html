@@ -12,6 +12,7 @@
   ('certifications_updated', 'import.certifications_updated'),
   ('skills_added', 'import.skills_added'),
   ('skipped', 'import.skipped'),
+  ('track_bullets_added', 'import.track_bullets_added'),
 ] %}
 <a href="/import" class="text-sm text-slate-600 underline">{{ t('import.go_back', lang) }}</a>
 
@@ -26,11 +27,25 @@
 {% endif %}
 
 {% if track %}
+{% if result and result.track_id %}
 {# F4 creation path 1: the merge can turn the document into a track, and this is it. #}
 <p class="mt-2 text-sm text-slate-600">
   {{ t('import.track_created', lang, name=track.name) }}
   <a href="/tracks/{{ track.id }}" class="underline">{{ t('import.track_view', lang) }}</a>
 </p>
+{% elif result %}
+{# The other half of F4 path 1: a tagged upload joins its track, and the result says
+   how many bullets were added to it. #}
+<p class="mt-2 text-sm text-slate-600">
+  {{ t('import.track_joined', lang, name=track.name, count=result.track_bullets_added) }}
+  <a href="/tracks/{{ track.id }}" class="underline">{{ t('import.track_view', lang) }}</a>
+</p>
+{% else %}
+<p class="mt-2 text-sm text-slate-600">
+  {{ t('import.track_of_document', lang, name=track.name) }}
+  <a href="/tracks/{{ track.id }}" class="underline">{{ t('import.track_view', lang) }}</a>
+</p>
+{% endif %}
 {% endif %}
 
 {% if result %}

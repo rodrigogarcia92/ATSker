@@ -34,6 +34,22 @@
       <p class="mt-1 text-xs text-slate-500">{{ t('tracks.seniority_hint', lang) }}</p>
     </div>
   </div>
+  <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+    <div>
+      <label for="organisation_kind" class="mb-1 block text-sm font-medium">{{ t('tracks.organisation_kind', lang) }}</label>
+      <input id="organisation_kind" name="organisation_kind"
+             value="{{ track.organisation_kind or '' if track else '' }}"
+             class="w-full rounded border border-slate-300 px-3 py-2 text-sm">
+      <p class="mt-1 text-xs text-slate-500">{{ t('tracks.organisation_kind_hint', lang) }}</p>
+    </div>
+    <div>
+      <label for="specialisation" class="mb-1 block text-sm font-medium">{{ t('tracks.specialisation', lang) }}</label>
+      <input id="specialisation" name="specialisation"
+             value="{{ track.specialisation or '' if track else '' }}"
+             class="w-full rounded border border-slate-300 px-3 py-2 text-sm">
+      <p class="mt-1 text-xs text-slate-500">{{ t('tracks.specialisation_hint', lang) }}</p>
+    </div>
+  </div>
   <div>
     <label for="headline" class="mb-1 block text-sm font-medium">{{ t('tracks.headline', lang) }}</label>
     <input id="headline" name="headline" value="{{ track.headline or '' if track else '' }}"

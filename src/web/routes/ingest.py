@@ -558,6 +558,7 @@ async def import_confirm(
         profile=profile,
         resume=resume,
         draft=draft,
+        track=get_track(profile.id, session, resume.track_id) if resume.track_id else None,
         plan=diff_draft(profile.id, session, draft),
     )
 
@@ -601,7 +602,8 @@ async def import_merge(
         raise HTTPException(status_code=404)
     session.commit()
     # Deliberately not a redirect: the result counts are the point, and a resubmit is
-    # a no-op because every merged candidate now diffs as unchanged.
+    # a no-op because every merged candidate now diffs as unchanged. `resume.track_id`
+    # is the created track or the one this upload was tagged with and joined.
     return render(
         request,
         "import/merged.html",
@@ -610,7 +612,7 @@ async def import_merge(
         resume=resume,
         draft=draft,
         result=result,
-        track=get_track(profile.id, session, result.track_id) if result.track_id else None,
+        track=get_track(profile.id, session, resume.track_id) if resume.track_id else None,
     )
 
 

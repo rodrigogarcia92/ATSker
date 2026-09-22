@@ -167,10 +167,17 @@ def plain(html: str) -> str:
     return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", html))
 
 
-def upload(client, data: bytes, name: str = "cv.docx", content_type: str = DOCX_TYPE):
+def upload(
+    client,
+    data: bytes,
+    name: str = "cv.docx",
+    content_type: str = DOCX_TYPE,
+    track_id: str | None = None,
+):
     return client.post(
         "/import",
         files={"file": (name, data, content_type)},
+        data={"track_id": track_id} if track_id else None,
         follow_redirects=False,
     )
 
@@ -694,6 +701,32 @@ def test_a_merge_without_the_checkbox_creates_no_track(client, session, career, 
     assert len(list_tracks(career.first_profile.id, session, active_only=False)) == before
     session.expire_all()
     assert session.query(Resume).one().track_id is None
+
+
+def test_a_tagged_upload_says_which_track_it_joins_and_how_many_bullets_it_added(
+    client, session, career, provider
+):
+    """F4 path 1's second half: build the track first, then upload a CV under it."""
+    login(client, career.first.email)
+    uploaded = upload(
+        client,
+        docx_bytes("Experiencia", "Reduje el cierre un 30% con Python"),
+        track_id=str(career.first_track.id),
+    )
+    assert uploaded.status_code == 303
+    review_url = uploaded.headers["location"]
+
+    merge_page = plain(client.post(f"{review_url}/review", data=REVIEWED_FORM).text)
+    assert "Las viñetas de este documento se unirán a «Analista de datos»" in merge_page
+
+    merged = plain(client.post(f"{review_url}/merge", data=MERGE_FORM).text)
+    assert "Viñetas añadidas a «Analista de datos»: 1" in merged
+    assert "Puesto objetivo creado" not in merged, "it joined; it did not create"
+
+    session.expire_all()
+    joined = track_bullets(career.first_profile.id, session, career.first_track.id)
+    assert [bullet.id for bullet in joined[:1]] == [career.first_bullet.id], "kept its place"
+    assert len(joined) == 2, "the document's new bullet was appended"
 
 
 def test_a_tracks_analysis_is_capped_by_the_document_it_came_from(

@@ -51,6 +51,17 @@ def positions_of(session, track_id) -> list[int]:
 def test_cloning_a_track_copies_its_fields_and_the_selection_order(session, career, selection):
     profile_id = career.first_profile.id
     source = career.first_track
+    update_track(
+        profile_id,
+        session,
+        source.id,
+        name=source.name,
+        applies_when=source.applies_when,
+        lang=source.lang,
+        organisation_kind="Corporativo",
+        specialisation="Riesgo",
+        headline=source.headline,
+    )
     chosen = [selection[2].id, career.first_bullet.id, selection[0].id]
     set_track_bullets(profile_id, session, source.id, chosen)
 
@@ -62,6 +73,7 @@ def test_cloning_a_track_copies_its_fields_and_the_selection_order(session, care
     assert clone.lang == source.lang
     assert clone.headline == source.headline
     assert clone.target_seniority == source.target_seniority
+    assert (clone.organisation_kind, clone.specialisation) == ("Corporativo", "Riesgo")
     assert clone.active is True
     assert [bullet.id for bullet in track_bullets(profile_id, session, clone.id)] == chosen
     assert positions_of(session, clone.id) == [0, 1, 2]
@@ -194,6 +206,8 @@ def test_a_new_track_starts_empty_and_keeps_the_fields_it_was_given(session, car
         applies_when="  Plataformas de datos  ",
         lang="en",
         target_seniority="senior",
+        organisation_kind="  Corporativo  ",
+        specialisation="Plataformas",
         headline="Data Engineer",
         summary="Ingeniería de datos.",
     )
@@ -206,6 +220,7 @@ def test_a_new_track_starts_empty_and_keeps_the_fields_it_was_given(session, car
         "Data Engineer",
         "Ingeniería de datos.",
     )
+    assert (track.organisation_kind, track.specialisation) == ("Corporativo", "Plataformas")
     assert track_bullets(career.first_profile.id, session, track.id) == []
 
     cleared = update_track(
@@ -216,11 +231,14 @@ def test_a_new_track_starts_empty_and_keeps_the_fields_it_was_given(session, car
         applies_when="",
         lang="en",
         target_seniority="",
+        organisation_kind="  ",
+        specialisation=None,
         headline="  ",
         summary=None,
     )
 
     assert (cleared.target_seniority, cleared.headline, cleared.summary) == (None, None, None)
+    assert (cleared.organisation_kind, cleared.specialisation) == (None, None)
 
 
 # --- The pages (PRD F4) -----------------------------------------------------
@@ -234,13 +252,26 @@ def picker_row(html: str, bullet_id) -> str:
     return html[start : end if end != -1 else len(html)]
 
 
-def test_the_list_page_shows_every_track_and_its_selection_size(client, career):
+def test_the_list_page_shows_every_track_and_its_selection_size(client, session, career):
+    update_track(
+        career.first_profile.id,
+        session,
+        career.first_track.id,
+        name=career.first_track.name,
+        applies_when=career.first_track.applies_when,
+        lang=career.first_track.lang,
+        organisation_kind="Corporativo",
+        specialisation="Analítica",
+    )
+    session.commit()
     login(client, career.first.email)
 
     page = client.get("/tracks").text
 
     assert "Analista de datos" in page
     assert "Puestos de analista de datos" in page
+    assert "Tipo de organización: Corporativo" in page
+    assert "Especialización: Analítica" in page
     assert "1 viñetas" in page, "the count comes from the selection"
     assert "Riesgo" not in page, "another profile's track is not listed"
 
@@ -290,7 +321,13 @@ def test_editing_a_track_saves_its_fields_and_its_deactivation(client, session, 
 
     saved = client.post(
         f"/tracks/{track_id}",
-        data={"name": "Analista de datos senior", "applies_when": "", "lang": "es"},
+        data={
+            "name": "Analista de datos senior",
+            "applies_when": "",
+            "lang": "es",
+            "organisation_kind": "Gobierno",
+            "specialisation": "Política pública",
+        },
         follow_redirects=False,
     )
 
@@ -298,6 +335,13 @@ def test_editing_a_track_saves_its_fields_and_its_deactivation(client, session, 
     session.expire_all()
     assert career.first_track.name == "Analista de datos senior"
     assert career.first_track.applies_when == ""
+    assert (career.first_track.organisation_kind, career.first_track.specialisation) == (
+        "Gobierno",
+        "Política pública",
+    )
+    form = client.get(f"/tracks/{track_id}/edit").text
+    assert 'value="Gobierno"' in form, "the form shows what was saved"
+    assert 'value="Política pública"' in form
     assert career.first_track.active is False, "the checkbox was not posted, so it is off"
 
     restored = client.post(

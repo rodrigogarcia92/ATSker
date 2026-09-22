@@ -7,23 +7,29 @@ text it had.
 
 import hashlib
 
-from src.bullets import get_bullet, list_bullets, set_bullet_active
+from sqlalchemy import select
+
+from src.bullets import create_bullet, get_bullet, list_bullets, set_bullet_active
 from src.certifications import list_certifications
 from src.education import list_educations
 from src.ingest.draft import DraftBullet, DraftCertification, DraftEducation, DraftRole, ResumeDraft
 from src.ingest.merge import MergeResult, Selections, apply_merge, diff_draft
-from src.models import BulletRevision, Resume
+from src.models import BulletRevision, Resume, TrackBullet
 from src.resumes import create_resume
 from src.roles import list_roles
+from src.tracks import set_track_bullets, track_bullets
 
 
-def make_resume(session, profile_id, draft: ResumeDraft, name: str = "cv") -> Resume:
+def make_resume(
+    session, profile_id, draft: ResumeDraft, name: str = "cv", track_id=None
+) -> Resume:
     return create_resume(
         profile_id,
         session,
         filename=f"{name}.docx",
         data=b"bytes",
         sha256=hashlib.sha256(name.encode()).hexdigest(),
+        track_id=track_id,
         gate={},
         draft=draft.model_dump(mode="json"),
     )
@@ -326,3 +332,72 @@ def test_a_foreign_resume_cannot_be_merged(session, career):
 
     assert result is None
     assert resume.merged_at is None
+
+
+def test_an_upload_tagged_with_a_track_appends_its_bullets_and_keeps_the_selection(
+    session, career
+):
+    """F4 path 1: a résumé tagged with an existing track joins that track (N5 queue 1.2).
+
+    The queue's scenario is hand-picked bullets already in the track and an upload
+    contributing two new bullets and one already selected, asserting four in the
+    track. Three pre-existing plus two new cannot be four under an append rule, so
+    the selection starts with two and the asserted outcome stands: the originals
+    keep their order, the new ones continue from the end, and the bullet already in
+    the selection is not duplicated.
+    """
+    profile_id = career.first_profile.id
+    track_id = career.first_track.id
+    hand_picked = [
+        create_bullet(
+            profile_id,
+            session,
+            role_id=career.first_role.id,
+            text_es=text,
+            text_en=None,
+        )
+        for text in ("Primera línea elegida a mano", "Segunda línea elegida a mano")
+    ]
+    session.commit()
+    set_track_bullets(profile_id, session, track_id, [bullet.id for bullet in hand_picked])
+    session.commit()
+
+    draft = ResumeDraft(
+        language="es",
+        roles=[
+            DraftRole(
+                employer="Acme",
+                title="Analista de datos",
+                bullets=[
+                    DraftBullet(text="Nueva línea uno con Python", chips=["python"]),
+                    DraftBullet(text="Nueva línea dos con Python", chips=["python"]),
+                    DraftBullet(text=hand_picked[0].text_es, chips=[]),
+                ],
+            )
+        ],
+    )
+    resume = make_resume(session, profile_id, draft, track_id=track_id)
+    plan = diff_draft(profile_id, session, draft)
+
+    assert [bullet.label for bullet in plan.roles[0].bullets] == ["new", "new", "unchanged"]
+
+    result = apply_merge(
+        profile_id,
+        session,
+        resume_id=resume.id,
+        draft=draft,
+        plan=plan,
+        selections=select_all(plan),
+    )
+
+    selected = track_bullets(profile_id, session, track_id)
+    assert [bullet.id for bullet in selected[:2]] == [bullet.id for bullet in hand_picked], (
+        "the hand-picked bullets keep their place and their order"
+    )
+    assert len(selected) == 4
+    assert result == MergeResult(bullets_created=2, track_bullets_added=2)
+    rows = session.scalars(select(TrackBullet).where(TrackBullet.track_id == track_id)).all()
+    assert len(rows) == 4, "no duplicate row in track_bullets"
+    positions = {row.bullet_id: row.position for row in rows}
+    assert positions[hand_picked[0].id] == 0 and positions[hand_picked[1].id] == 1
+    assert sorted(positions.values()) == [0, 1, 2, 3], "the new ones continue from the end"

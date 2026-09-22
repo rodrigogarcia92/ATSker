@@ -337,6 +337,18 @@ STRINGS: dict[str, dict[str, str]] = {
     "tracks.lang": {"es": "Idioma", "en": "Language"},
     "tracks.seniority": {"es": "Seniority objetivo", "en": "Target seniority"},
     "tracks.seniority_hint": {"es": "Opcional.", "en": "Optional."},
+    "tracks.organisation_kind": {"es": "Tipo de organización", "en": "Organisation kind"},
+    "tracks.organisation_kind_hint": {
+        "es": "El tipo de empleador al que apuntas: corporativo, técnico, gobierno, ONG, "
+        "educación… Opcional.",
+        "en": "The kind of employer you are aiming at: corporate, technical, government, "
+        "NGO, education… Optional.",
+    },
+    "tracks.specialisation": {"es": "Especialización", "en": "Specialisation"},
+    "tracks.specialisation_hint": {
+        "es": "El eje del propio puesto: riesgo, marketing, plataforma… Opcional.",
+        "en": "The role's own axis: risk, marketing, platform… Optional.",
+    },
     "tracks.headline": {"es": "Titular", "en": "Headline"},
     "tracks.headline_hint": {
         "es": "Si lo rellenas, sustituye al titular del perfil al puntuar el encaje de "
@@ -703,6 +715,22 @@ STRINGS: dict[str, dict[str, str]] = {
     },
     "import.track_created": {"es": "Puesto objetivo creado: {name}", "en": "Track created: {name}"},
     "import.track_view": {"es": "Ver el puesto objetivo", "en": "View the track"},
+    "import.track_join": {
+        "es": "Las viñetas de este documento se unirán a «{name}».",
+        "en": "The bullets from this document will join «{name}».",
+    },
+    "import.track_joined": {
+        "es": "Viñetas añadidas a «{name}»: {count}.",
+        "en": "Bullets added to «{name}»: {count}.",
+    },
+    "import.track_of_document": {
+        "es": "Puesto objetivo de este documento: {name}",
+        "en": "This document's track: {name}",
+    },
+    "import.track_bullets_added": {
+        "es": "Viñetas unidas al puesto",
+        "en": "Bullets joined to the track",
+    },
     "import.merge_submit": {"es": "Importar la selección", "en": "Import the selection"},
     "import.merged_title": {"es": "Importación aplicada", "en": "Import applied"},
     "import.merged_at": {"es": "Importado el", "en": "Merged on"},
