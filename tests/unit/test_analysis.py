@@ -80,6 +80,25 @@ class Provider:
                     "note": "una nota",
                 }
             ),
+            # The one gap the grading above leaves (machine learning, nice-to-have,
+            # level 0), explained in order — the call may not add or reorder gaps.
+            "GapInterpretation": json.dumps(
+                {
+                    "gaps": [
+                        {
+                            "requirement": "machine learning",
+                            "blocking": False,
+                            "interpretation": "Machine learning está mencionado sin "
+                            "una historia que lo demuestre.",
+                        }
+                    ],
+                    "warning": {
+                        "text": "Salto hacia banca privada",
+                        "handling": "Llévalo como transferencia de método analítico.",
+                    },
+                    "not_found": "No hay historias sobre despliegue de modelos.",
+                }
+            ),
         }
 
     def __call__(self, payload: dict, api_key: str) -> dict:
@@ -115,16 +134,22 @@ def test_an_analysis_records_its_weights_prompts_and_cost(session, career, provi
         "jd_extract": "jd_extract_v2",
         "evidence_grade": "evidence_grade_v2",
         "boolean_queries": "boolean_recall_v1",
+        "gap_interpret": "gap_interpret_v1",
     }
 
     # Cost instrumentation is part of the milestone: the ledger rows exist and the
-    # analysis carries what it actually spent.
+    # analysis carries what it actually spent — four calls since N5's gap analysis.
     calls = session.query(LlmCall).order_by(LlmCall.id).all()
-    assert [call.purpose for call in calls] == ["jd_extract", "evidence_grade", "boolean_queries"]
+    assert [call.purpose for call in calls] == [
+        "jd_extract",
+        "evidence_grade",
+        "boolean_queries",
+        "gap_interpret",
+    ]
     assert all(call.prompt_tokens == 2200 and call.completion_tokens == 140 for call in calls)
     assert all(call.cost_usd == Decimal(COST_PER_CALL) for call in calls)
-    assert analysis.cost_usd == 3 * Decimal(COST_PER_CALL)
-    assert analysis.report["llm"]["cost_usd"] == str(3 * Decimal(COST_PER_CALL))
+    assert analysis.cost_usd == 4 * Decimal(COST_PER_CALL)
+    assert analysis.report["llm"]["cost_usd"] == str(4 * Decimal(COST_PER_CALL))
 
     # The citation is snapshotted with the text that was graded.
     graded = analysis.report["grades"]
@@ -147,7 +172,7 @@ def test_an_analysis_records_its_weights_prompts_and_cost(session, career, provi
 
     assert application.jd_hash == jd_hash(POSTING)
     assert application.title == "Analista de datos"
-    assert application.token_cost_usd == 3 * Decimal(COST_PER_CALL)
+    assert application.token_cost_usd == 4 * Decimal(COST_PER_CALL)
     assert application.prompt_versions["evidence_grade"] == "evidence_grade_v2"
     assert application.report["score"]["unavailable"] == {}
 
@@ -172,9 +197,9 @@ def test_a_second_analysis_of_the_same_pair_makes_no_call_and_costs_nothing(
     first = analyze(career.first_profile.id, session, jd_text=POSTING)
     second = analyze(career.first_profile.id, session, jd_text=POSTING)
 
-    assert len(provider.calls) == 3, "extraction, grading and the boolean queries, once"
-    assert session.query(LlmCall).count() == 3
-    assert first.cost_usd == 3 * Decimal(COST_PER_CALL)
+    assert len(provider.calls) == 4, "extraction, grading, the boolean queries and the gaps, once"
+    assert session.query(LlmCall).count() == 4
+    assert first.cost_usd == 4 * Decimal(COST_PER_CALL)
     assert second.cost_usd == 0
     assert all(call["cached"] is True for call in second.report["llm"]["calls"])
 
@@ -244,12 +269,59 @@ def test_the_report_page_shows_the_total_its_cost_and_its_components(
     assert "se renormaliza" not in page, "w2 has nothing to renormalise"
     assert "Habilidades" in page and "Palabras clave" in page
     assert "Encaje semántico" not in page
-    assert "$0.000369" in page, "the cost of the analysis that produced the report"
+    assert "$0.000492" in page, "the cost of the analysis that produced the report"
     assert "jd_extract_v2" in page
     assert career.first_bullet.text_es in page, "the citation is shown"
     disqualifier = application.report["jd"]["hard_requirements"][0]
     assert disqualifier in page, "disqualifiers are reported separately"
     assert "Sin cita" in page
+
+
+def test_the_report_page_renders_the_gap_summary_and_the_detail(client, session, career, provider):
+    """F6's two views: a summary of the headline problems, expandable to every gap."""
+    login(client, career.first.email)
+
+    posted = client.post(
+        "/analyze", data={"jd_text": POSTING, "company": "Banco Demo"}, follow_redirects=False
+    )
+
+    page = text_of(client.get(posted.headers["location"]).text)
+    rows = session.query(Application).one().report["gaps"]["gaps"]
+    assert [row["requirement"] for row in rows] == ["machine learning"]
+    assert rows[0]["level"] == 0 and rows[0]["must_have"] is False
+
+    # The summary view: the interpretation line, with the blocking flag when set.
+    assert "Machine learning está mencionado sin una historia que lo demuestre." in page
+    # The detailed list behind it: level, weight class, requirement text.
+    assert "Ver el detalle (1)" in page
+    assert "machine learning" in page
+    assert "Deseable · Nivel 0" in page
+    assert "Salto hacia banca privada" in page, "the single warning, with its handling"
+    assert "Llévalo como transferencia de método analítico." in page
+    assert "No hay historias sobre despliegue de modelos." in page
+    # Extraction folds hard requirements, so compare against what is stored.
+    application = session.query(Application).one()
+    assert application.report["disqualifiers"] == [
+        {"requirement": application.report["jd"]["hard_requirements"][0], "verdict": "unmet"}
+    ], "the degree ask, answered by the empty education rows"
+    assert application.report["disqualifiers"][0]["requirement"] in page
+    assert "no cumple" in page
+    assert "No había historias disponibles" not in page, "the story table was not empty"
+
+
+def test_the_report_page_says_when_no_stories_were_available(
+    client, session, career, provider, monkeypatch
+):
+    """F6.1: the table may legitimately be empty, and the output says so."""
+    monkeypatch.setattr("src.analysis.list_stories", lambda *args, **kwargs: [])
+    login(client, career.first.email)
+
+    posted = client.post("/analyze", data={"jd_text": POSTING}, follow_redirects=False)
+
+    application = session.query(Application).one()
+    assert application.report["gaps"]["stories_used"] == 0
+    page = text_of(client.get(posted.headers["location"]).text)
+    assert "No había historias disponibles para este análisis." in page
 
 
 def test_another_profiles_report_is_404(client, session, career, provider):

@@ -134,6 +134,43 @@ def summarize_rows(rows: list[str], *, empty: str = "(none)") -> str:
     return "\n".join(rows) if rows else empty
 
 
+GAP_INTERPRETATION = Prompt(
+    version="gap_interpret_v1",
+    # The contract is the same for every posting — what a gap note is, what the one
+    # warning covers, what honesty about missing material means — so it is the
+    # cacheable prefix and only the data varies (decision 18).
+    system=(
+        "You explain the gaps a deterministic analysis found between a person's "
+        "résumé and a job posting. You discover nothing: the gaps you are given are "
+        "the complete list, and you return exactly one note per gap, in the order "
+        "given, with each requirement text copied unchanged. Reordering, dropping, "
+        "rewriting or inventing a gap is a failure.\n\n"
+        "For each gap set blocking to true when the gap alone would rule this "
+        "candidate out of the posting — an unmet must-have the employer insists on "
+        "— and false when it weakens the application without ending it. Write one "
+        "line of interpretation per gap: what it costs this application, and what "
+        "material could answer it.\n\n"
+        "Return exactly one warning, covering only the standing risks that actually "
+        "bite on this posting plus anything posting-specific, with a suggested "
+        "handling. If nothing bites, leave the warning empty; do not invent one, and "
+        "never turn it into a list of everything that could conceivably go wrong.\n\n"
+        "Return also one sentence naming what was not found in the person's data — "
+        "missing material, stated plainly rather than filler. When the stories block "
+        "says none were available, say that no stories were available; never imply "
+        "that none were relevant."
+    ),
+    template=(
+        "The gaps, in order (index, level, weight, requirement, and the bullet that "
+        "came close when there is one):\n{gaps}\n\n"
+        "The posting as extracted:\n{posting}\n\n"
+        "The person's standing risks — check each against this posting; the warning "
+        "mentions only the ones that bite here:\n{risks}\n\n"
+        "Their career stories — material an answer could draw on:\n{stories}\n\n"
+        "Write every sentence in {lang}."
+    ),
+)
+
+
 BOOLEAN_RECALL = Prompt(
     version="boolean_recall_v1",
     # Instructions and vocabulary are the stable prefix; the posting is the whole user

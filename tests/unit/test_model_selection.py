@@ -121,6 +121,24 @@ class FakeProvider:
             if self.drift and self.extract_calls % 2 == 0:
                 proposal["must_have"] = [*proposal["must_have"], "power bi"]
             content = json.dumps(proposal)
+        elif name == "GapInterpretation":
+            # N5's fourth call. The harness answers it from the payload like the rest:
+            # one note per gap row, in the order given — the model may not add, drop
+            # or reorder a gap, so a stub that did would fail the call's validation.
+            user = payload["messages"][1]["content"]
+            rows = user.split("came close when there is one):\n", 1)[1].split("\n\n", 1)[0]
+            gaps = [
+                {"requirement": parts[3], "blocking": False, "interpretation": "sintético"}
+                for parts in (line.split("\t") for line in rows.splitlines())
+                if len(parts) >= 4
+            ]
+            content = json.dumps(
+                {
+                    "gaps": gaps,
+                    "warning": {"text": "sintético", "handling": "sintético"},
+                    "not_found": "sintético",
+                }
+            )
         else:
             self.grading_calls += 1
             user = payload["messages"][1]["content"]
@@ -279,8 +297,9 @@ def test_the_stability_path_never_reads_the_cache(provider, pairs):
         calls_before[1] + 3,
         calls_before[2] + 1,
     ), "one extraction, three gradings and the derivation must reach the provider"
-    assert session.query(LlmCall).count() == rows_before + 5, (
-        "a bypassed call is still paid for and still written to the ledger"
+    assert session.query(LlmCall).count() == rows_before + 6, (
+        "a bypassed call is still paid for and still written to the ledger — extraction, "
+        "grading, the boolean queries, the gap interpretation and two repeat gradings"
     )
     assert result.levels != warmup_levels, "the cached answer must not be what came back"
     assert result.stability is not None and result.stability < 1.0
@@ -425,8 +444,8 @@ def test_the_experiment_reports_every_column_of_the_table(provider, pairs):
     assert report.tau_b() is not None
     assert report.rho() is not None
     assert report.stability() is not None
-    assert report.cost_effective() == Decimal("0.000300"), (
-        "extraction, grading and the boolean queries"
+    assert report.cost_effective() == Decimal("0.000400"), (
+        "extraction, grading, the boolean queries and the gap interpretation"
     )
     assert report.cost_list() > 0
     assert report.latency_median() >= 0

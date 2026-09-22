@@ -259,6 +259,29 @@ STRINGS: dict[str, dict[str, str]] = {
         "es": "No entran en la puntuación: un requisito eliminatorio no es un porcentaje.",
         "en": "They do not enter the score: a disqualifier is not a percentage.",
     },
+    "report.disqualifiers_unverified_hint": {
+        "es": "ATSker no puede comprobar los sin verificar: confírmalos tú antes de "
+        "enviar la candidatura.",
+        "en": "ATSker cannot check the unverified ones: confirm them yourself before "
+        "applying.",
+    },
+    "report.verdict.met": {"es": "cumple", "en": "met"},
+    "report.verdict.unmet": {"es": "no cumple", "en": "unmet"},
+    "report.verdict.unverified": {"es": "sin verificar", "en": "unverified"},
+    "report.gaps": {"es": "Huecos", "en": "Gaps"},
+    "report.gaps_all": {"es": "Ver el detalle ({count})", "en": "See the detail ({count})"},
+    "report.gap_blocking": {"es": "bloqueante", "en": "blocking"},
+    "report.came_close": {"es": "Se acercó", "en": "Came close"},
+    "report.no_gaps": {
+        "es": "Ningún requisito queda sin cubrir.",
+        "en": "No requirement is left uncovered.",
+    },
+    "report.gap_warning": {"es": "Aviso:", "en": "Warning:"},
+    "report.gap_handling": {"es": "Cómo afrontarlo:", "en": "Suggested handling:"},
+    "report.no_stories_available": {
+        "es": "No había historias disponibles para este análisis.",
+        "en": "No stories were available for this analysis.",
+    },
     "report.grades": {"es": "Requisitos evaluados", "en": "Graded requirements"},
     "report.grades_hint": {
         "es": "0 ausente · 1 mencionado · 2 aplicado · 3 demostrado. Cada nivel cita la "
@@ -299,6 +322,15 @@ STRINGS: dict[str, dict[str, str]] = {
     "report.again": {"es": "Analizar otra oferta", "en": "Analyse another posting"},
     # Profile
     "profile.title": {"es": "Perfil", "en": "Profile"},
+    "profile.standing_risks": {"es": "Riesgos persistentes", "en": "Standing risks"},
+    "profile.standing_risks_hint": {
+        "es": "Uno por línea. Lo que puede jugar en contra en cualquier candidatura "
+        "(p. ej. salir del sector público): el análisis de huecos los contrasta con "
+        "cada oferta y avisa solo de los que muerden aquí.",
+        "en": "One per line. What could work against any application (e.g. leaving "
+        "the public sector): the gap analysis checks each against the posting and "
+        "warns only about the ones that bite here.",
+    },
     "profile.display_name": {"es": "Nombre", "en": "Name"},
     "profile.headline": {"es": "Titular", "en": "Headline"},
     "profile.summary": {"es": "Resumen", "en": "Summary"},

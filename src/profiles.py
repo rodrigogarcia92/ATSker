@@ -7,6 +7,7 @@ check performed afterwards.
 """
 
 import uuid
+from collections.abc import Sequence
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -35,6 +36,7 @@ def update_profile(
     display_name: str,
     headline: str | None,
     summary: str | None,
+    standing_risks: Sequence[str] = (),
 ) -> Profile | None:
     profile = get_profile(profile_id, session, user)
     if profile is None:
@@ -42,5 +44,8 @@ def update_profile(
     profile.display_name = display_name.strip()
     profile.headline = (headline or "").strip() or None
     profile.summary = (summary or "").strip() or None
+    # F6.1's standing risks, user-entered rows. Without this editor the gap analysis
+    # would read an empty array forever.
+    profile.standing_risks = [risk.strip() for risk in standing_risks if risk.strip()]
     session.flush()
     return profile

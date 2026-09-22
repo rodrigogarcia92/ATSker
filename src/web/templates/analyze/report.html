@@ -93,9 +93,23 @@
 {% include "_findings.html" %}
 {% endif %}
 
-{% if report.jd.hard_requirements %}
+{% if report.disqualifiers %}
 <h2 class="mt-8 text-lg font-semibold">{{ t('report.disqualifiers', lang) }}</h2>
 <p class="mt-1 text-xs text-slate-500">{{ t('report.disqualifiers_hint', lang) }}</p>
+{# F6.1: three-way verdicts, beside the score and never inside it. `unverified` is
+   the honest default and is never rendered as `met`. #}
+<ul class="mt-3 space-y-2">
+  {% for item in report.disqualifiers %}
+  <li class="flex flex-wrap items-center justify-between gap-2 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+    <span>{{ item.requirement }}</span>
+    <span class="rounded bg-white px-2 py-0.5 text-xs">{{ t('report.verdict.' ~ item.verdict, lang) }}</span>
+  </li>
+  {% endfor %}
+</ul>
+{% if report.disqualifiers | selectattr('verdict', 'equalto', 'unverified') | list %}
+<p class="mt-2 text-xs text-slate-500">{{ t('report.disqualifiers_unverified_hint', lang) }}</p>
+{% endif %}
+{% elif report.jd.hard_requirements %}
 <ul class="mt-3 space-y-2">
   {% for item in report.jd.hard_requirements %}
   <li class="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">{{ item }}</li>
@@ -129,6 +143,65 @@
 </ul>
 {% if report.grading_note %}
 <p class="mt-2 text-sm text-slate-600">{{ report.grading_note }}</p>
+{% endif %}
+
+<h2 class="mt-8 text-lg font-semibold">{{ t('report.gaps', lang) }}</h2>
+{% if report.gaps %}
+{% set gap_rows = report.gaps.gaps %}
+{% if gap_rows %}
+{# F6's summary view: three to five lines of the headline problems — the top of
+   F6.1's band order, which is how determinative each gap is. #}
+<ul class="mt-3 space-y-1 text-sm text-slate-700">
+  {% for gap in gap_rows[:5] %}
+  <li>
+    {% if gap.blocking %}<span class="rounded bg-amber-100 px-2 py-0.5 text-xs text-amber-900">{{ t('report.gap_blocking', lang) }}</span> {% endif %}{{ gap.interpretation or gap.requirement }}
+  </li>
+  {% endfor %}
+</ul>
+{# The detailed list: every gap, its level, the requirement text, whether a bullet
+   came close, and the blocking flag. #}
+<details class="mt-3">
+  <summary class="cursor-pointer text-sm text-slate-600">{{ t('report.gaps_all', lang, count=gap_rows|length) }}</summary>
+  <ul class="mt-2 divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white">
+    {% for gap in gap_rows %}
+    <li class="p-4">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <span class="text-sm font-medium">{{ gap.requirement }}</span>
+        <span class="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+          {{ t('report.must_have', lang) if gap.must_have else t('report.nice_to_have', lang) }}
+          · {{ t('report.level_label', lang) }} {{ gap.level }}
+          {% if gap.blocking %}<span class="rounded bg-amber-100 px-2 py-0.5 text-amber-900">{{ t('report.gap_blocking', lang) }}</span>{% endif %}
+        </span>
+      </div>
+      {% if gap.bullet_text %}
+      <p class="mt-1 text-sm text-slate-600">{{ t('report.came_close', lang) }}: {{ gap.bullet_text }}</p>
+      {% endif %}
+      {% if gap.interpretation %}
+      <p class="mt-1 text-sm text-slate-700">{{ gap.interpretation }}</p>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+</details>
+{% else %}
+<p class="mt-2 text-sm text-slate-600">{{ t('report.no_gaps', lang) }}</p>
+{% endif %}
+{% if report.gaps.warning.text %}
+<div class="mt-4 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+  <p>{{ t('report.gap_warning', lang) }} {{ report.gaps.warning.text }}</p>
+  {% if report.gaps.warning.handling %}
+  <p class="mt-1">{{ t('report.gap_handling', lang) }} {{ report.gaps.warning.handling }}</p>
+  {% endif %}
+</div>
+{% endif %}
+{% if not report.gaps.stories_used %}
+{# Said by the pipeline, not by the model: when the table was empty the output
+   names that, rather than implying none of the stories were relevant. #}
+<p class="mt-2 text-sm text-slate-600">{{ t('report.no_stories_available', lang) }}</p>
+{% endif %}
+{% if report.gaps.not_found %}
+<p class="mt-2 text-sm text-slate-600">{{ report.gaps.not_found }}</p>
+{% endif %}
 {% endif %}
 
 <h2 class="mt-8 text-lg font-semibold">{{ t('report.jd_fields', lang) }}</h2>

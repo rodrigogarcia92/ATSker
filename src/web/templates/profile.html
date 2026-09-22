@@ -23,6 +23,14 @@
     <textarea id="summary" name="summary" rows="4"
               class="w-full rounded border border-slate-300 px-3 py-2 text-sm">{{ profile.summary or '' }}</textarea>
   </div>
+  <div>
+    <label for="standing_risks" class="mb-1 block text-sm font-medium">
+      {{ t('profile.standing_risks', lang) }} <span class="text-slate-400">({{ t('common.optional', lang) }})</span>
+    </label>
+    <textarea id="standing_risks" name="standing_risks" rows="3"
+              class="w-full rounded border border-slate-300 px-3 py-2 text-sm">{{ profile.standing_risks | join('\n') }}</textarea>
+    <p class="mt-1 text-xs text-slate-500">{{ t('profile.standing_risks_hint', lang) }}</p>
+  </div>
   <button type="submit" class="rounded bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800">
     {{ t('common.save', lang) }}
   </button>

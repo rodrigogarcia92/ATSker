@@ -25,11 +25,13 @@ from decimal import Decimal
 from sqlalchemy.orm import Session
 
 from src.bullets import bullet_text, list_bullets
+from src.education import list_educations
 from src.extract.boolean import derive_boolean_queries
 from src.extract.client import CallOptions, Completion
+from src.extract.gaps import GapInput, interpret_gaps
 from src.extract.grading import grade_evidence
 from src.extract.jd import extract_jd
-from src.extract.prompts import BOOLEAN_RECALL, EVIDENCE_GRADING, JD_EXTRACTION
+from src.extract.prompts import BOOLEAN_RECALL, EVIDENCE_GRADING, GAP_INTERPRETATION, JD_EXTRACTION
 from src.jd import StructuredJD
 from src.models import Bullet, Profile, Track
 from src.parse.gate import ParseReport
@@ -38,11 +40,13 @@ from src.roles import list_roles
 from src.score.aggregate import SubScore, aggregate
 from src.score.evidence import Level, evidence_coverage
 from src.score.experience import experience_score
+from src.score.gaps import Graded, detect_gaps, disqualifier_verdicts
 from src.score.keywords import keyword_context
 from src.score.title import title_alignment
 from src.score.weights import W2
 from src.search.boolean import RecallReport, evaluate
 from src.search.sources import searchable_units
+from src.stories import list_stories
 from src.tracks import track_bullets
 from src.vocabulary import alias_map
 
@@ -209,7 +213,45 @@ def analyze(
     score = aggregate(sub_scores, W2, gate=gate)
 
     texts = {str(bullet.id): bullet_text(bullet) for bullet in bullets}
-    calls = (extraction, *grading.calls, recall_call)
+
+    # N5 (PRD F6, F6.1): the gaps fall out of the grading above — deterministic and
+    # free — and one call interprets them. The disqualifier verdicts are deterministic
+    # too: only what the stored education rows decide, `unverified` otherwise.
+    gaps = detect_gaps(
+        [
+            Graded(
+                requirement=entry.requirement,
+                level=entry.level,
+                must_have=entry.must_have,
+                bullet_id=entry.bullet_id,
+                bullet_text=texts.get(entry.bullet_id or ""),
+            )
+            for entry in grading.levels
+        ],
+        must_have=jd.must_have,
+        nice_to_have=jd.nice_to_have,
+    )
+    disqualifiers = disqualifier_verdicts(
+        jd.hard_requirements, has_education=bool(list_educations(profile_id, session))
+    )
+    stories = list_stories(profile_id, session)
+    # The reads above end before the provider call starts, like every other call here.
+    session.commit()
+    reading = interpret_gaps(
+        session,
+        [
+            GapInput(gap.requirement, gap.level, gap.must_have, gap.bullet_text) for gap in gaps
+        ],
+        jd,
+        standing_risks=profile.standing_risks,
+        stories=stories,
+        language=jd.language,
+        known_names=[profile.display_name] if profile.display_name else None,
+        model=model,
+        options=options,
+    )
+
+    calls = (extraction, *grading.calls, recall_call, *reading.calls)
     cost = sum((call.cost_usd for call in calls), Decimal("0"))
 
     report: dict[str, object] = {
@@ -227,6 +269,35 @@ def analyze(
             for entry in grading.levels
         ],
         "grading_note": grading.note,
+        # N5 (PRD F6): the gap analysis beside the grades it fell out of. The rows
+        # are detection's, in F6.1's band order, with the interpretation's blocking
+        # flag and one line merged in — the model never reorders and never adds.
+        "gaps": {
+            "gaps": [
+                {
+                    "requirement": gap.requirement,
+                    "level": gap.level,
+                    "must_have": gap.must_have,
+                    "bullet_id": gap.bullet_id,
+                    "bullet_text": gap.bullet_text,
+                    "blocking": note.blocking,
+                    "interpretation": note.interpretation,
+                }
+                for gap, note in zip(gaps, reading.notes, strict=True)
+            ],
+            "warning": {
+                "text": reading.warning.text,
+                "handling": reading.warning.handling,
+            },
+            "not_found": reading.not_found,
+            "stories_used": len(stories),
+        },
+        # F6.1's disqualifiers, beside the score and never inside it (F5.5). The
+        # verdict is `unverified` unless the stored education rows decide it.
+        "disqualifiers": [
+            {"requirement": entry.requirement, "verdict": entry.verdict}
+            for entry in disqualifiers
+        ],
         "gate": gate.to_dict() if gate is not None else None,
         # F5.2's recall is reported beside the score and never inside it: a recruiter's
         # query is a gate, like a disqualifier, not a percentage.
@@ -245,6 +316,7 @@ def analyze(
             "jd_extract": JD_EXTRACTION.version,
             "evidence_grade": EVIDENCE_GRADING.version,
             "boolean_queries": BOOLEAN_RECALL.version,
+            "gap_interpret": GAP_INTERPRETATION.version,
         },
         weights_version=score.weights_version,
         cost_usd=cost,

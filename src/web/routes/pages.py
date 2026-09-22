@@ -14,7 +14,7 @@ from src.roles import list_roles
 from src.stories import list_stories
 from src.vocabulary import list_skills, list_unmapped
 from src.web.deps import CurrentUser, DbSession, OwnProfile, SignedInUser
-from src.web.forms import parse_date, parse_text
+from src.web.forms import parse_date, parse_list, parse_text
 from src.web.templating import render
 
 router = APIRouter()
@@ -67,6 +67,7 @@ def save_profile(
     display_name: Annotated[str, Form()],
     headline: Annotated[str | None, Form()] = None,
     summary: Annotated[str | None, Form()] = None,
+    standing_risks: Annotated[str | None, Form()] = None,
 ):
     update_profile(
         profile.id,
@@ -75,6 +76,7 @@ def save_profile(
         display_name=display_name,
         headline=headline,
         summary=summary,
+        standing_risks=parse_list(standing_risks),
     )
     session.commit()
     return RedirectResponse("/profile", status_code=303)
