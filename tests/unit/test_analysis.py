@@ -272,6 +272,112 @@ def test_another_profiles_report_is_404(client, session, career, provider):
     assert get_application(career.second_profile.id, session, other.id) is not None
 
 
+# --- The cap banner: it speaks only when the cap lowered the score -----------
+
+
+def flagged_report(*, capped: int, uncapped: int, cap: int, severity: str) -> dict:
+    """A stored report whose document carried one format finding of `severity`."""
+    check = "contact_in_margin"
+    return {
+        "jd": {
+            "language": "es",
+            "title": "Analista de datos",
+            "seniority": "mid",
+            "years_required": 3,
+            "must_have": ["python"],
+            "nice_to_have": ["machine learning"],
+            "raw_keywords": ["reportes"],
+            "hard_requirements": ["título universitario"],
+            "location_policy": "hybrid_lima",
+        },
+        "grades": [],
+        "grading_note": None,
+        "gate": {
+            "cap": cap,
+            "cap_reason": check,
+            "findings": [
+                {
+                    "check": check,
+                    "severity": severity,
+                    "detail": {"page": 1, "band": "header", "kinds": ["email"]},
+                }
+            ],
+        },
+        "recall": {"checked": False, "queries": []},
+        "score": {
+            "weights_version": "w2",
+            "weights_hash": "sha256:0",
+            "weighted": uncapped / 100,
+            "uncapped": uncapped,
+            "capped": capped,
+            "cap": cap,
+            "cap_reason": check,
+            "unavailable": {},
+            "effective_weights": {
+                "skills": 0.40,
+                "experience": 0.25,
+                "title": 0.20,
+                "keywords": 0.15,
+            },
+            "effective_weights_hash": "sha256:0",
+            "sub_scores": {},
+        },
+        "llm": {"cost_usd": "0", "calls": []},
+    }
+
+
+def store_flagged(session, profile_id, *, capped, uncapped, cap, severity):
+    report = flagged_report(capped=capped, uncapped=uncapped, cap=cap, severity=severity)
+    application = create_application(
+        profile_id,
+        session,
+        jd_text="Oferta de ejemplo",
+        jd_hash=f"sha256:flagged-{capped}-{uncapped}-{severity}",
+        report=report,
+        weights_version="w2",
+        prompt_versions={"jd_extract": "jd_extract_v2"},
+        token_cost_usd=Decimal("0"),
+        scan_readability=report["gate"],
+    )
+    session.commit()
+    return application
+
+
+def test_the_cap_banner_names_both_numbers_when_the_cap_binds(client, session, career):
+    application = store_flagged(
+        session, career.first_profile.id, capped=40, uncapped=62, cap=40, severity="blocker"
+    )
+    login(client, career.first.email)
+
+    page = text_of(client.get(f"/applications/{application.id}").text)
+
+    assert "Limitado a 40" in page
+    assert "sin límite sería 62" in page
+    assert "El documento limita la puntuación" in page, "the findings line restates a binding cap"
+
+
+@pytest.mark.parametrize(
+    "cap, severity, sentence",
+    [(40, "blocker", "tiene un bloqueante"), (85, "warning", "tiene un aviso")],
+)
+def test_a_flagged_document_below_the_cap_says_so_instead_of_the_banner(
+    client, session, career, cap, severity, sentence
+):
+    """A real run showed «Limitado a 40 … sin límite sería 29» on a score of 29: the
+    cap was 40, `min(29, 40)` is 29, and nothing was capped."""
+    application = store_flagged(
+        session, career.first_profile.id, capped=29, uncapped=29, cap=cap, severity=severity
+    )
+    login(client, career.first.email)
+
+    page = text_of(client.get(f"/applications/{application.id}").text)
+
+    assert sentence in page
+    assert "hoy no resta puntos" in page
+    assert "Limitado a" not in page, "the banner never fires when the cap does not bind"
+    assert "El documento limita la puntuación" not in page
+
+
 def test_analysis_without_a_model_says_so_and_saves_nothing(client, session, career, monkeypatch):
     from src.config import get_settings
 

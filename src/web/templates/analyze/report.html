@@ -27,10 +27,20 @@
   {% else %}
   <p class="mt-1 text-sm text-slate-500">{{ t('report.no_track', lang) }}</p>
   {% endif %}
-  {% if report.score.cap %}
+  {% if report.score.capped < report.score.uncapped %}
   <p class="mt-1 text-sm text-amber-900">
     {{ t('report.capped', lang, cap=report.score.cap, uncapped=report.score.uncapped,
           check=report.score.cap_reason) }}
+  </p>
+  {% elif report.score.cap %}
+  {# A finding exists but nothing was capped: the score is already below the limit.
+     Naming two numbers that contradict each other is worse than naming none, and the
+     finding itself stays visible in the panel below either way. #}
+  {% set flagged = 'blocker' if report.gate and report.gate.findings
+        and report.gate.findings | selectattr('severity', 'equalto', 'blocker') | list
+        else 'warning' %}
+  <p class="mt-1 text-sm text-amber-900">
+    {{ t('report.cap_not_binding.' ~ flagged, lang, check=report.score.cap_reason) }}
   </p>
   {% endif %}
   {% if ns.missing %}
@@ -73,8 +83,9 @@
 
 {% if application.scan_readability %}
 {# F5.1: the document's findings, the same panel the upload screen shows. The cap
-   itself, its reason and the uncapped score sit in the total block above. #}
-{% if report.score.cap_reason %}
+   itself, its reason and the uncapped score sit in the total block above — and this
+   line restates it only when the cap actually lowered the score. #}
+{% if report.score.cap_reason and report.score.capped < report.score.uncapped %}
 <p class="mt-8 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
   {{ t('report.readability_capped', lang, check=t('gate.check.' ~ report.score.cap_reason, lang)) }}
 </p>

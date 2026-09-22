@@ -755,14 +755,20 @@ def test_a_tracks_analysis_is_capped_by_the_document_it_came_from(
     assert posted.status_code == 303, "the analysis ran"
     application = session.query(Application).one()
     score = application.report["score"]
-    assert score["cap"] == 40, "the gate reached the score"
+    assert score["cap"] == 40, "the gate reached the report"
     assert score["cap_reason"] == "contact_in_margin"
-    assert score["capped"] == 40 <= score["uncapped"]
+    assert score["capped"] == score["uncapped"] == 40, (
+        "the score sits exactly at the cap: min(40, 40) capped nothing"
+    )
     assert application.scan_readability is not None
     assert [f["check"] for f in application.scan_readability["findings"]] == ["contact_in_margin"]
 
     page = plain(client.get(posted.headers["location"]).text)
-    assert "El documento limita la puntuación: Datos de contacto en cabecera o pie" in page
+    # Stage 2's rule: the cap sentence fires only when it lowered the score. Here the
+    # finding is real and stays visible, but the page must not claim a limit it never
+    # applied — this is the «Limitado a 40 … sin límite sería 29» bug class.
+    assert "hoy no resta puntos" in page
+    assert "Limitado a" not in page
     assert "Lectura del documento" in page, "the same findings panel the upload screen shows"
     assert "Bloqueante" in page
     assert "No se ejecutaron para este formato" in page, "a DOCX cannot answer every check"

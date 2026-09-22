@@ -211,6 +211,22 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "Capped at {cap} by the format check ({check}); uncapped it would be "
         "{uncapped}.",
     },
+    "report.cap_not_binding.blocker": {
+        "es": "El documento tiene un bloqueante ({check}): hoy no resta puntos porque la "
+        "puntuación ya está por debajo del límite, pero lo hará en cuanto la puntuación "
+        "suba.",
+        "en": "The document has a blocker ({check}): it is not costing points today "
+        "because the score is already below the cap, but it will the moment the score "
+        "rises.",
+    },
+    "report.cap_not_binding.warning": {
+        "es": "El documento tiene un aviso ({check}): hoy no resta puntos porque la "
+        "puntuación ya está por debajo del límite, pero lo hará en cuanto la puntuación "
+        "suba.",
+        "en": "The document has a warning ({check}): it is not costing points today "
+        "because the score is already below the cap, but it will the moment the score "
+        "rises.",
+    },
     "report.renormalised": {
         "es": "Falta {missing}: el total se renormaliza sobre {available} de {total} "
         "componentes.",
