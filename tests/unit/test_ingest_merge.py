@@ -339,12 +339,9 @@ def test_an_upload_tagged_with_a_track_appends_its_bullets_and_keeps_the_selecti
 ):
     """F4 path 1: a résumé tagged with an existing track joins that track (N5 queue 1.2).
 
-    The queue's scenario is hand-picked bullets already in the track and an upload
-    contributing two new bullets and one already selected, asserting four in the
-    track. Three pre-existing plus two new cannot be four under an append rule, so
-    the selection starts with two and the asserted outcome stands: the originals
-    keep their order, the new ones continue from the end, and the bullet already in
-    the selection is not duplicated.
+    A track with three hand-picked bullets, an upload tagged with it contributing two
+    new bullets and one already selected → five in the track, the originals' order
+    intact, and no duplicate row in `track_bullets`.
     """
     profile_id = career.first_profile.id
     track_id = career.first_track.id
@@ -356,7 +353,11 @@ def test_an_upload_tagged_with_a_track_appends_its_bullets_and_keeps_the_selecti
             text_es=text,
             text_en=None,
         )
-        for text in ("Primera línea elegida a mano", "Segunda línea elegida a mano")
+        for text in (
+            "Primera línea elegida a mano",
+            "Segunda línea elegida a mano",
+            "Tercera línea elegida a mano",
+        )
     ]
     session.commit()
     set_track_bullets(profile_id, session, track_id, [bullet.id for bullet in hand_picked])
@@ -391,13 +392,13 @@ def test_an_upload_tagged_with_a_track_appends_its_bullets_and_keeps_the_selecti
     )
 
     selected = track_bullets(profile_id, session, track_id)
-    assert [bullet.id for bullet in selected[:2]] == [bullet.id for bullet in hand_picked], (
+    assert [bullet.id for bullet in selected[:3]] == [bullet.id for bullet in hand_picked], (
         "the hand-picked bullets keep their place and their order"
     )
-    assert len(selected) == 4
+    assert len(selected) == 5
     assert result == MergeResult(bullets_created=2, track_bullets_added=2)
     rows = session.scalars(select(TrackBullet).where(TrackBullet.track_id == track_id)).all()
-    assert len(rows) == 4, "no duplicate row in track_bullets"
+    assert len(rows) == 5, "no duplicate row in track_bullets"
     positions = {row.bullet_id: row.position for row in rows}
-    assert positions[hand_picked[0].id] == 0 and positions[hand_picked[1].id] == 1
-    assert sorted(positions.values()) == [0, 1, 2, 3], "the new ones continue from the end"
+    assert [positions[bullet.id] for bullet in hand_picked] == [0, 1, 2]
+    assert sorted(positions.values()) == [0, 1, 2, 3, 4], "the new ones continue from the end"
