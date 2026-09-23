@@ -437,6 +437,20 @@ STRINGS: dict[str, dict[str, str]] = {
         "es": "Desactivar conserva el puesto objetivo para los informes ya generados.",
         "en": "Deactivating keeps the track for reports already generated.",
     },
+    # Summary pool (F2.7/F4.1)
+    "summaries.edit": {"es": "Editar el resumen", "en": "Edit the summary"},
+    "summaries.edit_hint": {
+        "es": "Los resúmenes viven en un fondo común: editar aquí cambia el texto en "
+        "todos los puestos objetivo que lo usen.",
+        "en": "Summaries live in a shared pool: editing here changes the text in every "
+        "track that uses it.",
+    },
+    "summaries.text": {"es": "Resumen", "en": "Summary"},
+    "summaries.hand_written": {"es": "escrito a mano", "en": "written by hand"},
+    "summaries.from_upload": {
+        "es": "Viene de un currículum importado.",
+        "en": "From an uploaded résumé.",
+    },
     # Bullets
     "bullets.title": {"es": "Viñetas", "en": "Bullets"},
     "bullets.new": {"es": "Nueva viñeta", "en": "New bullet"},
@@ -560,9 +574,10 @@ STRINGS: dict[str, dict[str, str]] = {
     },
     "import.track": {"es": "Puesto objetivo (opcional)", "en": "Target track (optional)"},
     "import.track_hint": {
-        "es": "La trayectoria con la que piensas usar este currículum. Puedes "
-        "dejarlo vacío y asignarlo después.",
-        "en": "The track you intend this résumé for. Leave it empty and assign it later.",
+        "es": "La trayectoria con la que piensas usar este currículum. Si lo dejas "
+        "vacío, la importación crea un puesto objetivo con el nombre del archivo.",
+        "en": "The track you intend this résumé for. Leave it empty and the import "
+        "creates a track named after the file.",
     },
     "import.submit": {"es": "Importar", "en": "Import"},
     "import.no_file": {"es": "Elige un archivo.", "en": "Choose a file."},
@@ -751,15 +766,11 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "The merge wrote nothing: your database is unchanged.",
     },
     "import.track_label": {"es": "Puesto objetivo", "en": "Track"},
-    "import.track_create": {
-        "es": "Crear un puesto objetivo con estas viñetas",
-        "en": "Create a track with these bullets",
-    },
     "import.merge_track_hint": {
-        "es": "Sin marcar, la importación no crea ningún puesto objetivo. Se guarda con "
-        "las viñetas del documento y puedes cambiarle el nombre después.",
-        "en": "Left unticked, the import creates no track. It is saved with the "
-        "document's bullets and you can rename it later.",
+        "es": "El documento se guarda en un puesto objetivo con este nombre. Si ya está "
+        "asignado a un puesto, se une a ese y este nombre no se usa.",
+        "en": "The document is saved in a track with this name. If it is already "
+        "assigned to one, it joins that track and this name is not used.",
     },
     "import.track_created": {"es": "Puesto objetivo creado: {name}", "en": "Track created: {name}"},
     "import.track_view": {"es": "Ver el puesto objetivo", "en": "View the track"},
@@ -778,6 +789,26 @@ STRINGS: dict[str, dict[str, str]] = {
     "import.track_bullets_added": {
         "es": "Viñetas unidas al puesto",
         "en": "Bullets joined to the track",
+    },
+    "import.track_skills_added": {
+        "es": "Habilidades unidas al puesto",
+        "en": "Skills joined to the track",
+    },
+    "import.track_headline_filled": {
+        "es": "Titular: rellenado desde el documento.",
+        "en": "Headline: filled in from this document.",
+    },
+    "import.track_headline_kept": {
+        "es": "Titular: sin tocar, el puesto objetivo ya tenía uno.",
+        "en": "Headline: left alone, the track already had one.",
+    },
+    "import.track_summary_filled": {
+        "es": "Resumen: rellenado desde el documento.",
+        "en": "Summary: filled in from this document.",
+    },
+    "import.track_summary_kept": {
+        "es": "Resumen: sin tocar, el puesto objetivo ya tenía uno.",
+        "en": "Summary: left alone, the track already had one.",
     },
     "import.merge_submit": {"es": "Importar la selección", "en": "Import the selection"},
     "import.merged_title": {"es": "Importación aplicada", "en": "Import applied"},

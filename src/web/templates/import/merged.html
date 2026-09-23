@@ -13,6 +13,7 @@
   ('skills_added', 'import.skills_added'),
   ('skipped', 'import.skipped'),
   ('track_bullets_added', 'import.track_bullets_added'),
+  ('track_skills_added', 'import.track_skills_added'),
 ] %}
 <a href="/import" class="text-sm text-slate-600 underline">{{ t('import.go_back', lang) }}</a>
 
@@ -27,7 +28,7 @@
 {% endif %}
 
 {% if track %}
-{% if result and result.track_id %}
+{% if result and result.track_created %}
 {# F4 creation path 1: the merge can turn the document into a track, and this is it. #}
 <p class="mt-2 text-sm text-slate-600">
   {{ t('import.track_created', lang, name=track.name) }}
@@ -45,6 +46,17 @@
   {{ t('import.track_of_document', lang, name=track.name) }}
   <a href="/tracks/{{ track.id }}" class="underline">{{ t('import.track_view', lang) }}</a>
 </p>
+{% endif %}
+{% if result and (result.track_headline_filled or result.track_headline_kept
+   or result.track_summary_filled or result.track_summary_kept) %}
+{# F2.7: the track is filled from the document, never overwritten by it. Both
+   outcomes are results, so both are said. #}
+<ul class="mt-2 space-y-1 text-sm text-slate-600">
+  {% if result.track_headline_filled %}<li>{{ t('import.track_headline_filled', lang) }}</li>{% endif %}
+  {% if result.track_headline_kept %}<li>{{ t('import.track_headline_kept', lang) }}</li>{% endif %}
+  {% if result.track_summary_filled %}<li>{{ t('import.track_summary_filled', lang) }}</li>{% endif %}
+  {% if result.track_summary_kept %}<li>{{ t('import.track_summary_kept', lang) }}</li>{% endif %}
+</ul>
 {% endif %}
 {% endif %}
 

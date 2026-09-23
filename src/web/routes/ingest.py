@@ -9,7 +9,6 @@ step, and the uploaded file is archived with its SHA-256 from the first (F2.6).
 import hashlib
 import uuid
 from collections.abc import Mapping
-from pathlib import Path
 from typing import Annotated, Any
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
@@ -46,7 +45,6 @@ from src.resumes import (
 from src.tracks import get_track, list_tracks
 from src.web.deps import DbSession, OwnProfile, SignedInUser
 from src.web.findings import document_kind, finding_rows
-from src.web.forms import is_checked
 from src.web.templating import render
 
 router = APIRouter()
@@ -584,11 +582,11 @@ async def import_merge(
         certifications=frozenset(_checked_indices(form, "merge_certification_")),
         skills=frozenset(_checked_indices(form, "merge_skill_")),
     )
-    # F4 creation path 1: the checkbox turns this document into a track. Unticked is
-    # the default, and a ticked-but-nameless field falls back to the file's name.
-    track_name = None
-    if is_checked(_str(form, "merge_track")):
-        track_name = _str(form, "track_name") or Path(resume.filename).stem
+    # F2.7: there is no no-track outcome. The name names the track an untagged upload
+    # becomes (the form pre-fills it with the file's stem and requires it, and the
+    # merge falls back to the stem); a tagged upload joins its track whatever the
+    # field says.
+    track_name = _str(form, "track_name")
     result = apply_merge(
         profile.id,
         session,

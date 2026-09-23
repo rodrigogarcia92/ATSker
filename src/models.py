@@ -259,6 +259,11 @@ class Skill(Base):
     kind: Mapped[str] = mapped_column(
         String(20), default="technical", server_default=text("'technical'")
     )
+    # One-hop equivalence group (PRD F5.4.1): two canonicals in the same family are
+    # equivalents, and a flat group has no second hop, so nothing chains the way the
+    # forbidden `implies` relation would. Nullable free text the operator reviews —
+    # data, never a list in code — and most skills belong to no family.
+    family: Mapped[str | None] = mapped_column(String(60))
 
 
 class Track(Base):
@@ -283,8 +288,25 @@ class Track(Base):
     # nothing ranks on them yet.
     organisation_kind: Mapped[str | None] = mapped_column(String(60))
     specialisation: Mapped[str | None] = mapped_column(String(60))
+    # Legacy single-language slots: the expand half of an expand/contract change
+    # (PRD 6's `0009` paragraph). Unread by the new code, so the database can be
+    # migrated before the push while the old revision still serves; the contract
+    # migration that drops them is not part of this run.
     headline: Mapped[str | None] = mapped_column(String(200))
     summary: Mapped[str | None] = mapped_column(Text)
+    # The whole CV the track presents (F4.1): a headline and a pool summary per
+    # language, plus the skill selection from the profile's pool. A track owns no
+    # content: the slots reference pool rows the way the selection references
+    # master bullets, and a merge fills them from a document, never overwrites them.
+    headline_es: Mapped[str | None] = mapped_column(String(200))
+    headline_en: Mapped[str | None] = mapped_column(String(200))
+    summary_es_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("summaries.id", ondelete="SET NULL")
+    )
+    summary_en_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("summaries.id", ondelete="SET NULL")
+    )
+    skills: Mapped[list[str]] = mapped_column(_StringList, default=list)
     active: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
 
 
@@ -328,6 +350,34 @@ class Resume(Base):
     )
     merged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     active: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
+
+
+class Summary(Base):
+    """One summary text in the per-profile pool (PRD F2.7).
+
+    An upload's summary joins the pool on merge, and a track's slot references a pool
+    row the way its selection references bullets: a summary written for one track can
+    be reused by another, and editing it here changes it in every track that uses it
+    (F4.1). `source_resume_id` is the résumé it came from — NULL when the user wrote
+    it by hand — and soft delete is the delete, so a stored report that cited one
+    keeps rendering it.
+    """
+
+    __tablename__ = "summaries"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    profile_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("profiles.id", ondelete="CASCADE"), index=True
+    )
+    lang: Mapped[str] = mapped_column(String(5), default="es")
+    source_resume_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("resumes.id", ondelete="SET NULL")
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    active: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
+    # `text` comes last on purpose: the column name shadows SQLAlchemy's `text()`
+    # helper inside this class body, where `active`'s server default needs it.
+    text: Mapped[str] = mapped_column(Text)
 
 
 class UnmappedTerm(Base):

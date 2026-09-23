@@ -3,7 +3,7 @@
 The requirement is that user A gets 404 — not 403 — for user B's records by id, so
 that the response says nothing about whether the id exists. The profile itself is
 addressed as `/profile` without an id, so the records under test are the career
-rows: roles, bullets, stories, letter templates and tracks.
+rows: roles, bullets, stories, letter templates, tracks and summaries.
 """
 
 from src.tracks import track_bullets
@@ -94,3 +94,25 @@ def test_another_users_track_is_404_on_every_route(client, session, career):
             career.second_profile.id, session, career.second_track.id
         )
     ] == [career.second_bullet.id]
+
+
+def test_another_users_summary_is_404_on_every_route(client, session, career):
+    """F2.7's pool rows are addressed by id and answer like every other record (F1)."""
+    login(client, career.first.email)
+    summary_id = career.second_summary.id
+
+    assert client.get(f"/summaries/{career.first_summary.id}").status_code == 200
+    assert client.get(f"/summaries/{summary_id}").status_code == 404
+    update = client.post(
+        f"/summaries/{summary_id}",
+        data={"text": "Robado", "lang": "es"},
+        follow_redirects=False,
+    )
+    toggle = client.post(f"/summaries/{summary_id}/active", data={}, follow_redirects=False)
+
+    assert update.status_code == 404
+    assert toggle.status_code == 404
+
+    session.expire_all()
+    assert career.second_summary.text == "Modelos de riesgo en producción."
+    assert career.second_summary.active is True

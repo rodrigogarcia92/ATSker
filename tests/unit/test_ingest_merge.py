@@ -6,6 +6,7 @@ text it had.
 """
 
 import hashlib
+from dataclasses import replace
 
 from sqlalchemy import select
 
@@ -14,10 +15,11 @@ from src.certifications import list_certifications
 from src.education import list_educations
 from src.ingest.draft import DraftBullet, DraftCertification, DraftEducation, DraftRole, ResumeDraft
 from src.ingest.merge import MergeResult, Selections, apply_merge, diff_draft
-from src.models import BulletRevision, Resume, TrackBullet
+from src.models import BulletRevision, Resume, Summary, TrackBullet
 from src.resumes import create_resume
 from src.roles import list_roles
-from src.tracks import set_track_bullets, track_bullets
+from src.summaries import list_summaries
+from src.tracks import get_track, set_track_bullets, track_bullets
 
 
 def make_resume(
@@ -98,12 +100,16 @@ def test_a_first_upload_diffs_as_new_and_merges_everything(session, career):
         selections=select_all(plan),
     )
 
-    assert result == MergeResult(
+    assert replace(result, track_id=None) == MergeResult(
         roles_created=1,
         bullets_created=1,
         educations_created=1,
         certifications_created=1,
         skills_added=1,
+        track_skills_added=1,
+        track_headline_filled=True,
+        track_summary_filled=True,
+        track_created=True,
     )
     roles = list_roles(profile_id, session, active_only=False)
     assert "Globex" in {role.employer for role in roles}
@@ -137,6 +143,7 @@ def test_a_second_upload_of_the_same_draft_is_unchanged_and_duplicates_nothing(s
         len(list_bullets(profile_id, session, active_only=False)),
         len(list_educations(profile_id, session)),
         len(list_certifications(profile_id, session)),
+        len(list_summaries(profile_id, session)),
     )
 
     second = make_resume(session, profile_id, draft, "second")
@@ -157,12 +164,18 @@ def test_a_second_upload_of_the_same_draft_is_unchanged_and_duplicates_nothing(s
         selections=select_all(plan),
     )
 
-    assert result == MergeResult(), "unchanged candidates write nothing"
+    assert replace(result, track_id=None) == MergeResult(
+        track_skills_added=1,
+        track_headline_filled=True,
+        track_summary_filled=True,
+        track_created=True,
+    ), "unchanged candidates write nothing; the document still lands in its own track"
     assert counts_before == (
         len(list_roles(profile_id, session, active_only=False)),
         len(list_bullets(profile_id, session, active_only=False)),
         len(list_educations(profile_id, session)),
         len(list_certifications(profile_id, session)),
+        len(list_summaries(profile_id, session)),
     )
 
 
@@ -261,7 +274,11 @@ def test_unchecked_candidates_change_nothing(session, career):
         selections=Selections(),
     )
 
-    assert result == MergeResult()
+    assert replace(result, track_id=None) == MergeResult(
+        track_headline_filled=True,
+        track_summary_filled=True,
+        track_created=True,
+    ), "the candidates write nothing; the document still lands in its own track"
     employers = [role.employer for role in list_roles(profile_id, session, active_only=False)]
     assert employers == ["Acme"]
     assert resume.merged_at is not None
@@ -396,9 +413,185 @@ def test_an_upload_tagged_with_a_track_appends_its_bullets_and_keeps_the_selecti
         "the hand-picked bullets keep their place and their order"
     )
     assert len(selected) == 5
-    assert result == MergeResult(bullets_created=2, track_bullets_added=2)
+    assert replace(result, track_id=None) == MergeResult(
+        bullets_created=2, track_bullets_added=2
+    )
     rows = session.scalars(select(TrackBullet).where(TrackBullet.track_id == track_id)).all()
     assert len(rows) == 5, "no duplicate row in track_bullets"
     positions = {row.bullet_id: row.position for row in rows}
     assert [positions[bullet.id] for bullet in hand_picked] == [0, 1, 2]
     assert sorted(positions.values()) == [0, 1, 2, 3, 4], "the new ones continue from the end"
+
+
+def test_an_untagged_upload_creates_a_track_named_after_the_file(session, career):
+    """F2.7: there is no no-track outcome — the file's stem names the new track."""
+    profile_id = career.first_profile.id
+    draft = full_draft()
+    resume = make_resume(session, profile_id, draft, "cv 2026")
+    plan = diff_draft(profile_id, session, draft)
+
+    result = apply_merge(
+        profile_id,
+        session,
+        resume_id=resume.id,
+        draft=draft,
+        plan=plan,
+        selections=select_all(plan),
+    )
+
+    assert result.track_created is True
+    track = get_track(profile_id, session, result.track_id)
+    assert track.name == "cv 2026"
+    assert track.lang == "es"
+    assert resume.track_id == track.id
+    assert [bullet.text_es for bullet in track_bullets(profile_id, session, track.id)] == [
+        "Modelé el riesgo de crédito con Python"
+    ]
+
+
+def test_a_second_upload_tagged_with_the_track_appends_skills_and_keeps_the_summary(
+    session, career
+):
+    """F2.7's auto-fill: skills append de-duplicated, the summary is never replaced."""
+    profile_id = career.first_profile.id
+    first_draft = full_draft()
+    first = make_resume(session, profile_id, first_draft, "cv uno")
+    plan = diff_draft(profile_id, session, first_draft)
+    result = apply_merge(
+        profile_id,
+        session,
+        resume_id=first.id,
+        draft=first_draft,
+        plan=plan,
+        selections=select_all(plan),
+    )
+    track_id = result.track_id
+    track = get_track(profile_id, session, track_id)
+    summary_id = track.summary_es_id
+    assert summary_id is not None
+    assert track.skills == ["python"]
+
+    second_draft = ResumeDraft(
+        language="es",
+        headline="Otro titular",
+        summary="Otro resumen que no debe entrar.",
+        skills=["python", "machine learning"],
+        roles=[
+            DraftRole(
+                employer="Globex",
+                title="Data Scientist",
+                start_date="2021-01",
+                bullets=[
+                    DraftBullet(text="Modelé el riesgo de crédito con Python", chips=["python"])
+                ],
+            )
+        ],
+    )
+    second = make_resume(session, profile_id, second_draft, "cv dos", track_id=track_id)
+    plan = diff_draft(profile_id, session, second_draft)
+    second_result = apply_merge(
+        profile_id,
+        session,
+        resume_id=second.id,
+        draft=second_draft,
+        plan=plan,
+        selections=select_all(plan),
+    )
+
+    track = get_track(profile_id, session, track_id)
+    assert sorted(track.skills) == ["machine learning", "python"], "appended, de-duplicated"
+    assert second_result.track_skills_added == 1
+    assert track.summary_es_id == summary_id, "a summary the track has is never replaced"
+    assert second_result.track_summary_kept is True
+    assert track.headline_es == "Analista de datos", "nor is a headline it already has"
+    assert second_result.track_headline_kept is True
+
+
+def test_an_english_upload_fills_the_en_slots_and_leaves_the_es_ones(session, career):
+    """F4.1: the slots are per language; a document fills its own and touches no other."""
+    profile_id = career.first_profile.id
+    es_draft = full_draft()
+    first = make_resume(session, profile_id, es_draft, "cv es")
+    plan = diff_draft(profile_id, session, es_draft)
+    result = apply_merge(
+        profile_id,
+        session,
+        resume_id=first.id,
+        draft=es_draft,
+        plan=plan,
+        selections=select_all(plan),
+    )
+    track_id = result.track_id
+    track = get_track(profile_id, session, track_id)
+    es_summary_id = track.summary_es_id
+    assert track.headline_es == "Analista de datos"
+    assert track.headline_en is None and track.summary_en_id is None
+
+    en_draft = ResumeDraft(
+        language="en",
+        headline="Data analyst",
+        summary="Five years automating reporting.",
+        skills=["python"],
+        roles=[
+            DraftRole(
+                employer="Globex",
+                title="Data Scientist",
+                start_date="2021-01",
+                bullets=[DraftBullet(text="Modeled credit risk with Python", chips=["python"])],
+            )
+        ],
+    )
+    second = make_resume(session, profile_id, en_draft, "cv en", track_id=track_id)
+    plan = diff_draft(profile_id, session, en_draft)
+    second_result = apply_merge(
+        profile_id,
+        session,
+        resume_id=second.id,
+        draft=en_draft,
+        plan=plan,
+        selections=select_all(plan),
+    )
+
+    track = get_track(profile_id, session, track_id)
+    assert track.headline_en == "Data analyst"
+    assert track.headline_es == "Analista de datos", "the Spanish headline is untouched"
+    assert track.summary_en_id is not None and track.summary_en_id != es_summary_id
+    assert track.summary_es_id == es_summary_id, "the Spanish summary is untouched"
+    assert second_result.track_headline_filled and second_result.track_summary_filled
+
+
+def test_a_summary_already_in_the_pool_is_matched_not_duplicated(session, career):
+    """F2.7: the pool matches after folding — case, accents and whitespace are not new."""
+    profile_id = career.first_profile.id
+    draft = full_draft()
+    before = len(list_summaries(profile_id, session))
+    first = make_resume(session, profile_id, draft, "cv uno")
+    plan = diff_draft(profile_id, session, draft)
+    first_result = apply_merge(
+        profile_id,
+        session,
+        resume_id=first.id,
+        draft=draft,
+        plan=plan,
+        selections=select_all(plan),
+    )
+
+    variant = draft.model_copy(update={"summary": "CINCO AÑOS   automatizando reportes."})
+    second = make_resume(session, profile_id, variant, "cv dos")
+    plan = diff_draft(profile_id, session, variant)
+    second_result = apply_merge(
+        profile_id,
+        session,
+        resume_id=second.id,
+        draft=variant,
+        plan=plan,
+        selections=select_all(plan),
+    )
+
+    assert len(list_summaries(profile_id, session)) == before + 1
+    one = get_track(profile_id, session, first_result.track_id)
+    two = get_track(profile_id, session, second_result.track_id)
+    assert one.summary_es_id == two.summary_es_id, "both tracks cite the same pool row"
+    pooled = session.get(Summary, one.summary_es_id)
+    assert pooled.source_resume_id == first.id, "the row keeps the résumé it came from"
+    assert second_result.track_summary_filled is True, "the new track's slot is filled"

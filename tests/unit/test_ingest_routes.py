@@ -26,7 +26,7 @@ from src.extract import client as extract_client
 from src.extract.client import TransactionHeldAcrossProviderCall
 from src.models import Application, Base, LlmCall, Resume, Track
 from src.roles import list_roles
-from src.tracks import list_tracks, track_bullets
+from src.tracks import track_bullets
 from src.web.deps import get_db
 from src.web.main import create_app
 from tests.conftest import PASSWORD, login
@@ -614,16 +614,21 @@ def test_a_merge_that_writes_nothing_says_the_database_is_unchanged(
     login(client, career.first.email)
     data = docx_bytes("Experiencia", "Reduje el cierre un 30% con Python")
 
-    first = upload(client, data)
+    # F2.7 made "no track" impossible, so an all-zero result needs a join: a second
+    # document under the same track, with nothing new and every slot already filled.
+    track_id = str(career.first_track.id)
+    first = upload(client, data, track_id=track_id)
     client.post(f"{first.headers['location']}/review", data=REVIEWED_FORM)
     client.post(f"{first.headers['location']}/merge", data=MERGE_FORM)
 
-    second = upload(client, data)
+    second = upload(client, data, track_id=track_id)
     client.post(f"{second.headers['location']}/review", data=REVIEWED_FORM)
     merged = client.post(f"{second.headers['location']}/merge", data={})
 
     assert merged.status_code == 200
-    assert "La fusión no escribió nada" in plain(merged.text)
+    text = plain(merged.text)
+    assert "La fusión no escribió nada" in text
+    assert "sin tocar" in text, "the screen says what it left alone because the track had it"
 
 
 # --- F5.1.2: the invisible-glyph finding, rendered ---------------------------
@@ -671,7 +676,7 @@ def test_a_merge_can_turn_the_document_into_a_track(client, session, career, pro
 
     created = client.post(
         f"{uploaded.headers['location']}/merge",
-        data={**MERGE_FORM, "merge_track": "on", "track_name": "Analista de datos (CV)"},
+        data={**MERGE_FORM, "track_name": "Analista de datos (CV)"},
     )
 
     assert created.status_code == 200
@@ -688,19 +693,25 @@ def test_a_merge_can_turn_the_document_into_a_track(client, session, career, pro
     assert session.query(Resume).one().track_id == track.id, "the source document is findable"
 
 
-def test_a_merge_without_the_checkbox_creates_no_track(client, session, career, provider):
-    """Off by default: a merge must not create a track by surprise."""
+def test_an_unnamed_merge_still_creates_a_track_named_after_the_file(
+    client, session, career, provider
+):
+    """F2.7: there is no no-track outcome. The tick-box is gone; the name field is
+    pre-filled with the file's stem, and an empty one falls back to the same stem."""
     login(client, career.first.email)
-    before = len(list_tracks(career.first_profile.id, session, active_only=False))
     uploaded = upload(client, docx_bytes("Experiencia", "Reduje el cierre un 30% con Python"))
     client.post(f"{uploaded.headers['location']}/review", data=REVIEWED_FORM)
 
     merged = client.post(f"{uploaded.headers['location']}/merge", data=MERGE_FORM)
 
-    assert "Puesto objetivo creado" not in plain(merged.text)
-    assert len(list_tracks(career.first_profile.id, session, active_only=False)) == before
+    text = plain(merged.text)
+    assert "Puesto objetivo creado: cv" in text
+    assert "Titular: rellenado desde el documento" in text
+    assert "Resumen: rellenado desde el documento" in text
+    track = session.scalar(select(Track).where(Track.name == "cv"))
+    assert track is not None
     session.expire_all()
-    assert session.query(Resume).one().track_id is None
+    assert session.query(Resume).one().track_id == track.id
 
 
 def test_a_tagged_upload_says_which_track_it_joins_and_how_many_bullets_it_added(
@@ -742,7 +753,7 @@ def test_a_tracks_analysis_is_capped_by_the_document_it_came_from(
     client.post(f"{uploaded.headers['location']}/review", data=REVIEWED_FORM)
     client.post(
         f"{uploaded.headers['location']}/merge",
-        data={**MERGE_FORM, "merge_track": "on", "track_name": "Analista de datos (CV)"},
+        data={**MERGE_FORM, "track_name": "Analista de datos (CV)"},
     )
     track = session.scalar(select(Track).where(Track.name == "Analista de datos (CV)"))
 

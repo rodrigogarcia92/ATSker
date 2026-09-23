@@ -25,6 +25,7 @@ from src.web.routes import letters as letter_routes
 from src.web.routes import pages as page_routes
 from src.web.routes import roles as role_routes
 from src.web.routes import stories as story_routes
+from src.web.routes import summaries as summary_routes
 from src.web.routes import tracks as track_routes
 
 STATIC_DIR = Path(__file__).parent / "static"
@@ -56,6 +57,7 @@ def create_app() -> FastAPI:
     app.include_router(bullet_routes.router)
     app.include_router(story_routes.router)
     app.include_router(letter_routes.router)
+    app.include_router(summary_routes.router)
     app.include_router(ingest_routes.router)
 
     @app.get("/health")

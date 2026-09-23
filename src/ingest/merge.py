@@ -12,11 +12,16 @@ Diffing is deterministic and explainable, and never overwrites anything silently
 
 Nothing here is inferred: the merge writes what the user ticked, and a changed
 bullet's superseded text lands in `bullet_revisions` before the row is updated.
+
+Every merge ends in a track (F2.7): tagged joins, untagged creates one named after
+the file, and the track is filled from the document — headline, summary, skills —
+without ever overwriting what it already has.
 """
 
 import uuid
 from dataclasses import dataclass
 from datetime import date
+from pathlib import Path
 from typing import Literal
 
 from sqlalchemy.orm import Session
@@ -25,10 +30,20 @@ from src.bullets import bullet_text, create_bullet, get_bullet, list_bullets, up
 from src.certifications import create_certification, list_certifications, update_certification
 from src.education import create_education, list_educations, update_education
 from src.ingest.draft import DraftCertification, DraftEducation, ResumeDraft, parse_partial_date
-from src.models import Bullet, BulletRevision, Certification, Education, Profile, Role, TrackBullet
+from src.models import (
+    Bullet,
+    BulletRevision,
+    Certification,
+    Education,
+    Profile,
+    Role,
+    Summary,
+    TrackBullet,
+)
 from src.normalize.text import fold
 from src.resumes import get_resume, mark_merged
 from src.roles import create_role, list_roles, update_role
+from src.summaries import create_summary, list_summaries
 from src.tracks import create_track, get_track, set_track_bullets, track_bullets
 
 Label = Literal["new", "changed", "unchanged"]
@@ -137,11 +152,21 @@ class MergeResult:
     skipped: int = 0
     # Bullets appended to the track this résumé was tagged with (F4 path 1).
     track_bullets_added: int = 0
-    # The track this merge created, when the user asked for one (F4 path 1).
+    # Skills appended to the landed track's selection (F2.7's auto-fill).
+    track_skills_added: int = 0
+    # What the auto-fill wrote, and what it left alone because the track already had
+    # it (F2.7): a headline or summary somebody chose is never replaced.
+    track_headline_filled: bool = False
+    track_headline_kept: bool = False
+    track_summary_filled: bool = False
+    track_summary_kept: bool = False
+    # The track this merge landed in (F2.7): every merge ends in one — created here,
+    # or joined because the upload was tagged with it.
     track_id: uuid.UUID | None = None
+    track_created: bool = False
 
-    # The counter fields, for the two questions below. `track_id` is deliberately not
-    # one of them: it reports an artefact, not a count.
+    # The counter fields, for the two questions below. `track_id` and `track_created`
+    # are deliberately not among them: they report an artefact, not a count.
     COUNTERS = (
         "roles_created",
         "roles_updated",
@@ -154,17 +179,22 @@ class MergeResult:
         "skills_added",
         "skipped",
         "track_bullets_added",
+        "track_skills_added",
     )
 
     @property
     def is_empty(self) -> bool:
-        """True when the merge wrote nothing at all (F2.5) — not even a skip or a track.
+        """True when the merge wrote nothing at all (F2.5) — not even a track.
 
         A screen that renders this as a blank summary reads as a failed page; the
-        result has to say that the database is unchanged, on purpose.
+        result has to say that the database is unchanged, on purpose. A "kept" flag
+        is not a write: it is what the merge left alone.
         """
-        return self.track_id is None and not any(
-            getattr(self, name) for name in self.COUNTERS
+        return (
+            not self.track_created
+            and not self.track_headline_filled
+            and not self.track_summary_filled
+            and not any(getattr(self, name) for name in self.COUNTERS)
         )
 
 
@@ -463,13 +493,17 @@ def apply_merge(
 ) -> MergeResult | None:
     """Write the ticked candidates; None when the résumé belongs to someone else.
 
-    `track_name` also turns the document into a track (F4 creation path 1): the same
-    plan the diff screen showed, so the track is what this document says rather than
-    what this import happened to write. A new bullet enters it only if the user
-    ticked it — the others do not exist — while a matched bullet enters it whether or
-    not it was ticked, because it is already in the master database. Without a
-    `track_name`, a résumé that already carries a track joins that track's selection
-    by appending: never replacing what is already there.
+    Every merge ends in a track (F2.7): a résumé tagged with one joins it, appending
+    to the selection and never replacing it, and an untagged one becomes a track named
+    `track_name` — the file's stem when absent. A new bullet enters the selection only
+    if the user ticked it — the others do not exist — while a matched bullet enters it
+    whether or not it was ticked, because it is already in the master database and
+    this document says it belongs to the résumé's shape.
+
+    The track is filled from the document, never overwritten by it (F2.7): the
+    confirmed skills are appended de-duplicated, and the headline and the pool summary
+    are set only where that language's slot is empty. The summary enters the profile's
+    pool whatever the track does with it.
     """
     resume = get_resume(profile_id, session, resume_id)
     profile = session.get(Profile, profile_id)
@@ -631,40 +665,101 @@ def apply_merge(
             counts["skills_added"] += 1
     profile.skills = current
 
-    track_id: uuid.UUID | None = None
+    # F2.7: the document's summary joins the profile's pool whatever the track does
+    # with it. The pool matches after folding — case, accents and whitespace are not
+    # a new summary — so the same text is never pooled twice for a profile and
+    # language, and the matched row is reused as it is.
+    lang = draft.language if draft.language == "en" else "es"
+    summary_text = " ".join((draft.summary or "").split()).strip()
+    pooled: Summary | None = None
+    if summary_text:
+        wanted = fold(summary_text)
+        pooled = next(
+            (
+                entry
+                for entry in list_summaries(profile_id, session, lang=lang)
+                if fold(entry.text) == wanted
+            ),
+            None,
+        )
+        if pooled is None:
+            pooled = create_summary(
+                profile_id, session, text=summary_text, lang=lang, source_resume_id=resume.id
+            )
+
     contributed = _contributed_bullet_ids(plan, new_bullet_ids)
-    if track_name:
-        # Document order, not selection order: the track is the document's shape.
+    track = get_track(profile_id, session, resume.track_id) if resume.track_id else None
+    track_created = False
+    if track is None:
+        # F2.7: there is no no-track outcome. A CV the operator bothered to upload is
+        # a CV he applies with, and a CV that belongs to no track cannot be analysed
+        # as itself — so an untagged document becomes a track named after its file
+        # (`track_name` overrides; the form pre-fills it with the stem and requires it).
         track = create_track(
             profile_id,
             session,
-            name=track_name,
+            name=(track_name or "").strip() or Path(resume.filename).stem,
             # The document's own language: it is the only signal this screen has, and
             # the track's language is what the résumé it produced is written in.
             lang=draft.language,
         )
+        # Document order, not selection order: the track is the document's shape.
         set_track_bullets(profile_id, session, track.id, contributed)
         resume.track_id = track.id
-        track_id = track.id
-    elif resume.track_id is not None:
+        track_created = True
+    else:
         # The other half of F4 path 1: a résumé tagged with an existing track joins
         # it. Append, never replace — the selection may hold other documents' bullets
         # and hand-picked ones — and a bullet already there stays where it is.
-        target = get_track(profile_id, session, resume.track_id)
-        if target is not None:
-            already = {bullet.id for bullet in track_bullets(profile_id, session, target.id)}
-            position = len(already)
-            seen: set[uuid.UUID] = set()
-            for bullet_id in contributed:
-                if bullet_id in already or bullet_id in seen:
-                    continue
-                seen.add(bullet_id)
-                session.add(
-                    TrackBullet(track_id=target.id, bullet_id=bullet_id, position=position)
-                )
-                position += 1
-                counts["track_bullets_added"] += 1
-            session.flush()
+        already = {bullet.id for bullet in track_bullets(profile_id, session, track.id)}
+        position = len(already)
+        seen: set[uuid.UUID] = set()
+        for bullet_id in contributed:
+            if bullet_id in already or bullet_id in seen:
+                continue
+            seen.add(bullet_id)
+            session.add(TrackBullet(track_id=track.id, bullet_id=bullet_id, position=position))
+            position += 1
+            counts["track_bullets_added"] += 1
+        session.flush()
+
+    # F2.7's auto-fill: the track is filled from the document, never overwritten by
+    # it. A headline or summary the track already has is a choice somebody made, and
+    # stays — the result screen says which of the two happened.
+    slot = "en" if lang == "en" else "es"
+    filled_headline = kept_headline = False
+    headline_text = (draft.headline or "").strip()
+    if headline_text:
+        if getattr(track, f"headline_{slot}"):
+            kept_headline = True
+        else:
+            setattr(track, f"headline_{slot}", headline_text)
+            filled_headline = True
+    filled_summary = kept_summary = False
+    if pooled is not None:
+        if getattr(track, f"summary_{slot}_id"):
+            kept_summary = True
+        else:
+            setattr(track, f"summary_{slot}_id", pooled.id)
+            filled_summary = True
+
+    # The confirmed canonicals join the track's selection, de-duplicated; order is
+    # irrelevant in a skills section.
+    selection = list(track.skills)
+    for index, skill in enumerate(plan.skills):
+        if index not in selections.skills or skill.canonical in selection:
+            continue
+        selection.append(skill.canonical)
+        counts["track_skills_added"] += 1
+    track.skills = selection
 
     mark_merged(profile_id, session, resume.id)
-    return MergeResult(**counts, track_id=track_id)
+    return MergeResult(
+        **counts,
+        track_headline_filled=filled_headline,
+        track_headline_kept=kept_headline,
+        track_summary_filled=filled_summary,
+        track_summary_kept=kept_summary,
+        track_id=track.id,
+        track_created=track_created,
+    )
