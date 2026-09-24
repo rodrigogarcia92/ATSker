@@ -9,7 +9,7 @@ report is read from its own keys and its own version string, never re-aggregated
 import hashlib
 import json
 from collections.abc import Mapping
-from dataclasses import dataclass, fields
+from dataclasses import dataclass, field, fields
 
 
 def hash_values(values: Mapping[str, float]) -> str:
@@ -73,6 +73,31 @@ class WeightsV2(WeightSet):
     keywords: float
 
 
+@dataclass(frozen=True)
+class WeightsV3(WeightSet):
+    """`w3` — PRD F5.5.1's four weights plus the evidence basis credits.
+
+    The four weights are `w2`'s, unchanged. What changed is what three of the
+    sub-scores read (the whole document, the basis credit, the asymmetric
+    seniority ladder), so the version moves with them: the same inputs now produce
+    different numbers and `w2` reports are never compared with `w3` ones.
+
+    `basis_credit` is the other half of the config and is hashed with the weights:
+    how much of a requirement's level each evidence basis counts for. The values
+    are a starting point; the development half of the golden set may move them.
+    """
+
+    skills: float
+    experience: float
+    title: float
+    keywords: float
+    basis_credit: Mapping[str, float] = field(default_factory=dict)
+
+    def total(self) -> float:
+        """The four weights sum to 1; the basis credits are a table, not weights."""
+        return self.skills + self.experience + self.title + self.keywords
+
+
 W1 = Weights(
     version="w1",
     title=0.20,
@@ -88,4 +113,13 @@ W2 = WeightsV2(
     experience=0.25,
     title=0.20,
     keywords=0.15,
+)
+
+W3 = WeightsV3(
+    version="w3",
+    skills=0.40,
+    experience=0.25,
+    title=0.20,
+    keywords=0.15,
+    basis_credit={"direct": 1.00, "equivalent": 0.75, "transferable": 0.50, "none": 0.0},
 )

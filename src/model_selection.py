@@ -54,6 +54,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from src.analysis import Analysis, analyze
+from src.documents import document_skills_list, document_summary
 from src.extract.client import CallOptions, complete_json
 from src.extract.grading import grade_evidence, requirements_of
 from src.extract.jd import extract_jd
@@ -62,7 +63,7 @@ from src.normalize.metrics import extract_metrics
 from src.normalize.text import fold
 from src.score.aggregate import SubScore, aggregate
 from src.score.evidence import Level, evidence_coverage
-from src.score.weights import W2
+from src.score.weights import W3
 from src.vocabulary import resolve_bullet_terms, seed_vocabulary
 
 # Deterministic ids, so a rerun of the same fixture produces the same citation
@@ -741,8 +742,8 @@ def _total_with_evidence(analysis: Analysis, levels: Sequence[Level]) -> int:
         for name, entry in recorded.items()
         if name != "skills"
     }
-    sub_scores["skills"] = evidence_coverage(levels)
-    return aggregate(sub_scores, W2).uncapped
+    sub_scores["skills"] = evidence_coverage(levels, basis_credit=W3.basis_credit)
+    return aggregate(sub_scores, W3).uncapped
 
 
 def _in_surcharge(
@@ -805,6 +806,8 @@ def run_pair(
             session,
             analysis.jd,
             analysis.bullets,
+            summary_text=document_summary(analysis.document),
+            skills_text=document_skills_list(analysis.document),
             language=analysis.jd.language,
             model=candidate.model,
             known_names=[pair.resume.display_name],
@@ -822,9 +825,9 @@ def run_pair(
             _total_with_evidence(
                 analysis,
                 [
-                    Level(requirement, level, is_must)
-                    for requirement, level, is_must in zip(
-                        requirements, levels, must_have, strict=True
+                    Level(requirement, entry.level, is_must, entry.basis)
+                    for requirement, entry, is_must in zip(
+                        requirements, report.levels, must_have, strict=True
                     )
                 ],
             )

@@ -96,14 +96,22 @@ def title_alignment(
 
     penalty = 0.0
     distance = None
+    over_seniority = False
     if user_rung is not None and jd_rung is not None:
         jd_index, user_index = seniority_rung(jd_rung), seniority_rung(user_rung)
         if jd_index is not None and user_index is not None:
             distance = abs(jd_index - user_index)
-            if distance == 1:
-                penalty = PENALTY_ONE_RUNG
-            elif distance >= 2:
-                penalty = PENALTY_MANY_RUNGS
+            # F5.5.1's asymmetric ladder: below the posting costs points, above it
+            # costs nothing in the number. Being overqualified is a real screening
+            # risk (salary, retention), so it is flagged and reported as an F6
+            # alert instead of being scored.
+            if user_index < jd_index:
+                if distance == 1:
+                    penalty = PENALTY_ONE_RUNG
+                elif distance >= 2:
+                    penalty = PENALTY_MANY_RUNGS
+            else:
+                over_seniority = user_index > jd_index
 
     value = max(0.0, overlap - penalty)
     return SubScore(
@@ -117,5 +125,6 @@ def title_alignment(
             "rung_distance": distance,
             "user_rung": user_rung,
             "jd_rung": jd_rung,
+            "over_seniority": over_seniority,
         },
     )

@@ -1,14 +1,20 @@
-"""Evidence coverage (weight 0.35): `Σ(level) / (3 × n)`, must-haves weighted heavier.
+"""Skills sub-score (weight 0.40): F5.5.1's basis-credited coverage.
 
-Must-haves carry 0.75 of this sub-score and nice-to-haves 0.25, per PRD F4.4. When a
-posting has only one of the two groups, the weight is not redistributed by guesswork:
-the missing group is reported in the detail and the present group is scored alone.
+Each requirement's level is multiplied by its evidence basis credit and the
+requirement's weight class (must-have 0.75, nice-to-have 0.25), then normalised
+over the total weight (PRD F5.5.1's formula). The credits are `w3`'s data and
+come from the caller's weight set, never from here.
 
-A requirement counts as *missing* at level 0 or 1 — the same rule F5 uses to detect a
-gap, so the gap list and the score can never disagree.
+The sub-score is returned split (F5.5.1): the part from `direct` evidence and the
+part from `equivalent` and `transferable` evidence. The transfer part is the part
+a recruiter may not grant, so the user sees how much of the number rests on it —
+and the two parts sum to the sub-score.
+
+A requirement counts as *missing* at level 0 or 1 — the same rule F5.5 uses to
+detect a gap, so the gap list and the score can never disagree.
 """
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
 from src.score.aggregate import SubScore
@@ -24,6 +30,11 @@ class Level:
     requirement: str
     level: int
     must_have: bool
+    basis: str = "direct"
+
+
+def _weight(entry: Level) -> float:
+    return MUST_WEIGHT if entry.must_have else NICE_WEIGHT
 
 
 def _coverage(levels: Sequence[Level]) -> float:
@@ -32,7 +43,15 @@ def _coverage(levels: Sequence[Level]) -> float:
     return sum(entry.level for entry in levels) / (MAX_LEVEL * len(levels))
 
 
-def evidence_coverage(levels: Sequence[Level]) -> SubScore:
+def evidence_coverage(
+    levels: Sequence[Level], *, basis_credit: Mapping[str, float]
+) -> SubScore:
+    """`Σ weight(r) · credit(r) / Σ weight(r)`, and its direct/transfer split.
+
+    `credit(r)` is `level(r) / 3 × basis_credit[basis(r)]` (F5.5.1). The split adds
+    back up to the sub-score: `none` evidence contributes neither part, which is
+    exactly what it contributes to the score.
+    """
     must = [entry for entry in levels if entry.must_have]
     nice = [entry for entry in levels if not entry.must_have]
     detail: dict[str, object] = {
@@ -44,19 +63,33 @@ def evidence_coverage(levels: Sequence[Level]) -> SubScore:
 
     if not must and not nice:
         detail["reason"] = "no_requirements"
+        detail.update({"direct": 0.0, "transfer": 0.0})
         return SubScore("evidence", 0.0, matched=[], missing=[], detail=detail)
-
-    if must and nice:
-        value = MUST_WEIGHT * _coverage(must) + NICE_WEIGHT * _coverage(nice)
-    elif must:
+    if must and not nice:
         detail["reason"] = "must_haves_only"
-        value = _coverage(must)
-    else:
+    elif nice and not must:
         detail["reason"] = "nice_to_haves_only"
-        value = _coverage(nice)
+
+    total_weight = sum(_weight(entry) for entry in levels)
+
+    def part(bases: tuple[str, ...]) -> float:
+        credited = sum(
+            _weight(entry)
+            * (entry.level / MAX_LEVEL)
+            * basis_credit.get(entry.basis, 0.0)
+            for entry in levels
+            if entry.basis in bases
+        )
+        return credited / total_weight
+
+    direct_part = part(("direct",))
+    transfer_part = part(("equivalent", "transferable"))
+    value = direct_part + transfer_part
+    detail["direct"] = round(direct_part, 4)
+    detail["transfer"] = round(transfer_part, 4)
 
     matched = [
-        f"{entry.requirement} (L{entry.level})"
+        f"{entry.requirement} (L{entry.level}, {entry.basis})"
         for entry in levels
         if entry.level >= EVIDENCE_THRESHOLD
     ]

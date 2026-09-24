@@ -1,5 +1,14 @@
-"""Keyword context (weight 0.15): BM25 over the JD's raw keywords against bullets.
+"""Keyword context (weight 0.15): BM25 over the JD's raw keywords against the document.
 
+The document is `documents.track_document` read in the posting's language
+(F5.5.1) — headline, summary, skills list, bullets, role titles, education and
+certifications — because that is how a real ATS reads: the keyword search runs
+over the file, skills section included.
+
+The machine screen stays literal (F5.5.1): aliases count (`PowerBI` and `Power BI`
+are the same thing spelled differently) and equivalents never do (Tableau is not
+Power BI). A real ATS keyword filter does not know that two tools do the same
+job; a human does — so there is no family lookup here or anywhere in `search/`.
 Normalised against a synthetic document that contains every query term, so the
 result is comparable between postings of different keyword counts. Standard BM25
 parameters (k1=1.5, b=0.75) are used and reported in the sub-score detail rather
@@ -51,11 +60,15 @@ def _term_score(
 
 def keyword_context(
     jd: StructuredJD,
-    bullet_texts: Sequence[str],
+    texts: Sequence[str],
     *,
     aliases: Mapping[str, str] | None = None,
 ) -> SubScore:
-    """Share of the JD's keywords the bullets evidence, IDF-weighted.
+    """Share of the JD's keywords the document evidences, IDF-weighted.
+
+    `texts` is the whole document, one unit at a time, in the posting's language
+    (F5.5.1). Aliases are expanded on both sides — the same thing spelled
+    differently counts — and never through a family: equivalents do not count.
 
     The normaliser is the BM25 ceiling for this query: the same term, once, in a
     document of the corpus's average length, where saturation reaches its IDF. That
@@ -64,8 +77,8 @@ def keyword_context(
     exactly 1.0 and a partial one is comparable across postings of different sizes.
     """
     keywords = [fold(keyword) for keyword in jd.raw_keywords if keyword.strip()]
-    documents = [_tokens(text, aliases) for text in bullet_texts if text and text.strip()]
-    detail: dict[str, object] = {"k1": K1, "b": B, "bullets": len(documents)}
+    documents = [_tokens(text, aliases) for text in texts if text and text.strip()]
+    detail: dict[str, object] = {"k1": K1, "b": B, "documents": len(documents)}
 
     if not keywords:
         detail["reason"] = "no_keywords_in_jd"
@@ -84,7 +97,7 @@ def keyword_context(
 
     for original, keyword in zip(jd.raw_keywords, keywords, strict=True):
         keyword_score = 0.0
-        for part in _tokens(keyword, None):
+        for part in _tokens(keyword, aliases):
             document_frequency = sum(1 for document in documents if part in document)
             idf = _idf(document_frequency, len(documents))
             keyword_score += max(

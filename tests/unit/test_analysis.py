@@ -21,8 +21,9 @@ from src.extract.grading import grade_evidence
 from src.extract.jd import extract_jd
 from src.jd import StructuredJD, jd_hash
 from src.models import Application, LlmCall
-from src.score.weights import W2
-from src.tracks import create_track, set_track_bullets
+from src.score.weights import W3
+from src.summaries import create_summary
+from src.tracks import create_track, set_track_bullets, update_track
 from tests.conftest import login
 
 POSTING = """
@@ -74,8 +75,15 @@ class Provider:
             "EvidenceGrading": json.dumps(
                 {
                     "grades": [
-                        {"index": 0, "level": 2, "bullet_id": bullet_id},
-                        {"index": 1, "level": 0, "bullet_id": None},
+                        {
+                            "index": 0,
+                            "level": 2,
+                            "basis": "direct",
+                            "source": "bullet",
+                            "evidence_id": bullet_id,
+                            "transfer_reason": None,
+                        },
+                        {"index": 1, "level": 0, "basis": "none", "source": None},
                     ],
                     "note": "una nota",
                 }
@@ -121,18 +129,24 @@ def test_an_analysis_records_its_weights_prompts_and_cost(session, career, provi
     analysis = analyze(career.first_profile.id, session, jd_text=POSTING, company="Banco Demo")
     score = analysis.report["score"]
 
-    assert analysis.weights_version == "w2"
-    assert score["unavailable"] == {}, "w2 declares nothing missing"
+    assert analysis.weights_version == "w3"
+    assert score["unavailable"] == {}, "w3 declares nothing missing"
     assert "semantic" not in score["sub_scores"]
     assert list(score["sub_scores"]) == ["skills", "experience", "title", "keywords"]
     assert sum(score["effective_weights"].values()) == pytest.approx(1.0)
     assert score["effective_weights_hash"].startswith("sha256:")
-    assert score["effective_weights_hash"] == score["weights_hash"], (
-        "nothing is renormalised under w2"
+    assert score["weights_hash"] == W3.config_hash(), (
+        "the config hash covers the four weights and the basis credits"
     )
+    assert score["effective_weights"] == {
+        "skills": 0.40,
+        "experience": 0.25,
+        "title": 0.20,
+        "keywords": 0.15,
+    }, "nothing is renormalised under w3"
     assert analysis.prompt_versions == {
         "jd_extract": "jd_extract_v2",
-        "evidence_grade": "evidence_grade_v2",
+        "evidence_grade": "evidence_grade_v3",
         "boolean_queries": "boolean_recall_v1",
         "gap_interpret": "gap_interpret_v1",
     }
@@ -151,11 +165,14 @@ def test_an_analysis_records_its_weights_prompts_and_cost(session, career, provi
     assert analysis.cost_usd == 4 * Decimal(COST_PER_CALL)
     assert analysis.report["llm"]["cost_usd"] == str(4 * Decimal(COST_PER_CALL))
 
-    # The citation is snapshotted with the text that was graded.
+    # The citation is snapshotted with the text that was graded, and the row says
+    # which source it came from and on what basis (F5.4.1).
     graded = analysis.report["grades"]
     assert [grade["level"] for grade in graded] == [2, 0]
     assert graded[0]["bullet_text"] == career.first_bullet.text_es
     assert graded[1]["bullet_id"] is None
+    assert graded[0]["basis"] == "direct" and graded[0]["source"] == "bullet"
+    assert graded[0]["fallback"] is False
 
     application = create_application(
         career.first_profile.id,
@@ -173,17 +190,17 @@ def test_an_analysis_records_its_weights_prompts_and_cost(session, career, provi
     assert application.jd_hash == jd_hash(POSTING)
     assert application.title == "Analista de datos"
     assert application.token_cost_usd == 4 * Decimal(COST_PER_CALL)
-    assert application.prompt_versions["evidence_grade"] == "evidence_grade_v2"
+    assert application.prompt_versions["evidence_grade"] == "evidence_grade_v3"
     assert application.report["score"]["unavailable"] == {}
 
 
 def test_the_total_is_the_hand_computed_weighted_sum_of_the_four(session, career, provider):
-    """PRD F5.5: Σ(w2 weight × value) over four components, nothing renormalised."""
+    """PRD F5.5.1: Σ(w3 weight × value) over four components, nothing renormalised."""
     analysis = analyze(career.first_profile.id, session, jd_text=POSTING)
     score = analysis.report["score"]
     values = {name: entry["value"] for name, entry in score["sub_scores"].items()}
 
-    expected = sum(getattr(W2, name) * value for name, value in values.items())
+    expected = sum(getattr(W3, name) * value for name, value in values.items())
 
     assert score["weighted"] == pytest.approx(expected)
     assert score["uncapped"] == round(100 * expected)
@@ -531,7 +548,6 @@ def test_a_tracks_analysis_scores_only_its_selected_bullets(session, career, pro
     assert str(career.first_bullet.id) in supplied
     assert str(outside.id) not in supplied
     assert outside.text_es not in supplied
-    assert analysis.report["score"]["sub_scores"]["keywords"]["detail"]["bullets"] == 1
     assert analysis.report["track"] == {
         "id": str(career.first_track.id),
         "name": career.first_track.name,
@@ -608,7 +624,6 @@ def test_an_analysis_without_a_track_uses_every_active_bullet(session, career, p
     supplied = grading_message(provider)
     assert str(career.first_bullet.id) in supplied
     assert str(extra.id) in supplied
-    assert analysis.report["score"]["sub_scores"]["keywords"]["detail"]["bullets"] == 2
     assert "track" not in analysis.report
 
 
@@ -625,20 +640,26 @@ def test_a_deactivated_bullet_is_not_evidence_even_when_a_track_still_selects_it
     provider.answers["EvidenceGrading"] = json.dumps(
         {
             "grades": [
-                {"index": 0, "level": 2, "bullet_id": str(live.id)},
-                {"index": 1, "level": 0, "bullet_id": None},
+                {
+                    "index": 0,
+                    "level": 2,
+                    "basis": "direct",
+                    "source": "bullet",
+                    "evidence_id": str(live.id),
+                    "transfer_reason": None,
+                },
+                {"index": 1, "level": 0, "basis": "none", "source": None},
             ],
             "note": "una nota",
         }
     )
     session.commit()
 
-    analysis = analyze(profile_id, session, jd_text=POSTING, track=track)
+    analyze(profile_id, session, jd_text=POSTING, track=track)
 
     supplied = grading_message(provider)
     assert str(live.id) in supplied
     assert str(career.first_bullet.id) not in supplied
-    assert analysis.report["score"]["sub_scores"]["keywords"]["detail"]["bullets"] == 1
 
 
 def test_the_analysis_form_records_the_track_and_the_report_names_it(
@@ -693,6 +714,268 @@ def test_a_track_from_another_profile_is_refused_by_the_form(client, session, ca
     assert response.status_code == 404
     assert provider.calls == []
     assert session.query(Application).count() == 0
+
+
+def test_the_summary_and_the_skills_list_count_for_keywords(session, career, provider):
+    """F5.5.1: the keyword search runs over the file — summary and skills section
+    included — in the posting's language."""
+    profile_id = career.first_profile.id
+    career.first_profile.skills = ["python"]
+    summary = create_summary(
+        profile_id, session, text="Cinco años de gobierno de datos.", lang="es"
+    )
+    update_track(
+        profile_id,
+        session,
+        career.first_track.id,
+        name=career.first_track.name,
+        applies_when=career.first_track.applies_when,
+        lang="es",
+        headline_es=career.first_track.headline_es,
+        summary_es_id=summary.id,
+        skills=["python"],
+    )
+    provider.answers["JDProposal"] = json.dumps(
+        {**json.loads(PROPOSAL), "raw_keywords": ["gobierno de datos"]}
+    )
+    session.commit()
+
+    analysis = analyze(profile_id, session, jd_text=POSTING, track=career.first_track)
+
+    keywords = analysis.report["score"]["sub_scores"]["keywords"]
+    assert "gobierno de datos" in keywords["matched"], "the summary counted"
+    assert keywords["value"] > 0, "a keyword found only in the summary is not lost"
+
+
+def test_the_alerts_beside_the_warning_flag_over_seniority_and_location(
+    session, career, provider
+):
+    """F6.1: two risks that never enter the number — beside the single warning,
+    never inside the gap list."""
+    profile_id = career.first_profile.id
+    career.first_profile.headline = "Data scientist senior"
+    provider.answers["JDProposal"] = json.dumps(
+        {**json.loads(PROPOSAL), "hard_requirements": ["Presencial en Lima"]}
+    )
+    session.commit()
+
+    analysis = analyze(profile_id, session, jd_text=POSTING)
+
+    alerts = analysis.report["gaps"]["alerts"]
+    assert {"kind": "over_seniority"} in alerts
+    # Extraction folds hard requirements, so the alert carries the stored text.
+    assert {
+        "kind": "location",
+        "requirement": "presencial en lima",
+        "verdict": "unverified",
+    } in alerts
+    assert all(
+        gap["requirement"] != "Presencial en Lima" for gap in analysis.report["gaps"]["gaps"]
+    ), "the alert is not a gap"
+
+
+def w3_report() -> dict:
+    """A stored w3 report with the whole F5.4.1/F6.1 furniture."""
+    return {
+        "jd": {
+            "language": "es",
+            "title": "Analista de datos",
+            "seniority": "mid",
+            "years_required": 3,
+            "must_have": ["python", "power bi"],
+            "nice_to_have": [],
+            "raw_keywords": [],
+            "hard_requirements": [],
+            "location_policy": None,
+        },
+        "grades": [
+            {
+                "requirement": "python",
+                "must_have": True,
+                "level": 3,
+                "basis": "direct",
+                "source": "bullet",
+                "bullet_id": "b1",
+                "bullet_text": "Automaticé reportes con Python",
+                "transfer_reason": None,
+                "clamped": False,
+                "downgraded": False,
+                "fallback": False,
+            },
+            {
+                "requirement": "power bi",
+                "must_have": True,
+                "level": 3,
+                "basis": "equivalent",
+                "source": "summary",
+                "bullet_id": None,
+                "bullet_text": "Cinco años de gobierno de datos.",
+                "transfer_reason": "Tableau hace el mismo trabajo, intercambiable en semanas.",
+                "clamped": True,
+                "downgraded": False,
+                "fallback": True,
+            },
+        ],
+        "grading_note": "",
+        "gate": None,
+        "score": {
+            "weights_version": "w3",
+            "weights_hash": "sha256:0",
+            "weighted": 0.72,
+            "uncapped": 72,
+            "capped": 72,
+            "cap": None,
+            "cap_reason": None,
+            "unavailable": {},
+            "effective_weights": {
+                "skills": 0.40,
+                "experience": 0.25,
+                "title": 0.20,
+                "keywords": 0.15,
+            },
+            "effective_weights_hash": "sha256:0",
+            "sub_scores": {
+                "skills": {
+                    "name": "skills",
+                    "value": 0.72,
+                    "matched": ["python (L3, direct)"],
+                    "missing": [],
+                    "detail": {"direct": 0.55, "transfer": 0.17},
+                },
+            },
+        },
+        "gaps": {
+            "gaps": [],
+            "covered_by_transfer": [
+                {
+                    "requirement": "power bi",
+                    "level": 3,
+                    "must_have": True,
+                    "bullet_id": None,
+                    "bullet_text": "Cinco años de gobierno de datos.",
+                    "transfer_reason": "Tableau hace el mismo trabajo, intercambiable en semanas.",
+                }
+            ],
+            "warning": {"text": "Salto de sector", "handling": "Encuádralo."},
+            "alerts": [{"kind": "over_seniority"}],
+            "not_found": "",
+            "stories_used": 1,
+        },
+        "disqualifiers": [],
+        "recall": {"checked": False, "queries": [], "units": 0, "passed": 0, "failed": 0},
+        "llm": {"cost_usd": "0", "calls": []},
+    }
+
+
+def test_the_report_page_shows_the_split_the_basis_column_and_the_transfer_band(
+    session, career, client
+):
+    """F5.5.1/F6.1 on the page: the split, the basis column with its marks, and the
+    covered-by-transfer band with its reason."""
+    report = w3_report()
+    application = create_application(
+        career.first_profile.id,
+        session,
+        jd_text="Una oferta",
+        jd_hash="sha256:w3-page",
+        report=report,
+        weights_version="w3",
+        prompt_versions={"evidence_grade": "evidence_grade_v3"},
+        token_cost_usd=Decimal("0"),
+    )
+    session.commit()
+    login(client, career.first.email)
+
+    page = text_of(client.get(f"/applications/{application.id}").text)
+
+    assert "55 directo + 17 transferible" in page, "the split, and how much rests on transfer"
+    assert "equivalente" in page, "the basis column"
+    assert "de la lista de habilidades" not in page
+    assert "del resumen" in page, "a summary citation is labelled as such"
+    assert "Por qué transfiere: Tableau hace el mismo trabajo" in page
+    assert "Nivel limitado a 1" in page, "the clamp says so"
+    assert "Evidencia en el idioma alternativo" in page, "so does a fallback"
+    assert "Cubierto por transferencia" in page
+    assert "Alertas" in page and "seniority" in page
+
+
+def test_a_stored_w2_report_renders_from_its_own_keys_without_the_w3_furniture(
+    session, career, client
+):
+    """w3 changed what three sub-scores read and how Skills is shown; a stored w2
+    report keeps its own shape and none of the new furniture appears on it."""
+    report = {
+        "jd": {
+            "language": "es",
+            "title": "Analista de datos",
+            "seniority": "mid",
+            "years_required": None,
+            "must_have": ["python"],
+            "nice_to_have": [],
+            "raw_keywords": [],
+            "hard_requirements": [],
+            "location_policy": None,
+        },
+        "grades": [
+            {
+                "requirement": "python",
+                "must_have": True,
+                "level": 2,
+                "bullet_id": "b1",
+                "bullet_text": "Automaticé reportes con Python",
+            }
+        ],
+        "grading_note": "",
+        "gate": None,
+        "score": {
+            "weights_version": "w2",
+            "weights_hash": "sha256:aaa",
+            "weighted": 0.5,
+            "uncapped": 50,
+            "capped": 50,
+            "cap": None,
+            "cap_reason": None,
+            "unavailable": {},
+            "effective_weights": {
+                "skills": 0.40,
+                "experience": 0.25,
+                "title": 0.20,
+                "keywords": 0.15,
+            },
+            "effective_weights_hash": "sha256:aaa",
+            "sub_scores": {
+                "skills": {
+                    "name": "skills",
+                    "value": 0.6667,
+                    "matched": ["python (L2)"],
+                    "missing": [],
+                    "detail": {},
+                },
+            },
+        },
+        "llm": {"cost_usd": "0", "calls": []},
+    }
+    application = create_application(
+        career.first_profile.id,
+        session,
+        jd_text="Una oferta",
+        jd_hash="sha256:w2-render",
+        report=report,
+        weights_version="w2",
+        prompt_versions={"evidence_grade": "evidence_grade_v2"},
+        token_cost_usd=Decimal("0"),
+    )
+    session.commit()
+    login(client, career.first.email)
+
+    page = text_of(client.get(f"/applications/{application.id}").text)
+
+    assert "50 / 100" in page
+    assert "Habilidades" in page and "python (L2)" in page
+    assert "w2" in page
+    assert "directo" not in page, "the split is w3's, and this report predates it"
+    assert "Cubierto por transferencia" not in page
+    assert "equivalente" not in page
 
 
 def test_a_stored_w1_report_still_renders_from_its_own_keys(session, career, client):

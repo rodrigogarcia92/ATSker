@@ -74,9 +74,16 @@ def seed_vocabulary(session: Session, entries: Iterable[Mapping[str, object]]) -
         aliases = [str(value) for value in entry["aliases"]]  # type: ignore[union-attr]
         lang_tags = [str(value) for value in entry["lang_tags"]]  # type: ignore[union-attr]
         kind = str(entry.get("kind") or "technical")
+        family = str(entry["family"]) if entry.get("family") else None
         skill = existing.get(canonical)
         if skill is None:
-            skill = Skill(canonical=canonical, aliases=aliases, lang_tags=lang_tags, kind=kind)
+            skill = Skill(
+                canonical=canonical,
+                aliases=aliases,
+                lang_tags=lang_tags,
+                kind=kind,
+                family=family,
+            )
             session.add(skill)
             existing[canonical] = skill
             created += 1
@@ -90,6 +97,12 @@ def seed_vocabulary(session: Session, entries: Iterable[Mapping[str, object]]) -
         # seed corrects it (which is how the 140 pre-N1 rows get their real kinds).
         if skill.kind != kind:
             skill.kind = kind
+            changed = True
+        # A family is the opposite (F5.4.1): equivalence is a judgement the operator
+        # reviews, so the seed fills empty families and never overwrites one that is
+        # already set — a human edit survives every future seed run.
+        if skill.family is None and family is not None:
+            skill.family = family
             changed = True
         if changed:
             enriched += 1

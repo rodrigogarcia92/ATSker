@@ -300,6 +300,49 @@ STRINGS: dict[str, dict[str, str]] = {
         "es": "Sin cita: nada en tu perfil lo respalda.",
         "en": "No citation: nothing in your profile supports it.",
     },
+    "report.basis.direct": {"es": "directa", "en": "direct"},
+    "report.basis.equivalent": {"es": "equivalente", "en": "equivalent"},
+    "report.basis.transferable": {"es": "transferible", "en": "transferable"},
+    "report.basis.none": {"es": "sin base", "en": "no basis"},
+    "report.source.summary": {"es": "del resumen", "en": "from the summary"},
+    "report.source.skills_list": {
+        "es": "de la lista de habilidades",
+        "en": "from the skills list",
+    },
+    "report.transfer_reason": {"es": "Por qué transfiere:", "en": "Why it transfers:"},
+    "report.grade_clamped": {
+        "es": "Nivel limitado a 1: el resumen y la lista de habilidades no prueban una "
+        "tarea descrita.",
+        "en": "Clamped to level 1: the summary and the skills list never prove a described task.",
+    },
+    "report.grade_downgraded": {
+        "es": "Base bajada a transferible: sin familia compartida en el vocabulario.",
+        "en": "Downgraded to transferable: no shared family in the vocabulary.",
+    },
+    "report.grade_fallback": {
+        "es": "Evidencia en el idioma alternativo.",
+        "en": "Fallback-language evidence.",
+    },
+    "report.skills_split": {
+        "es": "{direct} directo + {transfer} transferible",
+        "en": "{direct} direct + {transfer} transfer",
+    },
+    "report.transfer_band": {"es": "Cubierto por transferencia", "en": "Covered by transfer"},
+    "report.transfer_band_hint": {
+        "es": "No son huecos: son las afirmaciones que más se cuestionarán. Prepara el "
+        "argumento antes de la entrevista.",
+        "en": "Not gaps: these are the claims most likely to be questioned. Prepare the "
+        "argument before the interview.",
+    },
+    "report.alerts": {"es": "Alertas", "en": "Alerts"},
+    "report.alert.over_seniority": {
+        "es": "Tu seniority está por encima del pedido: riesgo salarial y de retención.",
+        "en": "You are above the posting's seniority: salary and retention risk.",
+    },
+    "report.alert.location": {
+        "es": "Ubicación por confirmar: {requirement}",
+        "en": "Location to confirm: {requirement}",
+    },
     "report.no_grades": {
         "es": "La oferta no produjo requisitos que evaluar.",
         "en": "The posting produced no requirements to grade.",

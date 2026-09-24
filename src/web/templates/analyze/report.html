@@ -63,8 +63,22 @@
       <span class="text-xs text-slate-500">
         {{ t('report.weight', lang) }} {{ '%.3f'|format(report.score.effective_weights.get(name, 0)) }}
       </span>
+      {# F5.5.1: the Skills sub-score is shown split — how much rests on transfer,
+         the part a recruiter may not grant. Without a split (a stored w2 report),
+         the number renders as it always did. #}
+      {% if sub.detail is defined and sub.detail.direct is defined %}
+      <span class="text-lg font-semibold">{{ '%.0f'|format(sub.value * 100) }}</span>
+      {% else %}
       <span class="text-lg font-semibold">{{ '%.2f'|format(sub.value) }}</span>
+      {% endif %}
     </div>
+    {% if sub.detail is defined and sub.detail.direct is defined %}
+    <p class="mt-1 text-sm text-slate-600">
+      {{ t('report.skills_split', lang,
+            direct='%.0f'|format(sub.detail.direct * 100),
+            transfer='%.0f'|format(sub.detail.transfer * 100)) }}
+    </p>
+    {% endif %}
     <div class="mt-2 flex flex-wrap gap-2">
       {% for term in sub.matched %}
       <span class="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-700">{{ term }}</span>
@@ -131,6 +145,23 @@
         {{ t('report.level_label', lang) }} {{ grade.level }} · {{ t('report.level.' ~ grade.level, lang) }}
       </span>
     </div>
+    {# F5.4.1: the basis column, the transfer reason for every non-direct row, and
+       the marks the rules left — clamped, downgraded, fallback language. Rows
+       stored before w3 carry none of these fields and show none of this. #}
+    {% if grade.basis is defined %}
+    <p class="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+      <span class="rounded bg-slate-100 px-2 py-0.5">{{ t('report.basis.' ~ grade.basis, lang) }}</span>
+      {% if grade.source and grade.source != 'bullet' %}
+      <span class="rounded bg-slate-100 px-2 py-0.5">{{ t('report.source.' ~ grade.source, lang) }}</span>
+      {% endif %}
+      {% if grade.clamped %}<span class="rounded bg-amber-100 px-2 py-0.5 text-amber-900">{{ t('report.grade_clamped', lang) }}</span>{% endif %}
+      {% if grade.downgraded %}<span class="rounded bg-amber-100 px-2 py-0.5 text-amber-900">{{ t('report.grade_downgraded', lang) }}</span>{% endif %}
+      {% if grade.fallback %}<span class="rounded bg-amber-100 px-2 py-0.5 text-amber-900">{{ t('report.grade_fallback', lang) }}</span>{% endif %}
+    </p>
+    {% endif %}
+    {% if grade.transfer_reason %}
+    <p class="mt-1 text-sm text-slate-700">{{ t('report.transfer_reason', lang) }} {{ grade.transfer_reason }}</p>
+    {% endif %}
     {% if grade.bullet_text %}
     <p class="mt-1 text-sm text-slate-600">{{ grade.bullet_text }}</p>
     {% else %}
@@ -185,6 +216,48 @@
 </details>
 {% else %}
 <p class="mt-2 text-sm text-slate-600">{{ t('report.no_gaps', lang) }}</p>
+{% endif %}
+{% if report.gaps.covered_by_transfer %}
+{# F6.1's fifth band: not a gap in the score's sense — the claim most likely to be
+   questioned, listed so the user can prepare the argument. #}
+<h3 class="mt-6 text-sm font-semibold">{{ t('report.transfer_band', lang) }}</h3>
+<p class="mt-1 text-xs text-slate-500">{{ t('report.transfer_band_hint', lang) }}</p>
+<ul class="mt-2 divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white">
+  {% for gap in report.gaps.covered_by_transfer %}
+  <li class="p-4">
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <span class="text-sm font-medium">{{ gap.requirement }}</span>
+      <span class="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+        {{ t('report.must_have', lang) if gap.must_have else t('report.nice_to_have', lang) }}
+        · {{ t('report.level_label', lang) }} {{ gap.level }}
+      </span>
+    </div>
+    {% if gap.transfer_reason %}
+    <p class="mt-1 text-sm text-slate-700">{{ t('report.transfer_reason', lang) }} {{ gap.transfer_reason }}</p>
+    {% endif %}
+    {% if gap.bullet_text %}
+    <p class="mt-1 text-sm text-slate-600">{{ gap.bullet_text }}</p>
+    {% endif %}
+  </li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% if report.gaps.alerts %}
+{# F6.1's alerts beside the single warning, never inside the gap list and never in
+   the score: over-seniority (salary, retention) and location. #}
+<h3 class="mt-6 text-sm font-semibold">{{ t('report.alerts', lang) }}</h3>
+<ul class="mt-2 space-y-2">
+  {% for alert in report.gaps.alerts %}
+  <li class="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+    {% if alert.kind == 'over_seniority' %}
+    {{ t('report.alert.over_seniority', lang) }}
+    {% else %}
+    {{ t('report.alert.location', lang, requirement=alert.requirement) }}
+    <span class="rounded bg-white px-2 py-0.5 text-xs">{{ t('report.verdict.' ~ alert.verdict, lang) }}</span>
+    {% endif %}
+  </li>
+  {% endfor %}
+</ul>
 {% endif %}
 {% if report.gaps.warning.text %}
 <div class="mt-4 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">

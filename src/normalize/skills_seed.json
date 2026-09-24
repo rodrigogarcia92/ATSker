@@ -111,7 +111,8 @@
       "es",
       "en"
     ],
-    "kind": "technical"
+    "kind": "technical",
+    "family": "stats_package"
   },
   {
     "canonical": "scala",
@@ -171,7 +172,8 @@
       "es",
       "en"
     ],
-    "kind": "technical"
+    "kind": "technical",
+    "family": "stats_package"
   },
   {
     "canonical": "bash",
@@ -280,7 +282,8 @@
       "es",
       "en"
     ],
-    "kind": "tool"
+    "kind": "tool",
+    "family": "cloud_warehouse"
   },
   {
     "canonical": "bigquery",
@@ -292,7 +295,8 @@
       "es",
       "en"
     ],
-    "kind": "tool"
+    "kind": "tool",
+    "family": "cloud_warehouse"
   },
   {
     "canonical": "amazon redshift",
@@ -304,7 +308,8 @@
       "es",
       "en"
     ],
-    "kind": "tool"
+    "kind": "tool",
+    "family": "cloud_warehouse"
   },
   {
     "canonical": "databricks",
@@ -339,7 +344,8 @@
       "es",
       "en"
     ],
-    "kind": "tool"
+    "kind": "tool",
+    "family": "bi_tool"
   },
   {
     "canonical": "tableau",
@@ -350,7 +356,8 @@
       "es",
       "en"
     ],
-    "kind": "tool"
+    "kind": "tool",
+    "family": "bi_tool"
   },
   {
     "canonical": "looker",
@@ -362,7 +369,8 @@
       "es",
       "en"
     ],
-    "kind": "tool"
+    "kind": "tool",
+    "family": "bi_tool"
   },
   {
     "canonical": "etl",
@@ -544,7 +552,8 @@
       "es",
       "en"
     ],
-    "kind": "tool"
+    "kind": "tool",
+    "family": "cloud_platform"
   },
   {
     "canonical": "microsoft azure",
@@ -555,7 +564,8 @@
       "es",
       "en"
     ],
-    "kind": "tool"
+    "kind": "tool",
+    "family": "cloud_platform"
   },
   {
     "canonical": "google cloud platform",
@@ -567,7 +577,8 @@
       "es",
       "en"
     ],
-    "kind": "tool"
+    "kind": "tool",
+    "family": "cloud_platform"
   },
   {
     "canonical": "docker",
@@ -1543,7 +1554,8 @@
       "es",
       "en"
     ],
-    "kind": "tool"
+    "kind": "tool",
+    "family": "spreadsheet_tool"
   },
   {
     "canonical": "spreadsheets",
@@ -1566,7 +1578,8 @@
       "es",
       "en"
     ],
-    "kind": "tool"
+    "kind": "tool",
+    "family": "spreadsheet_tool"
   },
   {
     "canonical": "pivot tables",

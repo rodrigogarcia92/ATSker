@@ -10,7 +10,7 @@ import uuid
 
 import pytest
 
-from src.extract.client import StructuredOutputError
+from src.extract.client import CallOptions, StructuredOutputError
 from src.extract.grading import (
     PURPOSE,
     CitationViolation,
@@ -19,8 +19,9 @@ from src.extract.grading import (
     requirements_of,
 )
 from src.jd import StructuredJD
-from src.models import LlmCall
+from src.models import LlmCall, Skill
 from src.score.evidence import Level, evidence_coverage
+from src.score.weights import W3
 
 
 def jd() -> StructuredJD:
@@ -56,7 +57,14 @@ def grading_payload(bullets: Bullets, levels=(2, 1, 3)) -> str:
     return json.dumps(
         {
             "grades": [
-                {"index": index, "level": level, "bullet_id": (None if level == 0 else ids[index])}
+                {
+                    "index": index,
+                    "level": level,
+                    "basis": "none" if level == 0 else "direct",
+                    "source": None if level == 0 else "bullet",
+                    "evidence_id": (None if level == 0 else ids[index]),
+                    "transfer_reason": None,
+                }
                 for index, level in enumerate(levels)
             ],
             "note": "sql solo aparece en una lista",
@@ -92,17 +100,169 @@ def test_grades_come_back_with_their_citations(session, test_settings, bullets, 
         ("sql", 1),
         ("power bi", 3),
     ]
-    assert report.levels[0].bullet_id == str(bullets.ids[0])
+    assert report.levels[0].evidence_id == str(bullets.ids[0])
     assert report.levels[0].must_have is True
     assert report.levels[2].must_have is False
     assert report.note
     assert len(calls) == 1, "one call covers every requirement"
 
 
+def test_summary_only_and_skills_list_only_evidence_clamps_to_level_one(
+    session, test_settings, monkeypatch
+):
+    """F5.4.1's cap, enforced in code: a list is noted, not proven — and the
+    report says the row was clamped rather than hiding the adjustment."""
+    payload = json.dumps(
+        {
+            "grades": [
+                {
+                    "index": 0,
+                    "level": 3,
+                    "basis": "direct",
+                    "source": "summary",
+                    "evidence_id": None,
+                    "transfer_reason": None,
+                },
+                {
+                    "index": 1,
+                    "level": 2,
+                    "basis": "direct",
+                    "source": "skills_list",
+                    "evidence_id": None,
+                    "transfer_reason": None,
+                },
+                {"index": 2, "level": 0, "basis": "none", "source": None},
+            ],
+            "note": "",
+        }
+    )
+    stub(monkeypatch, [payload])
+
+    report = grade_evidence(
+        session,
+        jd(),
+        [],
+        summary_text="Automatizo reportes con Python y SQL.",
+        skills_text="python, sql, power bi",
+    )
+
+    assert [entry.level for entry in report.levels] == [1, 1, 0]
+    assert [entry.clamped for entry in report.levels] == [True, True, False]
+    assert [entry.source for entry in report.levels] == ["summary", "skills_list", None]
+
+
+def test_an_equivalent_is_confirmed_by_a_shared_family_or_downgraded(
+    session, test_settings, monkeypatch
+):
+    """F5.4.1: equivalence is one hop and it is data. Tableau for Power BI is the
+    PRD's own equivalent; a canonical outside the family is downgraded and the
+    report records it."""
+    session.add_all(
+        [
+            Skill(canonical="power bi", aliases=["powerbi"], lang_tags=["es"], family="bi_tool"),
+            Skill(
+                canonical="tableau",
+                aliases=["tableau desktop"],
+                lang_tags=["es"],
+                family="bi_tool",
+            ),
+            Skill(canonical="python", aliases=["py"], lang_tags=["es"]),
+        ]
+    )
+    session.commit()
+    bullets = [
+        type(
+            "B", (), {"id": uuid.uuid4(), "text_es": "Mantuve tableros de Tableau", "text_en": None}
+        )(),
+        type(
+            "B",
+            (),
+            {"id": uuid.uuid4(), "text_es": "Automaticé procesos con Python", "text_en": None},
+        )(),
+    ]
+
+    def answer(cited):
+        return json.dumps(
+            {
+                "grades": [
+                    {
+                        "index": 0,
+                        "level": 2,
+                        "basis": "equivalent",
+                        "source": "bullet",
+                        "evidence_id": str(cited.id),
+                        "transfer_reason": "Mismo trabajo, intercambiable en semanas.",
+                    }
+                ],
+                "note": "",
+            }
+        )
+
+    stub(monkeypatch, [answer(bullets[0])])
+    # Same input twice would hit the cache; these two runs must reach the stubs.
+    fresh = CallOptions(bypass_cache=True)
+    equivalent = grade_evidence(
+        session, StructuredJD(must_have=["power bi"]), bullets, options=fresh
+    ).levels[0]
+    assert equivalent.basis == "equivalent", "same non-null family confirms the hop"
+    assert equivalent.downgraded is False
+
+    stub(monkeypatch, [answer(bullets[1])])
+    downgraded = grade_evidence(
+        session, StructuredJD(must_have=["power bi"]), bullets, options=fresh
+    ).levels[0]
+    assert downgraded.basis == "transferable", "outside the family the credit is not granted"
+    assert downgraded.downgraded is True
+
+
+def test_a_transfer_basis_without_a_reason_fails_after_one_retry(
+    session, test_settings, bullets, monkeypatch
+):
+    """F5.4.1's schema rule: a basis other than direct/none without a one-line
+    transfer_reason is unusable — one retry, then it fails loudly."""
+    bad = json.dumps(
+        {
+            "grades": [
+                {
+                    "index": 0,
+                    "level": 2,
+                    "basis": "transferable",
+                    "source": "bullet",
+                    "evidence_id": str(bullets.ids[0]),
+                    "transfer_reason": None,
+                },
+                {"index": 1, "level": 0, "basis": "none", "source": None},
+                {"index": 2, "level": 0, "basis": "none", "source": None},
+            ],
+            "note": "",
+        }
+    )
+    calls = stub(monkeypatch, [bad, bad])
+
+    with pytest.raises(CitationViolation, match="transfer_reason"):
+        grade_evidence(session, jd(), list(bullets))
+
+    assert len(calls) == 2, "exactly one retry, then the loud failure"
+
+
 def test_a_level_without_a_citation_is_retried_once_then_fails(
     session, test_settings, bullets, monkeypatch
 ):
-    bad = json.dumps({"grades": [{"index": 0, "level": 2, "bullet_id": None}], "note": ""})
+    bad = json.dumps(
+        {
+            "grades": [
+                {
+                    "index": 0,
+                    "level": 2,
+                    "basis": "direct",
+                    "source": "bullet",
+                    "evidence_id": None,
+                    "transfer_reason": None,
+                }
+            ],
+            "note": "",
+        }
+    )
     calls = stub(monkeypatch, [bad, bad])
 
     with pytest.raises(CitationViolation):
@@ -115,9 +275,16 @@ def test_an_invented_citation_is_rejected(session, test_settings, bullets, monke
     invented = json.dumps(
         {
             "grades": [
-                {"index": 0, "level": 2, "bullet_id": str(uuid.uuid4())},
-                {"index": 1, "level": 0, "bullet_id": None},
-                {"index": 2, "level": 0, "bullet_id": None},
+                {
+                    "index": 0,
+                    "level": 2,
+                    "basis": "direct",
+                    "source": "bullet",
+                    "evidence_id": str(uuid.uuid4()),
+                    "transfer_reason": None,
+                },
+                {"index": 1, "level": 0, "basis": "none", "source": None},
+                {"index": 2, "level": 0, "basis": "none", "source": None},
             ],
             "note": "",
         }
@@ -134,7 +301,19 @@ def test_an_ungraded_requirement_is_not_silently_dropped(
     session, test_settings, bullets, monkeypatch
 ):
     partial = json.dumps(
-        {"grades": [{"index": 0, "level": 1, "bullet_id": str(bullets.ids[0])}], "note": ""}
+        {
+            "grades": [
+                {
+                    "index": 0,
+                    "level": 1,
+                    "basis": "direct",
+                    "source": "bullet",
+                    "evidence_id": str(bullets.ids[0]),
+                    "transfer_reason": None,
+                }
+            ],
+            "note": "",
+        }
     )
     stub(monkeypatch, [partial, partial])
 
@@ -143,7 +322,21 @@ def test_an_ungraded_requirement_is_not_silently_dropped(
 
 
 def test_a_corrected_answer_on_the_retry_is_accepted(session, test_settings, bullets, monkeypatch):
-    bad = json.dumps({"grades": [{"index": 0, "level": 2, "bullet_id": None}], "note": ""})
+    bad = json.dumps(
+        {
+            "grades": [
+                {
+                    "index": 0,
+                    "level": 2,
+                    "basis": "direct",
+                    "source": "bullet",
+                    "evidence_id": None,
+                    "transfer_reason": None,
+                }
+            ],
+            "note": "",
+        }
+    )
     calls = stub(monkeypatch, [bad, grading_payload(bullets)])
 
     report = grade_evidence(session, jd(), list(bullets))
@@ -170,7 +363,7 @@ def test_regrading_the_same_pair_reuses_the_cache(session, test_settings, bullet
     assert first.levels == second.levels
     stored = session.query(LlmCall).one()
     assert stored.purpose == PURPOSE
-    assert stored.prompt_version == "evidence_grade_v2"
+    assert stored.prompt_version == "evidence_grade_v3"
 
 
 def test_bullet_text_is_redacted_before_it_leaves(session, test_settings, bullets, monkeypatch):
@@ -196,27 +389,77 @@ def test_requirements_are_must_haves_then_nice_to_haves():
 
 
 class TestEvidenceCoverage:
-    def levels(self, *rows: tuple[str, int, bool]) -> list[Level]:
-        return [Level(requirement, level, must_have) for requirement, level, must_have in rows]
+    def levels(self, *rows: tuple[str, int, bool, str]) -> list[Level]:
+        return [
+            Level(requirement, level, must_have, basis)
+            for requirement, level, must_have, basis in rows
+        ]
 
     def test_full_evidence_scores_one(self):
-        score = evidence_coverage(self.levels(("python", 3, True), ("sql", 3, False)))
+        score = evidence_coverage(
+            self.levels(("python", 3, True, "direct"), ("sql", 3, False, "direct")),
+            basis_credit=W3.basis_credit,
+        )
 
         assert score.value == pytest.approx(1.0)
         assert score.missing == []
 
-    def test_must_haves_carry_three_quarters_of_the_sub_score(self):
-        # must: (3 + 0) / (3 x 2) = 0.5 ; nice: 3 / 3 = 1.0
+    def test_must_haves_weigh_three_times_a_nice_to_have(self):
+        """F5.5.1's formula: Σ weight(r) · credit(r) / Σ weight(r), 0.75 and 0.25."""
         score = evidence_coverage(
-            self.levels(("python", 3, True), ("sql", 0, True), ("power bi", 3, False))
+            self.levels(
+                ("python", 3, True, "direct"),
+                ("sql", 0, True, "direct"),
+                ("power bi", 3, False, "direct"),
+            ),
+            basis_credit=W3.basis_credit,
         )
 
-        assert score.value == pytest.approx(0.75 * 0.5 + 0.25 * 1.0)
+        assert score.value == pytest.approx(
+            (0.75 * 1.0 + 0.25 * 1.0) / (0.75 + 0.75 + 0.25), abs=1e-4
+        )
         assert score.detail["must_coverage"] == 0.5
         assert score.detail["nice_coverage"] == 1.0
 
+    def test_the_basis_credit_multiplies_the_level(self):
+        # equivalent: 3 / 3 × 0.75 = 0.75 ; transferable: 3 / 3 × 0.50 = 0.50
+        score = evidence_coverage(
+            self.levels(("power bi", 3, True, "equivalent")),
+            basis_credit=W3.basis_credit,
+        )
+        transferred = evidence_coverage(
+            self.levels(("mdm", 3, True, "transferable")),
+            basis_credit=W3.basis_credit,
+        )
+
+        assert score.value == pytest.approx(0.75)
+        assert transferred.value == pytest.approx(0.5)
+
+    def test_the_split_sums_to_the_sub_score_and_direct_only_transfers_nothing(self):
+        mixed = evidence_coverage(
+            self.levels(
+                ("python", 3, True, "direct"),
+                ("power bi", 3, True, "equivalent"),
+                ("mdm", 0, False, "none"),
+            ),
+            basis_credit=W3.basis_credit,
+        )
+        direct_only = evidence_coverage(
+            self.levels(("python", 3, True, "direct")),
+            basis_credit=W3.basis_credit,
+        )
+
+        assert mixed.detail["direct"] + mixed.detail["transfer"] == pytest.approx(
+            mixed.value, abs=1e-4
+        )
+        assert mixed.detail["transfer"] > 0
+        assert direct_only.detail["transfer"] == 0.0
+        assert direct_only.detail["direct"] == pytest.approx(direct_only.value, abs=1e-4)
+
     def test_level_one_is_a_gap_not_evidence(self):
-        score = evidence_coverage(self.levels(("python", 1, True)))
+        score = evidence_coverage(
+            self.levels(("python", 1, True, "direct")), basis_credit=W3.basis_credit
+        )
 
         assert score.value == round(1 / 3, 4)
         assert score.value == pytest.approx(1 / 3, abs=1e-4)
@@ -224,13 +467,15 @@ class TestEvidenceCoverage:
         assert score.matched == []
 
     def test_a_single_group_is_scored_alone_and_says_so(self):
-        score = evidence_coverage(self.levels(("python", 3, True)))
+        score = evidence_coverage(
+            self.levels(("python", 3, True, "direct")), basis_credit=W3.basis_credit
+        )
 
         assert score.value == pytest.approx(1.0)
         assert score.detail["reason"] == "must_haves_only"
 
     def test_no_requirements_scores_zero_with_a_reason(self):
-        score = evidence_coverage([])
+        score = evidence_coverage([], basis_credit=W3.basis_credit)
 
         assert score.value == 0.0
         assert score.detail["reason"] == "no_requirements"
@@ -243,9 +488,13 @@ def test_report_shape_keeps_levels_and_citations_together(
 
     report: EvidenceReport = grade_evidence(session, jd(), list(bullets))
     score = evidence_coverage(
-        [Level(entry.requirement, entry.level, entry.must_have) for entry in report.levels]
+        [
+            Level(entry.requirement, entry.level, entry.must_have, entry.basis)
+            for entry in report.levels
+        ],
+        basis_credit=W3.basis_credit,
     )
 
-    # python 2, sql 1, power bi 3 -> must coverage (2+1)/6 = 0.5, nice 1.0
-    assert score.value == pytest.approx(0.75 * 0.5 + 0.25 * 1.0)
+    # python 2, sql 1, power bi 3, all direct -> (0.75·2/3 + 0.75·1/3 + 0.25·1) / 1.75
+    assert score.value == pytest.approx(1.0 / 1.75, abs=1e-4)
     assert score.missing == ["sql (L1)"]

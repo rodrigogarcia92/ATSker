@@ -9,7 +9,7 @@ from src.score.aggregate import SUB_SCORES, SubScore, aggregate
 from src.score.experience import experience_score, merge_intervals, years_held
 from src.score.keywords import keyword_context
 from src.score.title import seniority_of, title_alignment
-from src.score.weights import W1, W2, Weights, WeightsV2
+from src.score.weights import W1, W2, W3, Weights, WeightsV2, WeightsV3
 
 TODAY = date(2026, 1, 1)
 
@@ -72,6 +72,59 @@ def test_an_unknown_user_rung_is_not_penalised():
 
     assert score.detail["rung_distance"] is None
     assert score.value == pytest.approx(1.0)
+    assert score.detail["over_seniority"] is False
+
+
+def test_one_rung_above_costs_nothing_but_raises_the_over_seniority_flag():
+    """F5.5.1's asymmetric ladder: above the posting is a screening risk reported
+    as an alert (salary, retention), never a subtraction from the number."""
+    above = title_alignment(
+        jd(title="Analyst", seniority="mid"),
+        headline="Analyst senior",
+        role_titles=[],
+    )
+    below = title_alignment(
+        jd(title="Analyst", seniority="senior"),
+        headline="Analyst mid",
+        role_titles=[],
+    )
+
+    assert above.detail["over_seniority"] is True
+    assert above.detail["penalty"] == 0.0
+    assert above.value == pytest.approx(1.0)
+    assert below.value == pytest.approx(0.8), "one rung below is still −0.2"
+    assert below.detail["over_seniority"] is False
+
+
+def test_keywords_count_aliases_but_never_equivalents():
+    """F5.5.1's literal screen: `PowerBI` is the same thing spelled differently and
+    counts; Tableau does the same job and does not. No family lookup anywhere."""
+    aliases = {"powerbi": "power bi", "power bi": "power bi", "tableau": "tableau"}
+    spelled_differently = keyword_context(
+        jd(raw_keywords=["power bi"]), ["Mantuve tableros de PowerBI"], aliases=aliases
+    )
+    equivalent_tool = keyword_context(
+        jd(raw_keywords=["power bi"]), ["Mantuve tableros de Tableau"], aliases=aliases
+    )
+
+    assert spelled_differently.matched == ["power bi"]
+    assert equivalent_tool.missing == ["power bi"], "an equivalent is not a keyword hit"
+
+
+def test_keywords_read_the_skills_list_and_the_summary_not_only_the_bullets():
+    """F5.5.1: the keyword search runs over the file — skills section included."""
+    score = keyword_context(
+        jd(raw_keywords=["power bi", "gobierno de datos"]),
+        [
+            "Reduje 30% el tiempo de reporte con Python",
+            "power bi, python",
+            "Cinco años de gobierno de datos.",
+        ],
+    )
+
+    assert score.matched == ["power bi", "gobierno de datos"]
+    assert score.value == pytest.approx(1.0)
+    assert score.detail["documents"] == 3
 
 
 def test_seniority_is_read_from_either_language():
@@ -191,6 +244,38 @@ def test_weights_sum_to_one_and_hash_the_values():
     assert same.config_hash() == W2.config_hash(), (
         "the hash covers values, not the version string"
     )
+
+
+def test_w3_keeps_the_four_weights_and_hashes_the_basis_credits_with_them():
+    """F5.5.1: the credits are part of the config — same weights, different credits,
+    is a different configuration and the hash must say so."""
+    assert W3.total() == pytest.approx(1.0)
+    assert W3.version == "w3"
+    assert (W3.skills, W3.experience, W3.title, W3.keywords) == (0.40, 0.25, 0.20, 0.15)
+    assert W3.basis_credit == {
+        "direct": 1.00,
+        "equivalent": 0.75,
+        "transferable": 0.50,
+        "none": 0.0,
+    }
+
+    same_four = WeightsV3(
+        "w3",
+        skills=0.40,
+        experience=0.25,
+        title=0.20,
+        keywords=0.15,
+        basis_credit={"direct": 1.0, "equivalent": 0.5, "transferable": 0.25, "none": 0.0},
+    )
+    assert same_four.config_hash() != W3.config_hash()
+    assert WeightsV3(
+        "w3",
+        skills=0.40,
+        experience=0.25,
+        title=0.20,
+        keywords=0.15,
+        basis_credit=dict(W3.basis_credit),
+    ).config_hash() == W3.config_hash(), "the hash covers both halves, and only the values"
 
 
 def test_aggregation_matches_the_hand_computed_weighted_sum():

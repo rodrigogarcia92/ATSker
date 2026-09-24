@@ -74,6 +74,31 @@ def test_seeding_stamps_kind_and_a_later_seed_corrects_it(session):
     assert skill.kind == "domain"
 
 
+def test_seeding_fills_a_family_but_never_overwrites_one_a_human_set(session):
+    """F5.4.1: families are data the operator reviews — the seed may fill the
+    empty ones and stops there, so a reviewed grouping survives every re-seed."""
+    from sqlalchemy import select
+
+    from src.models import Skill
+
+    entry = {
+        "canonical": "power bi",
+        "aliases": ["powerbi"],
+        "lang_tags": ["es", "en"],
+        "kind": "tool",
+        "family": "bi_tool",
+    }
+
+    seed_vocabulary(session, [entry])
+    skill = session.scalar(select(Skill).where(Skill.canonical == "power bi"))
+    assert skill.family == "bi_tool"
+
+    skill.family = "bi_suite_reviewed"
+    seed_vocabulary(session, [entry])
+
+    assert skill.family == "bi_suite_reviewed", "a family somebody set is never overwritten"
+
+
 def test_the_vocabulary_page_shows_each_skills_kind(client, session, two_accounts):
     from src.models import Skill
 

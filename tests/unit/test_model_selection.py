@@ -150,7 +150,16 @@ class FakeProvider:
             for index in indices:
                 level = (base + index + variation) % 4
                 citation = ids[0] if level > 0 and ids else None
-                grades.append({"index": index, "level": level, "bullet_id": citation})
+                grades.append(
+                    {
+                        "index": index,
+                        "level": level,
+                        "basis": "none" if level == 0 else "direct",
+                        "source": None if level == 0 else "bullet",
+                        "evidence_id": citation,
+                        "transfer_reason": None,
+                    }
+                )
             content = json.dumps({"grades": grades, "note": "sintético"})
         return {
             "choices": [{"message": {"content": content}}],

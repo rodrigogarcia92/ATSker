@@ -24,8 +24,14 @@ from decimal import Decimal
 
 from sqlalchemy.orm import Session
 
-from src.bullets import bullet_text
-from src.documents import document_bullets, document_headline, track_document
+from src.documents import (
+    DocumentUnit,
+    document_bullets,
+    document_headline,
+    document_skills_list,
+    document_summary,
+    track_document,
+)
 from src.education import list_educations
 from src.extract.boolean import derive_boolean_queries
 from src.extract.client import CallOptions, Completion
@@ -41,10 +47,10 @@ from src.roles import list_roles
 from src.score.aggregate import SubScore, aggregate
 from src.score.evidence import Level, evidence_coverage
 from src.score.experience import experience_score
-from src.score.gaps import Graded, detect_gaps, disqualifier_verdicts
+from src.score.gaps import Graded, detect_gaps, disqualifier_verdicts, location_requirements
 from src.score.keywords import keyword_context
 from src.score.title import title_alignment
-from src.score.weights import W2
+from src.score.weights import W3
 from src.search.boolean import RecallReport, evaluate
 from src.search.sources import searchable_units
 from src.stories import list_stories
@@ -55,9 +61,9 @@ from src.vocabulary import alias_map
 class Analysis:
     """What one analysis produced, before it is written to `applications` (F8).
 
-    `jd` and `bullets` are the inputs the judge saw; the model-selection experiment
-    re-runs the judge against them to measure stability without re-running
-    extraction.
+    `jd`, `bullets` and `document` are the inputs the judge saw; the model-selection
+    experiment re-runs the judge against them to measure stability without
+    re-running extraction.
     """
 
     report: dict[str, object]
@@ -69,6 +75,7 @@ class Analysis:
     company: str | None
     jd: StructuredJD
     bullets: tuple[Bullet, ...]
+    document: tuple[DocumentUnit, ...] = ()
     recall: RecallReport = RecallReport()
 
 
@@ -159,6 +166,8 @@ def analyze(
         session,
         jd,
         bullets,
+        summary_text=document_summary(document),
+        skills_text=document_skills_list(document),
         language=jd.language,
         model=model,
         known_names=[profile.display_name] if profile.display_name else None,
@@ -184,11 +193,13 @@ def analyze(
             aliases=aliases,
         ),
         "skills": evidence_coverage(
-            [Level(entry.requirement, entry.level, entry.must_have) for entry in grading.levels]
+            [
+                Level(entry.requirement, entry.level, entry.must_have, entry.basis)
+                for entry in grading.levels
+            ],
+            basis_credit=W3.basis_credit,
         ),
-        "keywords": keyword_context(
-            jd, [bullet_text(bullet) for bullet in bullets], aliases=aliases
-        ),
+        "keywords": keyword_context(jd, [unit.text for unit in document], aliases=aliases),
         "experience": experience_score(
             jd,
             [
@@ -199,29 +210,75 @@ def analyze(
             today=today,
         ),
     }
-    score = aggregate(sub_scores, W2, gate=gate)
+    score = aggregate(sub_scores, W3, gate=gate)
 
-    texts = {str(bullet.id): bullet_text(bullet) for bullet in bullets}
+    # The snapshot (F5.4): what each citation showed, in the language it was shown
+    # in, taken from the same document the judge read. Old report rows call this
+    # `bullet_text` whatever the source; the row's `source` names which it was.
+    bullet_units = {unit.source_id: unit for unit in document if unit.kind == "bullet"}
+    summary_unit = next((unit for unit in document if unit.kind == "summary"), None)
+    skills_line = document_skills_list(document)
 
-    # N5 (PRD F6, F6.1): the gaps fall out of the grading above — deterministic and
-    # free — and one call interprets them. The disqualifier verdicts are deterministic
-    # too: only what the stored education rows decide, `unverified` otherwise.
-    gaps = detect_gaps(
-        [
+    def citation(entry) -> tuple[str | None, bool]:
+        """(the cited text, whether it is a language fallback) for one requirement."""
+        if entry.source == "summary":
+            return (summary_unit.text, summary_unit.fallback) if summary_unit else (None, False)
+        if entry.source == "skills_list":
+            return skills_line, False
+        unit = bullet_units.get(entry.evidence_id or "")
+        return (unit.text, unit.fallback) if unit is not None else (None, False)
+
+    grades: list[dict[str, object]] = []
+    graded_inputs: list[Graded] = []
+    for entry in grading.levels:
+        cited_text, cited_fallback = citation(entry)
+        grades.append(
+            {
+                "requirement": entry.requirement,
+                "must_have": entry.must_have,
+                "level": entry.level,
+                "basis": entry.basis,
+                "source": entry.source,
+                "bullet_id": entry.evidence_id,
+                "bullet_text": cited_text,
+                "transfer_reason": entry.transfer_reason,
+                "clamped": entry.clamped,
+                "downgraded": entry.downgraded,
+                "fallback": cited_fallback,
+            }
+        )
+        graded_inputs.append(
             Graded(
                 requirement=entry.requirement,
                 level=entry.level,
                 must_have=entry.must_have,
-                bullet_id=entry.bullet_id,
-                bullet_text=texts.get(entry.bullet_id or ""),
+                bullet_id=entry.evidence_id,
+                bullet_text=cited_text,
+                basis=entry.basis,
+                transfer_reason=entry.transfer_reason,
             )
-            for entry in grading.levels
-        ],
-        must_have=jd.must_have,
-        nice_to_have=jd.nice_to_have,
-    )
+        )
+
+    # N5 (PRD F6, F6.1): the gaps fall out of the grading above — deterministic and
+    # free — and one call interprets them. The disqualifier verdicts are deterministic
+    # too: only what the stored education rows decide, `unverified` otherwise. F6.1's
+    # fifth band is listed, not interpreted: it is not a gap, and its `transfer_reason`
+    # is already the argument to prepare.
+    detected = detect_gaps(graded_inputs, must_have=jd.must_have, nice_to_have=jd.nice_to_have)
+    gaps = [gap for gap in detected if not gap.covered_by_transfer]
+    covered = [gap for gap in detected if gap.covered_by_transfer]
     disqualifiers = disqualifier_verdicts(
         jd.hard_requirements, has_education=bool(list_educations(profile_id, session))
+    )
+    # F6.1's alerts beside the single warning, never in the score: over-seniority
+    # from the Title detail (salary, retention), and the hard requirements that
+    # concern location, with their verdicts.
+    alerts: list[dict[str, object]] = []
+    if sub_scores["title"].detail.get("over_seniority"):
+        alerts.append({"kind": "over_seniority"})
+    alerts.extend(
+        {"kind": "location", "requirement": entry.requirement, "verdict": entry.verdict}
+        for entry in location_requirements(disqualifiers)
     )
     stories = list_stories(profile_id, session)
     # The reads above end before the provider call starts, like every other call here.
@@ -245,22 +302,16 @@ def analyze(
 
     report: dict[str, object] = {
         "jd": jd.model_dump(mode="json"),
-        "grades": [
-            {
-                "requirement": entry.requirement,
-                "must_have": entry.must_have,
-                "level": entry.level,
-                "bullet_id": entry.bullet_id,
-                # Snapshotted: the report must still show what was graded after
-                # the bullet is edited or deactivated.
-                "bullet_text": texts.get(entry.bullet_id or ""),
-            }
-            for entry in grading.levels
-        ],
+        # `bullet_text` is the citation's snapshot under its historical name — a
+        # bullet's text, a summary's text or the skills list, as the row's `source`
+        # says. Snapshotted so the report still shows what was graded after the
+        # source is edited or deactivated.
+        "grades": grades,
         "grading_note": grading.note,
         # N5 (PRD F6): the gap analysis beside the grades it fell out of. The rows
         # are detection's, in F6.1's band order, with the interpretation's blocking
         # flag and one line merged in — the model never reorders and never adds.
+        # F6.1's fifth band and its alerts sit beside them, never inside the list.
         "gaps": {
             "gaps": [
                 {
@@ -274,10 +325,22 @@ def analyze(
                 }
                 for gap, note in zip(gaps, reading.notes, strict=True)
             ],
+            "covered_by_transfer": [
+                {
+                    "requirement": gap.requirement,
+                    "level": gap.level,
+                    "must_have": gap.must_have,
+                    "bullet_id": gap.bullet_id,
+                    "bullet_text": gap.bullet_text,
+                    "transfer_reason": gap.transfer_reason,
+                }
+                for gap in covered
+            ],
             "warning": {
                 "text": reading.warning.text,
                 "handling": reading.warning.handling,
             },
+            "alerts": alerts,
             "not_found": reading.not_found,
             "stories_used": len(stories),
         },
@@ -314,5 +377,6 @@ def analyze(
         company=(company or "").strip() or None,
         jd=jd,
         bullets=tuple(bullets),
+        document=tuple(document),
         recall=recall,
     )
