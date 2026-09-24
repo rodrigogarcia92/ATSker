@@ -172,8 +172,7 @@
       "es",
       "en"
     ],
-    "kind": "technical",
-    "family": "stats_package"
+    "kind": "technical"
   },
   {
     "canonical": "bash",
