@@ -107,7 +107,7 @@ def _delete_bullets(
         or 0
     )
     counts["story_links"] = _count(
-        session, select(StoryBullet.id).where(StoryBullet.bullet_id.in_(ids))
+        session, select(StoryBullet.bullet_id).where(StoryBullet.bullet_id.in_(ids))
     )
     counts["revisions"] = _count(
         session, select(BulletRevision.id).where(BulletRevision.bullet_id.in_(ids))
@@ -298,7 +298,7 @@ def _delete_numbers(
             or 0
         ),
         "story_links": _count(
-            session, select(StoryBullet.id).where(StoryBullet.bullet_id == bullet_id)
+            session, select(StoryBullet.bullet_id).where(StoryBullet.bullet_id == bullet_id)
         ),
         "revisions": _count(
             session, select(BulletRevision.id).where(BulletRevision.bullet_id == bullet_id)
