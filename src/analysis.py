@@ -24,7 +24,8 @@ from decimal import Decimal
 
 from sqlalchemy.orm import Session
 
-from src.bullets import bullet_text, list_bullets
+from src.bullets import bullet_text
+from src.documents import document_bullets, document_headline, track_document
 from src.education import list_educations
 from src.extract.boolean import derive_boolean_queries
 from src.extract.client import CallOptions, Completion
@@ -47,7 +48,6 @@ from src.score.weights import W2
 from src.search.boolean import RecallReport, evaluate
 from src.search.sources import searchable_units
 from src.stories import list_stories
-from src.tracks import track_bullets
 from src.vocabulary import alias_map
 
 
@@ -126,21 +126,11 @@ def analyze(
         raise RuntimeError("an analysis needs a profile that exists")
 
     roles = list_roles(profile_id, session, active_only=True)
-    role_ids = {role.id for role in roles}
-    if track is None:
-        bullets = [
-            bullet
-            for bullet in list_bullets(profile_id, session, active_only=True)
-            if bullet.role_id in role_ids
-        ]
-    else:
-        # A bullet the user has since deactivated, or whose role was, is not evidence
-        # even when a track still selects it — the same rule as the no-track path.
-        bullets = [
-            bullet
-            for bullet in track_bullets(profile_id, session, track.id)
-            if bullet.active and bullet.role_id in role_ids
-        ]
+    # The evidence and the document are one decision (F5.5.1): the same bullets,
+    # read through the same rule — active, under an active role, the track's
+    # selection or every one of them.
+    bullets = document_bullets(profile_id, session, track)
+    if track is not None:
         # F5.1: a track built from an upload is capped by the document that produced
         # it. No source document — or no track — means no gate and no cap, which is
         # also what an analysis against the master database has always been.
@@ -159,6 +149,12 @@ def analyze(
     # The extraction just wrote its unmapped-term notes; the grading call must not
     # carry them across the network either.
     session.commit()
+    # The document as one reader sees it, in the posting's language (F4.1): what the
+    # keyword scan runs over, what the title sub-score reads its headline from, and
+    # where a citation's snapshot comes from. Only the extraction can say which
+    # language that is, so it is built here and read before the next call.
+    document = track_document(profile_id, session, track, jd.language)
+    session.commit()
     grading = grade_evidence(
         session,
         jd,
@@ -176,21 +172,14 @@ def analyze(
     )
     recall = evaluate(
         queries.queries,
-        searchable_units(
-            profile_id,
-            session,
-            bullets=bullets,
-            headline=(track.headline if track is not None else None) or profile.headline,
-            summary=(track.summary if track is not None else None) or profile.summary,
-            role_titles=[role.title for role in roles],
-        ),
+        searchable_units(document),
         alias_map(session),
     )
 
     sub_scores: dict[str, SubScore] = {
         "title": title_alignment(
             jd,
-            headline=(track.headline if track is not None else None) or profile.headline,
+            headline=document_headline(document),
             role_titles=[role.title for role in roles],
             aliases=aliases,
         ),

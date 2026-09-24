@@ -1,61 +1,52 @@
-"""The text a boolean query runs against (PRD F5.2).
+"""The text a boolean query — and the keyword scorer — runs against (PRD F5.2).
 
-F5.2 names it: a track's bullets, skills, headline, summary, role titles, education
-and certifications. Two scope decisions are worth stating, because both are decisions
-this project already made elsewhere:
+What the document contains is decided in one place, `src.documents.track_document`:
+this module only maps those units to `SearchUnit`s and keeps the order the search
+panel has always shown them in, so the two scans and the number cannot disagree
+about the person's career (F5.5.1).
 
-- the evidence is the same evidence the score reads — the track's selection, or every
-  active bullet when there is no track — so the two scans and the number cannot
-  disagree about what the person's career contains;
-- `profiles.skills` is left out (decision 32): it is annotation from a résumé review
-  and cannot lift a number, so it cannot satisfy a recruiter's query either.
+Two scope decisions travel from the old implementation:
+
+- the evidence is the same evidence the score reads — the track's selection, or
+  every active bullet when there is no track;
+- `profiles.skills` is still not read (decision 32): it is annotation from a
+  résumé review and cannot lift a number. The reversal in F5.4.1 is only for the
+  track's own `tracks.skills` — the selection is the skills section a reader sees,
+  and a real ATS keyword search runs over exactly that.
 """
 
-import uuid
 from collections.abc import Sequence
 
-from sqlalchemy.orm import Session
-
-from src.bullets import bullet_text
-from src.certifications import list_certifications
-from src.education import list_educations
-from src.models import Bullet
+from src.documents import DocumentUnit
 from src.search.boolean import SearchUnit
 
+# The panel's order, unchanged since F5.2: bullets, skills, headline, summary,
+# roles, education, certifications.
+_BUCKETS: tuple[tuple[str, ...], ...] = (
+    ("bullet",),
+    ("skill", "skills_list"),
+    ("headline",),
+    ("summary",),
+    ("role",),
+    ("education",),
+    ("certification",),
+)
 
-def searchable_units(
-    profile_id: uuid.UUID,
-    session: Session,
-    *,
-    bullets: Sequence[Bullet],
-    headline: str | None = None,
-    summary: str | None = None,
-    role_titles: Sequence[str] = (),
-) -> list[SearchUnit]:
-    """Every piece of a track's text, one unit at a time, in a stable order."""
-    units = [
-        SearchUnit("bullet", bullet_text(bullet), str(bullet.id))
-        for bullet in bullets
-        if bullet_text(bullet)
-    ]
-    units += [
-        SearchUnit("skill", skill)
-        for skill in sorted({skill for bullet in bullets for skill in bullet.skills})
-    ]
-    if headline:
-        units.append(SearchUnit("headline", headline))
-    if summary:
-        units.append(SearchUnit("summary", summary))
-    units += [SearchUnit("role", title) for title in role_titles if title]
-    units += [
-        SearchUnit(
-            "education",
-            " ".join(part for part in (entry.institution, entry.degree, entry.field) if part),
-        )
-        for entry in list_educations(profile_id, session)
-    ]
-    units += [
-        SearchUnit("certification", " ".join(part for part in (entry.name, entry.issuer) if part))
-        for entry in list_certifications(profile_id, session)
-    ]
+
+def searchable_units(document: Sequence[DocumentUnit]) -> list[SearchUnit]:
+    """Every piece of the document's text, one unit at a time.
+
+    A no-track document yields byte-identical output to the pre-F4.1
+    `searchable_units`: same units, same order. The skills section — the track's
+    selection, or the bullets' chips without a track — is searchable as `skill`
+    units either way.
+    """
+    units: list[SearchUnit] = []
+    for kinds in _BUCKETS:
+        for unit in document:
+            if unit.kind not in kinds or not unit.text:
+                continue
+            kind = "skill" if unit.kind in ("skill", "skills_list") else unit.kind
+            cited = unit.source_id if unit.kind == "bullet" else None
+            units.append(SearchUnit(kind, unit.text, cited))
     return units

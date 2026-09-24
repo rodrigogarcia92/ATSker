@@ -171,7 +171,7 @@ def career(session, two_accounts, vocabulary) -> SimpleNamespace:
         name="Analista de datos",
         applies_when="Puestos de analista de datos",
         lang="es",
-        headline="Analista de datos",
+        headline_es="Analista de datos",
     )
     second_track = create_track(
         second_profile.id,

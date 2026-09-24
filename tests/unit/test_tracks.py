@@ -9,7 +9,8 @@ import pytest
 from sqlalchemy import select
 
 from src.bullets import create_bullet, get_bullet, list_bullets, update_bullet
-from src.models import Track, TrackBullet
+from src.models import Summary, Track, TrackBullet
+from src.summaries import create_summary
 from src.tracks import (
     clone_track,
     create_track,
@@ -51,6 +52,8 @@ def positions_of(session, track_id) -> list[int]:
 def test_cloning_a_track_copies_its_fields_and_the_selection_order(session, career, selection):
     profile_id = career.first_profile.id
     source = career.first_track
+    career.first_profile.skills = ["python"]
+    summary = create_summary(profile_id, session, text="Cinco años automatizando.", lang="es")
     update_track(
         profile_id,
         session,
@@ -60,7 +63,9 @@ def test_cloning_a_track_copies_its_fields_and_the_selection_order(session, care
         lang=source.lang,
         organisation_kind="Corporativo",
         specialisation="Riesgo",
-        headline=source.headline,
+        headline_es=source.headline_es,
+        summary_es_id=summary.id,
+        skills=["python"],
     )
     chosen = [selection[2].id, career.first_bullet.id, selection[0].id]
     set_track_bullets(profile_id, session, source.id, chosen)
@@ -71,7 +76,9 @@ def test_cloning_a_track_copies_its_fields_and_the_selection_order(session, care
     assert clone.name == "Analista de datos (copia)"
     assert clone.applies_when == source.applies_when
     assert clone.lang == source.lang
-    assert clone.headline == source.headline
+    assert clone.headline_es == source.headline_es
+    assert (clone.summary_es_id, clone.summary_en_id) == (summary.id, None)
+    assert clone.skills == ["python"], "the skill selection is copied too (F4.1)"
     assert clone.target_seniority == source.target_seniority
     assert (clone.organisation_kind, clone.specialisation) == ("Corporativo", "Riesgo")
     assert clone.active is True
@@ -199,8 +206,11 @@ def test_track_data_access_is_scoped_to_the_profile(session, career):
 
 
 def test_a_new_track_starts_empty_and_keeps_the_fields_it_was_given(session, career):
+    profile_id = career.first_profile.id
+    career.first_profile.skills = ["python"]
+    summary = create_summary(profile_id, session, text="Ingeniería de datos.", lang="en")
     track = create_track(
-        career.first_profile.id,
+        profile_id,
         session,
         name="  Data Engineer  ",
         applies_when="  Plataformas de datos  ",
@@ -208,23 +218,25 @@ def test_a_new_track_starts_empty_and_keeps_the_fields_it_was_given(session, car
         target_seniority="senior",
         organisation_kind="  Corporativo  ",
         specialisation="Plataformas",
-        headline="Data Engineer",
-        summary="Ingeniería de datos.",
+        headline_en="Data Engineer",
+        summary_en_id=summary.id,
+        skills=["python", "no está en el fondo"],
     )
 
     assert track.name == "Data Engineer"
     assert track.applies_when == "Plataformas de datos"
-    assert (track.lang, track.target_seniority, track.headline, track.summary) == (
+    assert (track.lang, track.target_seniority, track.headline_en) == (
         "en",
         "senior",
         "Data Engineer",
-        "Ingeniería de datos.",
     )
+    assert track.summary_en_id == summary.id and track.summary_es_id is None
+    assert track.skills == ["python"], "only pool skills can be selected (F4.1)"
     assert (track.organisation_kind, track.specialisation) == ("Corporativo", "Plataformas")
-    assert track_bullets(career.first_profile.id, session, track.id) == []
+    assert track_bullets(profile_id, session, track.id) == []
 
     cleared = update_track(
-        career.first_profile.id,
+        profile_id,
         session,
         track.id,
         name="Data Engineer",
@@ -233,11 +245,16 @@ def test_a_new_track_starts_empty_and_keeps_the_fields_it_was_given(session, car
         target_seniority="",
         organisation_kind="  ",
         specialisation=None,
-        headline="  ",
-        summary=None,
+        headline_en="  ",
+        summary_en_id=None,
     )
 
-    assert (cleared.target_seniority, cleared.headline, cleared.summary) == (None, None, None)
+    assert (cleared.target_seniority, cleared.headline_en, cleared.summary_en_id) == (
+        None,
+        None,
+        None,
+    )
+    assert cleared.skills == [], "the selection is replaced, and this one is empty"
     assert (cleared.organisation_kind, cleared.specialisation) == (None, None)
 
 
@@ -296,8 +313,8 @@ def test_creating_a_track_lands_on_its_detail_page(client, session, career):
             "applies_when": "Plataformas de datos",
             "lang": "en",
             "target_seniority": "senior",
-            "headline": "Data Engineer",
-            "summary": "Ingeniería de datos.",
+            "headline_en": "Data Engineer",
+            "summary_en_new": "Ingeniería de datos.",
         },
         follow_redirects=False,
     )
@@ -313,6 +330,127 @@ def test_creating_a_track_lands_on_its_detail_page(client, session, career):
     assert "senior" in page
     assert "Ingeniería de datos." in page
     assert "Sin viñetas seleccionadas." in page
+
+
+def test_writing_a_new_summary_creates_a_pool_row_and_selects_it(client, session, career):
+    """F4.1: the track references the pool, so a written summary joins it and can be
+    reused by another track instead of living inside this one."""
+    login(client, career.first.email)
+
+    saved = client.post(
+        "/tracks",
+        data={
+            "name": "Con resumen nuevo",
+            "lang": "es",
+            "summary_es_new": "Cinco años automatizando reportes.",
+        },
+        follow_redirects=False,
+    )
+
+    track = session.scalar(select(Track).where(Track.name == "Con resumen nuevo"))
+    assert saved.status_code == 303
+    entry = session.get(Summary, track.summary_es_id)
+    assert entry.text == "Cinco años automatizando reportes."
+    assert entry.lang == "es"
+    assert entry.source_resume_id is None, "escrito a mano, not from an upload"
+    assert "Cinco años automatizando reportes." in client.get(f"/tracks/{track.id}").text
+
+
+def test_the_summary_picker_selects_a_pool_row_and_refuses_a_foreign_one(
+    client, session, career
+):
+    """An id from a form is as untrusted as one from a URL (F1): another profile's
+    summary is dropped rather than followed."""
+    login(client, career.first.email)
+
+    saved = client.post(
+        f"/tracks/{career.first_track.id}",
+        data={
+            "name": career.first_track.name,
+            "lang": "es",
+            "headline_es": career.first_track.headline_es or "",
+            "summary_es_id": str(career.first_summary.id),
+        },
+        follow_redirects=False,
+    )
+
+    assert saved.status_code == 303
+    session.expire_all()
+    assert career.first_track.summary_es_id == career.first_summary.id
+
+    stolen = client.post(
+        f"/tracks/{career.first_track.id}",
+        data={
+            "name": career.first_track.name,
+            "lang": "es",
+            "summary_es_id": str(career.second_summary.id),
+        },
+        follow_redirects=False,
+    )
+
+    assert stolen.status_code == 303
+    session.expire_all()
+    assert career.first_track.summary_es_id is None, "a foreign pool row is not referenced"
+
+
+def test_the_form_offers_the_pool_grouped_by_kind_and_refuses_outside_it(
+    client, session, career
+):
+    """F4.1: a skill no upload or manual entry ever listed cannot be added here."""
+    career.first_profile.skills = ["python", "machine learning"]
+    session.commit()
+    login(client, career.first.email)
+
+    form = client.get(f"/tracks/{career.first_track.id}/edit").text
+
+    assert "Técnica" in form, "the pool is grouped by skills.kind"
+    assert 'value="python"' in form and 'value="machine learning"' in form
+    assert "cobalto" not in form, "a term outside the pool is not offered"
+
+    saved = client.post(
+        f"/tracks/{career.first_track.id}",
+        data={
+            "name": career.first_track.name,
+            "lang": "es",
+            "skill": ["python", "cobalto"],
+        },
+        follow_redirects=False,
+    )
+
+    assert saved.status_code == 303
+    session.expire_all()
+    assert career.first_track.skills == ["python"], "the pool is the ceiling"
+
+
+def test_the_list_and_detail_pages_show_the_skills_and_the_summary_languages(
+    client, session, career
+):
+    """F4.1: the pages say which languages the track has a summary in."""
+    profile_id = career.first_profile.id
+    career.first_profile.skills = ["python"]
+    summary = create_summary(profile_id, session, text="Resumen en español.", lang="es")
+    update_track(
+        profile_id,
+        session,
+        career.first_track.id,
+        name=career.first_track.name,
+        applies_when=career.first_track.applies_when,
+        lang="es",
+        headline_es=career.first_track.headline_es,
+        summary_es_id=summary.id,
+        skills=["python"],
+    )
+    session.commit()
+    login(client, career.first.email)
+
+    listing = client.get("/tracks").text
+    detail = client.get(f"/tracks/{career.first_track.id}").text
+
+    assert "Habilidades: python" in listing
+    assert "Con resumen en: es" in listing
+    assert "Resumen en español." in detail
+    assert "Con resumen en: es" in detail
+    assert "python" in detail
 
 
 def test_editing_a_track_saves_its_fields_and_its_deactivation(client, session, career):

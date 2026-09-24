@@ -17,12 +17,16 @@ from src.scoping import owned_row, owned_rows
 from src.vocabulary import log_unmapped, resolve_bullet_terms, skills_in_text
 
 
-def bullet_text(bullet: Bullet) -> str:
-    """The text a consumer reads: Spanish first, English as the fallback.
+def bullet_text(bullet: Bullet, lang: str | None = None) -> str:
+    """The text a consumer reads, in `lang` when it is given (F4.1).
 
-    Grading, keyword scoring and the report's citation all read the same line, so
-    what the model was shown and what the report displays cannot drift apart.
+    Without `lang` the order is Spanish first, English as the fallback — the
+    behaviour every caller had before tracks worked in both languages. Grading,
+    keyword scoring and the report's citation all read the same line, so what the
+    model was shown and what the report displays cannot drift apart.
     """
+    if lang == "en":
+        return bullet.text_en or bullet.text_es or ""
     return bullet.text_es or bullet.text_en or ""
 
 

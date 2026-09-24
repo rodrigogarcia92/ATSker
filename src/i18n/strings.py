@@ -397,13 +397,44 @@ STRINGS: dict[str, dict[str, str]] = {
         "es": "El eje del propio puesto: riesgo, marketing, plataforma… Opcional.",
         "en": "The role's own axis: risk, marketing, platform… Optional.",
     },
-    "tracks.headline": {"es": "Titular", "en": "Headline"},
+    "tracks.headline_es": {"es": "Titular en español", "en": "Spanish headline"},
+    "tracks.headline_en": {"es": "Titular en inglés", "en": "English headline"},
     "tracks.headline_hint": {
-        "es": "Si lo rellenas, sustituye al titular del perfil al puntuar el encaje de "
-        "puesto.",
-        "en": "When set, it replaces the profile headline when scoring title alignment.",
+        "es": "Uno por idioma. Al analizar una oferta se lee el del idioma de la oferta, "
+        "y si falta, el otro; sin ninguno se usa el titular del perfil.",
+        "en": "One per language. An analysis reads the posting's language one and falls "
+        "back to the other; with neither, the profile headline is used.",
     },
-    "tracks.summary": {"es": "Resumen", "en": "Summary"},
+    "tracks.summary_es": {"es": "Resumen en español", "en": "Spanish summary"},
+    "tracks.summary_en": {"es": "Resumen en inglés", "en": "English summary"},
+    "tracks.summary_none": {"es": "— sin resumen —", "en": "— no summary —"},
+    "tracks.summary_new": {
+        "es": "O escribir uno nuevo (se guarda en el fondo común)",
+        "en": "Or write a new one (it joins the pool)",
+    },
+    "tracks.summary_hint": {
+        "es": "Uno por idioma, tomado del fondo común de resúmenes o escrito aquí: uno "
+        "escrito nuevo entra en el fondo y puede reusarlo otro puesto objetivo. El "
+        "puesto referencia el fondo; no guarda texto propio.",
+        "en": "One per language, picked from the summary pool or written here: a written "
+        "one joins the pool and can be reused by another track. The track references "
+        "the pool; it stores no text of its own.",
+    },
+    "tracks.skills": {"es": "Habilidades", "en": "Skills"},
+    "tracks.skills_hint": {
+        "es": "Solo las de tu fondo común de habilidades, agrupadas por tipo. Una "
+        "habilidad que ninguna importación o entrada manual listó no puede añadirse.",
+        "en": "Only your skills pool, grouped by kind. A skill no upload or manual entry "
+        "ever listed cannot be added.",
+    },
+    "tracks.skills_pool_empty": {
+        "es": "Tu fondo de habilidades está vacío: importa un currículum o añade "
+        "habilidades a una viñeta.",
+        "en": "Your skills pool is empty: import a résumé or add skills to a bullet.",
+    },
+    "tracks.skills_none": {"es": "Sin habilidades seleccionadas.", "en": "No skills selected."},
+    "tracks.summaries_present": {"es": "Con resumen en: {langs}", "en": "Summary in: {langs}"},
+    "tracks.summaries_absent": {"es": "Sin resumen todavía.", "en": "No summary yet."},
     "tracks.bullets": {"es": "viñetas", "en": "bullets"},
     "tracks.empty": {
         "es": "Todavía no hay puestos objetivo. Crea el primero.",

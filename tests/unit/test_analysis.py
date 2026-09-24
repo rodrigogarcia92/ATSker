@@ -580,7 +580,7 @@ def test_a_tracks_headline_replaces_the_profiles_for_title_alignment(session, ca
         {**json.loads(PROPOSAL), "title": "Data Scientist"}
     )
     track = create_track(
-        profile_id, session, name="Data Scientist", lang="en", headline="Data Scientist"
+        profile_id, session, name="Data Scientist", lang="en", headline_en="Data Scientist"
     )
     set_track_bullets(profile_id, session, track.id, [career.first_bullet.id])
     session.commit()

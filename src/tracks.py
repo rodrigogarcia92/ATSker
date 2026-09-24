@@ -1,9 +1,13 @@
-"""Data access for tracks (PRD F4).
+"""Data access for tracks (PRD F4, F4.1).
 
-A track owns no content: it references master bullets, so editing one updates it
-everywhere and removing it from a track deletes nothing. `profile_id` comes first
-and ownership lives inside the query (F1), so another profile's track is simply
-not found — never found and then rejected.
+A track owns no content: it references master bullets, pool summaries and pool
+skills, so editing one updates it everywhere and removing it from a track deletes
+nothing. `profile_id` comes first and ownership lives inside the query (F1), so
+another profile's track is simply not found — never found and then rejected.
+
+The headline slots and summary references are the whole CV the track presents
+(F4.1); `tracks.headline` and `tracks.summary` are legacy columns kept unread for
+the expand/contract migration (PRD 6's `0009` paragraph).
 """
 
 import uuid
@@ -13,8 +17,10 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from src.bullets import bullets_by_ids
-from src.models import Bullet, Track, TrackBullet
+from src.models import Bullet, Profile, Track, TrackBullet
+from src.normalize.text import fold
 from src.scoping import owned_row, owned_rows
+from src.summaries import get_summary
 
 
 def list_tracks(
@@ -38,10 +44,19 @@ def create_track(
     target_seniority: str | None = None,
     organisation_kind: str | None = None,
     specialisation: str | None = None,
-    headline: str | None = None,
-    summary: str | None = None,
+    headline_es: str | None = None,
+    headline_en: str | None = None,
+    summary_es_id: uuid.UUID | str | None = None,
+    summary_en_id: uuid.UUID | str | None = None,
+    skills: Sequence[str] = (),
 ) -> Track:
-    """A new track starts empty: the selection is the next screen, not a side effect."""
+    """A new track starts empty: the selection is the next screen, not a side effect.
+
+    The summary slots reference the profile's pool (F4.1) and the skills are a
+    selection of the profile's pool — a summary or skill belonging to nobody else
+    can be referenced, and one that is not this profile's is dropped rather than
+    followed, like a foreign bullet id.
+    """
     track = Track(
         profile_id=profile_id,
         name=name.strip(),
@@ -50,8 +65,11 @@ def create_track(
         target_seniority=_clean(target_seniority),
         organisation_kind=_clean(organisation_kind),
         specialisation=_clean(specialisation),
-        headline=_clean(headline),
-        summary=_clean(summary),
+        headline_es=_clean(headline_es),
+        headline_en=_clean(headline_en),
+        summary_es_id=_owned_summary_id(profile_id, session, summary_es_id),
+        summary_en_id=_owned_summary_id(profile_id, session, summary_en_id),
+        skills=_pool_skills(profile_id, session, skills),
     )
     session.add(track)
     session.flush()
@@ -69,8 +87,11 @@ def update_track(
     target_seniority: str | None = None,
     organisation_kind: str | None = None,
     specialisation: str | None = None,
-    headline: str | None = None,
-    summary: str | None = None,
+    headline_es: str | None = None,
+    headline_en: str | None = None,
+    summary_es_id: uuid.UUID | str | None = None,
+    summary_en_id: uuid.UUID | str | None = None,
+    skills: Sequence[str] = (),
     active: bool = True,
 ) -> Track | None:
     track = get_track(profile_id, session, track_id)
@@ -82,8 +103,11 @@ def update_track(
     track.target_seniority = _clean(target_seniority)
     track.organisation_kind = _clean(organisation_kind)
     track.specialisation = _clean(specialisation)
-    track.headline = _clean(headline)
-    track.summary = _clean(summary)
+    track.headline_es = _clean(headline_es)
+    track.headline_en = _clean(headline_en)
+    track.summary_es_id = _owned_summary_id(profile_id, session, summary_es_id)
+    track.summary_en_id = _owned_summary_id(profile_id, session, summary_en_id)
+    track.skills = _pool_skills(profile_id, session, skills)
     track.active = active
     session.flush()
     return track
@@ -105,8 +129,11 @@ def clone_track(
         target_seniority=source.target_seniority,
         organisation_kind=source.organisation_kind,
         specialisation=source.specialisation,
-        headline=source.headline,
-        summary=source.summary,
+        headline_es=source.headline_es,
+        headline_en=source.headline_en,
+        summary_es_id=source.summary_es_id,
+        summary_en_id=source.summary_en_id,
+        skills=source.skills,
     )
     members = session.scalars(
         select(TrackBullet)
@@ -186,3 +213,38 @@ def selection_sizes(profile_id: uuid.UUID, session: Session) -> dict[uuid.UUID, 
 def _clean(value: str | None) -> str | None:
     """A cleared form field arrives as an empty string; the columns mean NULL by unset."""
     return (value or "").strip() or None
+
+
+def _owned_summary_id(
+    profile_id: uuid.UUID, session: Session, value: uuid.UUID | str | None
+) -> uuid.UUID | None:
+    """A summary slot points into this profile's pool, or it points nowhere.
+
+    An id from a form is as untrusted as one from a URL: another profile's row is
+    dropped rather than followed, exactly like a foreign bullet id in the picker.
+    """
+    if not value:
+        return None
+    entry = get_summary(profile_id, session, value)
+    return entry.id if entry is not None else None
+
+
+def _pool_skills(
+    profile_id: uuid.UUID, session: Session, skills: Sequence[str]
+) -> list[str]:
+    """The skill selection is a subset of the profile's pool (F4.1), and nothing else.
+
+    A skill no upload or manual entry ever listed cannot be added to a track here —
+    the pool is the ceiling, so the form's checkbox list and the stored selection
+    cannot drift apart.
+    """
+    profile = session.get(Profile, profile_id)
+    if profile is None:
+        return []
+    pool = {fold(skill): skill for skill in profile.skills}
+    kept: list[str] = []
+    for skill in skills:
+        canonical = pool.get(fold(skill or ""))
+        if canonical is not None and canonical not in kept:
+            kept.append(canonical)
+    return kept

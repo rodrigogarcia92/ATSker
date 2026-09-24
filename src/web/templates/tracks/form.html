@@ -50,16 +50,69 @@
       <p class="mt-1 text-xs text-slate-500">{{ t('tracks.specialisation_hint', lang) }}</p>
     </div>
   </div>
-  <div>
-    <label for="headline" class="mb-1 block text-sm font-medium">{{ t('tracks.headline', lang) }}</label>
-    <input id="headline" name="headline" value="{{ track.headline or '' if track else '' }}"
-           class="w-full rounded border border-slate-300 px-3 py-2 text-sm">
-    <p class="mt-1 text-xs text-slate-500">{{ t('tracks.headline_hint', lang) }}</p>
+
+  {# F4.1: the whole CV the track presents. A headline per language, a summary per
+     language picked from the pool (a written one joins it), and a skill selection
+     from the pool. Nothing is stored free-text on the track itself. #}
+  <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+    <div>
+      <label for="headline_es" class="mb-1 block text-sm font-medium">{{ t('tracks.headline_es', lang) }}</label>
+      <input id="headline_es" name="headline_es"
+             value="{{ track.headline_es or '' if track else '' }}"
+             class="w-full rounded border border-slate-300 px-3 py-2 text-sm">
+    </div>
+    <div>
+      <label for="headline_en" class="mb-1 block text-sm font-medium">{{ t('tracks.headline_en', lang) }}</label>
+      <input id="headline_en" name="headline_en"
+             value="{{ track.headline_en or '' if track else '' }}"
+             class="w-full rounded border border-slate-300 px-3 py-2 text-sm">
+    </div>
   </div>
+  <p class="text-xs text-slate-500">{{ t('tracks.headline_hint', lang) }}</p>
+
+  {% macro summary_slot(code, label_key, rows, selected_id) %}
+  <div class="rounded border border-slate-100 bg-slate-50 p-3">
+    <label for="summary_{{ code }}_id" class="mb-1 block text-sm font-medium">{{ t(label_key, lang) }}</label>
+    <select id="summary_{{ code }}_id" name="summary_{{ code }}_id"
+            class="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm">
+      <option value="">{{ t('tracks.summary_none', lang) }}</option>
+      {% for row in rows %}
+      <option value="{{ row.id }}" {% if selected_id == row.id %}selected{% endif %}>
+        {{ row.text[:60] }}{% if row.text|length > 60 %}…{% endif %} — {{ row.file or t('summaries.hand_written', lang) }}
+      </option>
+      {% endfor %}
+    </select>
+    <label for="summary_{{ code }}_new" class="mt-2 block text-sm font-medium">{{ t('tracks.summary_new', lang) }}</label>
+    <textarea id="summary_{{ code }}_new" name="summary_{{ code }}_new" rows="3"
+              class="w-full rounded border border-slate-300 px-3 py-2 text-sm"></textarea>
+  </div>
+  {% endmacro %}
+
+  <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+    {{ summary_slot('es', 'tracks.summary_es', summary_rows.get('es', []),
+                    track.summary_es_id if track else none) }}
+    {{ summary_slot('en', 'tracks.summary_en', summary_rows.get('en', []),
+                    track.summary_en_id if track else none) }}
+  </div>
+  <p class="text-xs text-slate-500">{{ t('tracks.summary_hint', lang) }}</p>
+
   <div>
-    <label for="summary" class="mb-1 block text-sm font-medium">{{ t('tracks.summary', lang) }}</label>
-    <textarea id="summary" name="summary" rows="4"
-              class="w-full rounded border border-slate-300 px-3 py-2 text-sm">{{ track.summary or '' if track else '' }}</textarea>
+    <p class="mb-1 text-sm font-medium">{{ t('tracks.skills', lang) }}</p>
+    <p class="mb-2 text-xs text-slate-500">{{ t('tracks.skills_hint', lang) }}</p>
+    {% for kind, names in skill_groups %}
+    <p class="mt-2 text-xs uppercase tracking-wide text-slate-500">{{ t('kind.' ~ kind, lang) }}</p>
+    <div class="mt-1 flex flex-wrap gap-2">
+      {% for name in names %}
+      <label class="flex items-center gap-2 rounded border border-slate-200 bg-white px-3 py-2 text-sm">
+        <input type="checkbox" name="skill" value="{{ name }}"
+               {% if track and name in track.skills %}checked{% endif %}>
+        <span>{{ name }}</span>
+      </label>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-sm text-slate-600">{{ t('tracks.skills_pool_empty', lang) }}</p>
+    {% endfor %}
   </div>
 
   {% if track %}
