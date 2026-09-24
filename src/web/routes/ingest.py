@@ -16,6 +16,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from src.extract.client import (
+    CallOptions,
     NoModelConfigured,
     ProviderUnavailable,
     StructuredOutputError,
@@ -379,6 +380,7 @@ async def import_upload(
             session,
             loaded.text,
             known_names=[profile.display_name] if profile.display_name else None,
+            options=CallOptions(profile_id=profile.id),
         )
     except NoModelConfigured:
         # No call was attempted and nothing was paid for: there is no answer to purge
@@ -516,6 +518,7 @@ def import_retry(
             session,
             loaded.text,
             known_names=[profile.display_name] if profile.display_name else None,
+            options=CallOptions(profile_id=profile.id),
         )
     except NoModelConfigured:
         message = t("import.no_model", user.ui_lang)

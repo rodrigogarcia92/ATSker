@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from src.bullets import bullet_text, list_bullets
 from src.db import short_session
 from src.extract import redaction
-from src.extract.client import complete_json
+from src.extract.client import CallOptions, complete_json
 from src.extract.prompts import STORY_SUGGESTION, summarize_rows
 from src.models import Story
 from src.roles import list_roles
@@ -41,7 +41,12 @@ class StorySuggestion:
 
 
 def suggest_story_links(
-    profile_id: uuid.UUID, session: Session, story: Story, *, owner_name: str | None = None
+    profile_id: uuid.UUID,
+    session: Session,
+    story: Story,
+    *,
+    owner_name: str | None = None,
+    options: CallOptions | None = None,
 ) -> StorySuggestion:
     """Ask for tags, then discard anything the profile cannot already justify."""
     # The profile reads are the function's own: the caller's transaction is never
@@ -69,6 +74,7 @@ def suggest_story_links(
         system=STORY_SUGGESTION.system,
         user=prompt,
         schema=StorySuggestionSchema,
+        options=options,
     )
 
     # Model output is a proposal, not an authority: unknown ids and skills are dropped.

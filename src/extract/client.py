@@ -13,6 +13,7 @@ provider thinks is the one the database kills mid-flight (2026-09-20, defect 1).
 
 import hashlib
 import json
+import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
 from decimal import Decimal
@@ -91,6 +92,12 @@ class CallOptions:
     seed: int | None = None
     reasoning_effort: str | None = None
     degenerate: Callable[[dict[str, Any]], bool] | None = None
+    # Whose call it is (F2.8): recorded on the ledger row so "Eliminar todo" can
+    # redact that profile's personal answers. Attribution rides the options the
+    # analysis path already forwards unchanged, so the frozen scorer files need no
+    # edit (queue B.2's decision); the cache lookup deliberately never filters by
+    # it — same input and prompt version stay one cache entry, whatever the profile.
+    profile_id: uuid.UUID | None = None
 
 
 @dataclass(frozen=True)
@@ -178,6 +185,7 @@ def _write_ledger(
     completion_tokens: int,
     cost_usd: Decimal,
     degenerate: bool = False,
+    profile_id: uuid.UUID | None = None,
 ) -> None:
     """Write the paid call's row on the client's own connection, with one retry.
 
@@ -204,6 +212,7 @@ def _write_ledger(
                         completion_tokens=completion_tokens,
                         cost_usd=cost_usd,
                         degenerate=degenerate,
+                        profile_id=profile_id,
                     )
                 )
                 ledger.commit()
@@ -337,6 +346,7 @@ def complete_json(
             completion_tokens=completion_tokens,
             cost_usd=cost,
             degenerate=degenerate,
+            profile_id=opts.profile_id,
         )
     except LedgerWriteError as exc:
         # The answer was paid for: return it, and let the caller surface that the

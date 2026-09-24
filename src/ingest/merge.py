@@ -567,6 +567,10 @@ def apply_merge(
                     text_es=text_es,
                     chips=bullet.chips,
                 )
+                # Provenance (F2.8): which CV created this bullet, so "only this CV
+                # contributed" can delete it later. Matched and changed bullets keep
+                # whatever provenance they already carry.
+                created_bullet.source_resume_id = resume.id
                 counts["bullets_created"] += 1
                 new_bullet_ids[(index, bullet_index)] = created_bullet.id
             elif bullet.label == "changed":

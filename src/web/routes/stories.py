@@ -8,6 +8,7 @@ from fastapi.responses import RedirectResponse
 
 from src.bullets import list_bullets
 from src.extract.client import (
+    CallOptions,
     NoModelConfigured,
     ProviderUnavailable,
     StructuredOutputError,
@@ -172,7 +173,11 @@ def story_suggest(
     session.commit()
     try:
         suggestion = suggest_story_links(
-            profile.id, session, story, owner_name=profile.display_name
+            profile.id,
+            session,
+            story,
+            owner_name=profile.display_name,
+            options=CallOptions(profile_id=profile.id),
         )
     except (NoModelConfigured, ProviderUnavailable, StructuredOutputError) as exc:
         session.rollback()
