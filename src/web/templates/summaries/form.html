@@ -35,7 +35,8 @@
 <form method="post" action="/summaries/{{ summary.id }}/active" class="mt-4">
   <input type="hidden" name="active" value="{{ 'off' if summary.active else 'on' }}">
   <button type="submit" class="rounded border border-slate-300 px-3 py-2 text-sm">
-    {{ t('common.deactivate' if summary.active else 'common.reactivate', lang) }}
+    {{ t('common.hide' if summary.active else 'common.reactivate', lang) }}
   </button>
 </form>
+<a href="/summaries/{{ summary.id }}/delete" class="mt-4 inline-block text-sm text-red-700 underline">{{ t('common.delete', lang) }}</a>
 {% endblock %}

@@ -6,6 +6,8 @@ from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
 
 from src.bullets import list_bullets
+from src.deletion import delete_role, impact_role
+from src.i18n import t
 from src.roles import create_role, get_role, list_roles, set_role_active, update_role
 from src.web.deps import DbSession, OwnProfile, SignedInUser
 from src.web.forms import is_checked, parse_date
@@ -113,6 +115,32 @@ def role_toggle(
 ):
     role = set_role_active(profile.id, session, role_id, active=is_checked(active))
     if role is None:
+        raise HTTPException(status_code=404)
+    session.commit()
+    return RedirectResponse("/roles", status_code=303)
+
+
+@router.get("/roles/{role_id}/delete")
+def role_delete_form(
+    role_id: str, request: Request, user: SignedInUser, session: DbSession, profile: OwnProfile
+):
+    """F2.8: the confirmation screen states the consequences in numbers first."""
+    impact = impact_role(profile.id, session, role_id)
+    if impact is None:
+        return render(request, "not_found.html", user=user, status_code=404)
+    return render(
+        request,
+        "delete/confirm.html",
+        user=user,
+        impact_text=t("delete.impact.role", user.ui_lang, **impact),
+        action=f"/roles/{role_id}/delete",
+        cancel="/roles",
+    )
+
+
+@router.post("/roles/{role_id}/delete")
+def role_delete(role_id: str, session: DbSession, profile: OwnProfile):
+    if delete_role(profile.id, session, role_id) is None:
         raise HTTPException(status_code=404)
     session.commit()
     return RedirectResponse("/roles", status_code=303)

@@ -69,6 +69,7 @@
               <button type="submit" class="text-xs underline">{{ t('common.save', lang) }}</button>
             </noscript>
           </form>
+          <a href="/applications/{{ row.id }}/delete" class="ml-2 text-xs text-red-700 underline">{{ t('common.delete', lang) }}</a>
         </td>
       </tr>
       {% endfor %}

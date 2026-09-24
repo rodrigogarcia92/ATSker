@@ -12,6 +12,8 @@ from fastapi import APIRouter, Form, HTTPException, Query, Request
 from fastapi.responses import RedirectResponse
 
 from src.applications import HISTORY_SORTS, OUTCOMES, list_applications, set_application_outcome
+from src.deletion import delete_application, impact_application
+from src.i18n import t
 from src.web.deps import DbSession, OwnProfile, SignedInUser
 from src.web.templating import render
 
@@ -58,6 +60,35 @@ def application_outcome(
     if outcome not in OUTCOMES:
         raise HTTPException(status_code=400, detail="unknown outcome")
     if set_application_outcome(profile.id, session, application_id, outcome=outcome) is None:
+        raise HTTPException(status_code=404)
+    session.commit()
+    return RedirectResponse("/applications", status_code=303)
+
+
+@router.get("/applications/{application_id}/delete")
+def application_delete_form(
+    application_id: str,
+    request: Request,
+    user: SignedInUser,
+    session: DbSession,
+    profile: OwnProfile,
+):
+    impact = impact_application(profile.id, session, application_id)
+    if impact is None:
+        return render(request, "not_found.html", user=user, status_code=404)
+    return render(
+        request,
+        "delete/confirm.html",
+        user=user,
+        impact_text=t("delete.impact.application", user.ui_lang, **impact),
+        action=f"/applications/{application_id}/delete",
+        cancel="/applications",
+    )
+
+
+@router.post("/applications/{application_id}/delete")
+def application_delete(application_id: str, session: DbSession, profile: OwnProfile):
+    if delete_application(profile.id, session, application_id) is None:
         raise HTTPException(status_code=404)
     session.commit()
     return RedirectResponse("/applications", status_code=303)

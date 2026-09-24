@@ -33,7 +33,8 @@ STRINGS: dict[str, dict[str, str]] = {
     "common.cancel": {"es": "Cancelar", "en": "Cancel"},
     "common.edit": {"es": "Editar", "en": "Edit"},
     "common.delete": {"es": "Eliminar", "en": "Delete"},
-    "common.deactivate": {"es": "Desactivar", "en": "Deactivate"},
+    # F2.8: soft delete is renamed for what it does — the hide control reads Ocultar.
+    "common.hide": {"es": "Ocultar", "en": "Hide"},
     "common.reactivate": {"es": "Reactivar", "en": "Reactivate"},
     "common.active": {"es": "activo", "en": "active"},
     "common.inactive": {"es": "inactivo", "en": "inactive"},
@@ -588,10 +589,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "es": "Propuesta cargada en el formulario. Revísala y guarda.",
         "en": "Proposal loaded into the form. Review it and save.",
     },
-    "stories.delete_confirm": {
-        "es": "¿Eliminar esta historia? No se puede deshacer.",
-        "en": "Delete this story? This cannot be undone.",
-    },
+
     # Letters
     "letters.title": {"es": "Plantillas de carta", "en": "Letter templates"},
     "letters.new": {"es": "Nueva plantilla", "en": "New template"},
@@ -604,9 +602,133 @@ STRINGS: dict[str, dict[str, str]] = {
     "letters.presentation": {"es": "Párrafo de presentación", "en": "Presentation paragraph"},
     "letters.achievements": {"es": "Párrafo de logros", "en": "Achievements paragraph"},
     "letters.empty": {"es": "Todavía no hay plantillas.", "en": "No templates yet."},
-    "letters.delete_confirm": {
-        "es": "¿Eliminar esta plantilla?",
-        "en": "Delete this template?",
+    # F2.8: Eliminar is permanent. Every delete goes through a confirmation screen
+    # that states its consequences in numbers before anything happens.
+    "delete.title": {"es": "¿Eliminar para siempre?", "en": "Delete permanently?"},
+    "delete.impact.resume": {
+        "es": (
+            "Se eliminarán el archivo del CV y su borrador. Aportó {bullets} balas, que se "
+            "conservan salvo que marques la casilla. {bullets_unknown} balas tienen procedencia "
+            "desconocida y la casilla nunca las elimina."
+        ),
+        "en": (
+            "The archived CV file and its draft will be deleted. It contributed {bullets} "
+            "bullets, which are kept unless you tick the box. {bullets_unknown} bullets have "
+            "unknown provenance and the box never deletes those."
+        ),
+    },
+    "delete.impact.role": {
+        "es": (
+            "Se eliminarán el puesto, sus {bullets} balas y sus {revisions} revisiones. Quedan "
+            "{stories} historias con el enlace al puesto vacío."
+        ),
+        "en": (
+            "The role, its {bullets} bullets and their {revisions} revisions will be deleted. "
+            "{stories} stories stay with the role link cleared."
+        ),
+    },
+    "delete.impact.bullet": {
+        "es": (
+            "La bala está en {tracks} pistas y citada por {analyses} análisis; los análisis "
+            "conservan su copia. Se eliminan además sus {story_links} enlaces a historias y sus "
+            "{revisions} revisiones."
+        ),
+        "en": (
+            "The bullet is in {tracks} tracks and cited by {analyses} analyses; the analyses "
+            "keep their copy. Its {story_links} story links and its {revisions} revisions go "
+            "too."
+        ),
+    },
+    "delete.impact.skill": {
+        "es": (
+            "«{skill}» saldrá de tu pool y de {tracks} pistas. El vocabulario compartido no "
+            "se toca."
+        ),
+        "en": "“{skill}” leaves your pool and {tracks} tracks. The shared vocabulary is untouched.",
+    },
+    "delete.impact.summary": {
+        "es": "Se eliminará el resumen del pool. {tracks} pistas pierden esa casilla.",
+        "en": "The pool summary will be deleted. {tracks} tracks lose that slot.",
+    },
+    "delete.impact.track": {
+        "es": (
+            "Se eliminarán la pista y su selección de {selection} balas. {analyses} análisis "
+            "conservan el nombre de la pista."
+        ),
+        "en": (
+            "The track and its selection of {selection} bullets will be deleted. {analyses} "
+            "analyses keep the track name."
+        ),
+    },
+    "delete.impact.story": {
+        "es": "Se eliminarán la historia y sus {links} enlaces a balas.",
+        "en": "The story and its {links} bullet links will be deleted.",
+    },
+    "delete.impact.letter": {
+        "es": "Se eliminará la plantilla.",
+        "en": "The template will be deleted.",
+    },
+    "delete.impact.application": {
+        "es": (
+            "Se eliminará el análisis almacenado. Los ficheros del golden set viven fuera de "
+            "la base de datos."
+        ),
+        "en": "The stored analysis will be deleted. Golden-set files live outside the database.",
+    },
+    "delete.impact.everything": {
+        "es": (
+            "Se eliminará todo lo del perfil: {resumes} CV, {roles} puestos, {bullets} balas, "
+            "{summaries} resúmenes, {tracks} pistas, {stories} historias, {letter_templates} "
+            "plantillas, {applications} análisis y {skills} habilidades del pool. Se vaciarán "
+            "{ledger_redacted} respuestas personales del registro de modelos, conservando "
+            "tokens y coste. Tu cuenta y tu fila de perfil se quedan, vacías."
+        ),
+        "en": (
+            "Everything in the profile goes: {resumes} CVs, {roles} roles, {bullets} bullets, "
+            "{summaries} summaries, {tracks} tracks, {stories} stories, {letter_templates} "
+            "templates, {applications} analyses and {skills} pool skills. {ledger_redacted} "
+            "personal answers in the model-call ledger are blanked, keeping tokens and cost. "
+            "Your login and your profile row stay, blanked."
+        ),
+    },
+    "delete.unattributable": {
+        "es": (
+            "{count} llamadas del registro se escribieron sin profile_id y no se pueden "
+            "atribuir; para esas sigue siendo herramienta del operador "
+            "`llm_costs.py purge --hash`."
+        ),
+        "en": (
+            "{count} ledger rows were written before profile_id existed and cannot be "
+            "attributed; the operator's `llm_costs.py purge --hash` remains the tool for "
+            "those."
+        ),
+    },
+    "delete.cv_option": {
+        "es": "Eliminar también las balas que solo aportó este CV.",
+        "en": "Also delete the bullets only this CV contributed.",
+    },
+    "delete.typed_label": {
+        "es": "Escribe ELIMINAR para confirmar.",
+        "en": "Type ELIMINAR to confirm.",
+    },
+    "delete.typed_mismatch": {
+        "es": "La palabra no coincide: escribe ELIMINAR.",
+        "en": "The word does not match: type ELIMINAR.",
+    },
+    "profile.skills_pool": {"es": "Habilidades (pool)", "en": "Skills (pool)"},
+    "profile.skills_none": {"es": "El pool está vacío.", "en": "The pool is empty."},
+    "profile.delete_all": {"es": "Eliminar todo", "en": "Delete everything"},
+    "profile.delete_all_hint": {
+        "es": (
+            "Elimina todo lo del perfil: CV, puestos, balas, resúmenes, pistas, historias, "
+            "plantillas, análisis y las respuestas personales del registro de modelos. Tu "
+            "cuenta y tu fila de perfil se quedan, vacías."
+        ),
+        "en": (
+            "Deletes everything in the profile: CVs, roles, bullets, summaries, tracks, "
+            "stories, templates, analyses and the personal answers in the model-call ledger. "
+            "Your login and your profile row stay, blanked."
+        ),
     },
     # Vocabulary
     "vocabulary.title": {"es": "Vocabulario", "en": "Vocabulary"},
@@ -709,7 +831,7 @@ STRINGS: dict[str, dict[str, str]] = {
     "import.uploaded_at": {"es": "Subido el", "en": "Uploaded"},
     "import.view": {"es": "Ver", "en": "View"},
     "import.review_link": {"es": "Revisar", "en": "Review"},
-    "import.discard": {"es": "Descartar", "en": "Discard"},
+    "import.discard": {"es": "Ocultar", "en": "Hide"},
     "import.status.pending": {"es": "En revisión", "en": "In review"},
     "import.status.merged": {"es": "Importado", "en": "Merged"},
     "import.status.discarded": {"es": "Descartado", "en": "Discarded"},

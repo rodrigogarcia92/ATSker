@@ -69,16 +69,6 @@ def update_story(
     return story
 
 
-def delete_story(profile_id: uuid.UUID, session: Session, story_id: str | uuid.UUID) -> bool:
-    story = get_story(profile_id, session, story_id)
-    if story is None:
-        return False
-    session.execute(delete(StoryBullet).where(StoryBullet.story_id == story.id))
-    session.delete(story)
-    session.flush()
-    return True
-
-
 def linked_bullet_ids(
     profile_id: uuid.UUID, session: Session, story_id: str | uuid.UUID
 ) -> list[uuid.UUID]:

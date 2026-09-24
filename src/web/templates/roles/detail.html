@@ -19,6 +19,7 @@
        class="rounded bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800">
       {{ t('bullets.new', lang) }}
     </a>
+    <a href="/roles/{{ role.id }}/delete" class="text-sm text-red-700 underline">{{ t('common.delete', lang) }}</a>
   </div>
 </div>
 
@@ -46,7 +47,7 @@
       <form method="post" action="/bullets/{{ bullet.id }}/active">
         <input type="hidden" name="active" value="{{ 'off' if bullet.active else 'on' }}">
         <button type="submit" class="text-sm underline">
-          {{ t('common.deactivate', lang) if bullet.active else t('common.reactivate', lang) }}
+          {{ t('common.hide', lang) if bullet.active else t('common.reactivate', lang) }}
         </button>
       </form>
     </div>

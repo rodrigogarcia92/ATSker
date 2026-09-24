@@ -21,6 +21,8 @@ from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
 
 from src.bullets import list_bullets
+from src.deletion import delete_track, impact_track
+from src.i18n import t
 from src.resumes import get_resume
 from src.roles import list_roles
 from src.summaries import create_summary, get_summary, list_summaries
@@ -306,6 +308,31 @@ def track_bullets_save(
     set_track_bullets(profile.id, session, track_id, chosen)
     session.commit()
     return RedirectResponse(f"/tracks/{track_id}", status_code=303)
+
+
+@router.get("/tracks/{track_id}/delete")
+def track_delete_form(
+    track_id: str, request: Request, user: SignedInUser, session: DbSession, profile: OwnProfile
+):
+    impact = impact_track(profile.id, session, track_id)
+    if impact is None:
+        return render(request, "not_found.html", user=user, status_code=404)
+    return render(
+        request,
+        "delete/confirm.html",
+        user=user,
+        impact_text=t("delete.impact.track", user.ui_lang, **impact),
+        action=f"/tracks/{track_id}/delete",
+        cancel="/tracks",
+    )
+
+
+@router.post("/tracks/{track_id}/delete")
+def track_delete(track_id: str, session: DbSession, profile: OwnProfile):
+    if delete_track(profile.id, session, track_id) is None:
+        raise HTTPException(status_code=404)
+    session.commit()
+    return RedirectResponse("/tracks", status_code=303)
 
 
 def ordered_selection(

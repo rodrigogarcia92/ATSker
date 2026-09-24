@@ -89,9 +89,6 @@
 </form>
 
 {% if story %}
-<form method="post" action="/stories/{{ story.id }}/delete" class="mt-4"
-      onsubmit="return confirm('{{ t('stories.delete_confirm', lang) }}')">
-  <button type="submit" class="text-sm text-red-700 underline">{{ t('common.delete', lang) }}</button>
-</form>
+<a href="/stories/{{ story.id }}/delete" class="mt-4 inline-block text-sm text-red-700 underline">{{ t('common.delete', lang) }}</a>
 {% endif %}
 {% endblock %}

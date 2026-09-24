@@ -7,6 +7,7 @@ from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
 
 from src.bullets import list_bullets
+from src.deletion import delete_story, impact_story
 from src.extract.client import (
     CallOptions,
     NoModelConfigured,
@@ -19,7 +20,6 @@ from src.i18n import t
 from src.roles import list_roles
 from src.stories import (
     create_story,
-    delete_story,
     get_story,
     linked_bullet_ids,
     list_stories,
@@ -149,9 +149,26 @@ def story_save(
     return RedirectResponse(f"/stories/{story.id}", status_code=303)
 
 
+@router.get("/stories/{story_id}/delete")
+def story_delete_form(
+    story_id: str, request: Request, user: SignedInUser, session: DbSession, profile: OwnProfile
+):
+    impact = impact_story(profile.id, session, story_id)
+    if impact is None:
+        return render(request, "not_found.html", user=user, status_code=404)
+    return render(
+        request,
+        "delete/confirm.html",
+        user=user,
+        impact_text=t("delete.impact.story", user.ui_lang, **impact),
+        action=f"/stories/{story_id}/delete",
+        cancel=f"/stories/{story_id}",
+    )
+
+
 @router.post("/stories/{story_id}/delete")
 def story_delete(story_id: str, session: DbSession, profile: OwnProfile):
-    if not delete_story(profile.id, session, story_id):
+    if delete_story(profile.id, session, story_id) is None:
         raise HTTPException(status_code=404)
     session.commit()
     return RedirectResponse("/stories", status_code=303)

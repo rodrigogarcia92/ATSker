@@ -21,6 +21,7 @@
        class="rounded bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800">
       {{ t('tracks.pick', lang) }}
     </a>
+    <a href="/tracks/{{ track.id }}/delete" class="text-sm text-red-700 underline">{{ t('common.delete', lang) }}</a>
   </div>
 </div>
 
@@ -94,7 +95,7 @@
   <form method="post" action="/tracks/{{ track.id }}/active">
     <input type="hidden" name="active" value="{{ 'off' if track.active else 'on' }}">
     <button type="submit" class="text-sm underline">
-      {{ t('common.deactivate', lang) if track.active else t('common.reactivate', lang) }}
+      {{ t('common.hide', lang) if track.active else t('common.reactivate', lang) }}
     </button>
     <span class="ml-2 text-xs text-slate-500">{{ t('tracks.deactivate_hint', lang) }}</span>
   </form>

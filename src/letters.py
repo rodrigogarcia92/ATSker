@@ -70,10 +70,4 @@ def update_letter(
     return letter
 
 
-def delete_letter(profile_id: uuid.UUID, session: Session, letter_id: str | uuid.UUID) -> bool:
-    letter = get_letter(profile_id, session, letter_id)
-    if letter is None:
-        return False
-    session.delete(letter)
-    session.flush()
-    return True
+

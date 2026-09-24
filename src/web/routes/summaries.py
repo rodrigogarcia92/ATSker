@@ -11,6 +11,8 @@ from typing import Annotated
 from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
 
+from src.deletion import delete_summary, impact_summary
+from src.i18n import t
 from src.summaries import get_summary, set_summary_active, update_summary
 from src.web.deps import DbSession, OwnProfile, SignedInUser
 from src.web.forms import is_checked
@@ -69,3 +71,28 @@ def summary_toggle(
         raise HTTPException(status_code=404)
     session.commit()
     return RedirectResponse(f"/summaries/{summary_id}", status_code=303)
+
+
+@router.get("/summaries/{summary_id}/delete")
+def summary_delete_form(
+    summary_id: str, request: Request, user: SignedInUser, session: DbSession, profile: OwnProfile
+):
+    impact = impact_summary(profile.id, session, summary_id)
+    if impact is None:
+        return render(request, "not_found.html", user=user, status_code=404)
+    return render(
+        request,
+        "delete/confirm.html",
+        user=user,
+        impact_text=t("delete.impact.summary", user.ui_lang, **impact),
+        action=f"/summaries/{summary_id}/delete",
+        cancel=f"/summaries/{summary_id}",
+    )
+
+
+@router.post("/summaries/{summary_id}/delete")
+def summary_delete(summary_id: str, session: DbSession, profile: OwnProfile):
+    if delete_summary(profile.id, session, summary_id) is None:
+        raise HTTPException(status_code=404)
+    session.commit()
+    return RedirectResponse("/tracks", status_code=303)
