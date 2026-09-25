@@ -34,6 +34,11 @@ class Settings(BaseSettings):
     # the lowest effort all three candidates advertise; empty leaves the provider
     # default in place.
     openrouter_reasoning_effort: str | None = "low"
+    # The chat-completion timeout. The same number lives as
+    # `src.extract.client.TIMEOUT_SECONDS` and stays importable for
+    # `fixtures/golden/probe_model.py`; raise this (e.g. 180) for reasoning models,
+    # which can take minutes to answer a three-line posting (2026-09-25).
+    openrouter_timeout_seconds: float = 60.0
     session_secret: SecretStr | None = None
 
     @property

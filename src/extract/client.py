@@ -17,6 +17,7 @@ import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
 from decimal import Decimal
+from functools import cache
 from typing import Any, TypeVar
 
 import httpx
@@ -29,6 +30,8 @@ from src.config import get_settings
 from src.models import LlmCall
 
 ENDPOINT = "https://openrouter.ai/api/v1/chat/completions"
+# The default `Settings.openrouter_timeout_seconds` starts from, kept importable so
+# `fixtures/golden/probe_model.py` can measure against the app's own budget.
 TIMEOUT_SECONDS = 60.0
 
 SchemaT = TypeVar("SchemaT", bound=BaseModel)
@@ -135,7 +138,7 @@ def _post(payload: dict[str, Any], api_key: str) -> dict[str, Any]:
         ENDPOINT,
         json=payload,
         headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-        timeout=TIMEOUT_SECONDS,
+        timeout=get_settings().openrouter_timeout_seconds,
     )
     response.raise_for_status()
     return response.json()
@@ -145,8 +148,128 @@ def _schema_for(schema: type[BaseModel]) -> dict[str, Any]:
     return {
         "name": schema.__name__,
         "strict": True,
-        "schema": schema.model_json_schema(),
+        "schema": strict_schema(schema),
     }
+
+
+def _accepts_null(node: Any) -> bool:
+    """True when a JSON Schema node already allows `null` on its own."""
+    if not isinstance(node, dict):
+        return False
+    if node.get("type") == "null":
+        return True
+    return any(
+        isinstance(entry, dict) and entry.get("type") == "null"
+        for entry in node.get("anyOf") or ()
+    )
+
+
+def strict_schema(schema: type[BaseModel]) -> dict[str, Any]:
+    """OpenAI strict mode's shape, derived from Pydantic's rather than written (A.7.1).
+
+    Strict mode wants `required` to name every property, `additionalProperties`
+    false, and no `default` anywhere. Pydantic omits defaulted fields from
+    `required`, emits `default` keys and leaves `additionalProperties` alone —
+    which Google and DeepInfra accept and OpenAI rejects outright (2026-09-25).
+    Closing the gap here rather than in the models keeps one schema for every
+    provider: a property that was optional and did not accept `null` becomes
+    nullable so a strict model can still say "unstated", and `nullable_paths` with
+    `_prune_nulls` turns those `null`s back into the field's own default before
+    Pydantic sees them.
+    """
+    root = schema.model_json_schema()
+
+    def transform(node: Any) -> Any:
+        if isinstance(node, list):
+            return [transform(entry) for entry in node]
+        if not isinstance(node, dict):
+            return node
+
+        out: dict[str, Any] = {}
+        for name, value in node.items():
+            if name == "default":
+                continue
+            if name in ("properties", "$defs") and isinstance(value, dict):
+                # These map *names* to schemas: their keys are not keywords, so a
+                # property literally called `default` survives here.
+                out[name] = {key: transform(entry) for key, entry in value.items()}
+            else:
+                out[name] = transform(value)
+
+        properties = out.get("properties")
+        if not isinstance(properties, dict):
+            return out
+        required = set(node.get("required") or ())
+        for name, prop in list(properties.items()):
+            if name in required or _accepts_null(prop):
+                continue
+            wrapper: dict[str, Any] = {"anyOf": [prop, {"type": "null"}]}
+            if isinstance(prop, dict) and isinstance(prop.get("description"), str):
+                wrapper["description"] = prop["description"]
+            properties[name] = wrapper
+        out["required"] = sorted(properties)
+        out["additionalProperties"] = False
+        return out
+
+    return transform(root)
+
+
+@cache
+def nullable_paths(schema: type[BaseModel]) -> frozenset[tuple[str, ...]]:
+    """Paths of the properties `strict_schema` had to make nullable (A.7.2).
+
+    A path is the chain of property names from the root, with a list contributing
+    no step — `roles[].start_date` is `("roles", "start_date")`. Cached per schema
+    class: every answer is pruned against it and the shape never changes.
+    """
+    root = schema.model_json_schema()
+    defs = root.get("$defs") or {}
+    found: set[tuple[str, ...]] = set()
+
+    def walk(node: Any, path: tuple[str, ...], stack: tuple[str, ...]) -> None:
+        if isinstance(node, list):
+            for entry in node:
+                walk(entry, path, stack)
+            return
+        if not isinstance(node, dict):
+            return
+        ref = node.get("$ref")
+        if isinstance(ref, str):
+            name = ref.rsplit("/", 1)[-1]
+            # A recursive response model would grow its paths without end; the
+            # cycle is cut here. No schema sent to a provider is recursive.
+            if name not in stack:
+                walk(defs.get(name), path, (*stack, name))
+            return
+        for name, entry in (node.get("properties") or {}).items():
+            here = (*path, name)
+            if name not in set(node.get("required") or ()) and not _accepts_null(entry):
+                found.add(here)
+            walk(entry, here, stack)
+        for key in ("anyOf", "oneOf", "allOf", "items"):
+            walk(node.get(key), path, stack)
+
+    walk(root, (), ())
+    return frozenset(found)
+
+
+def _prune_nulls(answer: Any, paths: frozenset[tuple[str, ...]], path: tuple[str, ...] = ()) -> Any:
+    """Drop the `null`s strict mode forced the schema to accept (A.7.2).
+
+    Such a field has a default of its own and `null` must not overwrite it. A
+    field that genuinely accepts `null` is never in `paths`, so its `null` stays.
+    """
+    if isinstance(answer, list):
+        return [_prune_nulls(entry, paths, path) for entry in answer]
+    if not isinstance(answer, dict):
+        return answer
+    cleaned: dict[str, Any] = {}
+    for name, value in answer.items():
+        here = (*path, name)
+        if value is None and here in paths:
+            continue
+        cleaned[name] = _prune_nulls(value, paths, here)
+    return cleaned
 
 
 def _input_hash(*parts: str) -> str:
@@ -315,7 +438,11 @@ def complete_json(
             raise ProviderUnavailable(str(exc)) from exc
         message = body["choices"][0]["message"]["content"]
         try:
-            parsed = schema.model_validate(json.loads(message))
+            # A.7.2: strict mode made some optional fields nullable so the model
+            # could say "unstated". Those `null`s are dropped here and the field's
+            # own default applies; a `null` the schema genuinely allows stays.
+            data = _prune_nulls(json.loads(message), nullable_paths(schema))
+            parsed = schema.model_validate(data)
         except (json.JSONDecodeError, ValidationError) as exc:
             if attempt < retries:
                 attempt += 1

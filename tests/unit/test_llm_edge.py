@@ -8,16 +8,25 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session
 
 from src.extract import client
+from src.extract.boolean import BooleanQuerySet
 from src.extract.client import (
     CallOptions,
     NoModelConfigured,
     ProviderUnavailable,
     StructuredOutputError,
     TransactionHeldAcrossProviderCall,
+    _prune_nulls,
     complete_json,
+    nullable_paths,
+    strict_schema,
 )
+from src.extract.gaps import GapInterpretation
+from src.extract.grading import EvidenceGrading
+from src.extract.jd import JDProposal
 from src.extract.redaction import redact
+from src.extract.resume import ResumeExtraction
 from src.extract.stories import StorySuggestionSchema, suggest_story_links
+from src.model_selection import ProbeAnswer
 from src.models import LlmCall
 
 TEST_MODEL = "test/model-v1"
@@ -514,3 +523,164 @@ def test_a_short_document_with_an_empty_answer_is_not_called_degenerate(
 
     assert extraction.roles == [] and completion.cached is False
     assert session.query(LlmCall).one().degenerate is False
+
+
+# --- A.7: one schema every provider accepts ---------------------------------
+
+# Every schema class `complete_json` is called with anywhere in `src/` — exactly
+# what `schema=` passes. `ProbeAnswer` is the model-selection experiment's probe.
+PROVIDER_SCHEMAS = [
+    BooleanQuerySet,
+    GapInterpretation,
+    EvidenceGrading,
+    JDProposal,
+    ResumeExtraction,
+    StorySuggestionSchema,
+    ProbeAnswer,
+]
+
+
+def object_nodes(node):
+    """Every object schema in a JSON Schema tree, `$defs` entries included."""
+    if isinstance(node, list):
+        for entry in node:
+            yield from object_nodes(entry)
+    elif isinstance(node, dict):
+        if isinstance(node.get("properties"), dict):
+            yield node
+        for value in node.values():
+            yield from object_nodes(value)
+
+
+def holds_a_default(node) -> bool:
+    """Whether any schema node still carries a `default` key."""
+    if isinstance(node, list):
+        return any(holds_a_default(entry) for entry in node)
+    if not isinstance(node, dict):
+        return False
+    for name, value in node.items():
+        if name in ("properties", "$defs"):
+            if any(holds_a_default(entry) for entry in value.values()):
+                return True
+        elif name == "default":
+            return True
+        elif holds_a_default(value):
+            return True
+    return False
+
+
+@pytest.mark.parametrize("schema", PROVIDER_SCHEMAS, ids=lambda cls: cls.__name__)
+def test_every_object_level_of_a_provider_schema_is_strict(schema):
+    """A.7.1: `required` names every property, `additionalProperties` is false and
+    no `default` survives — at the root and inside `$defs` alike. OpenAI rejects the
+    whole request on any one of these; Google and DeepInfra do not."""
+    strict = strict_schema(schema)
+
+    assert not holds_a_default(strict), "a `default` anywhere is what strict mode rejects"
+    nodes = list(object_nodes(strict))
+    assert nodes, f"{schema.__name__} has at least one object schema"
+    for node in nodes:
+        assert node["additionalProperties"] is False
+        assert sorted(node["required"]) == sorted(node["properties"])
+
+
+def test_an_answer_of_nulls_falls_back_to_the_models_own_defaults():
+    """A.7.2: a field made nullable only so strict mode could say 'unstated' gets
+    its default back; a field that genuinely accepts `null` keeps the `null`."""
+    answer = {
+        "language": None,
+        "title": None,
+        "seniority": None,
+        "years_required": None,
+        "must_have": None,
+        "responsibilities": None,
+        "location_policy": None,
+    }
+
+    pruned = _prune_nulls(answer, nullable_paths(JDProposal))
+
+    assert pruned == {"years_required": None, "location_policy": None}, (
+        "only the genuinely nullable fields keep their null"
+    )
+    parsed = JDProposal.model_validate(pruned)
+    assert (parsed.language, parsed.title, parsed.seniority) == ("es", "", "unknown")
+    assert parsed.must_have == [] and parsed.responsibilities == []
+    assert parsed.years_required is None and parsed.location_policy is None
+
+
+def test_nulls_inside_a_nested_object_also_become_defaults():
+    """The transform reaches `$defs`, so the paths and the prune have to as well."""
+    answer = {
+        "headline": None,
+        "roles": [{"employer": None, "title": None, "start_date": None, "bullets": None}],
+        "credentials": [{"kind": None, "name": None, "field": None}],
+    }
+
+    parsed = ResumeExtraction.model_validate(
+        _prune_nulls(answer, nullable_paths(ResumeExtraction))
+    )
+
+    role = parsed.roles[0]
+    assert (role.employer, role.title, role.bullets) == ("", "", [])
+    assert role.start_date is None, "a genuinely nullable field keeps its null"
+    credential = parsed.credentials[0]
+    assert (credential.kind, credential.name, credential.field) == ("unsure", "", None)
+
+
+def test_the_request_carries_the_strict_schema(session, test_settings, monkeypatch):
+    """What the provider sees is the strict form, not Pydantic's own."""
+    seen = stub(monkeypatch, Answer(ANSWER))
+
+    call(session)
+
+    sent = seen[0]["response_format"]["json_schema"]
+    assert sent["name"] == "StorySuggestionSchema" and sent["strict"] is True
+    assert not holds_a_default(sent["schema"])
+    nodes = list(object_nodes(sent["schema"]))
+    assert nodes
+    for node in nodes:
+        assert node["additionalProperties"] is False
+        assert sorted(node["required"]) == sorted(node["properties"])
+
+
+def test_the_timeout_setting_reaches_the_provider_call(monkeypatch, test_settings):
+    """A.7.3: a reasoning model can take minutes on three lines of posting, so the
+    budget is configuration rather than a constant nobody can reach."""
+    monkeypatch.setenv("OPENROUTER_TIMEOUT_SECONDS", "180")
+    from src.config import get_settings
+
+    get_settings.cache_clear()
+    seen: dict[str, object] = {}
+
+    def fake_post(url, **kwargs):
+        seen.update(kwargs)
+        raise ProviderUnavailable("stop here")
+
+    monkeypatch.setattr("httpx.post", fake_post)
+
+    with pytest.raises(ProviderUnavailable):
+        client._post({"model": "x"}, "key")
+
+    assert seen["timeout"] == 180.0
+
+
+def test_the_default_timeout_is_the_one_the_probe_measures_against(
+    monkeypatch, test_settings
+):
+    """`TIMEOUT_SECONDS` stays importable for `probe_model.py` and stays the budget."""
+    monkeypatch.delenv("OPENROUTER_TIMEOUT_SECONDS", raising=False)
+    from src.config import get_settings
+
+    get_settings.cache_clear()
+    seen: dict[str, object] = {}
+
+    def fake_post(url, **kwargs):
+        seen.update(kwargs)
+        raise ProviderUnavailable("stop here")
+
+    monkeypatch.setattr("httpx.post", fake_post)
+
+    with pytest.raises(ProviderUnavailable):
+        client._post({"model": "x"}, "key")
+
+    assert seen["timeout"] == client.TIMEOUT_SECONDS
