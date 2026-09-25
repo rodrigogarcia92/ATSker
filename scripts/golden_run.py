@@ -1,4 +1,4 @@
-"""The golden-set runner: one command per scorer (queue A.3).
+r"""The golden-set runner: one command per scorer (queue A.3).
 
 Run it from the checkout whose scorer should be measured — it inserts the
 current working directory at `sys.path[0]` and imports `src.*` from there, so a
@@ -37,7 +37,7 @@ Operator notes (queue A.6, replaced by `docs/omp_queue_runner_resume.md` §6)::
     git worktree remove --force ..\atsker-w2
 
 The dev database must be at `0009` for both runs; `0009` is additive, so the
-baseline code runs on it. The CSVs land in `ATSker\\fixtures\\golden\\runs\\`
+baseline code runs on it. The CSVs land in `ATSker\fixtures\golden\runs\`
 for both runs.
 
 The runner never reads, copies or parses `.env` itself (resume §4): `src.config`
@@ -115,26 +115,6 @@ from src.tracks import list_tracks  # noqa: E402
 # off (queue A.3 step 1).
 PRODUCTION_HOST_MARK = "REDACTED-PROD-ENDPOINT"
 
-COLUMNS_BEFORE_SUB_SCORES = (
-    "pair_id",
-    "profile",
-    "split",
-    "lang",
-    "track",
-    "weights_version",
-    "score",
-    "uncapped",
-    "cap",
-)
-COLUMNS_AFTER_SUB_SCORES = (
-    "skills_direct",
-    "skills_transfer",
-    "cost_usd",
-    "cached_calls",
-    "application_id",
-    "commit",
-)
-
 
 def resolve_database_host() -> str:
     """The host of the URL exactly as `src.db` resolves it, or "" when there is none."""
@@ -163,21 +143,6 @@ def configuration_error() -> str | None:
         f"missing configuration: {', '.join(missing)} — a worktree needs its own .env "
         "(see the operator notes in this script's docstring)"
     )
-
-
-def output_is_ignored(path: Path) -> bool:
-    """Queue A.3 step 5: the CSV may only land where `git check-ignore` matches.
-
-    The guard runs against the repository the file actually lands in (resume §3),
-    which is why it starts in the output's own parent folder.
-    """
-    path.parent.mkdir(parents=True, exist_ok=True)
-    result = subprocess.run(
-        ["git", "-C", str(path.parent), "check-ignore", "-q", str(path)],
-        check=False,
-        capture_output=True,
-    )
-    return result.returncode == 0
 
 
 def accept_everything(plan) -> Selections:
@@ -363,7 +328,11 @@ def write_csv(
     comment: str | None = None,
 ) -> None:
     """The CSV, with the test-split comment first when the split was opened (A.3 step 5)."""
-    header = COLUMNS_BEFORE_SUB_SCORES + sub_score_names + COLUMNS_AFTER_SUB_SCORES
+    header = (
+        golden_inputs.COLUMNS_BEFORE_SUB_SCORES
+        + sub_score_names
+        + golden_inputs.COLUMNS_AFTER_SUB_SCORES
+    )
     with path.open("w", newline="", encoding="utf-8") as handle:
         if comment is not None:
             handle.write(comment + "\n")
@@ -405,7 +374,7 @@ def main(argv: list[str] | None = None) -> int:
     if PRODUCTION_HOST_MARK in host:
         print(f"refusing to run: the database host is the production endpoint ({host})")
         return 2
-    if not output_is_ignored(out_path):
+    if not golden_inputs.output_is_ignored(out_path):
         print(f"refusing to write outside a gitignored path: {out_path}")
         return 2
 

@@ -18,6 +18,7 @@ ignored entirely.)
 
 from __future__ import annotations
 
+import subprocess
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -47,6 +48,29 @@ SHEET_COLUMNS = (
     "lang",
     "split",
     "cv_version",
+)
+
+# The CSV layout both scripts honour: one column per sub-score goes between the
+# two blocks, read generically from the report. The stats reader identifies the
+# sub-score columns as whatever is left between them.
+COLUMNS_BEFORE_SUB_SCORES = (
+    "pair_id",
+    "profile",
+    "split",
+    "lang",
+    "track",
+    "weights_version",
+    "score",
+    "uncapped",
+    "cap",
+)
+COLUMNS_AFTER_SUB_SCORES = (
+    "skills_direct",
+    "skills_transfer",
+    "cost_usd",
+    "cached_calls",
+    "application_id",
+    "commit",
 )
 
 
@@ -102,6 +126,21 @@ def _text(value: object) -> str:
     if isinstance(value, float) and value.is_integer():
         return str(int(value))
     return str(value).strip()
+
+
+def output_is_ignored(path: Path) -> bool:
+    """Queue A.3 step 5: run output may only land where `git check-ignore` matches.
+
+    The guard runs against the repository the file actually lands in (resume §3),
+    which is why it starts in the output's own parent folder.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    result = subprocess.run(
+        ["git", "-C", str(path.parent), "check-ignore", "-q", str(path)],
+        check=False,
+        capture_output=True,
+    )
+    return result.returncode == 0
 
 
 def _number(value: object) -> float | None:
