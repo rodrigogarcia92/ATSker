@@ -98,6 +98,23 @@ class WeightsV3(WeightSet):
         return self.skills + self.experience + self.title + self.keywords
 
 
+@dataclass(frozen=True)
+class WeightsV4(WeightsV3):
+    """`w4` — PRD F5.5.2: `w3`'s four weights and basis credits, unchanged.
+
+    What moves the version is what the sub-scores *read* (title without seniority,
+    equivalents from the family data, every posting term a keyword, relevant
+    experience), so the same inputs produce different numbers. `experience_split`
+    is the one new value: how Experience divides between the relevant years and
+    the posting's tasks already done — a starting point recorded and hashed with
+    the rest, that the development split may move.
+    """
+
+    experience_split: Mapping[str, float] = field(
+        default_factory=lambda: {"years": 0.6, "tasks": 0.4}
+    )
+
+
 W1 = Weights(
     version="w1",
     title=0.20,
@@ -122,4 +139,14 @@ W3 = WeightsV3(
     title=0.20,
     keywords=0.15,
     basis_credit={"direct": 1.00, "equivalent": 0.75, "transferable": 0.50, "none": 0.0},
+)
+
+W4 = WeightsV4(
+    version="w4",
+    skills=0.40,
+    experience=0.25,
+    title=0.20,
+    keywords=0.15,
+    basis_credit={"direct": 1.00, "equivalent": 0.75, "transferable": 0.50, "none": 0.0},
+    experience_split={"years": 0.6, "tasks": 0.4},
 )

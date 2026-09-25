@@ -159,7 +159,7 @@ def test_the_csv_has_the_documented_columns_and_the_test_split_stays_sealed(
     assert [entry["pair_id"] for entry in rows] == ["1", "2"]
     assert all(entry["split"] == "dev" for entry in rows)
     assert all(entry["profile"] == "Ana" and entry["track"] == "CV-1" for entry in rows)
-    assert all(entry["weights_version"] == "w3" for entry in rows)
+    assert all(entry["weights_version"] == "w4" for entry in rows)
     assert all(entry["application_id"] and entry["commit"] for entry in rows)
     assert rows[0]["skills_transfer"] != "", "w3 computes the split (F5.5.1)"
     assert session.query(Application).count() == 2

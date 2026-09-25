@@ -9,7 +9,7 @@ from src.score.aggregate import SUB_SCORES, SubScore, aggregate
 from src.score.experience import experience_score, merge_intervals, years_held
 from src.score.keywords import keyword_context
 from src.score.title import seniority_of, title_alignment
-from src.score.weights import W1, W2, W3, Weights, WeightsV2, WeightsV3
+from src.score.weights import W1, W2, W3, W4, Weights, WeightsV2, WeightsV3, WeightsV4
 
 TODAY = date(2026, 1, 1)
 
@@ -276,6 +276,32 @@ def test_w3_keeps_the_four_weights_and_hashes_the_basis_credits_with_them():
         keywords=0.15,
         basis_credit=dict(W3.basis_credit),
     ).config_hash() == W3.config_hash(), "the hash covers both halves, and only the values"
+
+
+def test_w4_keeps_w3s_values_and_hashes_the_experience_split_with_them():
+    """F5.5.2: `w3`'s four weights and basis credits, unchanged, plus the split that
+    divides Experience — hashed with the rest, so a moved split is a new config."""
+    assert W4.total() == pytest.approx(1.0)
+    assert W4.version == "w4"
+    assert (W4.skills, W4.experience, W4.title, W4.keywords) == (
+        W3.skills,
+        W3.experience,
+        W3.title,
+        W3.keywords,
+    )
+    assert dict(W4.basis_credit) == dict(W3.basis_credit)
+    assert dict(W4.experience_split) == {"years": 0.6, "tasks": 0.4}
+
+    moved = WeightsV4(
+        "w4",
+        skills=0.40,
+        experience=0.25,
+        title=0.20,
+        keywords=0.15,
+        basis_credit=dict(W3.basis_credit),
+        experience_split={"years": 0.5, "tasks": 0.5},
+    )
+    assert moved.config_hash() != W4.config_hash(), "the split is hashed with the rest"
 
 
 def test_aggregation_matches_the_hand_computed_weighted_sum():

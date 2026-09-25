@@ -50,11 +50,11 @@ from src.score.experience import experience_score
 from src.score.gaps import Graded, detect_gaps, disqualifier_verdicts, location_requirements
 from src.score.keywords import keyword_context
 from src.score.title import title_alignment
-from src.score.weights import W3
+from src.score.weights import W4
 from src.search.boolean import RecallReport, evaluate
 from src.search.sources import searchable_units
 from src.stories import list_stories
-from src.vocabulary import alias_map
+from src.vocabulary import alias_map, vocabulary_hash
 
 
 @dataclass(frozen=True)
@@ -146,6 +146,10 @@ def analyze(
             if source is not None and source.gate:
                 gate = ParseReport.from_dict(source.gate)
     aliases = alias_map(session)
+    # The vocabulary this report was scored against (F3.1), read with the alias map
+    # it produced: a vocabulary change moves scores, so two reports must be able to
+    # say whether they saw the same words before the scorer is blamed.
+    vocab_hash = vocabulary_hash(session)
     today = date.today()
 
     # Transaction boundaries are the unit of work's: release the profile, role and
@@ -197,7 +201,7 @@ def analyze(
                 Level(entry.requirement, entry.level, entry.must_have, entry.basis)
                 for entry in grading.levels
             ],
-            basis_credit=W3.basis_credit,
+            basis_credit=W4.basis_credit,
         ),
         "keywords": keyword_context(jd, [unit.text for unit in document], aliases=aliases),
         "experience": experience_score(
@@ -210,7 +214,7 @@ def analyze(
             today=today,
         ),
     }
-    score = aggregate(sub_scores, W3, gate=gate)
+    score = aggregate(sub_scores, W4, gate=gate)
 
     # The snapshot (F5.4): what each citation showed, in the language it was shown
     # in, taken from the same document the judge read. Old report rows call this
@@ -302,6 +306,8 @@ def analyze(
 
     report: dict[str, object] = {
         "jd": jd.model_dump(mode="json"),
+        # F3.1: the vocabulary the run read, beside the score it produced.
+        "vocabulary_hash": vocab_hash,
         # `bullet_text` is the citation's snapshot under its historical name — a
         # bullet's text, a summary's text or the skills list, as the row's `source`
         # says. Snapshotted so the report still shows what was graded after the

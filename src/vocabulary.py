@@ -4,6 +4,8 @@ Alias promotion is the only way the vocabulary grows: nothing here invents a
 canonical, and terms the vocabulary does not know are logged for a human decision.
 """
 
+import hashlib
+import json
 from collections.abc import Iterable, Mapping, Sequence
 from datetime import UTC, datetime
 
@@ -27,6 +29,22 @@ def alias_map(session: Session) -> dict[str, str]:
         for alias in skill.aliases:
             mapping[fold(alias)] = skill.canonical
     return mapping
+
+
+def vocabulary_hash(session: Session) -> str:
+    """Deterministic hash of the vocabulary a report was scored against (PRD F3.1).
+
+    A vocabulary change moves JD extraction, chips and keywords, and therefore
+    scores; the hash lets two reports say whether they saw the same words before a
+    score difference is blamed on the scorer. Canonicals, their sorted aliases,
+    kind and family — status joins when B.1 adds it.
+    """
+    rows = sorted(
+        (skill.canonical, sorted(skill.aliases), skill.kind, skill.family)
+        for skill in session.scalars(select(Skill))
+    )
+    payload = json.dumps(rows, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return "sha256:" + hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
 def skills_in_text(session: Session, text: str, *, limit: int | None = None) -> list[str]:

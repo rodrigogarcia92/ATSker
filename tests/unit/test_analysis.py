@@ -21,9 +21,10 @@ from src.extract.grading import grade_evidence
 from src.extract.jd import extract_jd
 from src.jd import StructuredJD, jd_hash
 from src.models import Application, LlmCall
-from src.score.weights import W3
+from src.score.weights import W4
 from src.summaries import create_summary
 from src.tracks import create_track, set_track_bullets, update_track
+from src.vocabulary import vocabulary_hash
 from tests.conftest import login
 
 POSTING = """
@@ -129,13 +130,16 @@ def test_an_analysis_records_its_weights_prompts_and_cost(session, career, provi
     analysis = analyze(career.first_profile.id, session, jd_text=POSTING, company="Banco Demo")
     score = analysis.report["score"]
 
-    assert analysis.weights_version == "w3"
+    assert analysis.weights_version == "w4"
+    assert analysis.report["vocabulary_hash"] == vocabulary_hash(session), (
+        "the report records the vocabulary it was scored against (F3.1)"
+    )
     assert score["unavailable"] == {}, "w3 declares nothing missing"
     assert "semantic" not in score["sub_scores"]
     assert list(score["sub_scores"]) == ["skills", "experience", "title", "keywords"]
     assert sum(score["effective_weights"].values()) == pytest.approx(1.0)
     assert score["effective_weights_hash"].startswith("sha256:")
-    assert score["weights_hash"] == W3.config_hash(), (
+    assert score["weights_hash"] == W4.config_hash(), (
         "the config hash covers the four weights and the basis credits"
     )
     assert score["effective_weights"] == {
@@ -200,7 +204,7 @@ def test_the_total_is_the_hand_computed_weighted_sum_of_the_four(session, career
     score = analysis.report["score"]
     values = {name: entry["value"] for name, entry in score["sub_scores"].items()}
 
-    expected = sum(getattr(W3, name) * value for name, value in values.items())
+    expected = sum(getattr(W4, name) * value for name, value in values.items())
 
     assert score["weighted"] == pytest.approx(expected)
     assert score["uncapped"] == round(100 * expected)

@@ -11,6 +11,7 @@ from src.vocabulary import (
     log_unmapped,
     promote_alias,
     seed_vocabulary,
+    vocabulary_hash,
 )
 from tests.conftest import login
 
@@ -155,3 +156,24 @@ def test_a_new_canonical_can_be_created_by_promotion(session):
     assert skill.canonical == "power bi"
     assert "powerbi" in skill.aliases
     assert skill.lang_tags == ["es", "en"]
+
+
+def test_two_identical_vocabularies_hash_the_same_and_an_added_alias_changes_it(session):
+    """F3.1: the hash names the vocabulary a report used, so it must be a pure
+    function of its content — not of insertion order — and must see an alias."""
+    from src.models import Skill
+
+    entries = [
+        {"canonical": "python", "aliases": ["py"], "lang_tags": ["es", "en"]},
+        {"canonical": "excel", "aliases": ["hojas de calculo"], "lang_tags": ["es", "en"]},
+    ]
+    seed_vocabulary(session, entries)
+    first = vocabulary_hash(session)
+    assert first.startswith("sha256:")
+
+    session.query(Skill).delete()
+    seed_vocabulary(session, list(reversed(entries)))
+    assert vocabulary_hash(session) == first, "two identical vocabularies hash the same"
+
+    promote_alias(session, "python", "python3")
+    assert vocabulary_hash(session) != first, "an added alias changes the hash"
