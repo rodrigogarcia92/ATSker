@@ -340,6 +340,10 @@ STRINGS: dict[str, dict[str, str]] = {
         "es": "Tu seniority está por encima del pedido: riesgo salarial y de retención.",
         "en": "You are above the posting's seniority: salary and retention risk.",
     },
+    "report.alert.under_seniority": {
+        "es": "El aviso pide un nivel {jd_rung}; tu cargo actual no lo indica",
+        "en": "The posting asks for {jd_rung}; your current title does not say so",
+    },
     "report.alert.location": {
         "es": "Ubicación por confirmar: {requirement}",
         "en": "Location to confirm: {requirement}",

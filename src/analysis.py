@@ -193,7 +193,7 @@ def analyze(
         "title": title_alignment(
             jd,
             headline=document_headline(document),
-            role_titles=[role.title for role in roles],
+            roles=[(role.title, role.start_date, role.end_date) for role in roles],
             aliases=aliases,
         ),
         "skills": evidence_coverage(
@@ -274,12 +274,23 @@ def analyze(
     disqualifiers = disqualifier_verdicts(
         jd.hard_requirements, has_education=bool(list_educations(profile_id, session))
     )
-    # F6.1's alerts beside the single warning, never in the score: over-seniority
-    # from the Title detail (salary, retention), and the hard requirements that
-    # concern location, with their verdicts.
+    # F6.1's alerts beside the single warning, never in the score: a seniority
+    # mismatch in either direction from the Title detail (F5.5.2) — above (salary,
+    # retention) and below (the posting asks for a level the current title does not
+    # name) — and the hard requirements that concern location, with their verdicts.
     alerts: list[dict[str, object]] = []
-    if sub_scores["title"].detail.get("over_seniority"):
+    title_detail = sub_scores["title"].detail
+    if title_detail.get("seniority_above"):
+        # The key is `over_seniority` because stored reports use it.
         alerts.append({"kind": "over_seniority"})
+    if title_detail.get("seniority_below"):
+        alerts.append(
+            {
+                "kind": "under_seniority",
+                "jd_rung": title_detail["jd_rung"],
+                "user_rung": title_detail["user_rung"],
+            }
+        )
     alerts.extend(
         {"kind": "location", "requirement": entry.requirement, "verdict": entry.verdict}
         for entry in location_requirements(disqualifiers)

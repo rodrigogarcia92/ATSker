@@ -778,6 +778,21 @@ def test_the_alerts_beside_the_warning_flag_over_seniority_and_location(
     ), "the alert is not a gap"
 
 
+def test_a_seniority_gap_below_the_posting_alerts_with_both_rungs(session, career, provider):
+    """F5.5.2: the posting asks for a level the current title does not name — the
+    alert carries both rungs, and the number is overlap only."""
+    profile_id = career.first_profile.id
+    career.first_profile.headline = "Junior analyst"
+    provider.answers["JDProposal"] = json.dumps({**json.loads(PROPOSAL), "seniority": "senior"})
+    session.commit()
+
+    analysis = analyze(profile_id, session, jd_text=POSTING)
+
+    alerts = analysis.report["gaps"]["alerts"]
+    assert {"kind": "under_seniority", "jd_rung": "senior", "user_rung": "junior"} in alerts
+    assert analysis.report["score"]["sub_scores"]["title"]["value"] == 1.0
+
+
 def w3_report() -> dict:
     """A stored w3 report with the whole F5.4.1/F6.1 furniture."""
     return {

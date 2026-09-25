@@ -24,76 +24,98 @@ def test_title_overlap_is_hand_checkable():
     score = title_alignment(
         jd(title="Data Analyst", seniority="mid"),
         headline="Data Analyst",
-        role_titles=["Data Analyst"],
+        roles=[("Data Analyst", None, None)],
     )
 
     assert score.value == 1.0
     assert score.matched == ["analyst", "data"]
     assert score.missing == []
-    assert score.detail["penalty"] == 0.0
+    assert score.detail["overlap"] == 1.0
 
 
-def test_title_missing_terms_are_named():
+def test_a_function_word_does_not_count_on_either_side():
+    """F5.5.2: `de` is removed from the posting's title and the user's alike, and a
+    wanted set emptied by the function words is not an overlap of zero for no reason —
+    the detail says which it was."""
     score = title_alignment(
-        jd(title="Senior Data Analyst", seniority="senior"),
-        headline="Analista de datos",
-        role_titles=["Analista de datos senior"],
+        jd(title="Analista de Datos", seniority="unknown"),
+        headline=None,
+        roles=[("Analista Datos", None, None)],
     )
 
-    assert score.matched == ["analyst", "data", "senior"] or "senior" in score.matched
-    assert score.detail["rung_distance"] == 0
+    assert score.matched == ["analista", "datos"]
+    assert score.value == pytest.approx(1.0), "'de' is not a wanted word"
 
-
-def test_one_rung_off_costs_point_two_and_two_rungs_cost_point_five():
-    one_rung = title_alignment(
-        jd(title="Analyst", seniority="senior"),
-        headline="Analyst mid",
-        role_titles=[],
+    only_function_words = title_alignment(
+        jd(title="de la", seniority="unknown"),
+        headline=None,
+        roles=[("Analista Datos", None, None)],
     )
-    two_rungs = title_alignment(
-        jd(title="Analyst", seniority="principal"),
-        headline="Analyst junior",
-        role_titles=[],
-    )
-
-    assert one_rung.detail["rung_distance"] == 1
-    assert one_rung.value == pytest.approx(0.8)
-    assert two_rungs.detail["rung_distance"] == 4
-    assert two_rungs.value == pytest.approx(0.5)
+    assert only_function_words.value == 0.0
+    assert only_function_words.detail["reason"] == "only_function_words"
 
 
-def test_an_unknown_user_rung_is_not_penalised():
-    """No rung in the profile means no basis for a penalty; inventing one would fabricate."""
+def test_the_most_recent_role_sets_the_rung_and_earlier_titles_never_do():
+    """F5.5.2: the current role's words name the rung — `practicante` years ago must
+    not decide it — and no rung anywhere means no alert, never an invented one."""
     score = title_alignment(
-        jd(title="Analyst", seniority="principal"),
-        headline="Analyst",
-        role_titles=["Analyst"],
+        jd(title="Analista de Datos", seniority="senior"),
+        headline=None,
+        roles=[
+            ("Practicante de datos", date(2019, 1, 1), date(2019, 12, 31)),
+            ("Analista de Datos", date(2020, 1, 1), None),
+        ],
     )
 
-    assert score.detail["rung_distance"] is None
     assert score.value == pytest.approx(1.0)
-    assert score.detail["over_seniority"] is False
+    assert score.detail["user_rung"] is None
+    assert score.detail["seniority_above"] is False
+    assert score.detail["seniority_below"] is False
 
-
-def test_one_rung_above_costs_nothing_but_raises_the_over_seniority_flag():
-    """F5.5.1's asymmetric ladder: above the posting is a screening risk reported
-    as an alert (salary, retention), never a subtraction from the number."""
-    above = title_alignment(
+    closed = title_alignment(
         jd(title="Analyst", seniority="mid"),
-        headline="Analyst senior",
-        role_titles=[],
+        headline=None,
+        roles=[
+            ("Junior Analyst", date(2018, 1, 1), date(2019, 1, 1)),
+            ("Senior Analyst", date(2019, 2, 1), date(2022, 1, 1)),
+        ],
+    )
+    assert closed.detail["user_rung"] == "senior", "the latest end date names the rung"
+
+
+def test_seniority_is_an_alert_both_ways_and_never_a_subtraction():
+    """F5.5.2: value is overlap; the mismatch is two booleans the report alerts on."""
+    above = title_alignment(
+        jd(title="Analyst", seniority="junior"),
+        headline=None,
+        roles=[("Senior Analyst", date(2020, 1, 1), None)],
     )
     below = title_alignment(
         jd(title="Analyst", seniority="senior"),
-        headline="Analyst mid",
-        role_titles=[],
+        headline=None,
+        roles=[("Junior Analyst", date(2020, 1, 1), None)],
     )
 
-    assert above.detail["over_seniority"] is True
-    assert above.detail["penalty"] == 0.0
     assert above.value == pytest.approx(1.0)
-    assert below.value == pytest.approx(0.8), "one rung below is still −0.2"
-    assert below.detail["over_seniority"] is False
+    assert above.detail["seniority_above"] is True
+    assert above.detail["seniority_below"] is False
+    assert below.value == pytest.approx(1.0)
+    assert below.detail["seniority_below"] is True
+    assert below.detail["seniority_above"] is False
+    assert below.detail["user_rung"] == "junior"
+    assert below.detail["jd_rung"] == "senior"
+
+
+def test_the_rung_falls_back_to_the_headline_when_the_current_title_names_none():
+    score = title_alignment(
+        jd(title="Analyst", seniority="mid"),
+        headline="Analyst senior",
+        roles=[("Analista de datos", date(2020, 1, 1), None)],
+    )
+
+    assert score.detail["user_rung"] == "senior"
+    assert score.detail["seniority_above"] is True
+    assert score.value == pytest.approx(1.0), "the alert never touches the number"
 
 
 def test_keywords_count_aliases_but_never_equivalents():
@@ -139,7 +161,7 @@ def test_alias_expansion_makes_bi_and_power_bi_overlap():
     score = title_alignment(
         jd(title="BI Developer", seniority="mid"),
         headline="Power BI developer",
-        role_titles=[],
+        roles=[],
         aliases=aliases,
     )
 

@@ -244,13 +244,15 @@
 {% endif %}
 {% if report.gaps.alerts %}
 {# F6.1's alerts beside the single warning, never inside the gap list and never in
-   the score: over-seniority (salary, retention) and location. #}
+   the score: seniority in either direction (F5.5.2) and location. #}
 <h3 class="mt-6 text-sm font-semibold">{{ t('report.alerts', lang) }}</h3>
 <ul class="mt-2 space-y-2">
   {% for alert in report.gaps.alerts %}
   <li class="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
     {% if alert.kind == 'over_seniority' %}
     {{ t('report.alert.over_seniority', lang) }}
+    {% elif alert.kind == 'under_seniority' %}
+    {{ t('report.alert.under_seniority', lang, jd_rung=alert.jd_rung) }}
     {% else %}
     {{ t('report.alert.location', lang, requirement=alert.requirement) }}
     <span class="rounded bg-white px-2 py-0.5 text-xs">{{ t('report.verdict.' ~ alert.verdict, lang) }}</span>
