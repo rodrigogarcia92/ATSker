@@ -38,6 +38,9 @@ class JDProposal(BaseModel):
     must_have: list[str] = Field(default_factory=list)
     nice_to_have: list[str] = Field(default_factory=list)
     raw_keywords: list[str] = Field(default_factory=list)
+    # F5.5.2: at most eight, and a posting extracted before this field existed
+    # still validates — the default is an empty list, never a failure.
+    responsibilities: list[str] = Field(default_factory=list, max_length=8)
     hard_requirements: list[str] = Field(default_factory=list)
     location_policy: str | None = None
 
@@ -112,6 +115,9 @@ def extract_jd(
         must_have=must_have,
         nice_to_have=nice_to_have,
         raw_keywords=raw_keywords,
+        responsibilities=[
+            str(value).strip() for value in proposal.responsibilities if str(value).strip()
+        ],
         hard_requirements=[
             fold(str(value)) for value in proposal.hard_requirements if str(value).strip()
         ],

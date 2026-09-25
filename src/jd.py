@@ -37,6 +37,10 @@ class StructuredJD(BaseModel):
     must_have: list[str] = Field(default_factory=list)
     nice_to_have: list[str] = Field(default_factory=list)
     raw_keywords: list[str] = Field(default_factory=list)
+    # F5.5.2: the posting's core tasks, as it states them. Experience is scored on
+    # the ones already done as well as on the years held. Optional, and defaulted
+    # so a posting extracted before this field existed still loads.
+    responsibilities: list[str] = Field(default_factory=list)
     hard_requirements: list[str] = Field(default_factory=list)
     location_policy: str | None = None
 

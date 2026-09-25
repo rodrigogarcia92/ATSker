@@ -793,9 +793,9 @@ def test_a_tracks_analysis_is_capped_by_the_document_it_came_from(
     score = application.report["score"]
     assert score["cap"] == 40, "the gate reached the report"
     assert score["cap_reason"] == "contact_in_margin"
-    assert score["capped"] == score["uncapped"] == 40, (
-        "the score sits exactly at the cap: min(40, 40) capped nothing"
-    )
+    # The limit does not bind here — the w4 sub-scores moved this fixture's total
+    # below the cap — which is the case the page must not dress up as a cap.
+    assert score["capped"] == score["uncapped"] < score["cap"]
     assert application.scan_readability is not None
     assert [f["check"] for f in application.scan_readability["findings"]] == ["contact_in_margin"]
 

@@ -8,6 +8,7 @@ and the page the user reads.
 import hashlib
 import json
 import re
+from datetime import date
 from decimal import Decimal
 
 import pytest
@@ -241,6 +242,65 @@ def test_a_refused_equivalence_is_listed_for_family_review(session, career, prov
     ]
     assert analysis.report["grades"][1]["downgraded"] is True
     assert analysis.report["grades"][1]["basis"] == "transferable"
+
+
+def test_the_report_shows_relevant_years_the_roles_and_the_tasks(client, session, career, provider):
+    """F5.5.2: Experience says what it counted — relevant years against total, the
+    roles that made them relevant, and the posting's tasks with their level."""
+    career.first_role.start_date = date(2020, 1, 1)
+    provider.answers["JDProposal"] = json.dumps(
+        {
+            **json.loads(PROPOSAL),
+            "responsibilities": ["Preparar los reportes", "Coordinar al equipo"],
+        }
+    )
+    provider.answers["EvidenceGrading"] = json.dumps(
+        {
+            "grades": [
+                {
+                    "index": 0,
+                    "level": 3,
+                    "basis": "direct",
+                    "source": "bullet",
+                    "evidence_id": str(career.first_bullet.id),
+                    "transfer_reason": None,
+                },
+                {"index": 1, "level": 0, "basis": "none", "source": None},
+            ],
+            "task_grades": [
+                {
+                    "index": 0,
+                    "level": 2,
+                    "source": "bullet",
+                    "evidence_id": str(career.first_bullet.id),
+                },
+                {"index": 1, "level": 0, "source": None, "evidence_id": None},
+            ],
+            "note": "",
+        }
+    )
+    session.commit()
+    login(client, career.first.email)
+
+    posted = client.post("/analyze", data={"jd_text": POSTING}, follow_redirects=False)
+
+    assert posted.status_code == 303
+    detail = session.query(Application).one().report["score"]["sub_scores"]["experience"]["detail"]
+    assert detail["tasks"] == [
+        {
+            "text": "Preparar los reportes",
+            "level": 2,
+            "bullet_id": str(career.first_bullet.id),
+        },
+        {"text": "Coordinar al equipo", "level": 0, "bullet_id": None},
+    ]
+    assert [entry["id"] for entry in detail["relevant_roles"]] == [str(career.first_role.id)]
+    assert detail["relevant_years"] == detail["held_years"] > 0
+
+    page = text_of(client.get(posted.headers["location"]).text)
+    assert "Años relevantes" in page
+    assert "Puestos contados" in page
+    assert "Preparar los reportes" in page
 
 
 def test_the_total_is_the_hand_computed_weighted_sum_of_the_four(session, career, provider):

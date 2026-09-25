@@ -79,6 +79,29 @@
             transfer='%.0f'|format(sub.detail.transfer * 100)) }}
     </p>
     {% endif %}
+    {# F5.5.2: Experience shows what it counted — relevant years against total
+       years held, the roles that made them relevant, and the posting's tasks with
+       their level. Rows scored before w4 carry none of these fields. #}
+    {% if sub.detail is defined and sub.detail.relevant_years is defined %}
+    <p class="mt-1 text-sm text-slate-600">
+      {{ t('report.experience_years', lang,
+            relevant='%.2f'|format(sub.detail.relevant_years),
+            held='%.2f'|format(sub.detail.held_years)) }}
+    </p>
+    {% if sub.detail.relevant_roles %}
+    <p class="mt-1 text-sm text-slate-600">
+      {{ t('report.experience_roles', lang) }}:
+      {% for role in sub.detail.relevant_roles %}{{ role.title }} ({{ role.weight }}){% if not loop.last %}, {% endif %}{% endfor %}
+    </p>
+    {% endif %}
+    {% if sub.detail.tasks %}
+    <ul class="mt-1 space-y-1 text-sm text-slate-600">
+      {% for task in sub.detail.tasks %}
+      <li>{{ task.text }} — {{ t('report.level_label', lang) }} {{ task.level }}</li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+    {% endif %}
     <div class="mt-2 flex flex-wrap gap-2">
       {% for term in sub.matched %}
       <span class="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-700">{{ term }}</span>

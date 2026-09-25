@@ -4,6 +4,7 @@ A change to a prompt means a new version string, which busts the cache on purpos
 scores and suggestions produced under different prompts are never compared.
 """
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 
@@ -203,10 +204,13 @@ EVIDENCE_GRADING_V4 = Prompt(
         "transferable, add a one-line transfer_reason.\n\n"
         "Return one grade per requirement index: the level, the basis, the source, "
         "the cited bullet id or null, the transfer_reason or null, and one short "
-        "sentence if any requirement needs a caveat."
+        "sentence if any requirement needs a caveat. When a task list is given, "
+        "return one grade per task index as well, on the same levels and citation "
+        "rules: the level, the source and the cited bullet id."
     ),
     template=(
         "Requirements to grade, by index:\n{requirements}\n\n"
+        "{tasks}"
         "The person's bullets (id, then text):\n{bullets}\n\n"
         "Their summary (a source, but not a bullet — it has no id):\n{summary}\n\n"
         "Their skills list (a source, but not a bullet — it has no id):\n{skills}\n\n"
@@ -229,14 +233,17 @@ JD_EXTRACTION_V3 = Prompt(
         "someone outright (a degree, work authorization, an on-site city).\n\n"
         "List each concept in raw_keywords once, in the words the posting uses. "
         "Do not add a translation of a term the posting already names.\n\n"
+        "responsibilities are the posting's core tasks — what the person will "
+        "actually do — at most eight, in the words the posting uses. Never turn a "
+        "requirement into a task or a task into a requirement.\n\n"
         "Posting language is one of: {languages}.\n\n"
         "Canonical skill vocabulary (use these exact strings for must_have and "
         "nice_to_have, and nothing else):\n{skills}\n\n"
         "Return the posting's language, title, seniority rung (intern, junior, "
         "mid, senior, lead, principal, or unknown), the years of experience it "
         "asks for if stated, the must-have and nice-to-have skills, the keywords "
-        "it emphasises, any hard requirements, and its location policy if it "
-        "states one."
+        "it emphasises, its responsibilities, any hard requirements, and its "
+        "location policy if it states one."
     ),
     template="{text}",
 )
@@ -244,6 +251,19 @@ JD_EXTRACTION_V3 = Prompt(
 
 def summarize_rows(rows: list[str], *, empty: str = "(none)") -> str:
     return "\n".join(rows) if rows else empty
+
+
+def tasks_block(tasks: Sequence[str]) -> str:
+    """The second numbered list, or nothing at all (F5.5.2).
+
+    A posting with no responsibilities sends no list: an empty one would ask the
+    model to grade zero tasks and invite it to answer anyway. The heading lives
+    here with the rest of the prompt's wording.
+    """
+    if not tasks:
+        return ""
+    rows = summarize_rows([f"{index}\t{text}" for index, text in enumerate(tasks)])
+    return f"Tasks to grade, by index:\n{rows}\n\n"
 
 
 GAP_INTERPRETATION = Prompt(

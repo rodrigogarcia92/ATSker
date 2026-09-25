@@ -329,6 +329,11 @@ STRINGS: dict[str, dict[str, str]] = {
         "es": "{direct} directo + {transfer} transferible",
         "en": "{direct} direct + {transfer} transfer",
     },
+    "report.experience_years": {
+        "es": "Años relevantes {relevant} de {held} contados",
+        "en": "Relevant years {relevant} of {held} held",
+    },
+    "report.experience_roles": {"es": "Puestos contados", "en": "Counted roles"},
     "report.transfer_band": {"es": "Cubierto por transferencia", "en": "Covered by transfer"},
     "report.transfer_band_hint": {
         "es": "No son huecos: son las afirmaciones que más se cuestionarán. Prepara el "

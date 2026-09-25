@@ -42,7 +42,7 @@ from sqlalchemy.orm import Session
 from src.bullets import bullet_text
 from src.extract import redaction
 from src.extract.client import CallOptions, Completion, complete_json
-from src.extract.prompts import EVIDENCE_GRADING_V4, summarize_rows
+from src.extract.prompts import EVIDENCE_GRADING_V4, summarize_rows, tasks_block
 from src.jd import StructuredJD
 from src.models import Bullet, Skill
 from src.normalize.text import fold
@@ -69,8 +69,22 @@ class GradeRow(BaseModel):
     transfer_reason: str | None = None
 
 
+class TaskGradeRow(BaseModel):
+    """One posting task's grade: requirement grades minus the basis (F5.5.2).
+
+    A task is evidenced or it is not; there is nothing to transfer, so there is no
+    basis and no transfer_reason to validate.
+    """
+
+    index: int = Field(description="0-based index of the task being graded")
+    level: int = Field(ge=0, le=MAX_LEVEL)
+    source: Source | None = None
+    evidence_id: str | None = None
+
+
 class EvidenceGrading(BaseModel):
     grades: list[GradeRow] = Field(default_factory=list)
+    task_grades: list[TaskGradeRow] = Field(default_factory=list)
     note: str = ""
 
 
@@ -95,9 +109,25 @@ class EvidenceLevel:
 
 
 @dataclass(frozen=True)
+class TaskLevel:
+    """One posting task's grade (F5.5.2).
+
+    No basis and no must_have: a task is either evidenced by a described task or it
+    is not, and it weighs nothing of its own — it feeds Experience, not Skills.
+    """
+
+    task: str
+    level: int
+    source: str | None
+    evidence_id: str | None
+    clamped: bool = False
+
+
+@dataclass(frozen=True)
 class EvidenceReport:
     levels: tuple[EvidenceLevel, ...]
     note: str
+    task_levels: tuple[TaskLevel, ...] = ()
     calls: tuple[Completion, ...] = ()
 
     @property
@@ -109,6 +139,24 @@ class EvidenceReport:
 def requirements_of(jd: StructuredJD) -> list[tuple[str, bool]]:
     """Must-haves first, then nice-to-haves, each with its weight class."""
     return [(value, True) for value in jd.must_have] + [(value, False) for value in jd.nice_to_have]
+
+
+def _check_citation(
+    level: int,
+    source: str | None,
+    evidence_id: str | None,
+    subject: str,
+    allowed_ids: set[str],
+) -> None:
+    """The provenance rules one grade shares with the other (F5.4.1)."""
+    if level > 0 and not source:
+        raise CitationViolation(f"level {level} for {subject!r} without a source")
+    if level > 0 and source == "bullet" and not evidence_id:
+        raise CitationViolation(f"level {level} for {subject!r} without a citation")
+    if level == 0 and evidence_id:
+        raise CitationViolation(f"level 0 for {subject!r} cites evidence")
+    if evidence_id and evidence_id not in allowed_ids:
+        raise CitationViolation(f"bullet {evidence_id!r} was never supplied")
 
 
 def _validate(
@@ -131,14 +179,7 @@ def _validate(
     rows: list[GradeRow] = []
     for index, (requirement, _) in enumerate(requirements):
         row = by_index[index]
-        if row.level > 0 and not row.source:
-            raise CitationViolation(f"level {row.level} for {requirement!r} without a source")
-        if row.level > 0 and row.source == "bullet" and not row.evidence_id:
-            raise CitationViolation(f"level {row.level} for {requirement!r} without a citation")
-        if row.level == 0 and row.evidence_id:
-            raise CitationViolation(f"level 0 for {requirement!r} cites evidence")
-        if row.evidence_id and row.evidence_id not in allowed_ids:
-            raise CitationViolation(f"bullet {row.evidence_id!r} was never supplied")
+        _check_citation(row.level, row.source, row.evidence_id, requirement, allowed_ids)
         if row.basis not in ("direct", "none") and not (
             row.transfer_reason or ""
         ).strip():
@@ -147,6 +188,39 @@ def _validate(
             )
         rows.append(row)
     return rows
+
+
+def _validate_tasks(
+    grading: EvidenceGrading,
+    tasks: Sequence[str],
+    allowed_ids: set[str],
+) -> list[TaskGradeRow]:
+    """One grade per task index, on the same provenance rules (F5.5.2)."""
+    by_index: dict[int, TaskGradeRow] = {}
+    for row in grading.task_grades:
+        if row.index in by_index:
+            raise CitationViolation(f"task {row.index} was graded twice")
+        if not 0 <= row.index < len(tasks):
+            raise CitationViolation(f"task index {row.index} does not exist")
+        by_index[row.index] = row
+
+    if len(by_index) != len(tasks):
+        missing = sorted(set(range(len(tasks))) - set(by_index))
+        raise CitationViolation(f"no grade returned for tasks {missing}")
+
+    rows: list[TaskGradeRow] = []
+    for index, task in enumerate(tasks):
+        row = by_index[index]
+        _check_citation(row.level, row.source, row.evidence_id, task, allowed_ids)
+        rows.append(row)
+    return rows
+
+
+def _cap(source: str | None, level: int) -> tuple[int, bool]:
+    """F5.4.1's level-1 cap: the summary and the skills list note, they do not prove."""
+    if source in NOTED_SOURCES and level > 1:
+        return 1, True
+    return level, False
 
 
 def _enforce(
@@ -158,11 +232,8 @@ def _enforce(
     families: Mapping[str, str | None],
 ) -> tuple[int, str, bool, bool]:
     """The two rules code enforces; returns level, basis, clamped, downgraded (F5.4.1)."""
-    level, basis = row.level, row.basis
-    clamped = False
-    if row.source in NOTED_SOURCES and level > 1:
-        level = 1
-        clamped = True
+    level, clamped = _cap(row.source, row.level)
+    basis = row.basis
 
     downgraded = False
     if basis == "equivalent":
@@ -304,6 +375,7 @@ def grade_evidence(
     allowed_ids = set(texts)
     prompt = EVIDENCE_GRADING_V4.render(
         requirements=numbered,
+        tasks=tasks_block(jd.responsibilities),
         bullets=supplied,
         summary=summarize_rows(
             [redaction.redact(summary_text, known_names=names or None)] if summary_text else []
@@ -335,6 +407,13 @@ def grade_evidence(
         grading = EvidenceGrading.model_validate(completion.data)
         try:
             rows = _validate(grading, requirements, allowed_ids)
+            # No task list was sent, so no task grade is read back: a posting with
+            # no responsibilities has nothing for the model to have answered (F5.5.2).
+            task_rows = (
+                _validate_tasks(grading, jd.responsibilities, allowed_ids)
+                if jd.responsibilities
+                else []
+            )
         except CitationViolation:
             if attempt == 0:
                 continue
@@ -391,6 +470,23 @@ def grade_evidence(
                     inferred=inferred,
                 )
             )
-        return EvidenceReport(levels=tuple(levels), note=grading.note, calls=tuple(attempts))
+        task_levels: list[TaskLevel] = []
+        for task, row in zip(jd.responsibilities, task_rows, strict=True):
+            level, clamped = _cap(row.source, row.level)
+            task_levels.append(
+                TaskLevel(
+                    task=task,
+                    level=level,
+                    source=row.source,
+                    evidence_id=row.evidence_id,
+                    clamped=clamped,
+                )
+            )
+        return EvidenceReport(
+            levels=tuple(levels),
+            note=grading.note,
+            task_levels=tuple(task_levels),
+            calls=tuple(attempts),
+        )
 
     raise CitationViolation("grading failed after a retry")  # pragma: no cover - loop returns

@@ -52,7 +52,7 @@ from src.resumes import source_document_for_track
 from src.roles import list_roles
 from src.score.aggregate import SubScore, aggregate
 from src.score.evidence import Level, evidence_coverage
-from src.score.experience import experience_score
+from src.score.experience import CitedLevel, RoleSpan, relevant_experience_score
 from src.score.gaps import Graded, detect_gaps, disqualifier_verdicts, location_requirements
 from src.score.keywords import keyword_context
 from src.score.title import title_alignment
@@ -211,13 +211,40 @@ def analyze(
             basis_credit=W4.basis_credit,
         ),
         "keywords": keyword_context(jd, [unit.text for unit in document], aliases=aliases),
-        "experience": experience_score(
-            jd,
+        "experience": relevant_experience_score(
+            jd.years_required,
             [
-                (role.start_date, role.end_date or today)
+                RoleSpan(
+                    id=str(role.id),
+                    title=role.title,
+                    start_date=role.start_date,
+                    end_date=role.end_date,
+                    bullet_ids=tuple(
+                        str(bullet.id) for bullet in bullets if bullet.role_id == role.id
+                    ),
+                )
                 for role in roles
-                if role.start_date is not None
             ],
+            [
+                CitedLevel(
+                    level=entry.level,
+                    basis=entry.basis,
+                    bullet_id=entry.evidence_id,
+                    text=entry.requirement,
+                )
+                for entry in grading.levels
+            ],
+            [
+                # A described task is the thing itself, never a transfer of it.
+                CitedLevel(
+                    level=entry.level,
+                    basis="direct",
+                    bullet_id=entry.evidence_id,
+                    text=entry.task,
+                )
+                for entry in grading.task_levels
+            ],
+            split=W4.experience_split,
             today=today,
         ),
     }

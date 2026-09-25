@@ -431,8 +431,18 @@ def row(index: int, level: int, **fields) -> dict:
     }
 
 
-def answer_of(*rows: dict) -> str:
-    return json.dumps({"grades": list(rows), "note": ""})
+def answer_of(*rows: dict, tasks: list[dict] | None = None) -> str:
+    return json.dumps({"grades": list(rows), "task_grades": tasks or [], "note": ""})
+
+
+def task_row(index: int, level: int, **fields) -> dict:
+    """One task answer row, filled the way the contract requires."""
+    return {
+        "index": index,
+        "level": level,
+        "source": fields.get("source", None if level == 0 else "bullet"),
+        "evidence_id": fields.get("evidence_id"),
+    }
 
 
 def tagged(identifier, text: str, skills: list[str]):
@@ -584,6 +594,81 @@ def test_a_direct_level_three_is_never_lowered_to_an_equivalent(
     ).levels[0]
 
     assert (entry.level, entry.basis, entry.inferred) == (3, "direct", False)
+
+
+def test_the_task_list_is_sent_and_graded_on_the_same_citation_rules(
+    session, test_settings, monkeypatch
+):
+    """F5.5.2: responsibilities go out as a second numbered list and come back as
+    `task_grades`, one row per index, on the same provenance rules."""
+    cited = tagged(uuid.uuid4(), "Automaticé el reporte semanal con Python", ["python"])
+    calls = stub(
+        monkeypatch,
+        [
+            answer_of(
+                row(0, 3, evidence_id=str(cited.id)),
+                tasks=[task_row(0, 3, evidence_id=str(cited.id)), task_row(1, 0)],
+            )
+        ],
+    )
+
+    report = grade_evidence(
+        session,
+        StructuredJD(
+            must_have=["python"],
+            responsibilities=["Automaticé el reporte semanal", "Coordiné al equipo"],
+        ),
+        [cited],
+        basis_credit=W3.basis_credit,
+    )
+
+    sent = calls[0]["messages"][1]["content"]
+    assert "Tasks to grade, by index:" in sent
+    assert "0\tAutomaticé el reporte semanal" in sent
+    assert [(task.task, task.level, task.evidence_id) for task in report.task_levels] == [
+        ("Automaticé el reporte semanal", 3, str(cited.id)),
+        ("Coordiné al equipo", 0, None),
+    ]
+
+
+def test_a_posting_with_no_responsibilities_sends_no_task_list(
+    session, test_settings, bullets, monkeypatch
+):
+    """An empty list would ask the model to grade zero tasks and invite an answer;
+    none is sent, and a cached answer from before the field existed still loads."""
+    calls = stub(monkeypatch, [grading_payload(bullets)])
+
+    report = grade_evidence(session, jd(), list(bullets), basis_credit=W3.basis_credit)
+
+    assert "Tasks to grade" not in calls[0]["messages"][1]["content"]
+    assert report.task_levels == ()
+
+
+def test_a_task_evidenced_only_in_the_skills_list_is_capped_at_one(
+    session, test_settings, monkeypatch
+):
+    """F5.5.2: a task is proven by a described task, exactly as a requirement is —
+    a line in the skills list is noted, not done."""
+    stub(
+        monkeypatch,
+        [
+            answer_of(
+                row(0, 0),
+                tasks=[task_row(0, 3, source="skills_list", evidence_id=None)],
+            )
+        ],
+    )
+
+    report = grade_evidence(
+        session,
+        StructuredJD(must_have=["python"], responsibilities=["Armé el reporte semanal"]),
+        [],
+        skills_text="reportes semanales",
+        basis_credit=W3.basis_credit,
+    )
+
+    task = report.task_levels[0]
+    assert (task.level, task.clamped, task.source) == (1, True, "skills_list")
 
 
 class TestEvidenceCoverage:

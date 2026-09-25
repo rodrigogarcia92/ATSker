@@ -6,7 +6,14 @@ import pytest
 
 from src.jd import StructuredJD
 from src.score.aggregate import SUB_SCORES, SubScore, aggregate
-from src.score.experience import experience_score, merge_intervals, years_held
+from src.score.experience import (
+    CitedLevel,
+    RoleSpan,
+    experience_score,
+    merge_intervals,
+    relevant_experience_score,
+    years_held,
+)
 from src.score.keywords import keyword_context
 from src.score.title import seniority_of, title_alignment
 from src.score.weights import W1, W2, W3, W4, Weights, WeightsV2, WeightsV3, WeightsV4
@@ -258,6 +265,13 @@ def test_meeting_the_requirement_scores_one():
     assert score.missing == []
 
 
+def test_no_requirement_does_not_penalise():
+    score = experience_score(jd(years_required=None), [], today=TODAY)
+
+    assert score.value == 1.0
+    assert score.detail["reason"] == "no_requirement"
+
+
 def test_concurrent_roles_do_not_double_count_calendar_time():
     intervals = [
         (date(2020, 1, 1), date(2022, 1, 1)),
@@ -268,11 +282,123 @@ def test_concurrent_roles_do_not_double_count_calendar_time():
     assert merge_intervals(intervals) == [(date(2020, 1, 1), date(2023, 1, 1))]
 
 
-def test_no_requirement_does_not_penalise():
-    score = experience_score(jd(years_required=None), [], today=TODAY)
+# --- w4: relevant years and the posting's tasks (PRD F5.5.2) -----------------
 
-    assert score.value == 1.0
-    assert score.detail["reason"] == "no_requirement"
+
+def role(identifier: str, start: date, end: date | None, *bullet_ids: str) -> RoleSpan:
+    return RoleSpan(
+        id=identifier,
+        title=f"Rol {identifier}",
+        start_date=start,
+        end_date=end,
+        bullet_ids=tuple(bullet_ids),
+    )
+
+
+SPLIT = {"years": 0.6, "tasks": 0.4}
+
+
+def test_only_the_role_whose_bullet_was_cited_counts_its_years():
+    """F5.5.2: the years a recruiter counts are the relevant ones — a bullet cited
+    at level 2 or better is what makes a role count."""
+    score = relevant_experience_score(
+        None,
+        [
+            role("a", date(2020, 1, 1), date(2022, 1, 1), "b1"),
+            role("b", date(2015, 1, 1), date(2019, 1, 1), "b2"),
+        ],
+        [CitedLevel(level=3, basis="direct", bullet_id="b1", text="python")],
+        [],
+        split=SPLIT,
+        today=TODAY,
+    )
+
+    assert score.detail["relevant_years"] == pytest.approx(2.0, abs=0.02)
+    assert score.detail["held_years"] == pytest.approx(6.0, abs=0.02)
+    assert [entry["id"] for entry in score.detail["relevant_roles"]] == ["a"]
+
+
+def test_a_role_cited_only_as_transferable_counts_half_its_years():
+    score = relevant_experience_score(
+        4.0,
+        [role("a", date(2020, 1, 1), date(2022, 1, 1), "b1")],
+        [CitedLevel(level=2, basis="transferable", bullet_id="b1", text="python")],
+        [],
+        split=SPLIT,
+        today=TODAY,
+    )
+
+    assert score.detail["relevant_years"] == pytest.approx(1.0, abs=0.02)
+    assert score.detail["relevant_roles"] == [
+        {"id": "a", "title": "Rol a", "weight": 0.5}
+    ]
+
+
+def test_two_overlapping_relevant_roles_add_no_more_than_the_calendar():
+    score = relevant_experience_score(
+        None,
+        [
+            role("a", date(2020, 1, 1), date(2022, 1, 1), "b1"),
+            role("b", date(2021, 1, 1), date(2023, 1, 1), "b2"),
+        ],
+        [
+            CitedLevel(level=3, basis="direct", bullet_id="b1", text="python"),
+            CitedLevel(level=3, basis="equivalent", bullet_id="b2", text="sql"),
+        ],
+        [],
+        split=SPLIT,
+        today=TODAY,
+    )
+
+    assert score.detail["relevant_years"] == pytest.approx(3.0, abs=0.02)
+
+
+def test_half_a_relevant_year_is_the_whole_years_part_when_none_is_asked():
+    score = relevant_experience_score(
+        None,
+        [role("a", date(2025, 7, 2), None, "b1")],
+        [CitedLevel(level=3, basis="direct", bullet_id="b1", text="python")],
+        [],
+        split=SPLIT,
+        today=TODAY,
+    )
+
+    assert score.detail["relevant_years"] == pytest.approx(0.5, abs=0.02)
+    assert score.detail["years_part"] == pytest.approx(0.5, abs=0.02)
+
+
+def test_the_task_part_is_the_mean_level_over_three():
+    score = relevant_experience_score(
+        None,
+        [],
+        [],
+        [
+            CitedLevel(level=3, basis="direct", bullet_id="b1", text="uno"),
+            CitedLevel(level=2, basis="direct", bullet_id="b2", text="dos"),
+            CitedLevel(level=0, basis="direct", bullet_id=None, text="tres"),
+        ],
+        split=SPLIT,
+        today=TODAY,
+    )
+
+    assert score.detail["task_part"] == pytest.approx(5 / 9, abs=1e-4)
+    assert score.value == pytest.approx(0.4 * 5 / 9, abs=1e-4)
+
+
+def test_a_posting_with_no_tasks_is_the_years_part_alone_and_says_why():
+    score = relevant_experience_score(
+        2.0,
+        [role("a", date(2020, 1, 1), date(2022, 1, 1), "b1")],
+        [CitedLevel(level=3, basis="direct", bullet_id="b1", text="python")],
+        [],
+        split=SPLIT,
+        today=TODAY,
+    )
+
+    assert score.value == pytest.approx(score.detail["years_part"])
+    assert score.value != pytest.approx(SPLIT["years"] * score.detail["years_part"])
+    assert score.detail["reason"] == "no_responsibilities"
+    assert score.detail["task_part"] == 0.0
 
 
 def sub(name: str, value: float) -> SubScore:
