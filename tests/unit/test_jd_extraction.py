@@ -135,7 +135,7 @@ def test_prompt_version_is_recorded_and_version_bumps_bust_the_cache(
 
     stored = session.query(LlmCall).one()
     assert stored.purpose == PURPOSE
-    assert stored.prompt_version == "jd_extract_v2"
+    assert stored.prompt_version == "jd_extract_v3"
     assert stored.cost_usd > 0
 
 

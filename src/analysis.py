@@ -42,7 +42,7 @@ from src.extract.prompts import (
     BOOLEAN_RECALL,
     EVIDENCE_GRADING_V4,
     GAP_INTERPRETATION,
-    JD_EXTRACTION,
+    JD_EXTRACTION_V3,
 )
 from src.jd import StructuredJD
 from src.models import Bullet, Profile, Track
@@ -405,7 +405,7 @@ def analyze(
     return Analysis(
         report=report,
         prompt_versions={
-            "jd_extract": JD_EXTRACTION.version,
+            "jd_extract": JD_EXTRACTION_V3.version,
             "evidence_grade": EVIDENCE_GRADING_V4.version,
             "boolean_queries": BOOLEAN_RECALL.version,
             "gap_interpret": GAP_INTERPRETATION.version,

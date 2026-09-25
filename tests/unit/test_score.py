@@ -149,6 +149,48 @@ def test_keywords_read_the_skills_list_and_the_summary_not_only_the_bullets():
     assert score.detail["documents"] == 3
 
 
+def test_a_skill_named_only_as_a_requirement_still_counts_as_a_keyword():
+    """F5.5.2: the keyword set is every term the posting asks for, so SQL named as a
+    must-have is a term the document has to evidence even when no keyword list
+    repeats it."""
+    score = keyword_context(
+        jd(must_have=["sql"], nice_to_have=["airflow"], raw_keywords=["reportes"]),
+        ["Automaticé reportes con SQL"],
+    )
+
+    assert score.matched == ["sql", "reportes"]
+    assert score.missing == ["airflow"]
+
+
+def test_two_aliases_of_one_canonical_are_one_keyword():
+    """F5.5.2: de-duplicated by the resolved key, not by the words — `powerbi` as a
+    requirement and `power bi` as a keyword are one term, and the first occurrence
+    is the name the report shows."""
+    aliases = {"powerbi": "power bi", "power bi": "power bi"}
+    score = keyword_context(
+        jd(must_have=["powerbi"], raw_keywords=["power bi"]),
+        ["Mantuve tableros de Power BI"],
+        aliases=aliases,
+    )
+
+    assert score.matched == ["powerbi"], "one term, named by its first occurrence"
+    assert score.missing == []
+
+
+def test_tableau_asked_for_is_not_matched_by_power_bi_on_the_cv():
+    """F5.5.2: widening what is asked for changes nothing about what answers it —
+    the screen stays literal and equivalents never count."""
+    aliases = {"tableau": "tableau", "power bi": "power bi"}
+    score = keyword_context(
+        jd(must_have=["tableau"], raw_keywords=["reportes"]),
+        ["Armé reportes mensuales con Power BI"],
+        aliases=aliases,
+    )
+
+    assert score.missing == ["tableau"]
+    assert score.matched == ["reportes"]
+
+
 def test_seniority_is_read_from_either_language():
     assert seniority_of("Senior Data Analyst") == "senior"
     assert seniority_of("Analista de datos senior") == "senior"

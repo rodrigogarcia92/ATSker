@@ -215,6 +215,33 @@ EVIDENCE_GRADING_V4 = Prompt(
 )
 
 
+JD_EXTRACTION_V3 = Prompt(
+    version="jd_extract_v3",
+    # v3 is v2 with one rule about raw_keywords (F5.5.2): the posting's own words,
+    # each concept once. v2 stays in the file unchanged — a stored report names the
+    # prompt that read its posting, and the two are never mixed.
+    system=(
+        "You convert a job posting into structured data. You do not evaluate the "
+        "posting and you never infer a requirement that is not written in it. For "
+        "must_have and nice_to_have you may only use names from the vocabulary "
+        "below; anything else the posting asks for goes into raw_keywords exactly "
+        "as written. hard_requirements are conditions that could disqualify "
+        "someone outright (a degree, work authorization, an on-site city).\n\n"
+        "List each concept in raw_keywords once, in the words the posting uses. "
+        "Do not add a translation of a term the posting already names.\n\n"
+        "Posting language is one of: {languages}.\n\n"
+        "Canonical skill vocabulary (use these exact strings for must_have and "
+        "nice_to_have, and nothing else):\n{skills}\n\n"
+        "Return the posting's language, title, seniority rung (intern, junior, "
+        "mid, senior, lead, principal, or unknown), the years of experience it "
+        "asks for if stated, the must-have and nice-to-have skills, the keywords "
+        "it emphasises, any hard requirements, and its location policy if it "
+        "states one."
+    ),
+    template="{text}",
+)
+
+
 def summarize_rows(rows: list[str], *, empty: str = "(none)") -> str:
     return "\n".join(rows) if rows else empty
 

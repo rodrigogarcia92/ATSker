@@ -149,7 +149,7 @@ def test_an_analysis_records_its_weights_prompts_and_cost(session, career, provi
         "keywords": 0.15,
     }, "nothing is renormalised under w3"
     assert analysis.prompt_versions == {
-        "jd_extract": "jd_extract_v2",
+        "jd_extract": "jd_extract_v3",
         "evidence_grade": "evidence_grade_v4",
         "boolean_queries": "boolean_recall_v1",
         "gap_interpret": "gap_interpret_v1",
@@ -336,7 +336,7 @@ def test_the_report_page_shows_the_total_its_cost_and_its_components(
     assert "Habilidades" in page and "Palabras clave" in page
     assert "Encaje semántico" not in page
     assert "$0.000492" in page, "the cost of the analysis that produced the report"
-    assert "jd_extract_v2" in page
+    assert "jd_extract_v3" in page
     assert career.first_bullet.text_es in page, "the citation is shown"
     disqualifier = application.report["jd"]["hard_requirements"][0]
     assert disqualifier in page, "disqualifiers are reported separately"
@@ -630,8 +630,13 @@ def test_the_same_posting_scores_differently_against_two_tracks(session, career,
     first = analyze(profile_id, session, jd_text=POSTING, track=narrow)
     second = analyze(profile_id, session, jd_text=POSTING, track=broad)
 
-    assert first.report["score"]["sub_scores"]["keywords"]["value"] > 0
-    assert second.report["score"]["sub_scores"]["keywords"]["value"] == 0
+    # F5.5.2 widened the keyword set to every term the posting asks for, so a track
+    # that answers the must-have is no longer a zero — what must hold is that only
+    # the narrow track evidences the posting's own keyword.
+    assert (
+        first.report["score"]["sub_scores"]["keywords"]["value"]
+        > second.report["score"]["sub_scores"]["keywords"]["value"]
+    )
     assert first.report["score"]["capped"] > second.report["score"]["capped"]
     assert second.report["llm"]["calls"][1]["cached"] is False, "the judge really was re-run"
     assert first.report["track"]["name"] == "Con reportes"

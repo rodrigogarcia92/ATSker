@@ -1,4 +1,10 @@
-"""Keyword context (weight 0.15): BM25 over the JD's raw keywords against the document.
+"""Keyword context (weight 0.15): BM25 over every term the posting asks for.
+
+The set is `must_have` ∪ `nice_to_have` ∪ `raw_keywords` (F5.5.2) — a posting that
+names SQL as a requirement is asking for the term whether or not it repeats it in
+a keyword list. Each term is folded and resolved to its canonical where the
+vocabulary has one, so two spellings of one skill are one keyword and the first
+occurrence is the name the report shows.
 
 The document is `documents.track_document` read in the posting's language
 (F5.5.1) — headline, summary, skills list, bullets, role titles, education and
@@ -25,6 +31,27 @@ from src.score.aggregate import SubScore
 
 K1 = 1.5
 B = 0.75
+
+
+def _terms_of(jd: StructuredJD, aliases: Mapping[str, str] | None) -> list[tuple[str, str]]:
+    """`(label, key)` for every term the posting asks for (F5.5.2).
+
+    De-duplicated by the resolved key rather than by the words: `PowerBI` in a
+    requirement and `Power BI` in the keywords are one term, and the first
+    occurrence is what the report names.
+    """
+    seen: set[str] = set()
+    terms: list[tuple[str, str]] = []
+    for value in [*jd.must_have, *jd.nice_to_have, *jd.raw_keywords]:
+        cleaned = fold(value)
+        if not cleaned:
+            continue
+        key = (aliases or {}).get(cleaned, cleaned)
+        if key in seen:
+            continue
+        seen.add(key)
+        terms.append((value, key))
+    return terms
 
 
 def _tokens(text: str, aliases: Mapping[str, str] | None) -> list[str]:
@@ -64,7 +91,7 @@ def keyword_context(
     *,
     aliases: Mapping[str, str] | None = None,
 ) -> SubScore:
-    """Share of the JD's keywords the document evidences, IDF-weighted.
+    """Share of the terms the JD asks for that the document evidences, IDF-weighted.
 
     `texts` is the whole document, one unit at a time, in the posting's language
     (F5.5.1). Aliases are expanded on both sides — the same thing spelled
@@ -76,16 +103,18 @@ def keyword_context(
     such a document would attain — so a résumé that reaches every keyword scores
     exactly 1.0 and a partial one is comparable across postings of different sizes.
     """
-    keywords = [fold(keyword) for keyword in jd.raw_keywords if keyword.strip()]
+    terms = _terms_of(jd, aliases)
     documents = [_tokens(text, aliases) for text in texts if text and text.strip()]
     detail: dict[str, object] = {"k1": K1, "b": B, "documents": len(documents)}
 
-    if not keywords:
+    if not terms:
         detail["reason"] = "no_keywords_in_jd"
         return SubScore("keyword", 1.0, matched=[], missing=[], detail=detail)
     if not documents:
         detail["reason"] = "no_bullets"
-        return SubScore("keyword", 0.0, matched=[], missing=list(jd.raw_keywords), detail=detail)
+        return SubScore(
+            "keyword", 0.0, matched=[], missing=[label for label, _ in terms], detail=detail
+        )
 
     average_length = sum(len(document) for document in documents) / len(documents)
     detail["average_document_length"] = round(average_length, 3)
@@ -95,7 +124,7 @@ def keyword_context(
     numerator = 0.0
     denominator = 0.0
 
-    for original, keyword in zip(jd.raw_keywords, keywords, strict=True):
+    for original, keyword in terms:
         keyword_score = 0.0
         for part in _tokens(keyword, aliases):
             document_frequency = sum(1 for document in documents if part in document)
