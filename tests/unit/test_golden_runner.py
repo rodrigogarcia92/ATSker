@@ -15,7 +15,18 @@ import pytest
 from scripts import golden_run
 from src.config import get_settings
 from src.extract import client as extract_client
-from src.models import Application, Bullet, LlmCall, Profile, Role, Skill, Summary, User
+from src.models import (
+    Application,
+    Bullet,
+    LlmCall,
+    Profile,
+    Resume,
+    Role,
+    Skill,
+    Summary,
+    Track,
+    User,
+)
 from tests import golden_support as support
 
 HEADER = [
@@ -326,6 +337,59 @@ def test_wipe_blanks_the_profile_row_and_keeps_the_login(session, two_accounts, 
     assert session.query(LlmCall).filter(LlmCall.input_hash == "0" * 64).count() == 1
     assert session.query(Skill).filter(Skill.canonical == "python").count() == 1
     assert session.query(Summary).filter(Summary.profile_id == bea_profile.id).count() == 1
+
+
+def test_a_run_imports_two_cvs_tracks_named_after_cv_version_and_writes_the_csv(
+    tmp_path, session, two_accounts, vocabulary, provider, script_session
+):
+    """A.5: the whole pipeline against the fixture database, offline.
+
+    Two CVs import once each; the tracks take the sheet's `cv_version` verbatim;
+    every dev pair is analysed against its track and lands in the CSV with the
+    application id the history will show.
+    """
+    (ana, ana_profile), (bea, bea_profile) = two_accounts
+    first_cv = tmp_path / "cv-one.docx"
+    first_cv.write_bytes(support.docx_bytes("Experiencia", "Cerré el mes un 30% más rápido"))
+    second_cv = tmp_path / "cv-two.docx"
+    second_cv.write_bytes(support.docx_bytes("Perfil", "Automatizé reportes con Python"))
+    sheet = support.write_sheet(
+        tmp_path / "sheet.xlsx",
+        [
+            support.row(1, profile="Ana", cv_version="CV-1"),
+            support.row(2, profile="Ana", cv_version="CV-2"),
+            support.row(3, profile="Ana", cv_version="CV-1"),
+            support.row(4, profile="Bea", cv_version="CV-9", split="test"),
+        ],
+    )
+    mapping = support.write_map(
+        tmp_path / "map.toml",
+        profiles={"Ana": ana.email},
+        cvs={"CV-1": str(first_cv), "CV-2": str(second_cv)},
+    )
+    out = support.gitignored_dir(tmp_path) / "run.csv"
+
+    result = golden_run.main(
+        ["--label", "w3", "--sheet", str(sheet), "--map", str(mapping), "--out", str(out)]
+    )
+
+    assert result == 0
+    # Two distinct (profile, cv_version) pairs → two archives, two named tracks.
+    assert session.query(Resume).count() == 2
+    tracks = session.query(Track).filter(Track.profile_id == ana_profile.id).all()
+    assert sorted(track.name for track in tracks) == ["CV-1", "CV-2"]
+    assert all(track.name in {"CV-1", "CV-2"} for track in tracks)
+    # Every dev pair is analysed and persisted against its own track…
+    applications = session.query(Application).all()
+    assert len(applications) == 3
+    by_track = {track.id: track.name for track in tracks}
+    assert sorted(by_track[app.track_id] for app in applications) == ["CV-1", "CV-1", "CV-2"]
+    # …and the CSV names the same tracks and the same applications.
+    rows = list(csv.DictReader(out.read_text(encoding="utf-8").splitlines()))
+    assert [entry["pair_id"] for entry in rows] == ["1", "2", "3"]
+    assert [entry["track"] for entry in rows] == ["CV-1", "CV-2", "CV-1"]
+    assert {entry["application_id"] for entry in rows} == {str(app.id) for app in applications}
+    assert session.query(Bullet).filter(Bullet.profile_id == bea_profile.id).count() == 0
 
 
 def test_a_w2_report_leaves_the_split_columns_blank():
