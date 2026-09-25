@@ -303,6 +303,25 @@ def test_the_report_shows_relevant_years_the_roles_and_the_tasks(client, session
     assert "Preparar los reportes" in page
 
 
+def test_sub_scores_are_shown_as_integers_out_of_100(client, session, career, provider):
+    """PRD §12.1: what sits under a sub-score is a percentage, never a fraction —
+    the page shows 29, not 0.29. The stored value is untouched."""
+    login(client, career.first.email)
+    posted = client.post("/analyze", data={"jd_text": POSTING}, follow_redirects=False)
+
+    application = session.query(Application).one()
+    raw = client.get(posted.headers["location"]).text
+    for name, entry in application.report["score"]["sub_scores"].items():
+        shown = f"{entry['value'] * 100:.0f}"
+        assert f">{shown}</span>" in raw, f"{name} renders {shown}, not {entry['value']}"
+        assert f">{entry['value']:.2f}</span>" not in raw, "a sub-score is never a fraction"
+
+    skills = application.report["score"]["sub_scores"]["skills"]["detail"]
+    page = text_of(raw)
+    assert f"{skills['direct'] * 100:.0f} directo" in page
+    assert f"{skills['transfer'] * 100:.0f} transferible" in page
+
+
 def test_the_total_is_the_hand_computed_weighted_sum_of_the_four(session, career, provider):
     """PRD F5.5.1: Σ(w3 weight × value) over four components, nothing renormalised."""
     analysis = analyze(career.first_profile.id, session, jd_text=POSTING)

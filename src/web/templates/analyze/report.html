@@ -63,14 +63,10 @@
       <span class="text-xs text-slate-500">
         {{ t('report.weight', lang) }} {{ '%.3f'|format(report.score.effective_weights.get(name, 0)) }}
       </span>
-      {# F5.5.1: the Skills sub-score is shown split — how much rests on transfer,
-         the part a recruiter may not grant. Without a split (a stored w2 report),
-         the number renders as it always did. #}
-      {% if sub.detail is defined and sub.detail.direct is defined %}
+      {# PRD §12.1: a sub-score is shown as a percentage out of 100, never as a
+         fraction — 29, not 0.29. What is stored is untouched; this is display.
+         The Skills split renders the same way, both parts included. #}
       <span class="text-lg font-semibold">{{ '%.0f'|format(sub.value * 100) }}</span>
-      {% else %}
-      <span class="text-lg font-semibold">{{ '%.2f'|format(sub.value) }}</span>
-      {% endif %}
     </div>
     {% if sub.detail is defined and sub.detail.direct is defined %}
     <p class="mt-1 text-sm text-slate-600">
