@@ -26,7 +26,7 @@ from openpyxl import load_workbook
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from src.models import User
+from src.models import Profile, User
 
 # The repository these scripts live in — where `fixtures/` is read from and
 # written to regardless of which checkout is being measured (resume §3).
@@ -88,6 +88,7 @@ class InputCheck:
 
     problems: tuple[str, ...]
     users: dict[str, User] = field(default_factory=dict)
+    profiles: dict[str, Profile] = field(default_factory=dict)
     files: dict[str, Path] = field(default_factory=dict)
 
     @property
@@ -199,6 +200,7 @@ def check_inputs(pairs: list[Pair], mapping: Mapping, session: Session) -> Input
     """
     problems: list[str] = []
     users: dict[str, User] = {}
+    profiles: dict[str, Profile] = {}
     files: dict[str, Path] = {}
 
     blank = [pair.pair_id for pair in pairs if not pair.cv_version]
@@ -214,8 +216,13 @@ def check_inputs(pairs: list[Pair], mapping: Mapping, session: Session) -> Input
         if user is None:
             # The email is mapping content: named by what it fails, never printed.
             problems.append(f"profile {name!r}: no user with the mapped email")
-        else:
-            users[name] = user
+            continue
+        profile = session.scalar(select(Profile).where(Profile.user_id == user.id))
+        if profile is None:
+            problems.append(f"profile {name!r}: the mapped user has no profile row")
+            continue
+        users[name] = user
+        profiles[name] = profile
 
     for version in dict.fromkeys(pair.cv_version for pair in pairs if pair.cv_version):
         raw = mapping.cvs.get(version)
@@ -230,4 +237,4 @@ def check_inputs(pairs: list[Pair], mapping: Mapping, session: Session) -> Input
         else:
             files[version] = candidate
 
-    return InputCheck(problems=tuple(problems), users=users, files=files)
+    return InputCheck(problems=tuple(problems), users=users, profiles=profiles, files=files)

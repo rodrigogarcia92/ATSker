@@ -5,63 +5,16 @@ mapping hold personal data and no test reads them. Validation problems name the
 sheet's keys and pair ids — never a mapped email or path.
 """
 
-import json
-from pathlib import Path
 
 import pytest
-from openpyxl import Workbook
 
 from scripts import golden_inputs as inputs
 from src.auth.accounts import create_account
+from tests.golden_support import row, write_map, write_sheet
 
 PASSWORD = "correct horse battery staple"  # noqa: S105 - synthetic fixture password
 KNOWN_EMAIL = "persona@example.com"
 UNKNOWN_EMAIL = "cleo@example.com"
-
-
-def write_sheet(
-    path: Path,
-    rows: list[dict[str, object]],
-    columns: tuple[str, ...] = inputs.SHEET_COLUMNS,
-) -> Path:
-    workbook = Workbook()
-    sheet = workbook.active
-    sheet.append(list(columns))
-    for row in rows:
-        sheet.append([row.get(name) for name in columns])
-    workbook.save(path)
-    return path
-
-
-def write_map(path: Path, profiles: dict[str, str], cvs: dict[str, str]) -> Path:
-    lines = ["[profiles]"]
-    lines += [f"{json.dumps(name)} = {json.dumps(email)}" for name, email in profiles.items()]
-    lines += ["", "[cvs]"]
-    lines += [f"{json.dumps(name)} = {json.dumps(value)}" for name, value in cvs.items()]
-    path.write_text("\n".join(lines), encoding="utf-8")
-    return path
-
-
-def row(
-    pair_id: object,
-    *,
-    profile: str = "Ana",
-    cv_version: str = "CV-1",
-    split: str = "dev",
-    **extra: object,
-) -> dict[str, object]:
-    return {
-        "pair_id": pair_id,
-        "JD": f"posting {pair_id}",
-        "bucket": "plausible",
-        "score": 3.5,
-        "score_direct_only": 2.5,
-        "profile": profile,
-        "lang": "es",
-        "split": split,
-        "cv_version": cv_version,
-        **extra,
-    }
 
 
 def test_every_problem_is_reported_at_once(session, tmp_path):
