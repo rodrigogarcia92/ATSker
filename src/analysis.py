@@ -38,9 +38,15 @@ from src.extract.client import CallOptions, Completion
 from src.extract.gaps import GapInput, interpret_gaps
 from src.extract.grading import grade_evidence
 from src.extract.jd import extract_jd
-from src.extract.prompts import BOOLEAN_RECALL, EVIDENCE_GRADING, GAP_INTERPRETATION, JD_EXTRACTION
+from src.extract.prompts import (
+    BOOLEAN_RECALL,
+    EVIDENCE_GRADING_V4,
+    GAP_INTERPRETATION,
+    JD_EXTRACTION,
+)
 from src.jd import StructuredJD
 from src.models import Bullet, Profile, Track
+from src.normalize.vocabulary import match_text
 from src.parse.gate import ParseReport
 from src.resumes import source_document_for_track
 from src.roles import list_roles
@@ -170,6 +176,7 @@ def analyze(
         session,
         jd,
         bullets,
+        basis_credit=W4.basis_credit,
         summary_text=document_summary(document),
         skills_text=document_skills_list(document),
         language=jd.language,
@@ -234,6 +241,7 @@ def analyze(
 
     grades: list[dict[str, object]] = []
     graded_inputs: list[Graded] = []
+    family_candidates: list[dict[str, object]] = []
     for entry in grading.levels:
         cited_text, cited_fallback = citation(entry)
         grades.append(
@@ -248,9 +256,21 @@ def analyze(
                 "transfer_reason": entry.transfer_reason,
                 "clamped": entry.clamped,
                 "downgraded": entry.downgraded,
+                "inferred": entry.inferred,
                 "fallback": cited_fallback,
             }
         )
+        if entry.downgraded:
+            # F5.5.2's family review list: every equivalence the data refused,
+            # with the skills the citation actually named. These pairs are what
+            # `scripts/vocabulary.py families-review` puts in front of the
+            # operator, so a frequently claimed equivalence can become a family.
+            family_candidates.append(
+                {
+                    "requirement": entry.requirement,
+                    "cited": ", ".join(sorted(match_text(cited_text or "", aliases))),
+                }
+            )
         graded_inputs.append(
             Graded(
                 requirement=entry.requirement,
@@ -325,6 +345,9 @@ def analyze(
         # source is edited or deactivated.
         "grades": grades,
         "grading_note": grading.note,
+        # F5.5.2: the equivalences the family data refused, for review (B.6's
+        # page and `scripts/vocabulary.py families-review` read this list).
+        "family_candidates": family_candidates,
         # N5 (PRD F6): the gap analysis beside the grades it fell out of. The rows
         # are detection's, in F6.1's band order, with the interpretation's blocking
         # flag and one line merged in — the model never reorders and never adds.
@@ -383,7 +406,7 @@ def analyze(
         report=report,
         prompt_versions={
             "jd_extract": JD_EXTRACTION.version,
-            "evidence_grade": EVIDENCE_GRADING.version,
+            "evidence_grade": EVIDENCE_GRADING_V4.version,
             "boolean_queries": BOOLEAN_RECALL.version,
             "gap_interpret": GAP_INTERPRETATION.version,
         },

@@ -7,6 +7,7 @@ term to a canonical skill.
     uv run python scripts/vocabulary.py seed
     uv run python scripts/vocabulary.py unmapped
     uv run python scripts/vocabulary.py promote --term "powerbi" --canonical "power bi"
+    uv run python scripts/vocabulary.py families-review
 """
 
 import argparse
@@ -17,7 +18,12 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from src.db import session_scope  # noqa: E402
-from src.vocabulary import list_unmapped, promote_alias, seed_vocabulary  # noqa: E402
+from src.vocabulary import (  # noqa: E402
+    family_candidate_pairs,
+    list_unmapped,
+    promote_alias,
+    seed_vocabulary,
+)
 
 SEED_FILE = Path(__file__).resolve().parents[1] / "src" / "normalize" / "skills_seed.json"
 
@@ -51,11 +57,31 @@ def cmd_promote(term: str, canonical: str) -> int:
     return 0
 
 
+def cmd_families_review() -> int:
+    """The equivalences the family data refused, counted across stored reports.
+
+    Read-only. The pairs are what a reviewer promotes into a `skills.family` when
+    the same claim keeps being made and keeps failing the data check.
+    """
+    with session_scope() as session:
+        pairs = family_candidate_pairs(session)
+    if not pairs:
+        print("no family candidates")
+        return 0
+    for requirement, cited, count in pairs:
+        print(f"{count:>4}  {requirement} <-> {cited}")
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="ATSker vocabulary administration.")
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("seed", help="apply skills_seed.json (idempotent)")
     sub.add_parser("unmapped", help="list terms awaiting a decision")
+    sub.add_parser(
+        "families-review",
+        help="count the (requirement, cited) pairs the family check refused (read-only)",
+    )
     promote = sub.add_parser("promote", help="attach a term to a canonical skill")
     promote.add_argument("--term", required=True)
     promote.add_argument("--canonical", required=True)
@@ -65,6 +91,8 @@ def main() -> int:
         return cmd_seed()
     if args.command == "unmapped":
         return cmd_unmapped()
+    if args.command == "families-review":
+        return cmd_families_review()
     return cmd_promote(args.term, args.canonical)
 
 

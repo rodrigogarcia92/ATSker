@@ -147,7 +147,9 @@
     </div>
     {# F5.4.1: the basis column, the transfer reason for every non-direct row, and
        the marks the rules left — clamped, downgraded, fallback language. Rows
-       stored before w3 carry none of these fields and show none of this. #}
+       stored before w3 carry none of these fields and show none of this. F5.5.2
+       adds `inferred`: the level came from family data, so the downgraded mark is
+       not shown beside it — the row was not left at transferable. #}
     {% if grade.basis is defined %}
     <p class="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
       <span class="rounded bg-slate-100 px-2 py-0.5">{{ t('report.basis.' ~ grade.basis, lang) }}</span>
@@ -155,7 +157,8 @@
       <span class="rounded bg-slate-100 px-2 py-0.5">{{ t('report.source.' ~ grade.source, lang) }}</span>
       {% endif %}
       {% if grade.clamped %}<span class="rounded bg-amber-100 px-2 py-0.5 text-amber-900">{{ t('report.grade_clamped', lang) }}</span>{% endif %}
-      {% if grade.downgraded %}<span class="rounded bg-amber-100 px-2 py-0.5 text-amber-900">{{ t('report.grade_downgraded', lang) }}</span>{% endif %}
+      {% if grade.inferred %}<span class="rounded bg-slate-100 px-2 py-0.5">{{ t('report.grade_inferred', lang) }}</span>{% endif %}
+      {% if grade.downgraded and not grade.inferred %}<span class="rounded bg-amber-100 px-2 py-0.5 text-amber-900">{{ t('report.grade_downgraded', lang) }}</span>{% endif %}
       {% if grade.fallback %}<span class="rounded bg-amber-100 px-2 py-0.5 text-amber-900">{{ t('report.grade_fallback', lang) }}</span>{% endif %}
     </p>
     {% endif %}

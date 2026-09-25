@@ -150,7 +150,7 @@ def test_an_analysis_records_its_weights_prompts_and_cost(session, career, provi
     }, "nothing is renormalised under w3"
     assert analysis.prompt_versions == {
         "jd_extract": "jd_extract_v2",
-        "evidence_grade": "evidence_grade_v3",
+        "evidence_grade": "evidence_grade_v4",
         "boolean_queries": "boolean_recall_v1",
         "gap_interpret": "gap_interpret_v1",
     }
@@ -194,8 +194,53 @@ def test_an_analysis_records_its_weights_prompts_and_cost(session, career, provi
     assert application.jd_hash == jd_hash(POSTING)
     assert application.title == "Analista de datos"
     assert application.token_cost_usd == 4 * Decimal(COST_PER_CALL)
-    assert application.prompt_versions["evidence_grade"] == "evidence_grade_v3"
+    assert application.prompt_versions["evidence_grade"] == "evidence_grade_v4"
     assert application.report["score"]["unavailable"] == {}
+
+
+def test_a_refused_equivalence_is_listed_for_family_review(session, career, provider):
+    """F5.5.2: a basis the family data could not confirm is not a silent
+    downgrade — the pair lands in `report["family_candidates"]`, which is what
+    `scripts/vocabulary.py families-review` counts for the operator."""
+    provider.answers["EvidenceGrading"] = json.dumps(
+        {
+            "grades": [
+                {"index": 0, "level": 0, "basis": "none", "source": None},
+                {
+                    "index": 1,
+                    "level": 2,
+                    "basis": "equivalent",
+                    "source": "bullet",
+                    "evidence_id": str(career.first_bullet.id),
+                    "transfer_reason": "Mismo trabajo, otro dominio.",
+                },
+            ],
+            "note": "",
+        }
+    )
+    # The gap the grading above leaves is now python (must-have, level 0), so the
+    # interpretation stub has to answer about that one.
+    provider.answers["GapInterpretation"] = json.dumps(
+        {
+            "gaps": [
+                {
+                    "requirement": "python",
+                    "blocking": True,
+                    "interpretation": "Sin Python no hay candidatura.",
+                }
+            ],
+            "warning": {"text": "Nada", "handling": "Nada"},
+            "not_found": "No hay nada.",
+        }
+    )
+
+    analysis = analyze(career.first_profile.id, session, jd_text=POSTING)
+
+    assert analysis.report["family_candidates"] == [
+        {"requirement": "machine learning", "cited": "python"}
+    ]
+    assert analysis.report["grades"][1]["downgraded"] is True
+    assert analysis.report["grades"][1]["basis"] == "transferable"
 
 
 def test_the_total_is_the_hand_computed_weighted_sum_of_the_four(session, career, provider):
@@ -259,8 +304,8 @@ def test_the_invariant_prompt_prefix_is_byte_identical_across_postings(
     other = StructuredJD(
         title="Otro puesto", must_have=["machine learning"], nice_to_have=["python"]
     )
-    grade_evidence(session, jd, [career.first_bullet])
-    grade_evidence(session, other, [career.first_bullet])
+    grade_evidence(session, jd, [career.first_bullet], basis_credit=W4.basis_credit)
+    grade_evidence(session, other, [career.first_bullet], basis_credit=W4.basis_credit)
 
     first, second = messages_for(provider, "EvidenceGrading")[:2]
     assert first[0]["content"] == second[0]["content"]

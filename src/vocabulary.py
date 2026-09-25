@@ -12,7 +12,7 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from src.models import Skill, UnmappedTerm
+from src.models import Application, Skill, UnmappedTerm
 from src.normalize.text import fold
 from src.normalize.vocabulary import match_text, resolve_terms
 
@@ -130,6 +130,25 @@ def seed_vocabulary(session: Session, entries: Iterable[Mapping[str, object]]) -
 
 def list_skills(session: Session) -> Sequence[Skill]:
     return list(session.scalars(select(Skill).order_by(Skill.canonical)))
+
+
+def family_candidate_pairs(session: Session) -> list[tuple[str, str, int]]:
+    """`(requirement, cited, count)` for every equivalence the family data refused.
+
+    Crosses profiles by design (F5.5.2), which is the one exception to
+    "`profile_id` first": the vocabulary is shared, so promoting an equivalence is
+    a decision about every report at once. Read-only — the counts are what the
+    operator reviews, nothing here changes a row.
+    """
+    counts: dict[tuple[str, str], int] = {}
+    for report in session.scalars(select(Application.report)):
+        for row in (report or {}).get("family_candidates") or []:
+            key = (str(row.get("requirement") or ""), str(row.get("cited") or ""))
+            counts[key] = counts.get(key, 0) + 1
+    return sorted(
+        ((requirement, cited, count) for (requirement, cited), count in counts.items()),
+        key=lambda entry: (-entry[2], entry[0], entry[1]),
+    )
 
 
 def list_unmapped(session: Session, *, status: str | None = None) -> Sequence[UnmappedTerm]:

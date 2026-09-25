@@ -33,7 +33,7 @@ def jd() -> StructuredJD:
 
 
 class Bullets:
-    """Stands in for ORM bullets: grading only needs id and text."""
+    """Stands in for ORM bullets: grading reads id, text and the skill chips."""
 
     def __init__(self) -> None:
         self.ids = [uuid.uuid4() for _ in range(2)]
@@ -44,7 +44,9 @@ class Bullets:
 
     def __iter__(self):
         for identifier, text in zip(self.ids, self.texts, strict=True):
-            yield type("B", (), {"id": identifier, "text_es": text, "text_en": None})()
+            yield type(
+                "B", (), {"id": identifier, "text_es": text, "text_en": None, "skills": []}
+            )()
 
 
 @pytest.fixture
@@ -93,7 +95,7 @@ def stub(monkeypatch, payloads: list[str]) -> list[dict]:
 def test_grades_come_back_with_their_citations(session, test_settings, bullets, monkeypatch):
     calls = stub(monkeypatch, [grading_payload(bullets)])
 
-    report = grade_evidence(session, jd(), list(bullets))
+    report = grade_evidence(session, jd(), list(bullets), basis_credit=W3.basis_credit)
 
     assert [(entry.requirement, entry.level) for entry in report.levels] == [
         ("python", 2),
@@ -142,6 +144,7 @@ def test_summary_only_and_skills_list_only_evidence_clamps_to_level_one(
         session,
         jd(),
         [],
+        basis_credit=W3.basis_credit,
         summary_text="Automatizo reportes con Python y SQL.",
         skills_text="python, sql, power bi",
     )
@@ -172,12 +175,24 @@ def test_an_equivalent_is_confirmed_by_a_shared_family_or_downgraded(
     session.commit()
     bullets = [
         type(
-            "B", (), {"id": uuid.uuid4(), "text_es": "Mantuve tableros de Tableau", "text_en": None}
+            "B",
+            (),
+            {
+                "id": uuid.uuid4(),
+                "text_es": "Mantuve tableros de Tableau",
+                "text_en": None,
+                "skills": ["tableau"],
+            },
         )(),
         type(
             "B",
             (),
-            {"id": uuid.uuid4(), "text_es": "Automaticé procesos con Python", "text_en": None},
+            {
+                "id": uuid.uuid4(),
+                "text_es": "Automaticé procesos con Python",
+                "text_en": None,
+                "skills": ["python"],
+            },
         )(),
     ]
 
@@ -202,14 +217,25 @@ def test_an_equivalent_is_confirmed_by_a_shared_family_or_downgraded(
     # Same input twice would hit the cache; these two runs must reach the stubs.
     fresh = CallOptions(bypass_cache=True)
     equivalent = grade_evidence(
-        session, StructuredJD(must_have=["power bi"]), bullets, options=fresh
+        session,
+        StructuredJD(must_have=["power bi"]),
+        bullets,
+        basis_credit=W3.basis_credit,
+        options=fresh,
     ).levels[0]
     assert equivalent.basis == "equivalent", "same non-null family confirms the hop"
     assert equivalent.downgraded is False
 
     stub(monkeypatch, [answer(bullets[1])])
+    # Only the Python bullet is supplied here: with the Tableau bullet in evidence
+    # the family data has an answer for Power BI and the backstop (F5.5.2) would
+    # grant it. This half is about the row the data cannot confirm at all.
     downgraded = grade_evidence(
-        session, StructuredJD(must_have=["power bi"]), bullets, options=fresh
+        session,
+        StructuredJD(must_have=["power bi"]),
+        [bullets[1]],
+        basis_credit=W3.basis_credit,
+        options=fresh,
     ).levels[0]
     assert downgraded.basis == "transferable", "outside the family the credit is not granted"
     assert downgraded.downgraded is True
@@ -240,7 +266,7 @@ def test_a_transfer_basis_without_a_reason_fails_after_one_retry(
     calls = stub(monkeypatch, [bad, bad])
 
     with pytest.raises(CitationViolation, match="transfer_reason"):
-        grade_evidence(session, jd(), list(bullets))
+        grade_evidence(session, jd(), list(bullets), basis_credit=W3.basis_credit)
 
     assert len(calls) == 2, "exactly one retry, then the loud failure"
 
@@ -266,7 +292,7 @@ def test_a_level_without_a_citation_is_retried_once_then_fails(
     calls = stub(monkeypatch, [bad, bad])
 
     with pytest.raises(CitationViolation):
-        grade_evidence(session, jd(), list(bullets))
+        grade_evidence(session, jd(), list(bullets), basis_credit=W3.basis_credit)
 
     assert len(calls) == 2
 
@@ -292,7 +318,7 @@ def test_an_invented_citation_is_rejected(session, test_settings, bullets, monke
     calls = stub(monkeypatch, [invented, invented])
 
     with pytest.raises(CitationViolation, match="never supplied"):
-        grade_evidence(session, jd(), list(bullets))
+        grade_evidence(session, jd(), list(bullets), basis_credit=W3.basis_credit)
 
     assert len(calls) == 2
 
@@ -318,7 +344,7 @@ def test_an_ungraded_requirement_is_not_silently_dropped(
     stub(monkeypatch, [partial, partial])
 
     with pytest.raises(CitationViolation, match="no grade returned"):
-        grade_evidence(session, jd(), list(bullets))
+        grade_evidence(session, jd(), list(bullets), basis_credit=W3.basis_credit)
 
 
 def test_a_corrected_answer_on_the_retry_is_accepted(session, test_settings, bullets, monkeypatch):
@@ -339,7 +365,7 @@ def test_a_corrected_answer_on_the_retry_is_accepted(session, test_settings, bul
     )
     calls = stub(monkeypatch, [bad, grading_payload(bullets)])
 
-    report = grade_evidence(session, jd(), list(bullets))
+    report = grade_evidence(session, jd(), list(bullets), basis_credit=W3.basis_credit)
 
     assert len(report.levels) == 3
     assert len(calls) == 2
@@ -349,28 +375,28 @@ def test_a_shape_the_schema_rejects_fails_loudly(session, test_settings, bullets
     stub(monkeypatch, ["not json"])
 
     with pytest.raises(StructuredOutputError):
-        grade_evidence(session, jd(), list(bullets))
+        grade_evidence(session, jd(), list(bullets), basis_credit=W3.basis_credit)
 
 
 def test_regrading_the_same_pair_reuses_the_cache(session, test_settings, bullets, monkeypatch):
     calls = stub(monkeypatch, [grading_payload(bullets)])
 
-    first = grade_evidence(session, jd(), list(bullets))
-    second = grade_evidence(session, jd(), list(bullets))
+    first = grade_evidence(session, jd(), list(bullets), basis_credit=W3.basis_credit)
+    second = grade_evidence(session, jd(), list(bullets), basis_credit=W3.basis_credit)
 
     assert len(calls) == 1
     assert first.cached is False and second.cached is True
     assert first.levels == second.levels
     stored = session.query(LlmCall).one()
     assert stored.purpose == PURPOSE
-    assert stored.prompt_version == "evidence_grade_v3"
+    assert stored.prompt_version == "evidence_grade_v4"
 
 
 def test_bullet_text_is_redacted_before_it_leaves(session, test_settings, bullets, monkeypatch):
     calls = stub(monkeypatch, [grading_payload(bullets)])
     bullets.texts[0] = "Escribí a persona@example.com sobre el reporte de Python"
 
-    grade_evidence(session, jd(), list(bullets))
+    grade_evidence(session, jd(), list(bullets), basis_credit=W3.basis_credit)
 
     assert "persona@example.com" not in str(calls[0]["messages"])
 
@@ -378,7 +404,12 @@ def test_bullet_text_is_redacted_before_it_leaves(session, test_settings, bullet
 def test_a_posting_without_requirements_makes_no_call(session, test_settings, bullets, monkeypatch):
     calls = stub(monkeypatch, [grading_payload(bullets)])
 
-    report = grade_evidence(session, StructuredJD(title="Analista"), list(bullets))
+    report = grade_evidence(
+        session,
+        StructuredJD(title="Analista"),
+        list(bullets),
+        basis_credit=W3.basis_credit,
+    )
 
     assert report.levels == () and report.cached is False
     assert calls == []
@@ -386,6 +417,173 @@ def test_a_posting_without_requirements_makes_no_call(session, test_settings, bu
 
 def test_requirements_are_must_haves_then_nice_to_haves():
     assert requirements_of(jd()) == [("python", True), ("sql", True), ("power bi", False)]
+
+
+def row(index: int, level: int, **fields) -> dict:
+    """One answer row, filled the way the contract requires."""
+    return {
+        "index": index,
+        "level": level,
+        "basis": fields.get("basis", "none" if level == 0 else "direct"),
+        "source": fields.get("source", None if level == 0 else "bullet"),
+        "evidence_id": fields.get("evidence_id"),
+        "transfer_reason": fields.get("reason"),
+    }
+
+
+def answer_of(*rows: dict) -> str:
+    return json.dumps({"grades": list(rows), "note": ""})
+
+
+def tagged(identifier, text: str, skills: list[str]):
+    """A bullet double carrying the skill chips the family check reads."""
+    return type(
+        "B", (), {"id": identifier, "text_es": text, "text_en": None, "skills": skills}
+    )()
+
+
+def test_the_family_table_reaches_the_prompt(session, test_settings, bullets, monkeypatch):
+    """F5.5.2: "Only families listed here are equivalents" is only true of what
+    was actually listed, so the table is rendered from the database."""
+    session.add_all(
+        [
+            Skill(canonical="power bi", aliases=[], lang_tags=["es"], family="bi_tool"),
+            Skill(canonical="tableau", aliases=[], lang_tags=["es"], family="bi_tool"),
+            Skill(canonical="python", aliases=[], lang_tags=["es"]),
+        ]
+    )
+    session.commit()
+    calls = stub(monkeypatch, [grading_payload(bullets)])
+
+    grade_evidence(
+        session, jd(), list(bullets), basis_credit=W3.basis_credit
+    )
+
+    system = calls[0]["messages"][0]["content"]
+    assert "bi_tool: power bi, tableau" in system
+    assert "Only families listed here are equivalents" in system
+    assert "python:" not in system, "a skill with no family is not listed as an equivalent"
+
+
+def test_a_family_sibling_evidenced_elsewhere_stands_in_for_the_requirement(
+    session, test_settings, monkeypatch
+):
+    """F5.5.2's candidate A: a sibling requirement this posting grades direct
+    carries its level, source and citation across to the rows left at 0."""
+    session.add_all(
+        [
+            Skill(canonical="power bi", aliases=[], lang_tags=["es"], family="bi_tool"),
+            Skill(canonical="tableau", aliases=[], lang_tags=["es"], family="bi_tool"),
+            Skill(canonical="looker", aliases=[], lang_tags=["es"], family="bi_tool"),
+        ]
+    )
+    session.commit()
+    cited = tagged(uuid.uuid4(), "Mantuve tableros de Power BI para 40 usuarios", ["power bi"])
+    stub(
+        monkeypatch,
+        [
+            answer_of(
+                row(0, 3, evidence_id=str(cited.id)),
+                row(1, 0),
+                row(2, 0),
+            )
+        ],
+    )
+
+    report = grade_evidence(
+        session,
+        StructuredJD(must_have=["power bi", "tableau", "looker"]),
+        [cited],
+        basis_credit=W3.basis_credit,
+    )
+
+    power_bi, tableau, looker = report.levels
+    assert (power_bi.level, power_bi.basis, power_bi.inferred) == (3, "direct", False)
+    for entry in (tableau, looker):
+        assert (entry.level, entry.basis, entry.inferred) == (3, "equivalent", True)
+        assert entry.evidence_id == str(cited.id)
+        assert entry.transfer_reason == "misma familia (bi_tool) que power bi"
+
+
+def test_a_bullet_tagged_with_a_family_sibling_counts_level_two(
+    session, test_settings, monkeypatch
+):
+    """F5.5.2's candidate B: no sibling requirement, but a supplied bullet is
+    tagged with one — a described task, so level 2, on that bullet's id."""
+    session.add_all(
+        [
+            Skill(canonical="google sheets", aliases=[], lang_tags=["es"], family="spreadsheet"),
+            Skill(
+                canonical="microsoft excel", aliases=[], lang_tags=["es"], family="spreadsheet"
+            ),
+        ]
+    )
+    session.commit()
+    cited = tagged(uuid.uuid4(), "Armé el tablero mensual con Microsoft Excel", ["microsoft excel"])
+    stub(monkeypatch, [answer_of(row(0, 0))])
+
+    entry = grade_evidence(
+        session,
+        StructuredJD(must_have=["google sheets"]),
+        [cited],
+        basis_credit=W3.basis_credit,
+    ).levels[0]
+
+    assert (entry.level, entry.basis, entry.inferred) == (2, "equivalent", True)
+    assert (entry.source, entry.evidence_id) == ("bullet", str(cited.id))
+    assert entry.transfer_reason == "misma familia (spreadsheet) que microsoft excel"
+
+
+def test_a_requirement_with_no_family_is_never_touched(
+    session, test_settings, monkeypatch
+):
+    """The backstop reads `skills.family` and nothing else: two tools that plainly
+    do the same job are not equivalents until the operator puts them in one."""
+    session.add_all(
+        [
+            Skill(canonical="google sheets", aliases=[], lang_tags=["es"]),
+            Skill(canonical="microsoft excel", aliases=[], lang_tags=["es"]),
+        ]
+    )
+    session.commit()
+    cited = tagged(uuid.uuid4(), "Armé el tablero mensual con Microsoft Excel", ["microsoft excel"])
+    stub(monkeypatch, [answer_of(row(0, 0))])
+
+    entry = grade_evidence(
+        session,
+        StructuredJD(must_have=["google sheets"]),
+        [cited],
+        basis_credit=W3.basis_credit,
+    ).levels[0]
+
+    assert (entry.level, entry.basis) == (0, "none")
+    assert entry.inferred is False and entry.evidence_id is None
+
+
+def test_a_direct_level_three_is_never_lowered_to_an_equivalent(
+    session, test_settings, monkeypatch
+):
+    """The backstop only ever raises a credit: `3/3 × equivalent` never beats
+    `3/3 × direct`, whatever sibling the family data offers."""
+    session.add_all(
+        [
+            Skill(canonical="power bi", aliases=[], lang_tags=["es"], family="bi_tool"),
+            Skill(canonical="tableau", aliases=[], lang_tags=["es"], family="bi_tool"),
+        ]
+    )
+    session.commit()
+    cited = tagged(uuid.uuid4(), "Mantuve tableros de Power BI", ["power bi"])
+    sibling = tagged(uuid.uuid4(), "Construí tableros en Tableau", ["tableau"])
+    stub(monkeypatch, [answer_of(row(0, 3, evidence_id=str(cited.id)))])
+
+    entry = grade_evidence(
+        session,
+        StructuredJD(must_have=["power bi"]),
+        [cited, sibling],
+        basis_credit=W3.basis_credit,
+    ).levels[0]
+
+    assert (entry.level, entry.basis, entry.inferred) == (3, "direct", False)
 
 
 class TestEvidenceCoverage:
@@ -486,7 +684,9 @@ def test_report_shape_keeps_levels_and_citations_together(
 ):
     stub(monkeypatch, [grading_payload(bullets)])
 
-    report: EvidenceReport = grade_evidence(session, jd(), list(bullets))
+    report: EvidenceReport = grade_evidence(
+        session, jd(), list(bullets), basis_credit=W3.basis_credit
+    )
     score = evidence_coverage(
         [
             Level(entry.requirement, entry.level, entry.must_have, entry.basis)

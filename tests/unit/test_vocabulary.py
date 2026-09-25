@@ -3,10 +3,12 @@
 import json
 from pathlib import Path
 
+from src.models import Application
 from src.normalize.text import fold
 from src.vocabulary import (
     SKILL_KINDS,
     alias_map,
+    family_candidate_pairs,
     list_unmapped,
     log_unmapped,
     promote_alias,
@@ -177,3 +179,33 @@ def test_two_identical_vocabularies_hash_the_same_and_an_added_alias_changes_it(
 
     promote_alias(session, "python", "python3")
     assert vocabulary_hash(session) != first, "an added alias changes the hash"
+
+
+def test_family_candidates_are_counted_across_profiles_most_frequent_first(session, two_accounts):
+    """F5.5.2's review list. It crosses profiles on purpose — the vocabulary is
+    shared, so promoting an equivalence is one decision about every report."""
+    (_, first_profile), (_, second_profile) = two_accounts
+    rows = (
+        (first_profile, "power bi", "tableau"),
+        (first_profile, "power bi", "tableau"),
+        (second_profile, "power bi", "looker"),
+    )
+    for profile, requirement, cited in rows:
+        session.add(
+            Application(
+                profile_id=profile.id,
+                jd_text="un puesto",
+                jd_hash="sha256:0",
+                weights_version="w4",
+                report={
+                    "grades": [],
+                    "family_candidates": [{"requirement": requirement, "cited": cited}],
+                },
+            )
+        )
+    session.commit()
+
+    assert family_candidate_pairs(session) == [
+        ("power bi", "tableau", 2),
+        ("power bi", "looker", 1),
+    ]

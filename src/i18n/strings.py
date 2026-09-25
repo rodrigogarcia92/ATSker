@@ -320,6 +320,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "es": "Base bajada a transferible: sin familia compartida en el vocabulario.",
         "en": "Downgraded to transferable: no shared family in the vocabulary.",
     },
+    "report.grade_inferred": {"es": "por familia", "en": "from family data"},
     "report.grade_fallback": {
         "es": "Evidencia en el idioma alternativo.",
         "en": "Fallback-language evidence.",

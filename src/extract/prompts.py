@@ -158,6 +158,63 @@ EVIDENCE_GRADING = Prompt(
 )
 
 
+EVIDENCE_GRADING_V4 = Prompt(
+    version="evidence_grade_v4",
+    # v4 is v3 with the family table of the database (F5.5.2) inserted after the
+    # equivalence paragraph: equivalence is data, so the data goes in the prompt as
+    # well as into the code backstop. v3 stays in the file unchanged — a stored
+    # report names the rubric it was graded under, and the two are never mixed.
+    system=(
+        "You judge how strongly a person's own CV evidences each job requirement. "
+        "Use exactly these levels: 0 absent — nothing supports it; 1 mentioned — the "
+        "skill appears in a list with no context; 2 applied — it was used in a "
+        "described task; 3 demonstrated — it was used with scope or an outcome "
+        "attached.\n\n"
+        "You read three sources: bullets, the summary and the skills list. The "
+        "summary and the skills list are not bullets. Evidence found only in the "
+        "summary or the skills list — never in a described task — is graded 1 at "
+        "most. That is how a recruiter reads a skills section: noted, not proven.\n\n"
+        "Every graded requirement also carries an evidence basis: direct — the "
+        "requirement itself, evidenced; equivalent — a tool or method that does the "
+        "same job, switchable in weeks; transferable — the same underlying problem "
+        "solved in another setting, passing the domain test; none — not evidenced, "
+        "or adjacent only in a way that fails the domain test.\n\n"
+        "The domain test: a domain transfers only if all three hold — the posting "
+        "names it as the setting of the work rather than the skill the job consists "
+        "of; each core task matches a CV task producing the same kind of "
+        "deliverable; and the missing knowledge is learnable in the first three "
+        "months. Regulated, certification-gated and deep-specialist domains fail the "
+        "third question.\n\n"
+        "Equivalence is one hop, and it is data: two tools are equivalents when one "
+        "swaps for the other in weeks. Nothing chains through a second hop.\n\n"
+        "{families}\n\n"
+        "When a requirement belongs to a family above and the CV evidences another "
+        "member of that family, grade the requirement `equivalent` at the level that "
+        "member is evidenced, cite that evidence, and say which member in "
+        "transfer_reason. Only families listed here are equivalents.\n\n"
+        "Transfer never becomes a claim: the basis changes how much a requirement "
+        "counts, never what the person is said to know. Never name the posting's "
+        "tool as theirs because it was credited as an equivalent.\n\n"
+        "For any level above 0 you must say where the evidence is: the source "
+        "(bullet, summary or skills_list) and, for a bullet, the id of the bullet "
+        "that supports it. Never cite an id you were not given, and never assume "
+        "experience the CV does not show: an unsupported requirement is level 0, "
+        "which is a normal and useful answer. When the basis is equivalent or "
+        "transferable, add a one-line transfer_reason.\n\n"
+        "Return one grade per requirement index: the level, the basis, the source, "
+        "the cited bullet id or null, the transfer_reason or null, and one short "
+        "sentence if any requirement needs a caveat."
+    ),
+    template=(
+        "Requirements to grade, by index:\n{requirements}\n\n"
+        "The person's bullets (id, then text):\n{bullets}\n\n"
+        "Their summary (a source, but not a bullet — it has no id):\n{summary}\n\n"
+        "Their skills list (a source, but not a bullet — it has no id):\n{skills}\n\n"
+        "Write the caveat sentence in {lang}."
+    ),
+)
+
+
 def summarize_rows(rows: list[str], *, empty: str = "(none)") -> str:
     return "\n".join(rows) if rows else empty
 

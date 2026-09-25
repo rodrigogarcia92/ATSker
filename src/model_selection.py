@@ -63,7 +63,7 @@ from src.normalize.metrics import extract_metrics
 from src.normalize.text import fold
 from src.score.aggregate import SubScore, aggregate
 from src.score.evidence import Level, evidence_coverage
-from src.score.weights import W3
+from src.score.weights import W3, W4
 from src.vocabulary import resolve_bullet_terms, seed_vocabulary
 
 # Deterministic ids, so a rerun of the same fixture produces the same citation
@@ -806,6 +806,10 @@ def run_pair(
             session,
             analysis.jd,
             analysis.bullets,
+            # The repeat is the same judge again, not a differently configured one:
+            # the family backstop reads these credits, and a different table would
+            # show up as judge instability. `analyze` passes W4's.
+            basis_credit=W4.basis_credit,
             summary_text=document_summary(analysis.document),
             skills_text=document_skills_list(analysis.document),
             language=analysis.jd.language,

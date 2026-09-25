@@ -21,6 +21,14 @@ Three rules are enforced here, never trusted to the model (F5.4.1):
   the data cannot confirm is not granted the credit;
 * the snapshot happens at the call site (analysis), from the same document text
   the model was shown, in the language it was shown in.
+
+A fourth rule is added rather than trusted (F5.5.2): the *family backstop* runs
+after `_enforce`, and fills in an `equivalent` the model left at 0 when the family
+data already proves one. It is the same one hop, in the other direction — the
+posting names Power BI and the CV shows Tableau, both in `bi_tool` — so a
+requirement the vocabulary puts in a family may be credited from a sibling that is
+evidenced here. It only ever raises a credit (`level/3 × equivalent` must beat the
+row's own `level/3 × basis`), never lowers one, and it names the sibling it used.
 """
 
 from collections.abc import Mapping, Sequence
@@ -34,7 +42,7 @@ from sqlalchemy.orm import Session
 from src.bullets import bullet_text
 from src.extract import redaction
 from src.extract.client import CallOptions, Completion, complete_json
-from src.extract.prompts import EVIDENCE_GRADING, summarize_rows
+from src.extract.prompts import EVIDENCE_GRADING_V4, summarize_rows
 from src.jd import StructuredJD
 from src.models import Bullet, Skill
 from src.normalize.text import fold
@@ -81,6 +89,9 @@ class EvidenceLevel:
     transfer_reason: str | None
     clamped: bool = False
     downgraded: bool = False
+    # F5.5.2: the level and basis came from the family data rather than from the
+    # model, so the report can say which rows a sibling stood in for.
+    inferred: bool = False
 
 
 @dataclass(frozen=True)
@@ -169,11 +180,89 @@ def _enforce(
     return level, basis, clamped, downgraded
 
 
+def _family_table(families: Mapping[str, str | None]) -> str:
+    """`family: canonical, canonical, …`, one line per non-null family (F5.5.2).
+
+    Rendered from the database rather than written into the prompt: which skills
+    are equivalents is operator-reviewed data, so the model is told exactly which
+    ones exist and the backstop below grants only those.
+    """
+    grouped: dict[str, list[str]] = {}
+    for canonical, family in families.items():
+        if family:
+            grouped.setdefault(family, []).append(canonical)
+    return "\n".join(
+        f"{family}: {', '.join(sorted(members))}" for family, members in sorted(grouped.items())
+    )
+
+
+def _family_equivalent(
+    index: int,
+    canonical: str | None,
+    *,
+    resolved: Sequence[str | None],
+    enforced: Sequence[tuple[int, str, bool, bool]],
+    rows: Sequence[GradeRow],
+    bullets: Sequence[Bullet],
+    families: Mapping[str, str | None],
+    basis_credit: Mapping[str, float],
+    language: str,
+) -> tuple[int, str, str | None, str] | None:
+    """F5.5.2's backstop: (level, source, evidence_id, transfer_reason), or None.
+
+    Two candidates, in order. A is another requirement of this posting in the same
+    family, itself directly evidenced at level 2 or better — its level, source and
+    citation travel over, which is why a `direct` row never chains into an
+    `equivalent` one. B is the first supplied bullet whose own skill chips name a
+    family sibling, worth level 2 as a described task. Either is applied only when
+    its credit strictly beats the row's own, so a directly evidenced level 3 is
+    never lowered to an equivalent.
+    """
+    family = families.get(canonical) if canonical else None
+    if not family:
+        return None
+
+    def is_sibling(candidate: str) -> bool:
+        return candidate != canonical and families.get(candidate) == family
+
+    found: tuple[int, str, str | None, str] | None = None
+    for other, (other_canonical, (other_level, other_basis, _, _)) in enumerate(
+        zip(resolved, enforced, strict=True)
+    ):
+        if other == index or not other_canonical or not is_sibling(other_canonical):
+            continue
+        if other_level >= 2 and other_basis == "direct":
+            found = (other_level, rows[other].source, rows[other].evidence_id, other_canonical)
+            break
+    if found is None:
+        for bullet in bullets:
+            sibling = next((skill for skill in bullet.skills if is_sibling(skill)), None)
+            if sibling is not None:
+                found = (2, "bullet", str(bullet.id), sibling)
+                break
+    if found is None:
+        return None
+
+    level, _source, _evidence_id, sibling = found
+    row_level, row_basis, _, _ = enforced[index]
+    offered = level / MAX_LEVEL * basis_credit["equivalent"]
+    current = row_level / MAX_LEVEL * basis_credit[row_basis]
+    if offered <= current:
+        return None
+    reason = (
+        f"misma familia ({family}) que {sibling}"
+        if language == "es"
+        else f"same family ({family}) as {sibling}"
+    )
+    return (level, found[1], found[2], reason)
+
+
 def grade_evidence(
     session: Session,
     jd: StructuredJD,
     bullets: Sequence[Bullet],
     *,
+    basis_credit: Mapping[str, float],
     summary_text: str | None = None,
     skills_text: str | None = None,
     language: str = "es",
@@ -187,10 +276,23 @@ def grade_evidence(
     each sent as its own clearly marked source that is not a bullet. Every attempt
     is kept, including a retry: an analysis's cost is the sum of what it actually
     spent, and a retried call was spent twice.
+
+    `basis_credit` is the caller's weight set (F5.5.1), never imported here: what
+    a basis is worth is scoring configuration, and `extract/` may not depend on
+    `score/` (PRD 5.1). The family backstop needs it to decide whether a sibling
+    would actually count for more than the row already does.
     """
     requirements = requirements_of(jd)
     if not requirements:
         return EvidenceReport(levels=(), note="")
+
+    # The vocabulary is shared data, not the caller's unit of work: read it on a
+    # session of its own so the family check cannot hold the caller's transaction
+    # across the provider call. It is read first because the family table is part
+    # of the prompt (F5.5.2), and the table and the backstop must see the same rows.
+    with Session(bind=session.get_bind()) as reader:
+        aliases = alias_map(reader)
+        families = {skill.canonical: skill.family for skill in reader.scalars(select(Skill))}
 
     numbered = "\n".join(f"{index}\t{value}" for index, (value, _) in enumerate(requirements))
     names = list(known_names or [])
@@ -200,7 +302,7 @@ def grade_evidence(
     }
     supplied = summarize_rows([f"{bullet_id}\t{text}" for bullet_id, text in texts.items()])
     allowed_ids = set(texts)
-    prompt = EVIDENCE_GRADING.render(
+    prompt = EVIDENCE_GRADING_V4.render(
         requirements=numbered,
         bullets=supplied,
         summary=summarize_rows(
@@ -209,13 +311,7 @@ def grade_evidence(
         skills=summarize_rows([skills_text] if skills_text else []),
         lang=language,
     )
-
-    # The vocabulary is shared data, not the caller's unit of work: read it on a
-    # session of its own so the family check cannot hold the caller's transaction
-    # across the provider call.
-    with Session(bind=session.get_bind()) as reader:
-        aliases = alias_map(reader)
-        families = {skill.canonical: skill.family for skill in reader.scalars(select(Skill))}
+    system = EVIDENCE_GRADING_V4.render_system(families=_family_table(families))
 
     attempts: list[Completion] = []
 
@@ -224,8 +320,8 @@ def grade_evidence(
         completion = complete_json(
             session,
             purpose=PURPOSE,
-            prompt_version=EVIDENCE_GRADING.version,
-            system=EVIDENCE_GRADING.render_system(),
+            prompt_version=EVIDENCE_GRADING_V4.version,
+            system=system,
             user=prompt
             if attempt == 0
             else f"{prompt}\n\nYour previous answer was unusable: cite only supplied "
@@ -244,27 +340,55 @@ def grade_evidence(
                 continue
             raise
 
-        levels: list[EvidenceLevel] = []
-        for (requirement, must_have), row in zip(requirements, rows, strict=True):
+        # `_enforce` first, for every row, and only then the family backstop:
+        # candidate A reads the other rows as the rules left them, so one row can
+        # never be credited from a sibling that a later row would change.
+        cited: str | None
+        enforced: list[tuple[int, str, bool, bool]] = []
+        for (requirement, _), row in zip(requirements, rows, strict=True):
             cited = texts.get(row.evidence_id or "") if row.source == "bullet" else None
             if row.source == "summary":
                 cited = summary_text
             elif row.source == "skills_list":
                 cited = skills_text
-            level, basis, clamped, downgraded = _enforce(
-                row, requirement, cited, aliases=aliases, families=families
+            enforced.append(
+                _enforce(row, requirement, cited, aliases=aliases, families=families)
             )
+
+        resolved = [aliases.get(fold(requirement)) for requirement, _ in requirements]
+        levels: list[EvidenceLevel] = []
+        for index, ((requirement, must_have), row) in enumerate(
+            zip(requirements, rows, strict=True)
+        ):
+            level, basis, clamped, downgraded = enforced[index]
+            source, evidence_id, transfer_reason = row.source, row.evidence_id, row.transfer_reason
+            inferred = False
+            replacement = _family_equivalent(
+                index,
+                resolved[index],
+                resolved=resolved,
+                enforced=enforced,
+                rows=rows,
+                bullets=bullets,
+                families=families,
+                basis_credit=basis_credit,
+                language=language,
+            )
+            if replacement is not None:
+                level, source, evidence_id, transfer_reason = replacement
+                basis, inferred = "equivalent", True
             levels.append(
                 EvidenceLevel(
                     requirement=requirement,
                     level=level,
                     must_have=must_have,
                     basis=basis,
-                    source=row.source,
-                    evidence_id=row.evidence_id,
-                    transfer_reason=row.transfer_reason,
+                    source=source,
+                    evidence_id=evidence_id,
+                    transfer_reason=transfer_reason,
                     clamped=clamped,
                     downgraded=downgraded,
+                    inferred=inferred,
                 )
             )
         return EvidenceReport(levels=tuple(levels), note=grading.note, calls=tuple(attempts))
