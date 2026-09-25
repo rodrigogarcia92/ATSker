@@ -179,6 +179,7 @@ def row(
     profile: str = "Ana",
     cv_version: str = "CV-1",
     split: str = "dev",
+    rater: str = "rater_v2",
     **extra: object,
 ) -> dict[str, object]:
     return {
@@ -190,6 +191,7 @@ def row(
         "profile": profile,
         "lang": "es",
         "split": split,
+        "rater": rater,
         "cv_version": cv_version,
         **extra,
     }

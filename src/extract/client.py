@@ -121,6 +121,10 @@ class Completion:
     purpose: str
     prompt_version: str
     model: str
+    # What the call was actually made with, not what was asked for: the request's
+    # effort falls back to the environment's, and a run's CSV reports the effective
+    # values so two runs are never compared across a setting nobody named.
+    reasoning_effort: str | None = None
     fingerprint: str | None = None
     ledger_error: str | None = None
 
@@ -283,6 +287,7 @@ def complete_json(
             purpose=purpose,
             prompt_version=prompt_version,
             model=chosen,
+            reasoning_effort=effort,
         )
 
     payload: dict[str, Any] = {
@@ -362,6 +367,7 @@ def complete_json(
         purpose=purpose,
         prompt_version=prompt_version,
         model=chosen,
+        reasoning_effort=effort,
         fingerprint=(str(body["system_fingerprint"]) if body.get("system_fingerprint") else None),
         ledger_error=ledger_error,
     )

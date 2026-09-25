@@ -6,13 +6,14 @@ rater's scores tie and the tie correction is the whole point of tau-b.
 """
 
 from decimal import Decimal
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
 from scripts import golden_run, golden_stats
 from src.score.aggregate import SubScore, aggregate
-from src.score.weights import W2, W3
+from src.score.weights import W2, W3, W4
 from tests import golden_support as support
 
 SUB_SCORE_NAMES = ("skills", "experience", "title", "keywords")
@@ -95,24 +96,36 @@ def test_the_ablation_recompute_equals_the_report_uncapped(weight_set):
     assert recomputed == pytest.approx(row["uncapped"], abs=1)
 
 
-def synthetic_row(pair_id: str, uncapped: float, version: str, **extra: float) -> dict:
+def synthetic_row(
+    pair_id: str,
+    uncapped: float,
+    version: str,
+    *,
+    split: str = "dev",
+    vocabulary_hash: str = "",
+    **extra: object,
+) -> dict:
     values = {"skills": 0.5, "experience": 0.5, "title": 0.5, "keywords": 0.5}
     values.update(extra)
+    skills_transfer = values.pop("skills_transfer", "")
     return {
         "pair_id": pair_id,
         "profile": "Ana",
-        "split": "dev",
+        "split": split,
         "lang": "es",
         "track": "CV-1",
         "weights_version": version,
+        "vocabulary_hash": vocabulary_hash,
         "score": uncapped,
         "uncapped": uncapped,
         "cap": "",
         **values,
         "skills_direct": "",
-        "skills_transfer": "",
+        "skills_transfer": skills_transfer,
         "cost_usd": "0",
         "cached_calls": "0",
+        "model": "test/model-v1",
+        "reasoning_effort": "medium",
         "application_id": f"app-{pair_id}",
         "commit": "deadbeef",
     }
@@ -126,10 +139,10 @@ def test_the_report_states_the_split_the_seed_and_the_honesty_lines(
     sheet = support.write_sheet(
         tmp_path / "sheet.xlsx",
         [
-            support.row(1, score=1.0, score_direct_only=0.5, bucket="stretch"),
-            support.row(2, score=2.0, score_direct_only=1.5, bucket="plausible"),
-            support.row(3, score=3.0, score_direct_only=2.0, bucket="plausible"),
-            support.row(4, score=4.0, score_direct_only=3.5, bucket="strong"),
+            support.row(1, score=1.0, score_direct_only=0.5, bucket="stretch", rater="ana"),
+            support.row(2, score=2.0, score_direct_only=1.5, bucket="plausible", rater="ana"),
+            support.row(3, score=3.0, score_direct_only=2.0, bucket="plausible", rater="ana"),
+            support.row(4, score=4.0, score_direct_only=3.5, bucket="strong", rater="ana"),
         ],
     )
     w2_rows = [synthetic_row(str(index), float(index), "w2") for index in (1, 2, 3, 4)]
@@ -154,9 +167,130 @@ def test_the_report_states_the_split_the_seed_and_the_honesty_lines(
     assert "seed 20260923" in report and "2,000 resamples" in report
     assert "uncapped vs score (primary)" in report and "tau-b" in report
     assert "1.000" in report, "perfect agreement on these synthetic rows is 1"
-    assert "Transfer check (w3 only)" in report
     assert "w2 has no direct/transfer split" in report
     assert "| skills |" in report, "the ablation lists every sub-score"
     assert "not evidence of improvement" in report
-    assert "rater_v2" in report and "F5.4.1" in report and "PRD §9" in report
+    assert "ana" in report and "rater_v2" not in report, "the rater comes from the sheet"
+    assert "F5.4.1" in report and "PRD §9" in report
     assert "wrote" in capsys.readouterr().out
+
+
+def write_run(repo, name: str, rows: list[dict]) -> Path:
+    path = repo / name
+    golden_run.write_csv(path, rows, SUB_SCORE_NAMES)
+    return path
+
+
+def read_report(repo) -> str:
+    return sorted((repo / "runs").glob("report-*.md"))[0].read_text(encoding="utf-8")
+
+
+def four_pairs(tmp_path) -> Path:
+    return support.write_sheet(
+        tmp_path / "sheet.xlsx",
+        [support.row(index, score=float(index)) for index in (1, 2, 3, 4)],
+    )
+
+
+def test_one_run_alone_produces_a_report_with_no_between_run_comparison(
+    tmp_path, monkeypatch, capsys
+):
+    """A.6: `--runs` takes one or more. One run has nothing to compare and must not
+    pretend otherwise — no vocabulary warning, one run section."""
+    repo = support.gitignored_dir(tmp_path)
+    monkeypatch.setattr(golden_stats.golden_inputs, "DEFAULT_RUNS_DIR", repo / "runs")
+    sheet = four_pairs(tmp_path)
+    rows = [
+        synthetic_row(str(index), float(index), "w4", vocabulary_hash="sha256:a")
+        for index in (1, 2, 3, 4)
+    ]
+
+    run = write_run(repo, "w4.csv", rows)
+    assert golden_stats.main(["--runs", str(run), "--sheet", str(sheet)]) == 0
+
+    report = read_report(repo)
+    assert report.count("## Run ") == 1
+    assert "Warning" not in report
+    assert "- w4.csv: sha256:a" in report
+    assert "wrote" in capsys.readouterr().out
+
+
+def test_two_runs_on_different_vocabularies_say_so(tmp_path, monkeypatch):
+    """F3.1: a score difference may be the words rather than the scorer."""
+    repo = support.gitignored_dir(tmp_path)
+    monkeypatch.setattr(golden_stats.golden_inputs, "DEFAULT_RUNS_DIR", repo / "runs")
+    sheet = four_pairs(tmp_path)
+    first = write_run(
+        repo,
+        "w3.csv",
+        [synthetic_row(str(i), float(i), "w3", vocabulary_hash="sha256:a") for i in (1, 2, 3, 4)],
+    )
+    second = write_run(
+        repo,
+        "w4.csv",
+        [synthetic_row(str(i), float(i), "w4", vocabulary_hash="sha256:b") for i in (1, 2, 3, 4)],
+    )
+
+    assert golden_stats.main(["--runs", str(first), str(second), "--sheet", str(sheet)]) == 0
+
+    report = read_report(repo)
+    assert "- w3.csv: sha256:a" in report and "- w4.csv: sha256:b" in report
+    assert "different vocabularies" in report
+
+
+def test_w4_rows_ablate_with_w4s_own_weights(tmp_path, monkeypatch):
+    """A.6: `w4` is a weight set the ablation can renormalise, not an error."""
+    weights = golden_stats.sub_score_weights("w4")
+    assert weights == {
+        "skills": W4.skills,
+        "experience": W4.experience,
+        "title": W4.title,
+        "keywords": W4.keywords,
+    }
+
+    repo = support.gitignored_dir(tmp_path)
+    monkeypatch.setattr(golden_stats.golden_inputs, "DEFAULT_RUNS_DIR", repo / "runs")
+    sheet = four_pairs(tmp_path)
+    rows = [
+        synthetic_row(str(index), float(index), "w4", skills=index / 10) for index in (1, 2, 3, 4)
+    ]
+
+    run = write_run(repo, "w4.csv", rows)
+    assert golden_stats.main(["--runs", str(run), "--sheet", str(sheet)]) == 0
+
+    report = read_report(repo)
+    assert "weights w4" in report
+    for name in SUB_SCORE_NAMES:
+        assert f"| {name} |" in report
+    assert "### test" not in report, "a sealed split gets no section"
+
+
+def test_with_include_test_the_dev_and_test_tables_are_separate(tmp_path, monkeypatch):
+    """A.6: never pooled. Each split is its own table with its own n, dev first."""
+    repo = support.gitignored_dir(tmp_path)
+    monkeypatch.setattr(golden_stats.golden_inputs, "DEFAULT_RUNS_DIR", repo / "runs")
+    sheet = support.write_sheet(
+        tmp_path / "sheet.xlsx",
+        [
+            support.row(1, score=1.0),
+            support.row(2, score=2.0),
+            support.row(3, score=3.0, split="test"),
+        ],
+    )
+    rows = [
+        synthetic_row("1", 1.0, "w4", skills=0.1),
+        synthetic_row("2", 2.0, "w4", skills=0.2),
+        synthetic_row("3", 3.0, "w4", skills=0.3, split="test"),
+    ]
+    run = write_run(repo, "w4.csv", rows)
+
+    assert golden_stats.main(
+        ["--runs", str(run), "--sheet", str(sheet), "--include-test"]
+    ) == 0
+
+    report = read_report(repo)
+    assert report.index("### dev") < report.index("### test")
+    dev = report.split("### dev", 1)[1].split("### test", 1)[0]
+    test = report.split("### test", 1)[1]
+    assert "| skills | undefined | 2 |" in dev, "the dev table counts dev rows"
+    assert "| skills | undefined | 1 |" in test, "the test table counts test rows"

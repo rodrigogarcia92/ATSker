@@ -24,6 +24,12 @@ Definitions, so the numbers can be checked by hand:
 
 Output: `fixtures/golden/runs/report-<YYYYMMDD-HHMM>.md`, printed as well.
 The report is only written where `git check-ignore` matches (queue A.3 step 5).
+
+Dev and test are never pooled (queue A.6): every table is computed per split, dev
+first, because two profiles on different score scales in one ranking depress every
+number. `--runs` takes one or more files, and each run's vocabulary is named —
+two runs scored against different words are not comparable, so the difference is
+called out rather than left to be discovered in the numbers.
 """
 
 import argparse
@@ -40,12 +46,12 @@ sys.path.insert(0, str(Path.cwd()))
 import golden_inputs  # noqa: E402
 
 from src.score.aggregate import SUB_SCORES  # noqa: E402
-from src.score.weights import W2, W3  # noqa: E402
+from src.score.weights import W2, W3, W4  # noqa: E402
 
 SEED = 20260923
 RESAMPLES = 2000
 BUCKET_ORDER = {"stretch": 0, "plausible": 1, "strong": 2}
-WEIGHT_SETS = {"w2": W2, "w3": W3}
+WEIGHT_SETS = {"w2": W2, "w3": W3, "w4": W4}
 
 # (label, CSV column, sheet column, rho reported too) — the queue's primary
 # comparison first, then capped vs score, each scale vs score_direct_only, and
@@ -255,6 +261,101 @@ def _comparison_lines(
     return rows
 
 
+def split_lines(
+    rows: list[dict[str, str]],
+    sheet: dict[str, golden_inputs.Pair],
+    version: str,
+    weights: dict[str, float],
+) -> list[str]:
+    """One split's agreement tables, transfer check and ablation (queue A.6).
+
+    Everything here is computed from `rows` alone, so dev and test never share a
+    ranking and every `n` is the split's own.
+    """
+    lines = [
+        "| comparison | statistic | value | 95% interval | n |",
+        "|---|---|---|---|---|",
+    ]
+    for label, run_column, rater_column, with_rho in COMPARISONS:
+        xs, ys = _paired(rows, sheet, run_column, rater_column)
+        lines += _comparison_lines(label, xs, ys, with_rho)
+
+    # The transfer check reads the direct/transfer split, which w3 introduced
+    # (F5.5.1) and w4 kept; w2 computes no split, so its column is blank.
+    if version == "w2":
+        lines += [
+            "",
+            "**Transfer check** — not computed: w2 has no direct/transfer split "
+            "(the column is blank by construction).",
+        ]
+    else:
+        xs = []
+        ys = []
+        for row in rows:
+            transfer = _number(row, "skills_transfer")
+            pair = sheet[row["pair_id"]]
+            if transfer is None or pair.score is None or pair.score_direct_only is None:
+                continue
+            xs.append(transfer)
+            ys.append(pair.score - pair.score_direct_only)
+        lines += [
+            "",
+            "**Transfer check** — Spearman between `skills_transfer` and "
+            "`score − score_direct_only`: "
+            f"{_format(spearman(xs, ys))} "
+            f"{_interval(bootstrap_ci(xs, ys, spearman))} (n = {len(xs)}).",
+        ]
+
+    lines += [
+        "",
+        "**Ablation** — total recomputed with one sub-score dropped and the "
+        "remaining weights renormalised to sum to 1; tau-b against the rater's "
+        "`score`:",
+        "",
+        "| dropped | tau-b vs score | n |",
+        "|---|---|---|",
+    ]
+    for name in SUB_SCORES:
+        xs = []
+        ys = []
+        for row in rows:
+            pair = sheet[row["pair_id"]]
+            values = {column: _number(row, column) for column in SUB_SCORES}
+            if pair.score is None or any(value is None for value in values.values()):
+                continue
+            xs.append(ablation_total(values, weights, name))
+            ys.append(pair.score)
+        lines.append(f"| {name} | {_format(kendall_tau_b(xs, ys))} | {len(xs)} |")
+    return lines
+
+
+def vocabulary_lines(runs: list[tuple[Path, list[dict[str, str]], tuple[str, ...]]]) -> list[str]:
+    """Which vocabulary each run was scored against, and whether they differ (F3.1).
+
+    A score difference between two runs may be the words rather than the scorer,
+    so the hashes are named and a difference is called out. A single run has
+    nothing to compare and says nothing about one.
+    """
+    lines = ["## Vocabulary", ""]
+    hashes: list[frozenset[str]] = []
+    for path, rows, _ in runs:
+        found = list(
+            dict.fromkeys(
+                row.get("vocabulary_hash", "") for row in rows if row.get("vocabulary_hash")
+            )
+        )
+        hashes.append(frozenset(found))
+        lines.append(f"- {path.name}: {', '.join(found) or '(none recorded)'}")
+    if len(runs) > 1 and len(set(hashes)) > 1:
+        lines.append("")
+        lines.append(
+            "**Warning**: these runs were scored against different vocabularies; "
+            "a score difference may be the words rather than the scorer."
+        )
+    lines.append("")
+    return lines
+
+
 def build_report(run_paths: list[Path], sheet_path: Path, *, include_test: bool) -> str:
     sheet = {
         pair.pair_id: pair for pair in golden_inputs.read_pairs(sheet_path, include_test=True)
@@ -280,85 +381,39 @@ def build_report(run_paths: list[Path], sheet_path: Path, *, include_test: bool)
         f"Split covered: {' + '.join(sorted(covered))} "
         f"(test rows {'included' if include_test else 'excluded'} unless present).",
     )
+    lines += vocabulary_lines(runs)
 
     for path, rows, _ in runs:
-        in_scope = [
-            row
-            for row in rows
-            if row["split"] == "dev" or (include_test and row["split"] == "test")
-        ]
-        if not in_scope:
-            raise StatsError(f"{path}: no rows in the covered split")
-        for row in in_scope:
+        if not rows:
+            raise StatsError(f"{path}: no rows in the run file")
+        for row in rows:
             if row["pair_id"] not in sheet:
                 raise StatsError(f"{path}: pair {row['pair_id']} is not in the sheet")
-        version = in_scope[0]["weights_version"]
+        version = rows[0]["weights_version"]
         weights = sub_score_weights(version)
-        lines += [
-            f"## Run {path.name} (commit {in_scope[0]['commit']}, weights {version})",
-            "",
-            "| comparison | statistic | value | 95% interval | n |",
-            "|---|---|---|---|---|",
-        ]
-        for label, run_column, rater_column, with_rho in COMPARISONS:
-            xs, ys = _paired(in_scope, sheet, run_column, rater_column)
-            lines += _comparison_lines(label, xs, ys, with_rho)
+        lines += [f"## Run {path.name} (commit {rows[0]['commit']}, weights {version})", ""]
+        # A.6: dev and test are never pooled. Two profiles on different score scales
+        # in one ranking depress every number, so each split is its own table with
+        # its own n — dev first, and test only when the split was opened.
+        for split in ("dev", "test"):
+            if split == "test" and not include_test:
+                continue
+            in_scope = [row for row in rows if row["split"] == split]
+            if not in_scope:
+                continue
+            lines += [f"### {split}", ""]
+            lines += split_lines(in_scope, sheet, version, weights)
+            lines.append("")
 
-        # The transfer check is w3's: w2 computes no split, so its column is blank.
-        if version == "w3":
-            xs = []
-            ys = []
-            for row in in_scope:
-                transfer = _number(row, "skills_transfer")
-                pair = sheet[row["pair_id"]]
-                if transfer is None or pair.score is None or pair.score_direct_only is None:
-                    continue
-                xs.append(transfer)
-                ys.append(pair.score - pair.score_direct_only)
-            lines += [
-                "",
-                "**Transfer check (w3 only)** — Spearman between `skills_transfer` and "
-                "`score − score_direct_only`: "
-                f"{_format(spearman(xs, ys))} "
-                f"{_interval(bootstrap_ci(xs, ys, spearman))} (n = {len(xs)}).",
-            ]
-        else:
-            lines += [
-                "",
-                "**Transfer check** — not computed: w2 has no direct/transfer split "
-                "(the column is blank by construction).",
-            ]
-
-        lines += [
-            "",
-            "**Ablation** — total recomputed with one sub-score dropped and the "
-            "remaining weights renormalised to sum to 1; tau-b against the rater's "
-            "`score`:",
-            "",
-            "| dropped | tau-b vs score | n |",
-            "|---|---|---|",
-        ]
-        for name in SUB_SCORES:
-            xs = []
-            ys = []
-            for row in in_scope:
-                pair = sheet[row["pair_id"]]
-                values = {column: _number(row, column) for column in SUB_SCORES}
-                if pair.score is None or any(value is None for value in values.values()):
-                    continue
-                xs.append(ablation_total(values, weights, name))
-                ys.append(pair.score)
-            lines.append(f"| {name} | {_format(kendall_tau_b(xs, ys))} | {len(xs)} |")
-        lines.append("")
-
+    raters = sorted({pair.rater for pair in sheet.values() if pair.rater})
     lines += [
         "## Honesty",
         "",
         "- Every statistic states its n. With n ≈ 12 these intervals are wide: a "
-        "difference between w2 and w3 whose intervals overlap is not evidence of "
+        "difference between two runs whose intervals overlap is not evidence of "
         "improvement.",
-        "- Agreement with `rater_v2` partly reflects the rubric it shares with F5.4.1 "
-        "(PRD §9).",
+        f"- Agreement with {', '.join(raters) or 'the rater'} partly reflects the rubric "
+        "it shares with F5.4.1 (PRD §9).",
         "",
     ]
     return "\n".join(lines)
@@ -366,7 +421,9 @@ def build_report(run_paths: list[Path], sheet_path: Path, *, include_test: bool)
 
 def parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Agreement statistics for golden-set runs.")
-    parser.add_argument("--runs", nargs=2, required=True, type=Path, metavar="CSV")
+    parser.add_argument(
+        "--runs", nargs="+", required=True, type=Path, metavar="CSV", help="one or more run files"
+    )
     parser.add_argument("--sheet", type=Path, default=golden_inputs.DEFAULT_SHEET)
     parser.add_argument("--include-test", action="store_true")
     return parser.parse_args(argv)

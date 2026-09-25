@@ -6,8 +6,10 @@ engine, so no test ever opens a real database and no engine is created before
 the production guard has spoken.
 """
 
+import argparse
 import csv
 from decimal import Decimal
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -36,6 +38,7 @@ HEADER = [
     "lang",
     "track",
     "weights_version",
+    "vocabulary_hash",
     "score",
     "uncapped",
     "cap",
@@ -47,6 +50,8 @@ HEADER = [
     "skills_transfer",
     "cost_usd",
     "cached_calls",
+    "model",
+    "reasoning_effort",
     "application_id",
     "commit",
 ]
@@ -160,10 +165,70 @@ def test_the_csv_has_the_documented_columns_and_the_test_split_stays_sealed(
     assert all(entry["split"] == "dev" for entry in rows)
     assert all(entry["profile"] == "Ana" and entry["track"] == "CV-1" for entry in rows)
     assert all(entry["weights_version"] == "w4" for entry in rows)
+    assert all(entry["vocabulary_hash"].startswith("sha256:") for entry in rows)
     assert all(entry["application_id"] and entry["commit"] for entry in rows)
     assert rows[0]["skills_transfer"] != "", "w3 computes the split (F5.5.1)"
     assert session.query(Application).count() == 2
     assert session.query(Bullet).filter(Bullet.profile_id == bea_profile.id).count() == 0
+
+
+def run_with(tmp_path, two_accounts, argv: list[str]) -> tuple[int, Path]:
+    """One offline run over a single dev pair, returning its exit code and CSV."""
+    (ana, _), _ = two_accounts
+    sheet = support.write_sheet(
+        tmp_path / "sheet.xlsx", [support.row(1, profile="Ana", cv_version="CV-1")]
+    )
+    mapping = support.write_map(
+        tmp_path / "map.toml", profiles={"Ana": ana.email}, cvs={"CV-1": str(cv_file(tmp_path))}
+    )
+    out = support.gitignored_dir(tmp_path) / "run.csv"
+    result = golden_run.main(
+        ["--sheet", str(sheet), "--map", str(mapping), "--out", str(out), *argv]
+    )
+    return result, out
+
+
+def test_the_second_model_reaches_every_call_and_the_csv_columns_carry_it(
+    tmp_path, session, two_accounts, vocabulary, provider, script_session, monkeypatch
+):
+    """PRD §11: `--model`/`--effort` go to the résumé import and to `analyze`, and
+    the CSV reports what the calls were actually made with."""
+    monkeypatch.setattr("builtins.input", lambda prompt: "YES")
+
+    result, out = run_with(
+        tmp_path, two_accounts, ["--label", "w4", "--model", "x", "--effort", "medium"]
+    )
+
+    assert result == 0
+    assert provider.calls, "the run reached the provider"
+    assert {call["model"] for call in provider.calls} == {"x"}
+    assert {call["reasoning"]["effort"] for call in provider.calls} == {"medium"}
+    rows = list(csv.DictReader(out.read_text(encoding="utf-8").splitlines()))
+    assert {row["model"] for row in rows} == {"x"}
+    assert {row["reasoning_effort"] for row in rows} == {"medium"}
+
+
+def test_the_second_model_is_confirmed_before_the_first_call(
+    tmp_path, session, two_accounts, vocabulary, provider, script_session, monkeypatch
+):
+    """A.6: it may cost far more than the default, so nothing is spent unconfirmed."""
+    monkeypatch.setattr("builtins.input", lambda prompt: "no")
+
+    result, _out = run_with(tmp_path, two_accounts, ["--label", "w4", "--model", "x"])
+
+    assert result == 1
+    assert provider.calls == [], "no call was made"
+
+
+@pytest.mark.parametrize("label", ["w3", "w4", "w4-vocab", "w10-x2"])
+def test_a_label_names_the_scorer_being_measured(label):
+    assert golden_run.run_label(label) == label
+
+
+@pytest.mark.parametrize("label", ["w4_vocab", "W4", "v4", "w4-", "w4-Vocab", "x"])
+def test_a_label_that_is_not_a_scorer_name_is_refused(label):
+    with pytest.raises(argparse.ArgumentTypeError):
+        golden_run.run_label(label)
 
 
 def test_opening_the_test_split_marks_the_csv_and_writes_its_rows(
@@ -407,7 +472,12 @@ def test_a_w2_report_leaves_the_split_columns_blank():
                     "keywords": {"value": 0.7, "detail": {}},
                 },
             },
-            "llm": {"calls": [{"cached": True}, {"cached": False}]},
+            "llm": {
+                "calls": [
+                    {"cached": True, "model": "test/model-v1", "reasoning_effort": None},
+                    {"cached": False, "model": "test/model-v1", "reasoning_effort": None},
+                ]
+            },
         },
         weights_version="w2",
         cost_usd=Decimal("0.000123"),
@@ -421,3 +491,4 @@ def test_a_w2_report_leaves_the_split_columns_blank():
     assert row["skills_direct"] == "" and row["skills_transfer"] == ""
     assert row["cached_calls"] == 1
     assert row["score"] == 71 and row["cap"] == ""
+    assert row["model"] == "test/model-v1" and row["reasoning_effort"] == ""

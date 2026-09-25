@@ -47,12 +47,18 @@ SHEET_COLUMNS = (
     "profile",
     "lang",
     "split",
+    "rater",
     "cv_version",
 )
 
 # The CSV layout both scripts honour: one column per sub-score goes between the
 # two blocks, read generically from the report. The stats reader identifies the
 # sub-score columns as whatever is left between them.
+#
+# `vocabulary_hash` sits with the scorer's own version (F3.1): two runs are never
+# compared across vocabularies without the report saying so. `model` and
+# `reasoning_effort` are the provider configuration the calls were actually made
+# with, read back from the report's `llm.calls` rather than from the flags.
 COLUMNS_BEFORE_SUB_SCORES = (
     "pair_id",
     "profile",
@@ -60,6 +66,7 @@ COLUMNS_BEFORE_SUB_SCORES = (
     "lang",
     "track",
     "weights_version",
+    "vocabulary_hash",
     "score",
     "uncapped",
     "cap",
@@ -69,6 +76,8 @@ COLUMNS_AFTER_SUB_SCORES = (
     "skills_transfer",
     "cost_usd",
     "cached_calls",
+    "model",
+    "reasoning_effort",
     "application_id",
     "commit",
 )
@@ -84,7 +93,11 @@ class MappingFileError(Exception):
 
 @dataclass(frozen=True)
 class Pair:
-    """One (track, JD) pair as the sheet states it. `score` is the rater's."""
+    """One (track, JD) pair as the sheet states it. `score` is the rater's.
+
+    `rater` names who gave it, so a report can say whose judgement it is agreeing
+    with rather than hard-coding one name (A.6).
+    """
 
     pair_id: str
     jd: str
@@ -95,6 +108,7 @@ class Pair:
     lang: str
     split: str
     cv_version: str
+    rater: str = ""
 
 
 @dataclass(frozen=True)
@@ -194,6 +208,7 @@ def read_pairs(path: Path, *, include_test: bool) -> list[Pair]:
                     lang=_text(_cell(row, columns, "lang")),
                     split=split,
                     cv_version=_text(_cell(row, columns, "cv_version")),
+                    rater=_text(_cell(row, columns, "rater")),
                 )
             )
         return pairs

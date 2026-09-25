@@ -58,11 +58,18 @@ pairs that need it are skipped; a failed analysis is reported per pair and its
 row is skipped the same way, so one bad call cannot end the run. Without
 `--include-test` the test split is neither validated, imported, analysed nor
 written. The sheet is only ever read.
+
+A second model may be run for evaluation only (PRD §11, queue A.6): `--model` and
+`--effort` are passed to every call the run makes, and `--model` is named and
+confirmed before the first one because it may cost far more than the default. The
+CSV reports what the calls were actually made with — model, effort and the
+vocabulary hash — read back from the report rather than from the flags.
 """
 
 import argparse
 import csv
 import hashlib
+import re
 import subprocess
 import sys
 import uuid
@@ -84,6 +91,7 @@ from src.applications import create_application  # noqa: E402
 from src.config import get_settings  # noqa: E402
 from src.db import normalized_url, session_scope  # noqa: E402
 from src.extract.client import (  # noqa: E402
+    CallOptions,
     NoModelConfigured,
     ProviderUnavailable,
     StructuredOutputError,
@@ -236,12 +244,16 @@ def import_cv(
     profile: Profile,
     cv_path: Path,
     track_name: str,
+    *,
+    model: str | None = None,
+    options: CallOptions | None = None,
 ) -> tuple[bool, str]:
     """One CV through the normal pipeline, every candidate accepted (A.3 step 3).
 
     The track takes the sheet's `cv_version` verbatim so both runs name their
     tracks the same. The transaction rule holds: every provider call starts with
-    nothing held.
+    nothing held. `model`/`options` are the evaluation run's second model (A.6):
+    every call it makes is billed and recorded under that model.
     """
     data = cv_path.read_bytes()
     loaded = load_document(cv_path.name, data)
@@ -253,6 +265,8 @@ def import_cv(
             session,
             loaded.text,
             known_names=[profile.display_name] if profile.display_name else None,
+            model=model,
+            options=options,
         )
     except (ProviderUnavailable, StructuredOutputError, EmptyExtraction, NoModelConfigured) as fail:
         session.commit()  # whatever was paid for stays in the ledger
@@ -299,6 +313,7 @@ def csv_row(
     score = analysis.report["score"]
     sub_scores = score["sub_scores"]
     skills_detail = (sub_scores.get("skills") or {}).get("detail", {})
+    calls = analysis.report["llm"]["calls"]
     row: dict[str, object] = {
         "pair_id": pair.pair_id,
         "profile": pair.profile,
@@ -306,6 +321,9 @@ def csv_row(
         "lang": pair.lang,
         "track": track_name,
         "weights_version": analysis.weights_version,
+        # F3.1: the vocabulary the report was scored against. Blank for a scorer
+        # that predates the hash, and the stats say so rather than assume one.
+        "vocabulary_hash": analysis.report.get("vocabulary_hash") or "",
         "score": score["capped"],
         "uncapped": score["uncapped"],
         "cap": "" if score["cap"] is None else score["cap"],
@@ -315,7 +333,14 @@ def csv_row(
     row["skills_direct"] = skills_detail.get("direct", "")
     row["skills_transfer"] = skills_detail.get("transfer", "")
     row["cost_usd"] = str(analysis.cost_usd)
-    row["cached_calls"] = sum(1 for call in analysis.report["llm"]["calls"] if call["cached"])
+    row["cached_calls"] = sum(1 for call in calls if call["cached"])
+    # What the calls were actually made with, not what the flags asked for: the
+    # model falls back to the environment's and the effort to the setting's, and
+    # distinct values are joined so a mixed run is visible rather than averaged.
+    row["model"] = ";".join(sorted({str(call["model"]) for call in calls}))
+    row["reasoning_effort"] = ";".join(
+        sorted({str(call.get("reasoning_effort") or "") for call in calls} - {""})
+    )
     row["application_id"] = str(application.id)
     row["commit"] = commit
     return row
@@ -349,12 +374,42 @@ def current_commit() -> str:
     return result.stdout.strip()
 
 
+# A label names the scorer being measured, not a filename: `w3`, `w4`, `w4-vocab`.
+LABEL_PATTERN = re.compile(r"^w\d+(-[a-z0-9]+)*$")
+
+
+def run_label(value: str) -> str:
+    if not LABEL_PATTERN.match(value):
+        raise argparse.ArgumentTypeError(
+            "a label is w<digits> with optional -<lowercase letters or digits> groups: "
+            "w3, w4, w4-vocab"
+        )
+    return value
+
+
 def parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run the golden set against this checkout.")
-    parser.add_argument("--label", required=True, choices=("w2", "w3"))
+    parser.add_argument("--label", required=True, type=run_label)
     parser.add_argument("--wipe", action="store_true")
     parser.add_argument("--include-test", action="store_true")
-    parser.add_argument("--yes", action="store_true", help="skip typing DELETE before a wipe")
+    parser.add_argument(
+        "--yes",
+        action="store_true",
+        help="skip the typed confirmations (YES for --model, DELETE before a wipe)",
+    )
+    parser.add_argument(
+        "--model",
+        default=None,
+        metavar="OPENROUTER_ID",
+        help="a second model, for evaluation only (PRD §11): it is confirmed before "
+        "the first call because it may cost far more than the default",
+    )
+    parser.add_argument(
+        "--effort",
+        choices=("low", "medium", "high"),
+        default=None,
+        help="reasoning effort for every call this run makes",
+    )
     parser.add_argument("--sheet", type=Path, default=golden_inputs.DEFAULT_SHEET)
     parser.add_argument("--map", dest="map_path", type=Path, default=golden_inputs.DEFAULT_MAP)
     parser.add_argument("--out", type=Path, default=None)
@@ -377,6 +432,17 @@ def main(argv: list[str] | None = None) -> int:
     if not golden_inputs.output_is_ignored(out_path):
         print(f"refusing to write outside a gitignored path: {out_path}")
         return 2
+
+    options = CallOptions(reasoning_effort=args.effort) if args.effort else None
+    if args.model:
+        # A second model is billed at its own price and may cost far more than the
+        # default, so it is named and confirmed before anything is spent (PRD §11).
+        print(f"model: {args.model} · reasoning effort: {args.effort or 'provider default'}")
+        if not args.yes:
+            answer = input("type YES to run this model: ")
+            if answer.strip() != "YES":
+                print("aborted: no call was made")
+                return 1
 
     try:
         pairs = golden_inputs.read_pairs(args.sheet, include_test=args.include_test)
@@ -413,7 +479,13 @@ def main(argv: list[str] | None = None) -> int:
         imported: dict[tuple[str, str], bool] = {}
         for name, cv_version in wanted:
             ok, message = import_cv(
-                session, check.users[name], profiles[name], check.files[cv_version], cv_version
+                session,
+                check.users[name],
+                profiles[name],
+                check.files[cv_version],
+                cv_version,
+                model=args.model,
+                options=options,
             )
             imported[(name, cv_version)] = ok
             print(f"import {name} / {cv_version}: {message}")
@@ -438,7 +510,14 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"pair {pair.pair_id}: skipped, no track named {pair.cv_version!r}")
                 continue
             try:
-                analysis = analyze(profile.id, session, jd_text=pair.jd, track=track)
+                analysis = analyze(
+                    profile.id,
+                    session,
+                    jd_text=pair.jd,
+                    track=track,
+                    model=args.model,
+                    options=options,
+                )
             except (ProviderUnavailable, StructuredOutputError, NoModelConfigured) as failure:
                 session.commit()  # what was paid for stays in the ledger
                 print(f"pair {pair.pair_id}: analysis failed: {type(failure).__name__}: {failure}")

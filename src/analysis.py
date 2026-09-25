@@ -94,6 +94,7 @@ def _llm_section(calls: Sequence[Completion], cost: Decimal) -> dict[str, object
                 "purpose": call.purpose,
                 "prompt_version": call.prompt_version,
                 "model": call.model,
+                "reasoning_effort": call.reasoning_effort,
                 "cached": call.cached,
                 "prompt_tokens": call.prompt_tokens,
                 "completion_tokens": call.completion_tokens,
