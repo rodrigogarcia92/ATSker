@@ -172,6 +172,11 @@ class Bullet(Base):
     source_story_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("stories.id", ondelete="SET NULL"), index=True
     )
+    # Which CV created the bullet (F2.8): "only this CV contributed" deletes by this
+    # and never touches a bullet whose provenance is unknown — NULL is not "every CV".
+    source_resume_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("resumes.id", ondelete="SET NULL"), index=True
+    )
     active: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
@@ -415,6 +420,13 @@ class LlmCall(Base):
     completion_tokens: Mapped[int] = mapped_column(Integer, default=0)
     cost_usd: Mapped[Decimal] = mapped_column(Numeric(10, 6), default=Decimal("0"))
     degenerate: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
+    # Whose call it was (F2.8): "Eliminar todo" redacts that profile's personal
+    # answers through this. Rows written before the column existed carry NULL and
+    # cannot be attributed — the screen says so; `llm_costs.py purge --hash` remains
+    # the operator's tool for them.
+    profile_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("profiles.id", ondelete="SET NULL"), index=True
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

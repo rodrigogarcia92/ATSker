@@ -48,6 +48,9 @@
       {{ t('bullets.detect', lang) }}
     </button>
     <a href="/roles/{{ role.id }}" class="text-sm underline">{{ t('common.cancel', lang) }}</a>
+    {% if bullet %}
+    <a href="/bullets/{{ bullet.id }}/delete" class="text-sm text-red-700 underline">{{ t('common.delete', lang) }}</a>
+    {% endif %}
   </div>
 
   {% if bullet %}<input type="hidden" name="bullet_id" value="{{ bullet.id }}">{% endif %}

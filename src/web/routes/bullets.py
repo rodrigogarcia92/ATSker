@@ -16,6 +16,8 @@ from src.bullets import (
     suggest_skills,
     update_bullet,
 )
+from src.deletion import delete_bullet, impact_bullet
+from src.i18n import t
 from src.roles import get_role
 from src.web.deps import DbSession, OwnProfile, SignedInUser
 from src.web.forms import is_checked, parse_text
@@ -170,5 +172,32 @@ def bullet_toggle(
     if bullet is None:
         raise HTTPException(status_code=404)
     set_bullet_active(profile.id, session, bullet_id, active=is_checked(active))
+    session.commit()
+    return RedirectResponse(f"/roles/{bullet.role_id}", status_code=303)
+
+
+@router.get("/bullets/{bullet_id}/delete")
+def bullet_delete_form(
+    bullet_id: str, request: Request, user: SignedInUser, session: DbSession, profile: OwnProfile
+):
+    bullet = get_bullet(profile.id, session, bullet_id)
+    if bullet is None:
+        return render(request, "not_found.html", user=user, status_code=404)
+    impact = impact_bullet(profile.id, session, bullet_id)
+    return render(
+        request,
+        "delete/confirm.html",
+        user=user,
+        impact_text=t("delete.impact.bullet", user.ui_lang, **impact),
+        action=f"/bullets/{bullet_id}/delete",
+        cancel=f"/roles/{bullet.role_id}",
+    )
+
+
+@router.post("/bullets/{bullet_id}/delete")
+def bullet_delete(bullet_id: str, session: DbSession, profile: OwnProfile):
+    bullet = get_bullet(profile.id, session, bullet_id)
+    if bullet is None or delete_bullet(profile.id, session, bullet_id) is None:
+        raise HTTPException(status_code=404)
     session.commit()
     return RedirectResponse(f"/roles/{bullet.role_id}", status_code=303)

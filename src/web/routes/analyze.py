@@ -14,6 +14,7 @@ from src.analysis import analyze
 from src.applications import create_application, get_application
 from src.bullets import list_bullets
 from src.extract.client import (
+    CallOptions,
     NoModelConfigured,
     ProviderUnavailable,
     StructuredOutputError,
@@ -92,8 +93,16 @@ def analyze_submit(
             raise HTTPException(status_code=404)
 
     try:
+        # F2.8: the ledger rows of every call this analysis makes record whose call
+        # they were — attribution rides `options`, which `analyze` forwards unchanged.
         analysis = analyze(
-            profile.id, session, jd_text=jd_text, company=company, title=title, track=track
+            profile.id,
+            session,
+            jd_text=jd_text,
+            company=company,
+            title=title,
+            track=track,
+            options=CallOptions(profile_id=profile.id),
         )
     except NoModelConfigured:
         message = t("analyze.no_model", user.ui_lang)

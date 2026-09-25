@@ -46,9 +46,6 @@
 </form>
 
 {% if letter %}
-<form method="post" action="/letters/{{ letter.id }}/delete" class="mt-4"
-      onsubmit="return confirm('{{ t('letters.delete_confirm', lang) }}')">
-  <button type="submit" class="text-sm text-red-700 underline">{{ t('common.delete', lang) }}</button>
-</form>
+<a href="/letters/{{ letter.id }}/delete" class="mt-4 inline-block text-sm text-red-700 underline">{{ t('common.delete', lang) }}</a>
 {% endif %}
 {% endblock %}

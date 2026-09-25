@@ -5,7 +5,9 @@ from typing import Annotated
 from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
 
-from src.letters import create_letter, delete_letter, get_letter, list_letters, update_letter
+from src.deletion import delete_letter_template, impact_letter_template
+from src.i18n import t
+from src.letters import create_letter, get_letter, list_letters, update_letter
 from src.web.deps import DbSession, OwnProfile, SignedInUser
 from src.web.templating import render
 
@@ -88,9 +90,26 @@ def letter_save(
     return RedirectResponse("/letters", status_code=303)
 
 
+@router.get("/letters/{letter_id}/delete")
+def letter_delete_form(
+    letter_id: str, request: Request, user: SignedInUser, session: DbSession, profile: OwnProfile
+):
+    impact = impact_letter_template(profile.id, session, letter_id)
+    if impact is None:
+        return render(request, "not_found.html", user=user, status_code=404)
+    return render(
+        request,
+        "delete/confirm.html",
+        user=user,
+        impact_text=t("delete.impact.letter", user.ui_lang, **impact),
+        action=f"/letters/{letter_id}/delete",
+        cancel="/letters",
+    )
+
+
 @router.post("/letters/{letter_id}/delete")
 def letter_delete(letter_id: str, session: DbSession, profile: OwnProfile):
-    if not delete_letter(profile.id, session, letter_id):
+    if delete_letter_template(profile.id, session, letter_id) is None:
         raise HTTPException(status_code=404)
     session.commit()
     return RedirectResponse("/letters", status_code=303)

@@ -15,7 +15,9 @@ from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
+from src.deletion import delete_resume, impact_resume
 from src.extract.client import (
+    CallOptions,
     NoModelConfigured,
     ProviderUnavailable,
     StructuredOutputError,
@@ -45,6 +47,7 @@ from src.resumes import (
 from src.tracks import get_track, list_tracks
 from src.web.deps import DbSession, OwnProfile, SignedInUser
 from src.web.findings import document_kind, finding_rows
+from src.web.forms import is_checked
 from src.web.templating import render
 
 router = APIRouter()
@@ -380,6 +383,7 @@ async def import_upload(
             session,
             loaded.text,
             known_names=[profile.display_name] if profile.display_name else None,
+            options=CallOptions(profile_id=profile.id),
         )
     except NoModelConfigured:
         # No call was attempted and nothing was paid for: there is no answer to purge
@@ -517,6 +521,7 @@ def import_retry(
             session,
             loaded.text,
             known_names=[profile.display_name] if profile.display_name else None,
+            options=CallOptions(profile_id=profile.id),
         )
     except NoModelConfigured:
         message = t("import.no_model", user.ui_lang)
@@ -532,6 +537,40 @@ def import_retry(
     return _review_page(
         request, user, profile, resume=resume, gate=gate, kind=kind, error=message
     )
+
+
+@router.get("/import/{resume_id}/delete")
+def import_delete_form(
+    resume_id: str, request: Request, user: SignedInUser, session: DbSession, profile: OwnProfile
+):
+    impact = impact_resume(profile.id, session, resume_id)
+    if impact is None:
+        return render(request, "not_found.html", user=user, status_code=404)
+    return render(
+        request,
+        "delete/confirm.html",
+        user=user,
+        impact_text=t("delete.impact.resume", user.ui_lang, **impact),
+        action=f"/import/{resume_id}/delete",
+        cancel="/import",
+        delete_bullets_option=True,
+    )
+
+
+@router.post("/import/{resume_id}/delete")
+def import_delete(
+    resume_id: str,
+    session: DbSession,
+    profile: OwnProfile,
+    delete_bullets: Annotated[str | None, Form()] = None,
+):
+    removed = delete_resume(
+        profile.id, session, resume_id, delete_bullets=is_checked(delete_bullets)
+    )
+    if removed is None:
+        raise HTTPException(status_code=404)
+    session.commit()
+    return RedirectResponse("/import", status_code=303)
 
 
 @router.post("/import/{resume_id}/review")

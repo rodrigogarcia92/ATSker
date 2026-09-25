@@ -58,6 +58,7 @@
         <button type="submit" class="text-sm text-slate-500 underline">{{ t('import.discard', lang) }}</button>
       </form>
       {% endif %}
+      <a href="/import/{{ item.id }}/delete" class="text-sm text-red-700 underline">{{ t('common.delete', lang) }}</a>
     </div>
   </li>
   {% else %}
