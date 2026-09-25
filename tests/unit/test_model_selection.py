@@ -109,7 +109,10 @@ class FakeProvider:
                     "queries": [
                         {
                             "label": "broad",
-                            "expr": {"and": [proposal["title"], *proposal["must_have"]]},
+                            "all_of": [
+                                [term] for term in [proposal["title"], *proposal["must_have"]]
+                            ],
+                            "none_of": [],
                         }
                     ]
                 }

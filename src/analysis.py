@@ -39,7 +39,7 @@ from src.extract.gaps import GapInput, interpret_gaps
 from src.extract.grading import grade_evidence
 from src.extract.jd import extract_jd
 from src.extract.prompts import (
-    BOOLEAN_RECALL,
+    BOOLEAN_RECALL_V2,
     EVIDENCE_GRADING_V4,
     GAP_INTERPRETATION,
     JD_EXTRACTION_V3,
@@ -435,7 +435,7 @@ def analyze(
         prompt_versions={
             "jd_extract": JD_EXTRACTION_V3.version,
             "evidence_grade": EVIDENCE_GRADING_V4.version,
-            "boolean_queries": BOOLEAN_RECALL.version,
+            "boolean_queries": BOOLEAN_RECALL_V2.version,
             "gap_interpret": GAP_INTERPRETATION.version,
         },
         weights_version=score.weights_version,

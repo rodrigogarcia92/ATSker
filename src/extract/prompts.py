@@ -266,6 +266,38 @@ def tasks_block(tasks: Sequence[str]) -> str:
     return f"Tasks to grade, by index:\n{rows}\n\n"
 
 
+BOOLEAN_RECALL_V2 = Prompt(
+    version="boolean_recall_v2",
+    # v2 is v1 with the flat output shape (A.8.1): strict mode turned the recursive
+    # tree into a demand for three keys at every node, and the default model nested
+    # until it ran out of tokens. v1 stays in the file unchanged — a stored report
+    # names the prompt that derived its queries, and the two are never mixed.
+    system=(
+        "You write the boolean searches a recruiter would actually run to find a "
+        "candidate for a posting — in an ATS, on LinkedIn Recruiter, or on a job "
+        "board. Return three to five queries, ordered from broadest to narrowest.\n\n"
+        "Every query has the same three fields: a label, all_of, and none_of. "
+        "all_of is a list of groups and every group must match; a group is a list of "
+        "terms and it matches when any one of its terms does. A group with a single "
+        "term is a required term. none_of lists the terms that must not appear; "
+        "leave it empty when the posting rules nothing out. There is no nesting: a "
+        "query is an AND of OR-groups, and nothing deeper.\n\n"
+        "For example, the query \"data analyst\" AND (sql OR python) AND NOT intern "
+        "is written:\n"
+        '{{"label": "core", "all_of": [["data analyst"], ["sql", "python"]], '
+        '"none_of": ["intern"]}}\n\n'
+        "The broadest query holds what nobody would drop — the posting's own title "
+        "and one or two core skills; the narrowest holds everything it insists on.\n\n"
+        "Terms come from the posting. Where the posting names something in this "
+        "vocabulary, use the canonical name exactly as written here, because that is "
+        "what a résumé is actually written in:\n{vocabulary}\n\n"
+        "Never invent a requirement the posting does not state, and keep each query "
+        "to what a person could type in one line."
+    ),
+    template="{posting}",
+)
+
+
 GAP_INTERPRETATION = Prompt(
     version="gap_interpret_v1",
     # The contract is the same for every posting — what a gap note is, what the one

@@ -55,10 +55,11 @@ COST_PER_CALL = "0.000123"
 QUERIES = json.dumps(
     {
         "queries": [
-            {"label": "broad", "expr": {"and": ["analista de datos", "python"]}},
+            {"label": "broad", "all_of": [["analista de datos"], ["python"]], "none_of": []},
             {
                 "label": "strict",
-                "expr": {"and": ["python", "machine learning", {"not": ["excel"]}]},
+                "all_of": [["python"], ["machine learning"]],
+                "none_of": ["excel"],
             },
         ]
     }
@@ -152,7 +153,7 @@ def test_an_analysis_records_its_weights_prompts_and_cost(session, career, provi
     assert analysis.prompt_versions == {
         "jd_extract": "jd_extract_v3",
         "evidence_grade": "evidence_grade_v4",
-        "boolean_queries": "boolean_recall_v1",
+        "boolean_queries": "boolean_recall_v2",
         "gap_interpret": "gap_interpret_v1",
     }
 
@@ -1227,8 +1228,12 @@ def test_the_recall_names_the_clause_that_would_exclude_the_track(session, caree
     assert str(career.first_bullet.id) in str(broad["clauses"]), "the citation travels"
 
 
-def test_the_boolean_scan_does_not_change_the_job_match_number(session, career, monkeypatch):
+def test_the_boolean_scan_does_not_change_the_job_match_number(
+    session, career, provider, monkeypatch
+):
     """F5.2: recall is a gate beside the score, never a term in it."""
+    # The stub provider, not the developer's .env: without it this test made three
+    # real calls per run and only passed when the network answered.
     with_scan = analyze(career.first_profile.id, session, jd_text=POSTING)
     baseline = with_scan.report["score"]
 
@@ -1248,7 +1253,7 @@ def test_the_boolean_scan_does_not_change_the_job_match_number(session, career, 
                 completion_tokens=0,
                 cost_usd=Decimal("0"),
                 purpose="boolean_queries",
-                prompt_version="boolean_recall_v1",
+                prompt_version="boolean_recall_v2",
                 model=completion["model"],
             ),
         )

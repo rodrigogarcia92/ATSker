@@ -6,17 +6,25 @@ deterministic and lives in `src.search.boolean`, which never calls a provider: t
 line between the two is the same line the rest of the project draws (design
 principle 1).
 
+The shape the model is asked for is flat — an AND of OR-groups, plus exclusions — and
+the tree `src.search.boolean` walks is built from it here (A.8.1). A recursive schema
+made strict mode (A.7) demand three keys at every node, so the default model nested
+until it ran out of tokens and answered with JSON deeper than Python's parser allows
+(2026-09-25); the two levels below cover the queries F5.2 describes.
+
 Cached by content hash like every other extraction: a repeat analysis of the same
 posting makes no network call.
 """
 
-from pydantic import BaseModel, ConfigDict, Field
+from dataclasses import dataclass
+
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from src.db import short_session
 from src.extract.client import CallOptions, Completion, complete_json
-from src.extract.prompts import BOOLEAN_RECALL
+from src.extract.prompts import BOOLEAN_RECALL_V2
 from src.models import Skill
 
 PURPOSE = "boolean_queries"
@@ -29,29 +37,48 @@ RETRIES = 1
 MAX_QUERIES = 5
 
 
-class BooleanExpr(BaseModel):
-    """One node of a query tree: an operator over terms or further nodes.
+@dataclass(frozen=True)
+class BooleanExpr:
+    """A node of the tree the evaluator walks: an operator over terms or nodes.
 
-    The PRD's own shape: `{"and": ["data analyst", {"or": ["sql", "python"]}]}`.
+    `src.search.boolean` reads these three attributes off whatever it is handed, so
+    the node type is the thinnest thing that satisfies it and the flat query builds
+    one rather than asking the model to write a tree.
     """
 
-    model_config = ConfigDict(populate_by_name=True)
-
-    all_of: list["BooleanTerm"] | None = Field(default=None, alias="and")
-    any_of: list["BooleanTerm"] | None = Field(default=None, alias="or")
-    none_of: list["BooleanTerm"] | None = Field(default=None, alias="not")
+    all_of: "tuple[BooleanTerm, ...]" = ()
+    any_of: "tuple[BooleanTerm, ...]" = ()
+    none_of: "tuple[BooleanTerm, ...]" = ()
 
 
-# A term, or a node. The alias has to come after the class: pydantic resolves it on
-# `model_rebuild()` below.
-BooleanTerm = str | BooleanExpr  # noqa: UP007 - a recursive alias, resolved at runtime
-
-BooleanExpr.model_rebuild()
+# A term, or a node.
+BooleanTerm = str | BooleanExpr
 
 
 class BooleanQuery(BaseModel):
-    label: str = Field(default="", description="the query's own name: broad, core, strict")
-    expr: BooleanTerm = Field(description="a term, or a tree of and/or/not over terms")
+    """One recruiter's query, flat: an AND of OR-groups, plus exclusions.
+
+    Every group in `all_of` must match, and a group matches when any of its terms
+    does — a one-term group is a required term. `none_of` holds the terms that must
+    not appear. Two levels and no more: see the module docstring.
+    """
+
+    label: str = Field(default="", description="broad, core or strict")
+    all_of: list[list[str]] = Field(
+        description="every group must match; a group matches when any of its terms does"
+    )
+    none_of: list[str] = Field(default_factory=list, description="terms that must not appear")
+
+    @property
+    def expr(self) -> BooleanExpr:
+        """The flat query as the tree `src.search.boolean` evaluates (A.8.1)."""
+        children: list[BooleanTerm] = [
+            group[0] if len(group) == 1 else BooleanExpr(any_of=tuple(group))
+            for group in self.all_of
+        ]
+        if self.none_of:
+            children.append(BooleanExpr(none_of=tuple(self.none_of)))
+        return BooleanExpr(all_of=tuple(children))
 
 
 class BooleanQuerySet(BaseModel):
@@ -60,15 +87,15 @@ class BooleanQuerySet(BaseModel):
 
 def _sanitised(proposal: BooleanQuerySet) -> BooleanQuerySet:
     """Drop queries with nothing in them, and keep the broadest five (F5.2)."""
-    usable = [query for query in proposal.queries if _has_terms(query.expr)]
+    usable = [query for query in proposal.queries if _has_terms(query)]
     return BooleanQuerySet(queries=usable[:MAX_QUERIES])
 
 
-def _has_terms(expr: BooleanTerm) -> bool:
-    if isinstance(expr, str):
-        return bool(expr.strip())
-    children = [*(expr.all_of or []), *(expr.any_of or []), *(expr.none_of or [])]
-    return any(_has_terms(child) for child in children)
+def _has_terms(query: BooleanQuery) -> bool:
+    """A query with no term at all constrains nothing, so it is not a query."""
+    return any(term.strip() for group in query.all_of for term in group) or any(
+        term.strip() for term in query.none_of
+    )
 
 
 def vocabulary_names(session: Session) -> list[str]:
@@ -94,9 +121,9 @@ def derive_boolean_queries(
     completion = complete_json(
         session,
         purpose=PURPOSE,
-        prompt_version=BOOLEAN_RECALL.version,
-        system=BOOLEAN_RECALL.render_system(vocabulary=vocabulary or "(empty)"),
-        user=BOOLEAN_RECALL.render(posting=jd_text),
+        prompt_version=BOOLEAN_RECALL_V2.version,
+        system=BOOLEAN_RECALL_V2.render_system(vocabulary=vocabulary or "(empty)"),
+        user=BOOLEAN_RECALL_V2.render(posting=jd_text),
         schema=BooleanQuerySet,
         model=model,
         retries=RETRIES,

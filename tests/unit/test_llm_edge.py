@@ -112,13 +112,50 @@ def test_a_new_prompt_version_busts_the_cache(session, test_settings, monkeypatc
     assert session.query(LlmCall).count() == 2
 
 
-def test_invalid_output_fails_loudly_without_retries(session, test_settings, monkeypatch):
-    stub(monkeypatch, Answer("not json at all"))
+def test_invalid_output_fails_loudly_and_keeps_its_cost(session, test_settings, monkeypatch):
+    """A.8.2: an answer the schema rejects is still a paid call, so it is recorded.
+
+    Before A.8.2 an unparseable answer spent money and left no trace, and the next
+    identical call paid again.
+    """
+    seen = stub(monkeypatch, Answer("not json at all"))
 
     with pytest.raises(StructuredOutputError):
         call(session)
 
-    assert session.query(LlmCall).count() == 0
+    assert len(seen) == 1, "no retries were asked for"
+    row = session.query(LlmCall).one()
+    assert row.degenerate is True, "a rejected answer is never served back (F2.3.1)"
+    assert row.cost_usd == Decimal("0.000123")
+    assert row.response_json["unparsed"] is True, "the row says why there is no answer"
+
+
+def test_a_runaway_answer_fails_one_call_instead_of_the_run(session, test_settings, monkeypatch):
+    """A.8.2: the crash the 2026-09-25 golden run hit.
+
+    A recursive schema made the default model nest until its answer was deeper than
+    Python's parser can decode, and the `RecursionError` escaped `complete_json` and
+    killed the run. It is a schema failure like any other: one call fails, one retry,
+    the cost stays in the ledger, and the answer is never served back.
+    """
+    nested = '{"a":' * 5000 + "1" + "}" * 5000
+    with pytest.raises(RecursionError):
+        json.loads(nested)
+    seen = stub(monkeypatch, Answer(nested))
+
+    with pytest.raises(StructuredOutputError):
+        call(session, retries=1)
+
+    assert len(seen) == 2, "one retry, like every other schema violation"
+    rows = session.query(LlmCall).order_by(LlmCall.id).all()
+    assert [row.degenerate for row in rows] == [True, True]
+    assert all(row.cost_usd == Decimal("0.000123") for row in rows), "both attempts were paid"
+
+    session.rollback()  # the assertions above opened a read; a call refuses to start inside one
+    good = stub(monkeypatch, Answer(ANSWER))
+    fresh = call(session, retries=1)
+
+    assert fresh.cached is False and len(good) == 1, "the degenerate rows never serve the cache"
 
 
 def test_a_provider_failure_is_named_rather_than_propagated(session, test_settings, monkeypatch):
@@ -567,6 +604,48 @@ def holds_a_default(node) -> bool:
         elif holds_a_default(value):
             return True
     return False
+
+
+def refs_in(node) -> set[str]:
+    """The names every `$ref` under a schema node points at."""
+    if isinstance(node, list):
+        found: set[str] = set()
+        for entry in node:
+            found |= refs_in(entry)
+        return found
+    if not isinstance(node, dict):
+        return set()
+    found = set()
+    ref = node.get("$ref")
+    if isinstance(ref, str):
+        found.add(ref.rsplit("/", 1)[-1])
+    for value in node.values():
+        found |= refs_in(value)
+    return found
+
+
+def reachable(name: str, defs: dict) -> set[str]:
+    """Every definition `name` can reach, following `$ref`s."""
+    seen: set[str] = set()
+    pending = [name]
+    while pending:
+        for ref in refs_in(defs.get(pending.pop(), {})):
+            if ref not in seen:
+                seen.add(ref)
+                pending.append(ref)
+    return seen
+
+
+def test_the_boolean_query_schema_has_no_ref_cycle():
+    """A.8.1: a recursive response model is what made strict mode ask the model for
+    three keys inside every node it opened. Nothing the provider is sent may refer
+    to itself, directly or through another definition."""
+    strict = strict_schema(BooleanQuerySet)
+    defs = strict.get("$defs") or {}
+
+    assert defs, "the flat schema still names its query object once"
+    for name in defs:
+        assert name not in reachable(name, defs), f"{name} refers to itself"
 
 
 @pytest.mark.parametrize("schema", PROVIDER_SCHEMAS, ids=lambda cls: cls.__name__)

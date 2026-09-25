@@ -70,10 +70,12 @@ JD_PROPOSAL = json.dumps(
 QUERIES = json.dumps(
     {
         "queries": [
-            {"label": "broad", "expr": {"and": ["analista de datos", "python"]}},
+            {"label": "broad", "all_of": [["analista de datos"], ["python"]], "none_of": []},
             {
                 "label": "strict",
-                "expr": {"and": ["python", "machine learning", {"not": ["excel"]}]}},
+                "all_of": [["python"], ["machine learning"]],
+                "none_of": ["excel"],
+            },
         ]
     }
 )

@@ -21,7 +21,7 @@ from functools import cache
 from typing import Any, TypeVar
 
 import httpx
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
@@ -349,6 +349,46 @@ def _write_ledger(
     raise LedgerWriteError(f"the call could not be recorded: {error}") from error
 
 
+def _record_unparsed(
+    session: Session,
+    *,
+    purpose: str,
+    prompt_version: str,
+    model: str,
+    input_hash: str,
+    error: str,
+    prompt_tokens: int,
+    completion_tokens: int,
+    cost_usd: Decimal,
+    profile_id: uuid.UUID | None,
+) -> None:
+    """Ledger a paid answer the schema could not parse, marked degenerate (A.8.2).
+
+    The answer itself is not kept — there is no shape to keep and a runaway one is
+    enormous — so the row records why it failed. What matters is the same as for any
+    other rejected answer (F2.3.1): the cost stays and the row never serves the cache.
+    A bookkeeping failure here cannot be reported through a `Completion` (there is
+    none), and the `StructuredOutputError` the caller is about to receive is the
+    honest report, so it is swallowed rather than replacing it.
+    """
+    try:
+        _write_ledger(
+            session,
+            purpose=purpose,
+            prompt_version=prompt_version,
+            model=model,
+            input_hash=input_hash,
+            response_json={"unparsed": True, "error": error[:500]},
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            cost_usd=cost_usd,
+            degenerate=True,
+            profile_id=profile_id,
+        )
+    except LedgerWriteError:
+        pass
+
+
 def complete_json(
     session: Session,
     *,
@@ -437,13 +477,35 @@ def complete_json(
             # the caller still needs to name it rather than fail as an unknown 500.
             raise ProviderUnavailable(str(exc)) from exc
         message = body["choices"][0]["message"]["content"]
+        usage = body.get("usage") or {}
+        cost = Decimal(str(usage.get("cost") or 0))
+        prompt_tokens = int(usage.get("prompt_tokens") or 0)
+        completion_tokens = int(usage.get("completion_tokens") or 0)
         try:
             # A.7.2: strict mode made some optional fields nullable so the model
             # could say "unstated". Those `null`s are dropped here and the field's
             # own default applies; a `null` the schema genuinely allows stays.
             data = _prune_nulls(json.loads(message), nullable_paths(schema))
             parsed = schema.model_validate(data)
-        except (json.JSONDecodeError, ValidationError) as exc:
+        except (ValueError, RecursionError) as exc:
+            # A.8.2: `ValueError` covers both `json.JSONDecodeError` and Pydantic's
+            # `ValidationError`; `RecursionError` is a runaway answer — the model
+            # nested past what Python's parser can decode, which is a schema failure
+            # like any other and must fail one call, not the run. It was paid for,
+            # so the row is written with its cost and marked degenerate (F2.3.1):
+            # the cost stays in the ledger and the answer is never served back.
+            _record_unparsed(
+                session,
+                purpose=purpose,
+                prompt_version=prompt_version,
+                model=chosen,
+                input_hash=digest,
+                error=str(exc),
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                cost_usd=cost,
+                profile_id=opts.profile_id,
+            )
             if attempt < retries:
                 attempt += 1
                 payload["messages"] = [
@@ -455,10 +517,6 @@ def complete_json(
             raise StructuredOutputError(str(exc)) from exc
         break
 
-    usage = body.get("usage") or {}
-    cost = Decimal(str(usage.get("cost") or 0))
-    prompt_tokens = int(usage.get("prompt_tokens") or 0)
-    completion_tokens = int(usage.get("completion_tokens") or 0)
     answer = parsed.model_dump(mode="json")
     # The caller knows what an empty answer means for its own purpose; the client
     # only records the verdict. Evaluated here, once, so one code path marks the row

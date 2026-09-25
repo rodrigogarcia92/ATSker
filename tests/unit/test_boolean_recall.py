@@ -1,11 +1,16 @@
 """Scan B against known trees and known text (PRD F5.2).
 
 No provider anywhere in this file: derivation is the model's job and evaluation is
-arithmetic, so the rules are pinned here against text written by hand. The queries are
-the ones the PRD prints.
+arithmetic, so the rules are pinned here against text written by hand. The evaluator
+still walks a tree of and / or / not — the flat query the model now answers with is
+built into one here and in `extract.boolean` (A.8.1) — so the trees below are written
+in the shape the PRD prints, through a local builder rather than a schema.
 """
 
-from src.extract.boolean import BooleanQuerySet
+from dataclasses import dataclass
+
+from src.extract.boolean import BooleanExpr, BooleanQuerySet
+from src.extract.client import _prune_nulls, nullable_paths
 from src.search.boolean import SearchUnit, evaluate, match_terms, terms_of
 
 ANA = [
@@ -15,13 +20,38 @@ ANA = [
     SearchUnit("education", "Universidad Nacional de Ingeniería Ingeniería de Sistemas"),
 ]
 
+OPS = {"and": "all_of", "or": "any_of", "not": "none_of"}
+
+
+@dataclass(frozen=True)
+class Tree:
+    """A query as the evaluator takes it: a label and an expression node."""
+
+    label: str
+    expr: object
+
+
+def node(shape: object) -> object:
+    """The evaluator's node from the shape the PRD prints: `{"and": [term, {...}]}`."""
+    if isinstance(shape, str):
+        return shape
+    ((op, items),) = shape.items()  # type: ignore[union-attr]
+    return BooleanExpr(**{OPS[op]: tuple(node(item) for item in items)})
+
 
 def queries(*items) -> list:
     return [item for item in items]
 
 
-def query(label: str, expr: object):
-    return BooleanQuerySet.model_validate({"queries": [{"label": label, "expr": expr}]}).queries[0]
+def query(label: str, expr: object) -> Tree:
+    return Tree(label, node(expr))
+
+
+def flat(label: str, all_of: list, none_of: list | None = None) -> BooleanQuerySet:
+    """A stub answer in the shape `boolean_recall_v2` asks the model for."""
+    return BooleanQuerySet.model_validate(
+        {"queries": [{"label": label, "all_of": all_of, "none_of": none_of or []}]}
+    )
 
 
 def test_a_tree_of_and_or_and_not_is_evaluated_as_written():
@@ -150,33 +180,83 @@ def test_the_report_serialises_every_query_and_clause():
     assert "b1" in str(entry), "the citation travels with the clause"
 
 
-def test_the_prds_own_example_tree_parses_and_evaluates():
-    """The shape the specification prints, term for term."""
-    payload = {
-        "queries": [
-            {"label": "broad", "expr": {"and": ["data analyst", {"or": ["sql", "python"]}]}},
-            {
-                "label": "core",
-                "expr": {"and": ["mdm", "data governance", {"or": ["json schema", "api"]}]},
-            },
-            {
-                "label": "strict",
-                "expr": {"and": ["master data management", "data modeling", "sql", "english"]},
-            },
-        ]
-    }
-    parsed = BooleanQuerySet.model_validate(payload)
+def test_a_flat_query_converts_to_the_tree_the_evaluator_walks():
+    """A.8.1: the model answers flat, and the evaluator still walks the PRD's tree.
+
+    Each pair is the same query written both ways, and the whole report — verdict,
+    failing clause and citations — has to come out identical.
+    """
+    cases = [
+        # One group of one term is a required term.
+        (flat("core", [["python"]]), query("core", {"and": ["python"]})),
+        # A longer group is an OR: the failure names the whole group, not one term.
+        (
+            flat("narrow", [["python"], ["sql", "r"]]),
+            query("narrow", {"and": ["python", {"or": ["sql", "r"]}]}),
+        ),
+        # With exclusions, and (the case above) without them.
+        (
+            flat("excluded", [["python"]], ["power bi"]),
+            query("excluded", {"and": ["python", {"not": ["power bi"]}]}),
+        ),
+    ]
+
+    for answer, tree in cases:
+        flat_report = evaluate(answer.queries, ANA, {}).to_dict()
+        tree_report = evaluate(queries(tree), ANA, {}).to_dict()
+        assert flat_report == tree_report
+
+    narrow = evaluate(cases[1][0].queries, ANA, {})
+    assert narrow.queries[0].failing_term == "sql / r", "the group, not one alternative"
+
+
+def test_a_flat_query_without_the_none_of_key_is_accepted():
+    """Strict mode makes `none_of` nullable; the pruned null falls back to empty."""
+    pruned = _prune_nulls(
+        {"queries": [{"label": "broad", "all_of": [["python"], ["tableros"]], "none_of": None}]},
+        nullable_paths(BooleanQuerySet),
+    )
+    answer = BooleanQuerySet.model_validate(pruned)
+
+    flat_report = evaluate(answer.queries, ANA, {}).to_dict()
+    tree = query("broad", {"and": ["python", "tableros"]})
+    tree_report = evaluate(queries(tree), ANA, {}).to_dict()
+
+    assert flat_report == tree_report
+
+
+def test_the_prds_own_example_queries_are_the_flat_shape():
+    """The three queries the specification prints, in the shape v2 asks for."""
+    answer = BooleanQuerySet.model_validate(
+        {
+            "queries": [
+                {"label": "broad", "all_of": [["data analyst"], ["sql", "python"]]},
+                {
+                    "label": "core",
+                    "all_of": [["mdm"], ["data governance"], ["json schema", "api"]],
+                },
+                {
+                    "label": "strict",
+                    "all_of": [
+                        ["master data management"],
+                        ["data modeling"],
+                        ["sql"],
+                        ["english"],
+                    ],
+                },
+            ]
+        }
+    )
     units = [
         SearchUnit("bullet", "I built the data governance model and its JSON Schema", "b1"),
         SearchUnit("bullet", "Data analyst with SQL and Python", "b2"),
     ]
 
-    report = evaluate(parsed.queries, units, {})
+    report = evaluate(answer.queries, units, {})
 
     assert [result.passed for result in report.queries] == [True, False, False]
-    assert report.queries[0].passed is True
     assert report.queries[1].failing_term == "mdm", "the first clause that is not there"
-    assert terms_of(parsed.queries[2].expr) == [
+    assert terms_of(answer.queries[2].expr) == [
         "master data management",
         "data modeling",
         "sql",
