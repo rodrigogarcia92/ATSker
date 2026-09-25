@@ -290,6 +290,31 @@ def test_the_review_screen_shows_findings_before_the_draft(client, session, care
     assert "persona@example.com" not in page, "findings never echo the text they matched"
 
 
+def test_an_overlong_headline_warns_on_review_and_is_not_set_by_the_merge(
+    client, session, career, monkeypatch
+):
+    """The review screen warns under the field so the user can shorten the headline
+    before merging; when it is merged anyway, the merged page repeats the note and
+    the track headline stays unset.
+    """
+    long_headline = "x" * 210
+    stub = Provider(json.dumps({**json.loads(PROPOSAL), "headline": long_headline}))
+    monkeypatch.setattr(extract_client, "_post", stub)
+    login(client, career.first.email)
+    uploaded = upload(client, docx_bytes("Experiencia", "Reduje el cierre un 30% con Python"))
+    review_url = uploaded.headers["location"]
+
+    review = plain(client.get(review_url).text)
+    assert "Titular no establecido: 210 caracteres, límite 200" in review
+
+    client.post(f"{review_url}/review", data=dict(REVIEWED_FORM, headline=long_headline))
+    merged = plain(client.post(f"{review_url}/merge", data=MERGE_FORM).text)
+
+    assert "Titular no establecido: 210 caracteres, límite 200" in merged
+    track = session.scalar(select(Track).where(Track.name == "cv"))
+    assert track.headline_es is None, "headline stays unset"
+
+
 def test_upload_without_a_model_keeps_the_findings_and_stores_nothing(
     client, session, career, monkeypatch
 ):

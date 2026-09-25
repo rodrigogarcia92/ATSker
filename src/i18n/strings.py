@@ -876,6 +876,10 @@ STRINGS: dict[str, dict[str, str]] = {
         "es": "Titular: sin tocar, el puesto objetivo ya tenía uno.",
         "en": "Headline: left alone, the track already had one.",
     },
+    "import.headline_not_set": {
+        "es": "Titular no establecido: {count} caracteres, límite {limit}",
+        "en": "headline not set: {count} characters, limit {limit}",
+    },
     "import.track_summary_filled": {
         "es": "Resumen: rellenado desde el documento.",
         "en": "Summary: filled in from this document.",

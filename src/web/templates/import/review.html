@@ -37,6 +37,11 @@
       <label for="headline" class="mb-1 block text-sm font-medium">{{ t('import.headline', lang) }}</label>
       <input id="headline" name="headline" value="{{ draft.headline or '' }}"
              class="w-full rounded border border-slate-300 px-3 py-2 text-sm">
+      {% if draft.headline and (draft.headline | length) > headline_limit %}
+      <p class="mt-1 rounded border border-amber-200 bg-amber-50 px-2 py-1 text-xs text-amber-900">
+        {{ t('import.headline_not_set', lang, count=(draft.headline | length), limit=headline_limit) }}
+      </p>
+      {% endif %}
     </div>
     <div>
       <label for="summary" class="mb-1 block text-sm font-medium">{{ t('import.summary', lang) }}</label>

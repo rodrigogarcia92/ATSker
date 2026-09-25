@@ -78,6 +78,98 @@ def select_all(plan) -> Selections:
     )
 
 
+def test_a_headline_longer_than_the_column_is_not_set_and_the_result_says_so(session, career):
+    """The column is 200 and a cut sentence says something else: the 210-character
+    headline is not written, the merge still lands everything else, and the note
+    says why in the result.
+    """
+    profile_id = career.first_profile.id
+    draft = full_draft().model_copy(update={"headline": "x" * 210})
+    resume = make_resume(session, profile_id, draft)
+
+    plan = diff_draft(profile_id, session, draft)
+    result = apply_merge(
+        profile_id,
+        session,
+        resume_id=resume.id,
+        draft=draft,
+        plan=plan,
+        selections=select_all(plan),
+    )
+
+    track = get_track(profile_id, session, result.track_id)
+    assert track.headline_es is None, "headline stays unset"
+    assert replace(result, track_id=None) == MergeResult(
+        roles_created=1,
+        bullets_created=1,
+        educations_created=1,
+        certifications_created=1,
+        skills_added=1,
+        track_skills_added=1,
+        track_summary_filled=True,
+        track_created=True,
+        headline_not_set=(210, 200),
+    )
+    assert result.note == "headline not set: 210 characters, limit 200"
+
+
+def test_a_long_headline_leaves_an_existing_track_headline_untouched(session, career):
+    """The track keeps the headline it has; the note explains the draft's absence."""
+    profile_id = career.first_profile.id
+    first_draft = full_draft()
+    first = make_resume(session, profile_id, first_draft, "first")
+    plan = diff_draft(profile_id, session, first_draft)
+    created = apply_merge(
+        profile_id,
+        session,
+        resume_id=first.id,
+        draft=first_draft,
+        plan=plan,
+        selections=select_all(plan),
+        track_name="Puesto",
+    )
+
+    long_draft = full_draft().model_copy(update={"headline": "y" * 210})
+    second = make_resume(session, profile_id, long_draft, "second", track_id=created.track_id)
+    plan = diff_draft(profile_id, session, long_draft)
+    result = apply_merge(
+        profile_id,
+        session,
+        resume_id=second.id,
+        draft=long_draft,
+        plan=plan,
+        selections=select_all(plan),
+    )
+
+    track = get_track(profile_id, session, created.track_id)
+    assert track.headline_es == "Analista de datos", "the track keeps the headline it has"
+    assert result.track_headline_kept is True
+    assert result.headline_not_set == (210, 200)
+    assert result.note is not None
+
+
+def test_a_headline_within_the_limit_is_written_as_before(session, career):
+    profile_id = career.first_profile.id
+    draft = full_draft().model_copy(update={"headline": "t" * 150})
+    resume = make_resume(session, profile_id, draft)
+
+    plan = diff_draft(profile_id, session, draft)
+    result = apply_merge(
+        profile_id,
+        session,
+        resume_id=resume.id,
+        draft=draft,
+        plan=plan,
+        selections=select_all(plan),
+    )
+
+    track = get_track(profile_id, session, result.track_id)
+    assert track.headline_es == "t" * 150
+    assert result.track_headline_filled is True
+    assert result.headline_not_set is None
+    assert result.note is None
+
+
 def test_a_first_upload_diffs_as_new_and_merges_everything(session, career):
     profile_id = career.first_profile.id
     draft = full_draft()

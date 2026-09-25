@@ -29,6 +29,7 @@ from sqlalchemy.orm import Session
 from src.bullets import bullet_text, create_bullet, get_bullet, list_bullets, update_bullet
 from src.certifications import create_certification, list_certifications, update_certification
 from src.education import create_education, list_educations, update_education
+from src.i18n import t
 from src.ingest.draft import DraftCertification, DraftEducation, ResumeDraft, parse_partial_date
 from src.models import (
     Bullet,
@@ -38,6 +39,7 @@ from src.models import (
     Profile,
     Role,
     Summary,
+    Track,
     TrackBullet,
 )
 from src.normalize.text import fold
@@ -52,6 +54,11 @@ Label = Literal["new", "changed", "unchanged"]
 # folded token sets overlaps. 0.6 separates "reduje el tiempo de reporte en un 30%
 # con python" (changed) from a different achievement that shares a verb (new).
 BULLET_SIMILARITY = 0.6
+
+# The headline slots are String(200) and both the note and the review warning name
+# the limit out loud, so it is read from the column rather than written twice and
+# drifting from the schema.
+HEADLINE_LIMIT = Track.__table__.c.headline_es.type.length
 
 
 @dataclass(frozen=True)
@@ -164,6 +171,10 @@ class MergeResult:
     # or joined because the upload was tagged with it.
     track_id: uuid.UUID | None = None
     track_created: bool = False
+    # A draft headline longer than the column is never written and never truncated:
+    # a cut sentence says something else. (characters, limit) is the note both
+    # screens render in either language; `note` is its English form.
+    headline_not_set: tuple[int, int] | None = None
 
     # The counter fields, for the two questions below. `track_id` and `track_created`
     # are deliberately not among them: they report an artefact, not a count.
@@ -181,6 +192,14 @@ class MergeResult:
         "track_bullets_added",
         "track_skills_added",
     )
+
+    @property
+    def note(self) -> str | None:
+        """The note in English; the screens localize it from `headline_not_set`."""
+        if self.headline_not_set is None:
+            return None
+        characters, limit = self.headline_not_set
+        return t("import.headline_not_set", "en", count=characters, limit=limit)
 
     @property
     def is_empty(self) -> bool:
@@ -728,9 +747,16 @@ def apply_merge(
     # stays — the result screen says which of the two happened.
     slot = "en" if lang == "en" else "es"
     filled_headline = kept_headline = False
+    headline_note: tuple[int, int] | None = None
     headline_text = (draft.headline or "").strip()
     if headline_text:
-        if getattr(track, f"headline_{slot}"):
+        if len(headline_text) > HEADLINE_LIMIT:
+            # Never truncated: a cut sentence says something else. The track keeps
+            # the headline it has or none, and the result says why the draft's is
+            # not in it.
+            headline_note = (len(headline_text), HEADLINE_LIMIT)
+            kept_headline = bool(getattr(track, f"headline_{slot}"))
+        elif getattr(track, f"headline_{slot}"):
             kept_headline = True
         else:
             setattr(track, f"headline_{slot}", headline_text)
@@ -762,4 +788,5 @@ def apply_merge(
         track_summary_kept=kept_summary,
         track_id=track.id,
         track_created=track_created,
+        headline_not_set=headline_note,
     )

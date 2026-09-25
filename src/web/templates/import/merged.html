@@ -48,12 +48,13 @@
 </p>
 {% endif %}
 {% if result and (result.track_headline_filled or result.track_headline_kept
-   or result.track_summary_filled or result.track_summary_kept) %}
+   or result.track_summary_filled or result.track_summary_kept or result.headline_not_set) %}
 {# F2.7: the track is filled from the document, never overwritten by it. Both
    outcomes are results, so both are said. #}
 <ul class="mt-2 space-y-1 text-sm text-slate-600">
   {% if result.track_headline_filled %}<li>{{ t('import.track_headline_filled', lang) }}</li>{% endif %}
   {% if result.track_headline_kept %}<li>{{ t('import.track_headline_kept', lang) }}</li>{% endif %}
+  {% if result.headline_not_set %}<li>{{ t('import.headline_not_set', lang, count=result.headline_not_set[0], limit=result.headline_not_set[1]) }}</li>{% endif %}
   {% if result.track_summary_filled %}<li>{{ t('import.track_summary_filled', lang) }}</li>{% endif %}
   {% if result.track_summary_kept %}<li>{{ t('import.track_summary_kept', lang) }}</li>{% endif %}
 </ul>

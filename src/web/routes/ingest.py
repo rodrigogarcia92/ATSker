@@ -32,7 +32,7 @@ from src.ingest.draft import (
     ResumeDraft,
     build_draft,
 )
-from src.ingest.merge import Selections, apply_merge, diff_draft
+from src.ingest.merge import HEADLINE_LIMIT, Selections, apply_merge, diff_draft
 from src.models import Resume, Track
 from src.parse.gate import checks_not_run
 from src.resumes import (
@@ -280,6 +280,7 @@ def _review_page(
         not_run=checks_not_run(kind),
         draft=draft,
         credentials=_credential_rows(draft) if draft else [],
+        headline_limit=HEADLINE_LIMIT,
         error=error,
         can_retry=bool(resume is not None and draft is None and model_configured()),
     )
