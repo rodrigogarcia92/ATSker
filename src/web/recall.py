@@ -21,6 +21,9 @@ def query_rows(payload: Mapping[str, Any], lang: str) -> list[dict[str, Any]]:
             {
                 "label": str(query.get("label") or ""),
                 "passed": bool(query.get("passed")),
+                # A.9.2: the line the user pastes into the ATS. Empty for a report
+                # stored before the field existed, and the panel shows nothing then.
+                "query_text": str(query.get("query_text") or ""),
                 "failing": (
                     t(f"recall.fail.{failing_kind}", lang, term=failing_term)
                     if failing_term and failing_kind

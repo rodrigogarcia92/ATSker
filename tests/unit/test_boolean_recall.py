@@ -225,6 +225,19 @@ def test_a_flat_query_without_the_none_of_key_is_accepted():
     assert flat_report == tree_report
 
 
+def test_the_query_text_is_the_line_a_recruiter_types():
+    """A.9.2: what the user pastes into the ATS, not the shape the model answers in."""
+    assert (
+        flat("core", [["data analyst"], ["python", "r"]], ["intern"]).queries[0].query_text
+        == '"data analyst" AND (python OR r) AND NOT intern'
+    )
+    assert flat("broad", [["python"]]).queries[0].query_text == "python"
+    assert (
+        flat("narrow", [["machine learning", "sql"], ["python"]]).queries[0].query_text
+        == '("machine learning" OR sql) AND python'
+    )
+
+
 def test_the_prds_own_example_queries_are_the_flat_shape():
     """The three queries the specification prints, in the shape v2 asks for."""
     answer = BooleanQuerySet.model_validate(

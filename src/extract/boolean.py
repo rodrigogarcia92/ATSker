@@ -55,6 +55,12 @@ class BooleanExpr:
 BooleanTerm = str | BooleanExpr
 
 
+def _typed(term: str) -> str:
+    """One term as a recruiter types it: a phrase goes in double quotes."""
+    stripped = term.strip()
+    return f'"{stripped}"' if " " in stripped else stripped
+
+
 class BooleanQuery(BaseModel):
     """One recruiter's query, flat: an AND of OR-groups, plus exclusions.
 
@@ -79,6 +85,26 @@ class BooleanQuery(BaseModel):
         if self.none_of:
             children.append(BooleanExpr(none_of=tuple(self.none_of)))
         return BooleanExpr(all_of=tuple(children))
+
+    @property
+    def query_text(self) -> str:
+        """The query as a recruiter types it into the search box (A.9.2).
+
+        Flat queries are what the model answers with, but nobody runs `all_of` in an
+        ATS: the user needs the line to paste. Every group is an AND, a group of more
+        than one term is a parenthesised OR, exclusions follow as `AND NOT`.
+        """
+        parts = [
+            _typed(group[0])
+            if len(group) == 1
+            else "(" + " OR ".join(_typed(term) for term in group) + ")"
+            for group in self.all_of
+            # A group with no terms is true of anything, so it is not part of the
+            # search either.
+            if any(term.strip() for term in group)
+        ]
+        parts += [f"NOT {_typed(term)}" for term in self.none_of if term.strip()]
+        return " AND ".join(parts)
 
 
 class BooleanQuerySet(BaseModel):

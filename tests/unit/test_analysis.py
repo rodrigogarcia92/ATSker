@@ -6,6 +6,7 @@ and the page the user reads.
 """
 
 import hashlib
+import html
 import json
 import re
 from datetime import date
@@ -1226,6 +1227,9 @@ def test_the_recall_names_the_clause_that_would_exclude_the_track(session, caree
     assert strict["failing_kind"] == "missing"
     assert strict["failing_term"] == "machine learning"
     assert str(career.first_bullet.id) in str(broad["clauses"]), "the citation travels"
+    # A.9.2: the report carries the line the user pastes into the ATS.
+    assert broad["query_text"] == '"analista de datos" AND python'
+    assert strict["query_text"] == 'python AND "machine learning" AND NOT excel'
 
 
 def test_the_boolean_scan_does_not_change_the_job_match_number(
@@ -1284,3 +1288,27 @@ def test_the_report_page_shows_the_recall_panel(client, session, career, provide
     assert "no aparece ningún alias de este término" in page
     assert "No entra en el Encaje total" in page, "the panel says it is not part of the score"
     assert "Pasan 1 de 2 consultas" in page
+    # A.9.2: the recruiter's line, to paste, and the control that copies it.
+    assert '"analista de datos" AND python' in html.unescape(page)
+    assert "Copiar" in page
+
+
+def test_a_stored_recall_without_query_text_still_renders(client, session, career, provider):
+    """A.9.2: the field is new; a report stored without it renders from its clauses."""
+    login(client, career.first.email)
+    posted = client.post("/analyze", data={"jd_text": POSTING}, follow_redirects=False)
+    application = session.query(Application).one()
+
+    application.scan_boolean = {
+        **application.scan_boolean,
+        "queries": [
+            {key: value for key, value in query.items() if key != "query_text"}
+            for query in application.scan_boolean["queries"]
+        ],
+    }
+    session.commit()
+
+    page = text_of(client.get(posted.headers["location"]).text)
+
+    assert "Recuperación booleana" in page and "Falla en «machine learning»" in page
+    assert "Copiar" not in page, "an old report has nothing to copy"

@@ -179,6 +179,7 @@ STRINGS: dict[str, dict[str, str]] = {
     "recall.pass": {"es": "Pasa", "en": "Pass"},
     "recall.fails": {"es": "Falla", "en": "Fails"},
     "recall.unlabelled": {"es": "Consulta", "en": "Query"},
+    "recall.copy": {"es": "Copiar", "en": "Copy"},
     "recall.fail.missing": {
         "es": "Falla en «{term}»: no aparece ningún alias de este término en este puesto "
         "objetivo.",

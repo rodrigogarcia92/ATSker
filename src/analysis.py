@@ -21,6 +21,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
+from typing import cast
 
 from sqlalchemy.orm import Session
 
@@ -33,7 +34,7 @@ from src.documents import (
     track_document,
 )
 from src.education import list_educations
-from src.extract.boolean import derive_boolean_queries
+from src.extract.boolean import BooleanQuery, derive_boolean_queries
 from src.extract.client import CallOptions, Completion
 from src.extract.gaps import GapInput, interpret_gaps
 from src.extract.grading import grade_evidence
@@ -105,6 +106,22 @@ def _llm_section(calls: Sequence[Completion], cost: Decimal) -> dict[str, object
             for call in calls
         ],
     }
+
+
+def _recall_payload(recall: RecallReport, queries: Sequence[BooleanQuery]) -> dict[str, object]:
+    """The evaluator's report, plus the recruiter's spelling of each query (A.9.2).
+
+    `src.search.evaluate` decides pass/fail over the tree and never sees the flat
+    query, so the two halves meet here, in the order the queries were derived. A report
+    stored before this existed has no `query_text`, and its entries keep none.
+    """
+    payload = recall.to_dict()
+    entries = cast("list[dict[str, object]]", payload["queries"])
+    # `evaluate` reports no queries when there was nothing to search, so the entries
+    # can legitimately be the shorter side here.
+    for entry, query in zip(entries, queries, strict=False):
+        entry["query_text"] = query.query_text
+    return payload
 
 
 def analyze(
@@ -421,7 +438,7 @@ def analyze(
         "gate": gate.to_dict() if gate is not None else None,
         # F5.2's recall is reported beside the score and never inside it: a recruiter's
         # query is a gate, like a disqualifier, not a percentage.
-        "recall": recall.to_dict(),
+        "recall": _recall_payload(recall, queries.queries),
         "score": score.to_dict(),
         "llm": _llm_section(calls, cost),
     }

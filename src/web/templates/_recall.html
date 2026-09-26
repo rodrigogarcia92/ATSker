@@ -16,6 +16,19 @@
     <span class="rounded bg-white/70 px-2 py-0.5 text-xs">
       {{ t('recall.pass', lang) if query.passed else t('recall.fails', lang) }}
     </span>
+    {# A.9.2: the recruiter's own line, to paste into the ATS. The button reads the
+       text from the code element rather than from a JS literal, because the query
+       carries quotes and the browser already decoded the escaping for us. #}
+    {% if query.query_text %}
+    <span class="mt-1 flex items-center gap-2">
+      <code class="select-all font-mono text-xs text-slate-700">{{ query.query_text }}</code>
+      <button type="button"
+              class="shrink-0 rounded border border-slate-300 px-1.5 py-0.5 text-xs text-slate-600 hover:bg-slate-100"
+              onclick="navigator.clipboard.writeText(this.previousElementSibling.textContent.trim())">
+        {{ t('recall.copy', lang) }}
+      </button>
+    </span>
+    {% endif %}
     {% if query.failing %}
     <span class="mt-1 block text-xs">{{ query.failing }}</span>
     {% endif %}
