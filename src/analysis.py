@@ -360,6 +360,24 @@ def analyze(
         {"kind": "location", "requirement": entry.requirement, "verdict": entry.verdict}
         for entry in location_requirements(disqualifiers)
     )
+    # F4.2 (A.9.3): what the document had to read in the other language. A real screen
+    # matches the words in the file, so a fallback is worth saying out loud — and the
+    # alert is not part of the score, like every other alert here. Role titles are not
+    # counted: they carry no language of their own yet.
+    language: dict[str, object] = {
+        "posting": jd.language,
+        "other": "en" if jd.language == "es" else "es",
+        "fallback_headline": any(unit.fallback for unit in document if unit.kind == "headline"),
+        "fallback_summary": any(unit.fallback for unit in document if unit.kind == "summary"),
+        "fallback_bullets": sum(1 for unit in bullet_units.values() if unit.fallback),
+        "bullets": len(bullet_units),
+    }
+    if (
+        language["fallback_headline"]
+        or language["fallback_summary"]
+        or language["fallback_bullets"]
+    ):
+        alerts.append({"kind": "language_mismatch", **language})
     stories = list_stories(profile_id, session)
     # The reads above end before the provider call starts, like every other call here.
     session.commit()
@@ -382,6 +400,9 @@ def analyze(
 
     report: dict[str, object] = {
         "jd": jd.model_dump(mode="json"),
+        # F4.2 (A.9.3): what the document read, and how much of it had to fall back to
+        # the other language — the counts the language alert names.
+        "language": language,
         # F3.1: the vocabulary the run read, beside the score it produced.
         "vocabulary_hash": vocab_hash,
         # `bullet_text` is the citation's snapshot under its historical name — a

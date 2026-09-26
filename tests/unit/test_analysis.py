@@ -16,7 +16,7 @@ import pytest
 
 from src.analysis import analyze
 from src.applications import create_application, get_application
-from src.bullets import create_bullet, set_bullet_active
+from src.bullets import create_bullet, set_bullet_active, update_bullet
 from src.extract import client as extract_client
 from src.extract.client import CallOptions
 from src.extract.grading import grade_evidence
@@ -922,6 +922,87 @@ def test_a_seniority_gap_below_the_posting_alerts_with_both_rungs(session, caree
     alerts = analysis.report["gaps"]["alerts"]
     assert {"kind": "under_seniority", "jd_rung": "senior", "user_rung": "junior"} in alerts
     assert analysis.report["score"]["sub_scores"]["title"]["value"] == 1.0
+
+
+def test_an_english_posting_against_a_spanish_only_track_alerts_the_language_gap(
+    session, career, provider
+):
+    """F4.2 (A.9.3): a screen matches the words in the file, so the report says which
+    ones were not there."""
+    provider.answers["JDProposal"] = json.dumps({**json.loads(PROPOSAL), "language": "en"})
+
+    analysis = analyze(
+        career.first_profile.id, session, jd_text=POSTING, track=career.first_track
+    )
+
+    assert analysis.report["language"] == {
+        "posting": "en",
+        "other": "es",
+        "fallback_headline": True,
+        "fallback_summary": False,
+        "fallback_bullets": 1,
+        "bullets": 1,
+    }
+    alerts = analysis.report["gaps"]["alerts"]
+    language_alerts = [alert for alert in alerts if alert["kind"] == "language_mismatch"]
+    assert len(language_alerts) == 1, "one alert, beside seniority and location"
+    assert language_alerts[0]["fallback_bullets"] == 1
+    assert "language" not in analysis.report["score"], "it is beside the score, not in it"
+
+
+def test_a_track_in_the_postings_language_raises_no_language_alert(session, career, provider):
+    """Nothing fell back, so there is nothing to say."""
+    provider.answers["JDProposal"] = json.dumps({**json.loads(PROPOSAL), "language": "en"})
+    profile_id = career.first_profile.id
+    update_track(
+        profile_id,
+        session,
+        career.first_track.id,
+        name=career.first_track.name,
+        headline_es="Analista de datos",
+        headline_en="Data analyst",
+    )
+    update_bullet(
+        profile_id,
+        session,
+        career.first_bullet.id,
+        text_es="Reduje 30% el tiempo de reporte con Python",
+        text_en="Cut reporting time by 30% with Python",
+        chips=["python", "cobalto"],
+    )
+    session.commit()
+
+    analysis = analyze(profile_id, session, jd_text=POSTING, track=career.first_track)
+
+    assert analysis.report["language"] == {
+        "posting": "en",
+        "other": "es",
+        "fallback_headline": False,
+        "fallback_summary": False,
+        "fallback_bullets": 0,
+        "bullets": 1,
+    }
+    assert [
+        alert for alert in analysis.report["gaps"]["alerts"] if alert["kind"] == "language_mismatch"
+    ] == []
+
+
+def test_the_report_page_names_the_language_gap(client, session, career, provider):
+    """F4.2 (A.9.3): the alert, in the reader's own language and words."""
+    provider.answers["JDProposal"] = json.dumps({**json.loads(PROPOSAL), "language": "en"})
+    login(client, career.first.email)
+
+    posted = client.post(
+        "/analyze",
+        data={"jd_text": POSTING, "track_id": str(career.first_track.id)},
+        follow_redirects=False,
+    )
+
+    page = text_of(client.get(posted.headers["location"]).text)
+
+    assert "Este aviso está en inglés" in page
+    assert "1 de tus 1 bullets y tu titular solo existen en español" in page
+    assert "Un ATS real lee las palabras que envías" in page
 
 
 def w3_report() -> dict:

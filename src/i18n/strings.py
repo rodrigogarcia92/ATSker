@@ -355,6 +355,21 @@ STRINGS: dict[str, dict[str, str]] = {
         "es": "Ubicación por confirmar: {requirement}",
         "en": "Location to confirm: {requirement}",
     },
+    # F4.2 (A.9.3): a real screen reads the words that were sent, so a fallback is
+    # worth saying out loud. The two fragments are the sentence's optional parts, and
+    # the language names are the words a reader knows, never the stored codes.
+    "report.alert.language_mismatch": {
+        "es": "Este aviso está en {posting}; {n} de tus {m} bullets{headline}{summary} "
+        "solo existen en {other}. Un ATS real lee las palabras que envías: envía la "
+        "versión en {posting}.",
+        "en": "This posting is in {posting}; {n} of your {m} bullets{headline}{summary} "
+        "exist only in {other}. A real ATS reads the words you send — send the "
+        "{posting} version.",
+    },
+    "report.alert.language_headline": {"es": " y tu titular", "en": " and your headline"},
+    "report.alert.language_summary": {"es": " y tu resumen", "en": " and your summary"},
+    "lang.es": {"es": "español", "en": "Spanish"},
+    "lang.en": {"es": "inglés", "en": "English"},
     "report.no_grades": {
         "es": "La oferta no produjo requisitos que evaluar.",
         "en": "The posting produced no requirements to grade.",
