@@ -200,6 +200,10 @@ def application_report(
         application=application,
         report=application.report,
         findings=finding_rows(application.scan_readability or {}, user.ui_lang),
+        # F5.1.1: the report links "show me where" through the track's source résumé —
+        # the document whose gate capped this score — and only when there is one.
+        findings_resume=source,
+        findings_kind=document_kind(source.filename) if source is not None else "",
         recall={"rows": query_rows(application.scan_boolean or {}, user.ui_lang)},
         not_run=(
             checks_not_run(document_kind(source.filename))

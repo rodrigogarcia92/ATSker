@@ -1025,6 +1025,29 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "A Word file has no page geometry: without these checks, \u201cno "
         "findings\u201d does not mean the document is clean.",
     },
+    # F5.1.1: the location view — the page with the finding's boxes outlined, and, for
+    # the three checks where the characters are the only way to act, what each box says.
+    "import.show_where": {"es": "Mostrarme dónde", "en": "Show me where"},
+    "import.location_pdf_only": {
+        "es": "La vista de ubicación solo está disponible para PDF.",
+        "en": "The location view is only available for PDF.",
+    },
+    "import.location_title": {"es": "Dónde está", "en": "Where it is"},
+    "import.location_hint": {
+        "es": "Los recuadros marcan lo que el chequeo señaló. Se lee del archivo "
+        "original al abrir esta página; no se guarda en ningún sitio.",
+        "en": "The boxes mark what the check flagged. It is read from the original "
+        "file when this page opens; it is stored nowhere.",
+    },
+    "import.location_characters": {
+        "es": "Caracteres dentro de los recuadros",
+        "en": "Characters inside the boxes",
+    },
+    "import.location_box": {"es": "Recuadro", "en": "Box"},
+    "import.location_empty_box": {
+        "es": "— sin caracteres legibles —",
+        "en": "— no readable characters —",
+    },
     "import.review_title": {"es": "Revisar la extracción", "en": "Review the extraction"},
     "import.review_hint": {
         "es": "Nada de esto se ha guardado todavía: la base de datos cambia solo "

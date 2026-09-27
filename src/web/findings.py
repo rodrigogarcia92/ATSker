@@ -12,6 +12,7 @@ from typing import Any
 
 from src.i18n import t
 from src.parse.gate import glyph_group
+from src.web.locations import characters_apply, is_locatable
 
 # Which stored checks carry a page number on a PDF; without one the finding came
 # from a DOCX and its detail sentence has no page to name.
@@ -78,20 +79,29 @@ def finding_detail(check: str, detail: Mapping[str, Any], lang: str, severity: s
     return t(f"gate.detail.{check}{variant}", lang, **values)
 
 
-def finding_rows(gate: Mapping[str, Any], lang: str) -> list[dict[str, str]]:
-    """A stored gate report, translated for the template."""
-    rows: list[dict[str, str]] = []
-    for finding in gate.get("findings", []):
+def finding_rows(gate: Mapping[str, Any], lang: str) -> list[dict[str, Any]]:
+    """A stored gate report, translated for the template.
+
+    `index` is the finding's position in the stored list, which is what the location
+    view addresses (`/import/{resume_id}/findings/{index}`); `locatable` says the check
+    is one whose detail carries boxes on a PDF, so a DOCX finding of the same check is
+    told the location view is PDF-only rather than given a link it cannot follow.
+    """
+    rows: list[dict[str, Any]] = []
+    for index, finding in enumerate(gate.get("findings", [])):
         check = str(finding.get("check"))
         detail = finding.get("detail") or {}
         severity = str(finding.get("severity"))
         rows.append(
             {
+                "index": index,
                 "check": check,
                 "severity": severity,
                 "label": t(f"gate.check.{check}", lang),
                 "severity_label": t(f"gate.severity.{severity}", lang),
                 "detail": finding_detail(check, detail, lang, severity),
+                "locatable": is_locatable(check),
+                "characters": characters_apply(check),
             }
         )
     return rows

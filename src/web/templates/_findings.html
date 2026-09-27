@@ -12,6 +12,16 @@
     <span class="font-medium">{{ finding.label }}</span>
     <span class="rounded bg-white/70 px-2 py-0.5 text-xs">{{ finding.severity_label }}</span>
     {% if finding.detail %}<span class="mt-1 block text-xs">{{ finding.detail }}</span>{% endif %}
+    {% if finding.locatable %}
+      {# F5.1.1: a word-level finding offers its location. A DOCX finding cannot — a
+         Word file has no page geometry — so it says so instead of linking to nothing. #}
+      {% if findings_resume and findings_kind == 'pdf' %}
+      <a href="/import/{{ findings_resume.id }}/findings/{{ finding.index }}"
+         class="mt-1 inline-block text-xs font-medium underline">{{ t('import.show_where', lang) }}</a>
+      {% else %}
+      <span class="mt-1 block text-xs text-slate-500">{{ t('import.location_pdf_only', lang) }}</span>
+      {% endif %}
+    {% endif %}
   </li>
   {% endfor %}
 </ul>
