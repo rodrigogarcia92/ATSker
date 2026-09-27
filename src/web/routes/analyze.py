@@ -35,7 +35,9 @@ from src.web.templating import render
 
 router = APIRouter()
 
-EMPTY_FORM = {"jd_text": "", "company": "", "title": "", "track_id": "", "recommend": "on"}
+# The form's own fields, without `recommend`: its default depends on the tracks the
+# profile has, so it is decided in `_form` rather than frozen into an empty form.
+EMPTY_FORM = {"jd_text": "", "company": "", "title": "", "track_id": ""}
 
 
 def _form(
@@ -47,14 +49,21 @@ def _form(
     values: dict | None = None,
     error: str | None = None,
 ):
+    tracks = list_tracks(profile.id, session, active_only=True)
     return render(
         request,
         "analyze/form.html",
         user=user,
         profile=profile,
-        values=values or EMPTY_FORM,
+        # F7.1: a fresh form ticks "recommend a track" when there is a choice to make —
+        # two or more active tracks. With one there is nothing to choose between, and
+        # with none the analysis is the no-track one. A re-rendered form (a validation
+        # error) keeps exactly what was submitted, ticked or not: the box is the
+        # user's, and the default never overrides it.
+        values=values
+        or {**EMPTY_FORM, "recommend": "on" if len(tracks) >= 2 else "off"},
         active_bullets=len(list_bullets(profile.id, session, active_only=True)),
-        tracks=list_tracks(profile.id, session, active_only=True),
+        tracks=tracks,
         can_analyze=model_configured(),
         error=error,
     )

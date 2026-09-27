@@ -412,3 +412,72 @@ def test_the_route_without_the_box_analyses_without_a_track(client, session, car
     page = client.get(posted.headers["location"]).text
     assert "Recomendación de puesto" not in page
     assert stub.turns("EvidenceGrading") == 1
+
+
+def recommend_box(html: str) -> str | None:
+    """The `recommend` checkbox's own tag, or None when the form does not draw it."""
+    match = re.search(r"<input[^>]*name=\"recommend\"[^>]*>", html)
+    return match.group(0) if match else None
+
+
+def test_a_fresh_form_ticks_the_box_with_two_active_tracks(client, session, career, stub):
+    """D.7.2: two tracks is a choice to make, so the default is on."""
+    retire(session, career)
+    make_track(session, career, "Uno", ["Python con resultados medibles"])
+    make_track(session, career, "Dos", ["Reportes semanales"])
+    login(client, career.first.email)
+
+    box = recommend_box(client.get("/analyze").text)
+
+    assert box is not None and "checked" in box
+
+
+def test_a_fresh_form_leaves_the_box_unticked_with_one_active_track(client, session, career, stub):
+    """D.7.2: one track is nothing to choose between; F7.1 means a no-track analysis."""
+    retire(session, career)
+    make_track(session, career, "Único", ["Python con resultados medibles"])
+    login(client, career.first.email)
+
+    box = recommend_box(client.get("/analyze").text)
+
+    assert box is not None and "checked" not in box
+
+
+def test_a_fresh_form_draws_no_box_without_tracks(client, session, career, stub):
+    retire(session, career)
+    login(client, career.first.email)
+
+    assert recommend_box(client.get("/analyze").text) is None
+
+
+def test_an_unticked_box_survives_a_re_render(client, session, career, stub):
+    """D.7.2: the default never overrides a decision the user already made."""
+    retire(session, career)
+    make_track(session, career, "Uno", ["Python con resultados medibles"])
+    make_track(session, career, "Dos", ["Reportes semanales"])
+    login(client, career.first.email)
+
+    page = client.post("/analyze", data={"jd_text": "  ", "recommend": "off"}).text
+
+    box = recommend_box(page)
+    assert box is not None and "checked" not in box, "the error came back, the untick too"
+
+
+def test_an_unticked_box_with_two_tracks_runs_the_plain_analysis(client, session, career, stub):
+    """D.7.2: unticked and no track chosen is the no-track analysis, not a ranking."""
+    retire(session, career)
+    make_track(session, career, "Uno", ["Python con resultados medibles"])
+    make_track(session, career, "Dos", ["Reportes semanales"])
+    login(client, career.first.email)
+
+    posted = client.post(
+        "/analyze", data={"jd_text": POSTING, "recommend": "off"}, follow_redirects=False
+    )
+
+    assert posted.status_code == 303
+    page = client.get(posted.headers["location"]).text
+    assert "Recomendación de puesto" not in page
+    application = session.query(Application).one()
+    assert "recommendation" not in application.report
+    assert application.track_id is None
+    assert stub.turns("EvidenceGrading") == 1
