@@ -289,7 +289,7 @@ def test_the_list_page_shows_every_track_and_its_selection_size(client, session,
     assert "Puestos de analista de datos" in page
     assert "Tipo de organización: Corporativo" in page
     assert "Especialización: Analítica" in page
-    assert "1 viñetas" in page, "the count comes from the selection"
+    assert "1 bullets" in page, "the count comes from the selection"
     assert "Riesgo" not in page, "another profile's track is not listed"
 
 
@@ -329,7 +329,7 @@ def test_creating_a_track_lands_on_its_detail_page(client, session, career):
     assert "Plataformas de datos" in page
     assert "senior" in page
     assert "Ingeniería de datos." in page
-    assert "Sin viñetas seleccionadas." in page
+    assert "Sin bullets seleccionados." in page
 
 
 def test_writing_a_new_summary_creates_a_pool_row_and_selects_it(client, session, career):

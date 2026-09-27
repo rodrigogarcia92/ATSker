@@ -3,3 +3,159 @@
 /* Explicit sources: the scan must not wander into docs/ or fixtures/. */
 @source "../templates";
 @source "../routes";
+
+/* §12.1 — the approved design's tokens, named so a template says what a colour means
+   rather than what it looks like. Dark theme only; the light toggle is a later pass. */
+@theme {
+  /* Surfaces and text */
+  --color-bg: #101211;
+  --color-surface-1: #181b1a;
+  --color-surface-2: #232826;
+  --color-border: #2f3633;
+  --color-card-border: #262b29;
+  --color-text: #e6e9e7;
+  --color-text-2: #aeb6b2;
+  --color-text-3: #8b9490;
+  /* Interactive: links and controls only */
+  --color-link: #8fb3ff;
+  /* Score: a three-stop scale, used as fill and only on score surfaces */
+  --color-score-strong: #3fcf8e;
+  --color-score-adequate: #e5a23b;
+  --color-score-weak: #ef6f55;
+  /* Severity: outlined tags only, never fill */
+  --color-sev-blocker: #f472b6;
+  --color-sev-warning: #a78bfa;
+  --color-sev-info: #94a3b8;
+  /* Radii */
+  --radius-card: 10px;
+  --radius-control: 6px;
+  --radius-tag: 4px;
+  /* Type */
+  --font-display: "Newsreader", ui-serif, Georgia, "Times New Roman", serif;
+  --font-sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* Every number is tabular (§12.1): scores, counts, dates and hashes line up. */
+body {
+  font-variant-numeric: tabular-nums;
+}
+
+/* The shell (§12.1). A 64px icon rail on desktop; a top bar with a menu button under
+   640px. Labels appear when `body.rail-open` is toggled — no storage, no state. */
+.shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+.rail {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.5rem;
+  background: var(--color-surface-1);
+  border-bottom: 1px solid var(--color-border);
+}
+.rail-toggle,
+.rail-icon-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem;
+  border-radius: var(--radius-control);
+  color: var(--color-text-2);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.rail-toggle:hover,
+.rail-icon-button:hover {
+  background: var(--color-surface-2);
+  color: var(--color-text);
+}
+.rail-body {
+  display: none;
+  flex-basis: 100%;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 0.5rem 0.25rem 0.75rem;
+}
+body.rail-open .rail-body {
+  display: flex;
+}
+.rail-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.rail-group-title {
+  margin: 0.25rem 0 0;
+  padding: 0 0.5rem;
+  color: var(--color-text-3);
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.rail-link {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem;
+  border-radius: var(--radius-control);
+  color: var(--color-text-2);
+  text-decoration: none;
+}
+.rail-link:hover,
+.rail-link:focus-visible {
+  background: var(--color-surface-2);
+  color: var(--color-text);
+}
+.rail-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  flex: none;
+}
+.rail-label {
+  white-space: nowrap;
+}
+.rail-collapsed {
+  display: none;
+}
+.main {
+  flex: 1;
+  width: 100%;
+  padding: 1.5rem 1rem;
+}
+
+@media (min-width: 640px) {
+  .shell {
+    flex-direction: row;
+  }
+  .rail {
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    width: 4rem;
+    padding: 0.75rem 0.5rem;
+    border-bottom: 0;
+    border-right: 1px solid var(--color-border);
+  }
+  .rail-body {
+    display: flex;
+    flex-basis: auto;
+    padding: 0;
+  }
+  body.rail-open .rail {
+    width: 13rem;
+  }
+  body:not(.rail-open) .rail-label {
+    display: none;
+  }
+  body:not(.rail-open) .rail-collapsed {
+    display: flex;
+  }
+  .main {
+    padding: 2rem;
+  }
+}

@@ -1,49 +1,113 @@
+{# §12.1's shell: a 64px icon rail in three groups, expandable to labels, and a top bar
+   with a menu button under 640px. Icons are hand-written SVG, never an icon library. #}
+{% macro icon(name) -%}
+<svg class="rail-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
+     stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+  {%- if name == 'home' -%}<path d="M4 11 12 4l8 7"/><path d="M6 10v9h12v-9"/>
+  {%- elif name == 'analyze' -%}<circle cx="11" cy="11" r="6"/><path d="m20 20-4.5-4.5"/>
+  {%- elif name == 'history' -%}<circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/>
+  {%- elif name == 'import' -%}<path d="M12 16V4"/><path d="m7 9 5-5 5 5"/><path d="M5 20h14"/>
+  {%- elif name == 'tracks' -%}<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/>
+  {%- elif name == 'roles' -%}<rect x="3" y="8" width="18" height="11" rx="2"/><path d="M9 8V6a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/>
+  {%- elif name == 'stories' -%}<path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z"/>
+  {%- elif name == 'letters' -%}<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m4 7 8 6 8-6"/>
+  {%- elif name == 'profile' -%}<circle cx="12" cy="8" r="4"/><path d="M4 20a8 8 0 0 1 16 0"/>
+  {%- elif name == 'logout' -%}<path d="M15 12H6"/><path d="m10 8-4 4 4 4"/><path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4"/>
+  {%- elif name == 'language' -%}<circle cx="12" cy="12" r="8"/><path d="M4 12h16"/><path d="M12 4c3 3 3 13 0 16"/><path d="M12 4c-3 3-3 13 0 16"/>
+  {%- elif name == 'menu' -%}<path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h16"/>
+  {%- endif -%}
+</svg>
+{%- endmacro %}
+{% macro rail_link(href, label, name) -%}
+<a href="{{ href }}" class="rail-link" aria-label="{{ label }}" title="{{ label }}">{{ icon(name) }}<span class="rail-label">{{ label }}</span></a>
+{%- endmacro %}
 <!doctype html>
 <html lang="{{ lang }}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}{{ t('app.name', lang) }}{% endblock %}</title>
+  {# One Google Fonts request, `display=swap`, with the system fallbacks declared in the
+     theme — no font file is committed to the repository. #}
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Newsreader:wght@500&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400&display=swap">
   <link rel="stylesheet" href="/static/app.css">
 </head>
-<body class="min-h-screen bg-slate-50 text-slate-900 antialiased">
+<body class="min-h-screen bg-bg font-sans text-text">
   {% if user %}
-  <header class="border-b border-slate-200 bg-white">
-    <nav class="mx-auto flex max-w-3xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
-      <a href="/dashboard" class="font-semibold tracking-tight">{{ t('app.name', lang) }}</a>
-      <a href="/dashboard" class="text-sm text-slate-600 hover:text-slate-900">{{ t('nav.dashboard', lang) }}</a>
-      <a href="/analyze" class="text-sm text-slate-600 hover:text-slate-900">{{ t('nav.analyze', lang) }}</a>
-      <a href="/applications" class="text-sm text-slate-600 hover:text-slate-900">{{ t('nav.applications', lang) }}</a>
-      <a href="/import" class="text-sm text-slate-600 hover:text-slate-900">{{ t('nav.import', lang) }}</a>
-      <a href="/tracks" class="text-sm text-slate-600 hover:text-slate-900">{{ t('nav.tracks', lang) }}</a>
-      <a href="/roles" class="text-sm text-slate-600 hover:text-slate-900">{{ t('nav.roles', lang) }}</a>
-      <a href="/stories" class="text-sm text-slate-600 hover:text-slate-900">{{ t('nav.stories', lang) }}</a>
-      <a href="/letters" class="text-sm text-slate-600 hover:text-slate-900">{{ t('nav.letters', lang) }}</a>
-      <a href="/profile" class="text-sm text-slate-600 hover:text-slate-900">{{ t('nav.profile', lang) }}</a>
-      <div class="ml-auto flex items-center gap-3">
-        <form method="post" action="/settings/lang">
-          <label for="lang" class="sr-only">{{ t('nav.language', lang) }}</label>
-          <select id="lang" name="lang" onchange="this.form.submit()"
-                  class="rounded border border-slate-300 bg-white px-2 py-1 text-sm">
-            <option value="es" {% if lang == 'es' %}selected{% endif %}>ES</option>
-            <option value="en" {% if lang == 'en' %}selected{% endif %}>EN</option>
-          </select>
-          <noscript>
-            <button type="submit" class="text-sm underline">{{ t('nav.language', lang) }}</button>
-          </noscript>
-        </form>
-        <form method="post" action="/logout">
-          <button type="submit" class="text-sm text-slate-600 underline hover:text-slate-900">
-            {{ t('nav.logout', lang) }}
-          </button>
-        </form>
-      </div>
-    </nav>
-  </header>
+  <div class="shell">
+    <aside class="rail">
+      <button type="button" id="rail-toggle" class="rail-toggle" aria-expanded="false"
+              aria-controls="rail-body" aria-label="{{ t('nav.menu', lang) }}" title="{{ t('nav.menu', lang) }}">
+        {{ icon('menu') }}<span class="rail-label">{{ t('nav.menu', lang) }}</span>
+      </button>
+      <nav id="rail-body" class="rail-body">
+        <div class="rail-group">
+          <p class="rail-group-title rail-label">{{ t('nav.group.apply', lang) }}</p>
+          {{ rail_link('/dashboard', t('nav.dashboard', lang), 'home') }}
+          {{ rail_link('/analyze', t('nav.analyze', lang), 'analyze') }}
+          {{ rail_link('/applications', t('nav.applications', lang), 'history') }}
+        </div>
+        <div class="rail-group">
+          <p class="rail-group-title rail-label">{{ t('nav.group.material', lang) }}</p>
+          {{ rail_link('/import', t('nav.import', lang), 'import') }}
+          {{ rail_link('/tracks', t('nav.tracks', lang), 'tracks') }}
+          {{ rail_link('/roles', t('nav.roles', lang), 'roles') }}
+          {{ rail_link('/stories', t('nav.stories', lang), 'stories') }}
+          {{ rail_link('/letters', t('nav.letters', lang), 'letters') }}
+        </div>
+        <div class="rail-group">
+          <p class="rail-group-title rail-label">{{ t('nav.group.account', lang) }}</p>
+          {{ rail_link('/profile', t('nav.profile', lang), 'profile') }}
+          {# The language control: a labelled select when the rail is expanded, and a
+             compact button posting the other language when it is collapsed. #}
+          <form method="post" action="/settings/lang" class="rail-label">
+            <label for="lang" class="sr-only">{{ t('nav.language', lang) }}</label>
+            <select id="lang" name="lang" onchange="this.form.submit()"
+                    class="w-full rounded-control border border-border bg-surface-2 px-2 py-1 text-sm text-text">
+              <option value="es" {% if lang == 'es' %}selected{% endif %}>ES</option>
+              <option value="en" {% if lang == 'en' %}selected{% endif %}>EN</option>
+            </select>
+            <noscript><button type="submit" class="text-sm underline">{{ t('nav.language', lang) }}</button></noscript>
+          </form>
+          <form method="post" action="/settings/lang" class="rail-collapsed">
+            <button type="submit" name="lang" value="{{ 'en' if lang == 'es' else 'es' }}"
+                    class="rail-icon-button" aria-label="{{ t('nav.language', lang) }}" title="{{ t('nav.language', lang) }}">
+              {{ icon('language') }}<span class="text-xs uppercase">{{ 'EN' if lang == 'es' else 'ES' }}</span>
+            </button>
+          </form>
+          <form method="post" action="/logout" class="rail-collapsed">
+            <button type="submit" class="rail-icon-button" aria-label="{{ t('nav.logout', lang) }}" title="{{ t('nav.logout', lang) }}">
+              {{ icon('logout') }}
+            </button>
+          </form>
+          <form method="post" action="/logout" class="rail-label">
+            <button type="submit" class="rail-icon-button">{{ icon('logout') }}<span class="rail-label">{{ t('nav.logout', lang) }}</span></button>
+          </form>
+        </div>
+      </nav>
+    </aside>
   {% endif %}
-
-  <main class="mx-auto max-w-3xl px-4 py-8">
-    {% block content %}{% endblock %}
+  <main class="main">
+    <div class="mx-auto w-full max-w-3xl">
+      {% block content %}{% endblock %}
+    </div>
   </main>
+  {% if user %}
+  </div>
+  <script>
+    // A few lines, no storage: the button toggles the class the shell's CSS keys on.
+    (function () {
+      var toggle = document.getElementById('rail-toggle');
+      if (!toggle) return;
+      toggle.addEventListener('click', function () {
+        var open = document.body.classList.toggle('rail-open');
+        toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+      });
+    })();
+  </script>
+  {% endif %}
 </body>
 </html>

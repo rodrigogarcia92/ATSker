@@ -467,7 +467,7 @@ def test_a_docx_review_names_the_checks_that_did_not_run(client, session, career
     page = plain(client.get(uploaded.headers["location"]).text)
 
     assert "No se ejecutaron para este formato" in page
-    assert "Viñetas como imagen" in page
+    assert "Bullets como imagen" in page
     assert "Fuentes no incrustadas" in page
 
 
@@ -753,10 +753,10 @@ def test_a_tagged_upload_says_which_track_it_joins_and_how_many_bullets_it_added
     review_url = uploaded.headers["location"]
 
     merge_page = plain(client.post(f"{review_url}/review", data=REVIEWED_FORM).text)
-    assert "Las viñetas de este documento se unirán a «Analista de datos»" in merge_page
+    assert "Los bullets de este documento se unirán a «Analista de datos»" in merge_page
 
     merged = plain(client.post(f"{review_url}/merge", data=MERGE_FORM).text)
-    assert "Viñetas añadidas a «Analista de datos»: 1" in merged
+    assert "Bullets añadidos a «Analista de datos»: 1" in merged
     assert "Puesto objetivo creado" not in merged, "it joined; it did not create"
 
     session.expire_all()

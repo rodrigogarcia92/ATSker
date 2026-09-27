@@ -885,7 +885,7 @@ def test_an_analysis_without_a_track_saves_no_track_and_says_so(client, session,
     application = session.query(Application).one()
     assert application.track_id is None
     page = text_of(client.get(posted.headers["location"]).text)
-    assert "Sin puesto objetivo: se puntuaron todas las viñetas activas." in page
+    assert "Sin puesto objetivo: se puntuaron todos los bullets activos." in page
 
 
 def test_a_track_from_another_profile_is_refused_by_the_form(client, session, career, provider):
