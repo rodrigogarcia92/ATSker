@@ -604,6 +604,59 @@ STRINGS: dict[str, dict[str, str]] = {
     "report.prompt_versions": {"es": "Versiones de prompt", "en": "Prompt versions"},
     "report.jd_hash": {"es": "Hash de la oferta", "en": "Posting hash"},
     "report.again": {"es": "Analizar otra oferta", "en": "Analyse another posting"},
+    # F7.3's generated text: on demand, validated, shown as a diff, accepted by hand.
+    "generate.propose_summary": {
+        "es": "Proponer resumen y habilidades",
+        "en": "Propose a summary and skills",
+    },
+    "generate.title": {
+        "es": "Resumen y habilidades propuestos",
+        "en": "Proposed summary and skills",
+    },
+    "generate.intro": {
+        "es": "Una propuesta a partir de tu propio material. Nada se guarda hasta que "
+        "aceptes, y al aceptar se vuelve a validar contra la base de datos.",
+        "en": "A proposal built from your own material. Nothing is stored until you "
+        "accept, and accepting validates it against the database again.",
+    },
+    "generate.current": {"es": "Ahora", "en": "Current"},
+    "generate.proposed": {"es": "Propuesta", "en": "Proposed"},
+    "generate.skills": {"es": "Habilidades", "en": "Skills"},
+    "generate.empty_summary": {
+        "es": "— sin resumen en este idioma —",
+        "en": "— no summary in this language —",
+    },
+    "generate.use_in_track": {
+        "es": "Usar en este puesto: {name}",
+        "en": "Use in this track: {name}",
+    },
+    "generate.accept": {"es": "Aceptar", "en": "Accept"},
+    "generate.back": {"es": "Volver al informe", "en": "Back to the report"},
+    "generate.rejected": {
+        "es": "La propuesta no pasó la validación y no se puede aceptar.",
+        "en": "The proposal failed validation and cannot be accepted.",
+    },
+    "generate.refused": {
+        "es": "No se ha guardado nada: la propuesta enviada no pasó la validación.",
+        "en": "Nothing was stored: the submitted proposal failed validation.",
+    },
+    "generate.failed": {
+        "es": "El modelo no respondió; no se ha propuesto nada. Inténtalo de nuevo.",
+        "en": "The model did not answer; nothing was proposed. Try again.",
+    },
+    "generate.violation.provenance": {
+        "es": "Cita una fuente que no existe o no es tuya.",
+        "en": "Cites a source that does not exist or is not yours.",
+    },
+    "generate.violation.literal": {
+        "es": "Un número o un nombre no aparece en la fuente citada.",
+        "en": "A number or a name does not appear in the cited source.",
+    },
+    "generate.violation.closure": {
+        "es": "Nombra una habilidad que no está en tus datos o no está respaldada.",
+        "en": "Names a skill that is not in your data or is not evidenced.",
+    },
+
     # Profile
     "profile.title": {"es": "Perfil", "en": "Profile"},
     "profile.standing_risks": {"es": "Riesgos persistentes", "en": "Standing risks"},

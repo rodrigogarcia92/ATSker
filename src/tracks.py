@@ -146,6 +146,51 @@ def clone_track(
     return clone
 
 
+def set_track_skills(
+    profile_id: uuid.UUID,
+    session: Session,
+    track_id: str | uuid.UUID,
+    skills: Sequence[str],
+) -> Track | None:
+    """Replace the track's skill selection with this profile's pool canonicals (F7.3).
+
+    F4.1's rule holds: a canonical that is not the profile's pool is dropped, not
+    followed, so an accepted skills block cannot introduce a skill nobody owns.
+    """
+    track = get_track(profile_id, session, track_id)
+    if track is None:
+        return None
+    track.skills = _pool_skills(profile_id, session, skills)
+    session.flush()
+    return track
+
+
+def set_track_summary(
+    profile_id: uuid.UUID,
+    session: Session,
+    track_id: str | uuid.UUID,
+    *,
+    lang: str,
+    summary_id: uuid.UUID | str | None,
+) -> Track | None:
+    """Point one language slot at a pool row, or clear it (F4.1, F7.3).
+
+    The slot references the pool, so accepting a summary for a track does not copy
+    the text into the track: editing the pool row still changes every track that
+    uses it.
+    """
+    track = get_track(profile_id, session, track_id)
+    if track is None:
+        return None
+    owned = _owned_summary_id(profile_id, session, summary_id)
+    if (lang or "es")[:5] == "en":
+        track.summary_en_id = owned
+    else:
+        track.summary_es_id = owned
+    session.flush()
+    return track
+
+
 def set_track_active(
     profile_id: uuid.UUID, session: Session, track_id: str | uuid.UUID, *, active: bool
 ) -> Track | None:
