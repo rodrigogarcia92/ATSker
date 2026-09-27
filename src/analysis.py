@@ -25,6 +25,7 @@ from typing import cast
 
 from sqlalchemy.orm import Session
 
+from src.advice import edit_advice
 from src.documents import (
     DocumentUnit,
     document_bullets,
@@ -473,6 +474,13 @@ def analyze(
         "score": score.to_dict(),
         "llm": _llm_section(calls, cost),
     }
+    # F7.2: the six edit rules, computed from the report just built and the user's own
+    # rows — deterministic, free, and made no provider call, so this runs after the
+    # last one. A stored report keeps the items; the sentences are the page's.
+    report["advice"] = [
+        item.to_dict()
+        for item in edit_advice(profile_id, session, report=report, track=track)
+    ]
     if track is not None:
         # Snapshotted like a citation: renaming the track must not rewrite what a
         # stored report says it was scored against.

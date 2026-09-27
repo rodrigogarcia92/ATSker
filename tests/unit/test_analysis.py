@@ -1070,6 +1070,27 @@ def test_the_report_page_names_the_language_gap(client, session, career, provide
     assert "Un ATS real lee las palabras que envías" in page
 
 
+def test_the_report_page_shows_the_edit_recommendations(client, session, career, provider):
+    """F7.2: the advice the analysis stored, after the gaps and before the JD fields."""
+    career.first_profile.skills = ["python"]
+    session.commit()
+    login(client, career.first.email)
+
+    posted = client.post(
+        "/analyze",
+        data={"jd_text": POSTING, "track_id": str(career.first_track.id)},
+        follow_redirects=False,
+    )
+
+    page = text_of(client.get(posted.headers["location"]).text)
+
+    assert "Recomendaciones" in page
+    # The rule that fires here: python is asked for, evidenced on a bullet, in the
+    # pool, and missing from the track's own skills list (F7.2's rule 3).
+    assert "Añade python a las habilidades del puesto" in page
+    assert "Evidencia: python" in page
+
+
 def w3_report() -> dict:
     """A stored w3 report with the whole F5.4.1/F6.1 furniture."""
     return {

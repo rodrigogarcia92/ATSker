@@ -1,10 +1,10 @@
-"""The report's alerts as sentences, built from the stored report (PRD F4.2, F6.1).
+"""The report's alert and advice sentences, built from the stored report (F4.2, F6.1, F7.2).
 
 A stored report keeps the numbers and the ISO codes; the words are the reader's
 language, so the sentence is built when the page renders, never when the analysis
 ran. Two consumers: the report template, and the tests that pin the wording of a
-list of one, two and three items — which is why this is a function and not a
-template block.
+list of one, two and three items and of each advice rule — which is why these are
+functions and not template blocks.
 """
 
 from collections.abc import Mapping
@@ -50,3 +50,17 @@ def language_alert(alert: Mapping[str, object], lang: str) -> str:
         posting=t(f"lang.{posting}", lang),
         other=t(f"lang.{other}", lang),
     )
+
+
+def advice_line(item: Mapping[str, object], lang: str) -> str:
+    """One F7.2 item as a sentence (PRD F7.2).
+
+    The stored item names a language by its code — a report written under one
+    interface language must read in the other — so the code is resolved here, with
+    the words a reader knows ("inglés", "English"), never the ISO string.
+    """
+    values = dict(item.get("values") or {})
+    code = values.get("language")
+    if isinstance(code, str):
+        values["language"] = t(f"lang.{code}", lang)
+    return t(f"report.advice.{item.get('kind')}", lang, **values)

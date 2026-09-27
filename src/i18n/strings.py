@@ -383,6 +383,59 @@ STRINGS: dict[str, dict[str, str]] = {
     "report.alert.language_summary": {"es": "tu resumen", "en": "your summary"},
     "lang.es": {"es": "español", "en": "Spanish"},
     "lang.en": {"es": "inglés", "en": "English"},
+    # F7.2: the six deterministic rules, each one an edit the user can make now. The
+    # stored item carries the ids and the numbers; the sentence is built here, so the
+    # same report reads in either language.
+    "report.advice": {"es": "Recomendaciones", "en": "Recommendations"},
+    "report.advice.intro": {
+        "es": "Cambios concretos, en orden de impacto, calculados sobre este informe y "
+        "tus propios datos.",
+        "en": "Concrete changes, in order of impact, computed from this report and your "
+        "own data.",
+    },
+    "report.advice.promote_bullet": {
+        "es": "Mueve esta viñeta a las tres primeras del puesto: demuestra {requirement} "
+        "y está en la posición {position}, con material más débil por encima.",
+        "en": "Move this bullet into the track's first three: it demonstrates "
+        "{requirement} and it sits at position {position}, with weaker material above.",
+    },
+    "report.advice.add_bullet": {
+        "es": "Añade esta viñeta al puesto: demuestra {canonical}, que la oferta pide y "
+        "el análisis no encontró.",
+        "en": "Add this bullet to the track: it demonstrates {canonical}, which the "
+        "posting asks for and the analysis did not find.",
+    },
+    "report.advice.surface_skill": {
+        "es": "Añade {canonical} a las habilidades del puesto: la oferta lo pide y tú "
+        "lo tienes demostrado.",
+        "en": "Add {canonical} to the track's skills: the posting asks for it and you "
+        "have it evidenced.",
+    },
+    "report.advice.fix_query": {
+        "es": "La búsqueda «{query}» no te devolvería, y tienes una viñeta que dice "
+        "{canonical}: inclúyela en el puesto o usa sus palabras.",
+        "en": "The search “{query}” would not return you, and you have a bullet that "
+        "says {canonical}: add it to the track, or use its words.",
+    },
+    "report.advice.title_language": {
+        "es": "Añade el título «{title}» en {language} a tu puesto «{role}»: una oferta "
+        "en {language} lee el título que envías.",
+        "en": "Add the {language} title “{title}” to your role “{role}”: a posting in "
+        "{language} reads the title you send.",
+    },
+    "report.advice.title_headline": {
+        "es": "Plantea un titular que nombre el puesto al que aplicas, si describe tu "
+        "trabajo.",
+        "en": "Consider a headline naming the role you apply for, if it describes your "
+        "work.",
+    },
+    "report.advice.language": {
+        "es": "Escribe en {language} {bullets} de tus {total_bullets} viñetas y "
+        "{titles} de tus cargos.",
+        "en": "Write {bullets} of your {total_bullets} bullets and {titles} of your "
+        "titles in {language}.",
+    },
+    "report.advice.evidence": {"es": "Evidencia", "en": "Evidence"},
     "report.no_grades": {
         "es": "La oferta no produjo requisitos que evaluar.",
         "en": "The posting produced no requirements to grade.",
