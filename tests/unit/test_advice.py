@@ -313,6 +313,74 @@ def test_rule_five_falls_back_to_a_headline(session, career):
     )
 
 
+def test_rule_five_only_asks_to_fill_an_empty_slot(session, career):
+    """F7.2 rule 5: a title the role already has in the posting's language is no edit."""
+    profile_id = career.first_profile.id
+    career.first_role.title_es = "Analista de datos"
+    session.flush()
+    spanish_posting = {"title": "analista de datos", "language": "en"}
+
+    assert kinds(
+        edit_advice(
+            profile_id,
+            session,
+            report=report(jd=spanish_posting, title=0.2),
+            track=career.first_track,
+        )
+    ) == ["title_language"], "the English slot is empty and the Spanish one is the whole title"
+
+    career.first_role.title_en = "Analista de datos"
+    session.flush()
+
+    assert kinds(
+        edit_advice(
+            profile_id,
+            session,
+            report=report(jd=spanish_posting, title=0.2),
+            track=career.first_track,
+        )
+    ) == ["title_headline"], "nothing left to fill"
+
+    assert (
+        edit_advice(
+            profile_id,
+            session,
+            report=report(jd=spanish_posting, title=0.5),
+            track=career.first_track,
+        )
+        == []
+    ), "at the floor the title is no longer an edit"
+
+
+def test_rule_five_needs_every_content_word_of_the_posting_title(session, career):
+    """Half a title is not the translation rule 5 asks for; the headline still is."""
+    profile_id = career.first_profile.id
+    career.first_role.title_es = "Analista"
+    session.flush()
+    posting = {"title": "analista de datos", "language": "en"}
+
+    assert kinds(
+        edit_advice(
+            profile_id,
+            session,
+            report=report(jd=posting, title=0.2),
+            track=career.first_track,
+        )
+    ) == ["title_headline"], "'datos' is nowhere in the Spanish title"
+
+    career.first_role.title_es = "Analista de datos"
+    session.flush()
+
+    assert kinds(
+        edit_advice(
+            profile_id,
+            session,
+            report=report(jd=posting, title=0.2),
+            track=career.first_track,
+        )
+    ) == ["title_language"]
+
+
 def test_rule_six_says_the_language_gap_as_an_edit(session, career):
     items = edit_advice(
         career.first_profile.id,

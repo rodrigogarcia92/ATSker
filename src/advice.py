@@ -284,12 +284,20 @@ def edit_advice(
         posting = _clean(str(_mapping(report.get("jd")).get("language") or "es")) or "es"
         other = "en" if posting == "es" else "es"
         wanted_tokens = title_tokens(jd_title, aliases) - FUNCTION_WORDS
+        # The rule asks for a translation that is *missing*, and for that one only: a
+        # role that already carries a title in the posting's language has nothing to
+        # fill, and a role the other slot translates only half of is a headline the
+        # user still has to write. Every content word of the posting title, in a slot
+        # that is empty — otherwise the item below is the headline.
         translated = next(
             (
                 (role, text)
                 for role in roles
                 for text in [_clean(getattr(role, f"title_{other}", None))]
-                if text and wanted_tokens & title_tokens(text, aliases)
+                if text
+                and wanted_tokens
+                and wanted_tokens <= title_tokens(text, aliases)
+                and not _clean(getattr(role, f"title_{posting}", None))
             ),
             None,
         )

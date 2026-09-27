@@ -766,16 +766,34 @@ async def import_translate_apply(
     track = get_track(profile.id, session, resume.track_id) if resume.track_id else None
     if track is None or not translation_available(profile.id, session, track=track, draft=draft):
         raise HTTPException(status_code=404)
+    plan = diff_draft(profile.id, session, draft)
     session.commit()
     # The pairing is re-derived from the same inputs, so the cache serves it and the
     # review the user confirmed and the write are the same answer by construction.
-    translation = plan_translation(
-        profile.id,
-        session,
-        track=track,
-        draft=draft,
-        options=CallOptions(profile_id=profile.id),
-    )
+    try:
+        translation = plan_translation(
+            profile.id,
+            session,
+            track=track,
+            draft=draft,
+            options=CallOptions(profile_id=profile.id),
+        )
+    except (NoModelConfigured, ProviderUnavailable, StructuredOutputError, CitationViolation):
+        # The same failure the first route catches (F4.2): the screen says what
+        # happened and nothing is written — no pair, no candidate, no merge.
+        session.commit()
+        return render(
+            request,
+            "import/merge.html",
+            user=user,
+            profile=profile,
+            resume=resume,
+            draft=draft,
+            track=track,
+            plan=plan,
+            translation_available=True,
+            error=t("import.translate_failed", user.ui_lang),
+        )
     form = await request.form()
     selections = TranslationSelections(
         pairs=frozenset(_checked_indices(form, "pair_")),

@@ -12,6 +12,7 @@ import pytest
 
 from src.bullets import create_bullet, get_bullet, list_bullets
 from src.extract import client as extract_client
+from src.extract.client import ProviderUnavailable
 from src.extract.grading import CitationViolation
 from src.ingest.draft import DraftBullet, DraftRole, ResumeDraft
 from src.ingest.merge import MergePlan
@@ -24,7 +25,7 @@ from src.ingest.translation import (
 )
 from src.roles import create_role, list_roles
 from src.summaries import list_summaries
-from src.tracks import set_track_bullets
+from src.tracks import list_tracks, set_track_bullets
 from tests.conftest import login
 from tests.unit.test_ingest_merge import make_resume, select_all
 
@@ -481,6 +482,44 @@ def test_a_failed_pairing_says_so_and_leaves_the_merge_available(client, session
 
     assert "no devolvió una respuesta utilizable" in page
     assert "Importar la selección" in page, "the ordinary merge is still there"
+
+
+class Down:
+    """The provider is unreachable: `_post` raises the way a transport failure does."""
+
+    def __call__(self, payload: dict, api_key: str) -> dict:
+        raise ProviderUnavailable("connection refused")
+
+
+def test_a_failed_pairing_on_apply_says_so_and_writes_nothing(
+    client, session, career, monkeypatch
+):
+    """F4.2: the apply route fails like the first one — a screen, not a 500, no write."""
+    profile_id = career.first_profile.id
+    draft = english_draft()
+    resume = make_resume(session, profile_id, draft, "cv-en", career.first_track.id)
+    login(client, career.first.email)
+    before = _row_counts(session, profile_id)
+    monkeypatch.setattr(extract_client, "_post", Down())
+
+    applied = client.post(f"/import/{resume.id}/translate/apply", data={"pair_0": "on"})
+
+    assert applied.status_code == 200
+    assert "no devolvió una respuesta utilizable" in applied.text
+    assert "Importar la selección" in applied.text, "the ordinary merge is still there"
+    session.expire_all()
+    assert _row_counts(session, profile_id) == before, "no role, bullet or track changed"
+    session.refresh(resume)
+    assert resume.merged_at is None, "the upload is still pending review"
+
+
+def _row_counts(session, profile_id) -> tuple[int, int, int]:
+    """What a failed pairing must not touch: the roles, bullets and tracks it reads."""
+    return (
+        len(list_roles(profile_id, session)),
+        len(list_bullets(profile_id, session)),
+        len(list_tracks(profile_id, session)),
+    )
 
 
 def test_an_import_in_the_same_language_is_not_a_translation(client, session, career, pairing):
