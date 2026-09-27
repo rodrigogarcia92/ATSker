@@ -8,13 +8,14 @@ the production guard has spoken.
 
 import argparse
 import csv
+import json
 from decimal import Decimal
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
-from scripts import golden_run
+from scripts import golden_run, golden_stats
 from src.config import get_settings
 from src.extract import client as extract_client
 from src.models import (
@@ -29,6 +30,8 @@ from src.models import (
     Track,
     User,
 )
+from src.roles import create_role
+from src.tracks import create_track, set_track_active
 from tests import golden_support as support
 
 HEADER = [
@@ -492,3 +495,141 @@ def test_a_w2_report_leaves_the_split_columns_blank():
     assert row["cached_calls"] == 1
     assert row["score"] == 71 and row["cap"] == ""
     assert row["model"] == "test/model-v1" and row["reasoning_effort"] == ""
+
+
+def test_reuse_and_wipe_cannot_be_asked_for_at_once(monkeypatch, run_env):
+    """R.1: one mode imports what the other analyses, so argparse settles it first."""
+    engines: list[int] = []
+
+    def bomb():
+        engines.append(1)
+        raise AssertionError("a usage error must not reach the database")
+
+    monkeypatch.setattr("src.db.get_engine", bomb)
+
+    with pytest.raises(SystemExit) as exit_info:
+        golden_run.main(["--label", "w3", "--reuse", "--wipe"])
+
+    assert exit_info.value.code == 2
+    assert engines == [], "no engine may be created for a usage error"
+
+
+def test_reuse_analyses_the_existing_track_and_imports_nothing(
+    tmp_path, session, two_accounts, vocabulary, provider, script_session, monkeypatch, capsys
+):
+    """R.1: the second run of the recipe — the database exactly as the operator left it.
+
+    Nothing is imported, the pair is analysed against the track already named
+    `cv_version`, and the CSV says where its rows came from — and `golden_stats`
+    reads the file with that extra comment line in front of the header.
+    """
+    (_, ana_profile), _ = two_accounts
+    track = create_track(ana_profile.id, session, name="CV-1")
+    session.commit()
+
+    def bomb(*args, **kwargs):
+        raise AssertionError("--reuse must never import a CV")
+
+    monkeypatch.setattr(golden_run, "import_cv", bomb)
+
+    result, out = run_with(tmp_path, two_accounts, ["--label", "w4", "--reuse"])
+
+    assert result == 0
+    assert "reuse: analysing the tracks as they are; nothing imported" in capsys.readouterr().out
+    lines = out.read_text(encoding="utf-8").splitlines()
+    assert lines[0] == "# reuse: tracks analysed as found in the database, no import"
+    assert lines[1].split(",") == HEADER
+    rows = list(csv.DictReader(lines[1:]))
+    assert [entry["pair_id"] for entry in rows] == ["1"]
+    assert rows[0]["track"] == "CV-1" and rows[0]["commit"]
+    session.expire_all()
+    assert session.query(Resume).count() == 0, "nothing was imported"
+    application = session.query(Application).one()
+    assert application.track_id == track.id
+    assert str(application.id) == rows[0]["application_id"]
+    read_rows, sub_names = golden_stats.read_run(out)
+    assert [entry["pair_id"] for entry in read_rows] == ["1"]
+    assert sorted(sub_names) == ["experience", "keywords", "skills", "title"]
+
+
+def test_reuse_skips_a_pair_with_no_active_track_of_that_name(
+    tmp_path, session, two_accounts, vocabulary, provider, script_session, capsys
+):
+    """R.1: no track to analyse means no row and no provider call."""
+    result, out = run_with(tmp_path, two_accounts, ["--label", "w4", "--reuse"])
+
+    assert result == 0
+    assert "pair 1: skipped, no active track named 'CV-1'" in capsys.readouterr().out
+    assert provider.calls == []
+    assert session.query(Application).count() == 0
+    assert list(csv.DictReader(out.read_text(encoding="utf-8").splitlines()[1:])) == []
+
+
+def test_reuse_refuses_to_guess_between_two_active_tracks_of_one_name(
+    tmp_path, session, two_accounts, vocabulary, provider, script_session, capsys
+):
+    """R.1: two candidates are the operator's decision, not a sort order's."""
+    _, ana_profile = two_accounts[0]
+    create_track(ana_profile.id, session, name="CV-1")
+    create_track(ana_profile.id, session, name="CV-1")
+    session.commit()
+
+    result, _out = run_with(tmp_path, two_accounts, ["--label", "w4", "--reuse"])
+
+    assert result == 0
+    printed = capsys.readouterr().out
+    assert "pair 1: skipped, 2 active tracks named 'CV-1' — rename or deactivate one" in printed
+    assert session.query(Application).count() == 0
+
+
+def test_reuse_counts_only_active_tracks(
+    tmp_path, session, two_accounts, vocabulary, provider, script_session, capsys
+):
+    """R.1: a duplicate the operator deactivated is not a candidate."""
+    _, ana_profile = two_accounts[0]
+    active = create_track(ana_profile.id, session, name="CV-1")
+    retired = create_track(ana_profile.id, session, name="CV-1")
+    set_track_active(ana_profile.id, session, retired.id, active=False)
+    session.commit()
+
+    result, _out = run_with(tmp_path, two_accounts, ["--label", "w4", "--reuse"])
+
+    assert result == 0
+    assert "skipped" not in capsys.readouterr().out
+    session.expire_all()
+    assert session.query(Application).one().track_id == active.id
+
+
+def test_reuse_scores_the_title_the_operator_typed_in_the_app(
+    tmp_path, session, two_accounts, vocabulary, provider, script_session
+):
+    """R.1: the hand edit is the input, and the stored report proves it was read.
+
+    The extraction this runner would import proposes 'Data Scientist' for the
+    role, so only a run that read the row as it stands can have matched 'risk'.
+    """
+    _, ana_profile = two_accounts[0]
+    create_role(
+        ana_profile.id,
+        session,
+        employer="Globex",
+        title_es="Analista de datos",
+        title_en="Risk Analyst",
+    )
+    create_track(ana_profile.id, session, name="CV-1")
+    session.commit()
+    proposal = json.loads(support.JD_PROPOSAL)
+    proposal["language"] = "en"
+    proposal["title"] = "Risk Manager"
+    provider.answers["JDProposal"] = json.dumps(proposal)
+
+    result, out = run_with(tmp_path, two_accounts, ["--label", "w4", "--reuse"])
+
+    assert result == 0
+    session.expire_all()
+    report = session.query(Application).one().report
+    title = report["score"]["sub_scores"]["title"]
+    assert title["matched"] == ["risk"], "the English title the app holds is what was read"
+    assert title["missing"] == ["manager"], "the posting's other word is not in the profile"
+    row = next(csv.DictReader(out.read_text(encoding="utf-8").splitlines()[1:]))
+    assert float(row["title"]) == 0.5

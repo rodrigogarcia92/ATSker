@@ -33,6 +33,12 @@ Operator notes (queue A.6, replaced by `docs/omp_queue_runner_resume.md` §6)::
     uv run python scripts\golden_run.py --label w3 --wipe
     uv run python scripts\golden_stats.py --runs <w2.csv> <w3.csv>
 
+    # R.1 — one measurement, two runs over the same tracks: import, edit in the
+    # app, then analyse as the database now holds them (nothing is imported)
+    uv run python scripts\golden_run.py --label w4-lang --wipe
+    # …type the English titles on the imported roles in the app, then:
+    uv run python scripts\golden_run.py --label w4-lang-en --reuse
+
     # after the evaluation (the worktree holds a copy of .env)
     git worktree remove --force ..\atsker-w2
 
@@ -58,6 +64,14 @@ pairs that need it are skipped; a failed analysis is reported per pair and its
 row is skipped the same way, so one bad call cannot end the run. Without
 `--include-test` the test split is neither validated, imported, analysed nor
 written. The sheet is only ever read.
+
+`--reuse` is the second half of one measurement (R.1): it imports nothing and
+takes each pair's track to be the profile's one active track named `cv_version`,
+exactly as the database stands now, so a bullet or an English title the operator
+typed in the app between the two runs is what gets measured. No such track, or
+more than one, skips the pair and says which — the runner never guesses. The flag
+is mutually exclusive with `--wipe`, which is the run that has nothing to measure
+yet. Which mode produced a row is written into the CSV, like the opened split.
 
 A second model may be run for evaluation only (PRD §11, queue A.6): `--model` and
 `--effort` are passed to every call the run makes, and `--model` is named and
@@ -346,20 +360,49 @@ def csv_row(
     return row
 
 
+def find_track(
+    profile: Profile, session: Session, cv_version: str
+) -> tuple[Track | None, str | None]:
+    """The profile's one active track named `cv_version`, or why there is none (R.1).
+
+    Active only, and matched by the exact name: a `--reuse` run measures the track
+    the operator would see in the app, and two candidates are a question for the
+    operator — picking one by sort order would decide the measurement for them.
+    """
+    matches = [
+        track
+        for track in list_tracks(profile.id, session, active_only=True)
+        if track.name == cv_version
+    ]
+    if not matches:
+        return None, f"no active track named {cv_version!r}"
+    if len(matches) > 1:
+        return None, (
+            f"{len(matches)} active tracks named {cv_version!r} — rename or deactivate one"
+        )
+    return matches[0], None
+
+
 def write_csv(
     path: Path,
     rows: list[dict[str, object]],
     sub_score_names: tuple[str, ...],
-    comment: str | None = None,
+    comments: tuple[str, ...] = (),
 ) -> None:
-    """The CSV, with the test-split comment first when the split was opened (A.3 step 5)."""
+    """The CSV, with one `#` line per annotation above the header (A.3 step 5).
+
+    Two annotations exist and both belong before the rows they describe: the test
+    split being opened, and a `--reuse` run saying its rows came from the tracks as
+    they were found rather than from an import (R.1). `golden_stats.read_run`
+    skips every `#` line, so a reader that tolerates one tolerates both.
+    """
     header = (
         golden_inputs.COLUMNS_BEFORE_SUB_SCORES
         + sub_score_names
         + golden_inputs.COLUMNS_AFTER_SUB_SCORES
     )
     with path.open("w", newline="", encoding="utf-8") as handle:
-        if comment is not None:
+        for comment in comments:
             handle.write(comment + "\n")
         writer = csv.DictWriter(handle, fieldnames=header)
         writer.writeheader()
@@ -390,7 +433,14 @@ def run_label(value: str) -> str:
 def parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run the golden set against this checkout.")
     parser.add_argument("--label", required=True, type=run_label)
-    parser.add_argument("--wipe", action="store_true")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--wipe", action="store_true")
+    mode.add_argument(
+        "--reuse",
+        action="store_true",
+        help="analyse the tracks as the database holds them now (R.1): nothing is "
+        "imported, and each pair needs one active track named after its cv_version",
+    )
     parser.add_argument("--include-test", action="store_true")
     parser.add_argument(
         "--yes",
@@ -477,37 +527,35 @@ def main(argv: list[str] | None = None) -> int:
             print("wiped: " + ", ".join(f"{table}={count}" for table, count in totals.items()))
 
         imported: dict[tuple[str, str], bool] = {}
-        for name, cv_version in wanted:
-            ok, message = import_cv(
-                session,
-                check.users[name],
-                profiles[name],
-                check.files[cv_version],
-                cv_version,
-                model=args.model,
-                options=options,
-            )
-            imported[(name, cv_version)] = ok
-            print(f"import {name} / {cv_version}: {message}")
+        if args.reuse:
+            # The operator's edits in the app are the input this run measures, so
+            # nothing here may touch the career data (R.1).
+            print("reuse: analysing the tracks as they are; nothing imported")
+        else:
+            for name, cv_version in wanted:
+                ok, message = import_cv(
+                    session,
+                    check.users[name],
+                    profiles[name],
+                    check.files[cv_version],
+                    cv_version,
+                    model=args.model,
+                    options=options,
+                )
+                imported[(name, cv_version)] = ok
+                print(f"import {name} / {cv_version}: {message}")
 
         commit = current_commit()
         rows: list[dict[str, object]] = []
         sub_score_names: tuple[str, ...] = ()
         for pair in pairs:
-            if not imported.get((pair.profile, pair.cv_version)):
+            if not args.reuse and not imported.get((pair.profile, pair.cv_version)):
                 print(f"pair {pair.pair_id}: skipped, its CV was not imported")
                 continue
             profile = profiles[pair.profile]
-            track = next(
-                (
-                    candidate
-                    for candidate in list_tracks(profile.id, session)
-                    if candidate.name == pair.cv_version
-                ),
-                None,
-            )
+            track, why_not = find_track(profile, session, pair.cv_version)
             if track is None:
-                print(f"pair {pair.pair_id}: skipped, no track named {pair.cv_version!r}")
+                print(f"pair {pair.pair_id}: skipped, {why_not}")
                 continue
             try:
                 analysis = analyze(
@@ -543,11 +591,13 @@ def main(argv: list[str] | None = None) -> int:
             row = csv_row(pair, analysis, application, pair.cv_version, commit, sub_score_names)
             rows.append(row)
 
-    comment = None
+    comments: list[str] = []
+    if args.reuse:
+        comments.append("# reuse: tracks analysed as found in the database, no import")
     if args.include_test:
         opened = datetime.now().isoformat(timespec="minutes")
-        comment = f"# test split opened {opened}"
-    write_csv(out_path, rows, sub_score_names, comment)
+        comments.append(f"# test split opened {opened}")
+    write_csv(out_path, rows, sub_score_names, tuple(comments))
     print(f"wrote {len(rows)} rows to {out_path}")
     return 0
 
