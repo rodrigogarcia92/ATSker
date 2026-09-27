@@ -29,6 +29,23 @@
         {{ header('title', t('applications.position', lang)) }}
         {{ header('track', t('applications.track', lang)) }}
         {{ header('score', t('applications.score', lang)) }}
+        {% for name in ['skills', 'experience', 'title', 'keywords'] %}
+        <th class="px-2 py-2 text-right text-xs font-medium uppercase tracking-wide text-slate-500">
+          {{ t('report.sub.' ~ name, lang) }}
+        </th>
+        {% endfor %}
+        <th class="px-2 py-2 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
+          {{ t('applications.readability', lang) }}
+        </th>
+        <th class="px-2 py-2 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
+          {{ t('applications.boolean', lang) }}
+        </th>
+        <th class="px-2 py-2 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
+          {{ t('applications.prompts', lang) }}
+        </th>
+        <th class="px-2 py-2 text-right text-xs font-medium uppercase tracking-wide text-slate-500">
+          {{ t('applications.cost', lang) }}
+        </th>
         {{ header('outcome', t('applications.outcome', lang)) }}
       </tr>
     </thead>
@@ -52,6 +69,37 @@
           {% else %}
           <span class="text-slate-500">{{ t('common.none', lang) }}</span>
           {% endif %}
+        </td>
+        {# F9's sub-scores, both scans, prompts and cost. Each cell is "—" when the
+           analysis was stored before the field existed, never a zero. #}
+        {% for name in ['skills', 'experience', 'title', 'keywords'] %}
+        <td class="px-2 py-2 text-right text-slate-600">
+          {{ row.sub_scores[name] if row.sub_scores[name] is not none else t('common.none', lang) }}
+        </td>
+        {% endfor %}
+        <td class="px-2 py-2 text-slate-600">
+          {% if row.readability %}
+            {% if row.readability.cap %}
+            {{ t('applications.scan.capped', lang, cap=row.readability.cap) }}
+            {% else %}
+            {{ t('applications.scan.pass', lang) }}
+            {% endif %}
+          {% else %}{{ t('common.none', lang) }}{% endif %}
+        </td>
+        <td class="px-2 py-2 text-slate-600">
+          {% if row.boolean %}
+          {{ t('applications.recall.pass', lang) if row.boolean.passed else t('applications.recall.fail', lang) }}
+          {% else %}{{ t('common.none', lang) }}{% endif %}
+        </td>
+        <td class="px-2 py-2 text-slate-600">
+          {% if row.prompt_versions %}
+          {% for purpose, version in row.prompt_versions.items() %}{{ purpose }}={{ version }}{% if not loop.last %} · {% endif %}{% endfor %}
+          {% else %}{{ t('common.none', lang) }}{% endif %}
+        </td>
+        <td class="whitespace-nowrap px-2 py-2 text-right text-slate-600">
+          {% if row.token_cost_usd is not none %}
+          ${{ '%.6f'|format(row.token_cost_usd) }}
+          {% else %}{{ t('common.none', lang) }}{% endif %}
         </td>
         <td class="px-2 py-2">
           {# F9 wants an editable outcome; the change posts and the table comes back. #}

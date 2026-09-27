@@ -173,6 +173,16 @@ STRINGS: dict[str, dict[str, str]] = {
     "applications.outcome.interview": {"es": "Entrevista", "en": "Interview"},
     "applications.outcome.offer": {"es": "Oferta", "en": "Offer"},
     "applications.outcome.rejected": {"es": "Rechazado", "en": "Rejected"},
+    # F9's remaining columns, beside the score: the four sub-scores, both scans, the
+    # prompt versions and the cost. "—" when the analysis predates the field.
+    "applications.readability": {"es": "Lectura", "en": "Readability"},
+    "applications.boolean": {"es": "Búsqueda", "en": "Search"},
+    "applications.prompts": {"es": "Prompts", "en": "Prompts"},
+    "applications.cost": {"es": "Coste", "en": "Cost"},
+    "applications.scan.pass": {"es": "Sin hallazgos", "en": "No findings"},
+    "applications.scan.capped": {"es": "≤ {cap}", "en": "≤ {cap}"},
+    "applications.recall.pass": {"es": "Apareces", "en": "You appear"},
+    "applications.recall.fail": {"es": "No apareces", "en": "You do not appear"},
     "applications.empty": {
         "es": "Todavía no hay análisis. Pega una oferta y aparecerá aquí.",
         "en": "No analyses yet. Paste a posting and it will appear here.",

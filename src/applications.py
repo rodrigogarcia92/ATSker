@@ -5,14 +5,17 @@ the fact: another profile's report is simply not found.
 """
 
 import uuid
+from collections.abc import Mapping
 from datetime import datetime
 from decimal import Decimal
+from typing import Any
 
 from sqlalchemy.orm import Session
 
 from src.models import Application, Track
 from src.normalize.text import fold
 from src.scoping import owned_row, owned_rows
+from src.score import SUB_SCORES
 
 
 def create_application(
@@ -81,6 +84,43 @@ def set_application_outcome(
     return application
 
 
+def _sub_scores(score: Mapping[str, Any]) -> dict[str, int | None]:
+    """F9's four sub-scores as integers 0–100, or None where the report stored none.
+
+    Sub-scores are stored as 0–1 and multiplied by 100 only for display (PRD §12.1);
+    a report from before a sub-score existed, or scored under weights that did not
+    have it, keeps a None and the table shows "—".
+    """
+    stored = score.get("sub_scores") or {}
+    values: dict[str, int | None] = {}
+    for name in SUB_SCORES:
+        entry = stored.get(name)
+        value = entry.get("value") if isinstance(entry, Mapping) else None
+        values[name] = round(float(value) * 100) if value is not None else None
+    return values
+
+
+def _readability_scan(payload: Mapping[str, Any] | None) -> dict[str, Any] | None:
+    """Scan A (F5.1) as a verdict for the table: the cap and the finding count."""
+    if not payload:
+        return None
+    return {"cap": payload.get("cap"), "findings": len(payload.get("findings") or [])}
+
+
+def _boolean_scan(payload: Mapping[str, Any] | None) -> dict[str, Any] | None:
+    """Scan B (F5.2): whether the track came back in every derived query.
+
+    No queries derived — an analysis stored before Scan B existed — is None, not a
+    pass: nothing was searched, which is not the same as being findable.
+    """
+    if not payload:
+        return None
+    queries = payload.get("queries") or []
+    if not queries:
+        return None
+    return {"queries": len(queries), "passed": all(bool(q.get("passed")) for q in queries)}
+
+
 def list_applications(
     profile_id: uuid.UUID,
     session: Session,
@@ -115,6 +155,15 @@ def list_applications(
                 "score": score.get("capped"),
                 "weights_version": application.weights_version,
                 "outcome": application.outcome,
+                # F9's other columns. Each is absent on an analysis stored before the
+                # field existed, and renders as "—" rather than a zero or a guess:
+                # sub-scores as integers 0–100, both scans as a verdict, the prompt
+                # versions as written, and the cost as recorded.
+                "sub_scores": _sub_scores(score),
+                "readability": _readability_scan(application.scan_readability),
+                "boolean": _boolean_scan(application.scan_boolean),
+                "prompt_versions": dict(application.prompt_versions or {}),
+                "token_cost_usd": application.token_cost_usd,
             }
         )
 
