@@ -50,18 +50,20 @@ def _form(
     error: str | None = None,
 ):
     tracks = list_tracks(profile.id, session, active_only=True)
+    # F7.1: a fresh form ticks "recommend a track" when there is a choice to make —
+    # two or more active tracks. With one there is nothing to choose between, and with
+    # none the analysis is the no-track one. A re-rendered form (a validation error)
+    # keeps exactly what was submitted, ticked or not: the box is the user's, and the
+    # default never overrides it. A form pre-filled from `?application=` has no box of
+    # its own, so it takes the default.
+    submitted = dict(values or EMPTY_FORM)
+    submitted.setdefault("recommend", "on" if len(tracks) >= 2 else "off")
     return render(
         request,
         "analyze/form.html",
         user=user,
         profile=profile,
-        # F7.1: a fresh form ticks "recommend a track" when there is a choice to make —
-        # two or more active tracks. With one there is nothing to choose between, and
-        # with none the analysis is the no-track one. A re-rendered form (a validation
-        # error) keeps exactly what was submitted, ticked or not: the box is the
-        # user's, and the default never overrides it.
-        values=values
-        or {**EMPTY_FORM, "recommend": "on" if len(tracks) >= 2 else "off"},
+        values=submitted,
         active_bullets=len(list_bullets(profile.id, session, active_only=True)),
         tracks=tracks,
         can_analyze=model_configured(),
@@ -70,8 +72,30 @@ def _form(
 
 
 @router.get("/analyze")
-def analyze_form(request: Request, user: SignedInUser, session: DbSession, profile: OwnProfile):
-    return _form(request, user, session, profile)
+def analyze_form(
+    request: Request,
+    user: SignedInUser,
+    session: DbSession,
+    profile: OwnProfile,
+    application: str | None = None,
+):
+    """The form, optionally pre-filled from a previous analysis (PRD §12.1 item 1).
+
+    "Analizar con otro puesto" carries the posting, the company and the title over so
+    the same JD can be scored against a different track. The id is as untrusted as any
+    other: owner-scoped, and another profile's is a 404, not a redirect.
+    """
+    values = None
+    if application:
+        previous = get_application(profile.id, session, application)
+        if previous is None:
+            return render(request, "not_found.html", user=user, status_code=404)
+        values = {
+            "jd_text": previous.jd_text or "",
+            "company": previous.company or "",
+            "title": previous.title or "",
+        }
+    return _form(request, user, session, profile, values=values)
 
 
 @router.post("/analyze")

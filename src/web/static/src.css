@@ -176,6 +176,66 @@ body.rail-open .rail-body {
   color: var(--color-text-2);
   font-size: 0.8125rem;
 }
+.score-scale {
+  font-size: 0.875rem;
+  font-weight: 400;
+  color: var(--color-text-3);
+}
+/* The Job Match bar: the score it would have without the cap, the score it has, and the
+   cap marked only as a tick (§12.1's item 2). */
+.match {
+  position: relative;
+  height: 0.5rem;
+  margin-top: 0.75rem;
+  border-radius: var(--radius-tag);
+  background: var(--color-surface-2);
+  overflow: hidden;
+}
+.match-uncapped,
+.match-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+}
+.match-uncapped {
+  background: var(--color-border);
+}
+.match-fill {
+  background: var(--color-text-3);
+}
+.match[data-band="strong"] .match-fill {
+  background: var(--color-score-strong);
+}
+.match[data-band="adequate"] .match-fill {
+  background: var(--color-score-adequate);
+}
+.match[data-band="weak"] .match-fill {
+  background: var(--color-score-weak);
+}
+.match-tick {
+  position: absolute;
+  top: -0.125rem;
+  bottom: -0.125rem;
+  width: 2px;
+  background: var(--color-text);
+}
+/* The Skills split: direct against transfer, two segments of one bar. */
+.split-bar {
+  display: flex;
+  height: 0.5rem;
+  margin-top: 0.5rem;
+  border-radius: var(--radius-tag);
+  overflow: hidden;
+  background: var(--color-surface-2);
+}
+.split-direct {
+  background: var(--color-score-strong);
+}
+.split-transfer {
+  background: var(--color-score-adequate);
+}
+
 .band-strong.is-on {
   background: var(--color-score-strong);
 }

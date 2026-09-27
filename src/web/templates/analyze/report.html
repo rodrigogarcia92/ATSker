@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_ui.html" as ui with context %}
 {% block title %}{{ application.title or t('report.title', lang) }} — {{ t('app.name', lang) }}{% endblock %}
 {% block content %}
 {# A stored report is rendered from its own sub-scores, its own weights version and its
@@ -8,168 +9,111 @@
 {% for name in report.score.unavailable %}
   {% set ns.missing = ns.missing + [t('report.sub.' + name, lang)] %}
 {% endfor %}
+{% set cap = report.score.cap %}
+{% set binding = cap is not none and report.score.capped < report.score.uncapped %}
+{% set match_band = 'strong' if report.score.capped >= 75 else ('adequate' if report.score.capped >= 50 else 'weak') %}
 
-<h1 class="text-2xl font-semibold tracking-tight">
-  {{ application.title or t('report.title', lang) }}
-</h1>
-{% if application.company %}<p class="mt-1 text-slate-600">{{ application.company }}</p>{% endif %}
-<p class="mt-1 text-xs text-slate-500">
-  {{ t('report.analysed_on', lang) }} {{ application.created_at.strftime('%Y-%m-%d %H:%M') }}
-</p>
+{# 1 — Header: what was posted, the track used, and the run's metadata. #}
+<header>
+  <h1 class="text-2xl font-semibold tracking-tight">
+    {{ application.title or t('report.title', lang) }}
+  </h1>
+  {% if application.company %}<p class="mt-1 text-text-2">{{ application.company }}</p>{% endif %}
+  <p class="mt-2 text-sm">
+    {% if report.track %}
+    <span class="text-text-2">{{ t('report.track', lang, name=report.track.name) }}</span>
+    {% else %}
+    <span class="text-text-3">{{ t('report.no_track', lang) }}</span>
+    {% endif %}
+  </p>
+  <dl class="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-xs text-text-3">
+    <div class="flex gap-1"><dt>{{ t('report.analysed_on', lang) }}</dt>
+      <dd>{{ application.created_at.strftime('%Y-%m-%d %H:%M') }}</dd></div>
+    <div class="flex gap-1"><dt>{{ t('report.calculation', lang) }}</dt>
+      <dd>{{ application.weights_version }}</dd></div>
+    <div class="flex gap-1"><dt>{{ t('report.model', lang) }}</dt>
+      <dd>{{ report.llm.calls | map(attribute='model') | unique | join(', ') or t('common.none', lang) }}</dd></div>
+    <div class="flex gap-1"><dt>{{ t('report.calls_cost', lang) }}</dt>
+      <dd>{{ report.llm.calls | length }} · ${{ '%.6f'|format(application.token_cost_usd) }}</dd></div>
+    <div class="flex gap-1"><dt>{{ t('report.evidence_language', lang) }}</dt>
+      <dd>{{ report.jd.language or t('common.none', lang) }}</dd></div>
+  </dl>
+  <p class="mt-3 text-sm">
+    <a href="/analyze?application={{ application.id }}" class="text-link underline">{{ t('report.analyse_another', lang) }}</a>
+  </p>
+</header>
 
-<div class="mt-6 rounded-lg border border-slate-200 bg-white p-5">
-  <p class="text-xs uppercase tracking-wide text-slate-500">{{ t('report.total', lang) }}</p>
-  <p class="mt-1 text-4xl font-semibold">
-    {{ report.score.capped }}<span class="text-lg text-slate-500"> / 100</span>
+{# 2 — Job Match: one number, its band, the capped/uncapped bar, and what it means.
+   No weights are shown anywhere on this page, so nothing here reads as the employer's
+   priorities. #}
+<section class="mt-6 rounded-card border border-card-border bg-surface-1 p-5">
+  {{ ui.score(report.score.capped / 100, t('report.total', lang), t('report.job_match_caption', lang), true) }}
+  <div class="match" data-band="{{ match_band }}">
+    <span class="match-uncapped" style="width: {{ report.score.uncapped }}%"></span>
+    <span class="match-fill" style="width: {{ report.score.capped }}%"></span>
+    {% if cap is not none %}<span class="match-tick" style="left: {{ cap }}%"></span>{% endif %}
+  </div>
+  {% if binding %}
+  <p class="mt-2 text-sm text-text-2">
+    {{ t('report.capped', lang, cap=cap, uncapped=report.score.uncapped,
+          check=t('gate.check.' ~ report.score.cap_reason, lang)) }}
+    {{ t('report.readability_capped', lang, check=t('gate.check.' ~ report.score.cap_reason, lang)) }}
   </p>
-  {% if report.track %}
-  <p class="mt-1 text-sm text-slate-600">{{ t('report.track', lang, name=report.track.name) }}</p>
-  {% else %}
-  <p class="mt-1 text-sm text-slate-500">{{ t('report.no_track', lang) }}</p>
-  {% endif %}
-  {% if report.score.capped < report.score.uncapped %}
-  <p class="mt-1 text-sm text-amber-900">
-    {{ t('report.capped', lang, cap=report.score.cap, uncapped=report.score.uncapped,
-          check=report.score.cap_reason) }}
-  </p>
-  {% elif report.score.cap %}
+  {% elif cap is not none %}
   {# A finding exists but nothing was capped: the score is already below the limit.
      Naming two numbers that contradict each other is worse than naming none, and the
-     finding itself stays visible in the panel below either way. #}
+     finding itself stays visible in the scan below either way. #}
   {% set flagged = 'blocker' if report.gate and report.gate.findings
         and report.gate.findings | selectattr('severity', 'equalto', 'blocker') | list
         else 'warning' %}
-  <p class="mt-1 text-sm text-amber-900">
-    {{ t('report.cap_not_binding.' ~ flagged, lang, check=report.score.cap_reason) }}
+  <p class="mt-2 text-sm text-text-2">
+    {{ t('report.cap_not_binding.' ~ flagged, lang, check=t('gate.check.' ~ report.score.cap_reason, lang)) }}
   </p>
   {% endif %}
   {% if ns.missing %}
-  <p class="mt-2 text-sm text-slate-600">
+  <p class="mt-2 text-sm text-text-2">
     {{ t('report.renormalised', lang, missing=ns.missing|join(', '),
           available=report.score.sub_scores|length, total=ns.components) }}
   </p>
   {% endif %}
-  <p class="mt-2 text-xs text-slate-500">
-    {{ t('report.cost_label', lang) }}: ${{ '%.6f'|format(application.token_cost_usd) }}
-  </p>
-</div>
+</section>
 
-{% if report.recommendation %}
-{# F7.1: the posting scored against every candidate track, above the components of
-   the chosen one. A report stored before the recommendation existed has none. #}
-<h2 class="mt-8 text-lg font-semibold">{{ t('report.recommendation', lang) }}</h2>
-<p class="mt-1 text-xs text-slate-500">{{ t('report.recommendation.intro', lang) }}</p>
-{% if report.recommendation.candidates %}
-<div class="mt-3 overflow-x-auto rounded-lg border border-slate-200 bg-white">
-  <table class="w-full text-sm">
-    <thead>
-      <tr class="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
-        <th class="px-3 py-2 text-left">{{ t('report.recommendation.track', lang) }}</th>
-        <th class="px-3 py-2 text-right">{{ t('report.total', lang) }}</th>
-        {% for name in ['skills', 'experience', 'title', 'keywords'] %}
-        <th class="px-3 py-2 text-right">{{ t('report.sub.' ~ name, lang) }}</th>
-        {% endfor %}
-      </tr>
-    </thead>
-    <tbody>
-      {% for candidate in report.recommendation.candidates %}
-      <tr class="border-b border-slate-100 last:border-0">
-        <td class="px-3 py-2">
-          {{ candidate.name }}
-          {% if candidate.chosen %}
-          <span class="rounded bg-emerald-100 px-2 py-0.5 text-xs text-emerald-900">{{ t('report.recommendation.chosen', lang) }}</span>
-          {% endif %}
-        </td>
-        <td class="px-3 py-2 text-right font-semibold">{{ candidate.job_match }}</td>
-        {% for name in ['skills', 'experience', 'title', 'keywords'] %}
-        <td class="px-3 py-2 text-right text-slate-600">{{ candidate.sub_scores.get(name, '—') }}</td>
-        {% endfor %}
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
-{% endif %}
-{% if report.recommendation.margin is not none %}
-<p class="mt-2 text-sm text-slate-600">
-  {{ t('report.recommendation.margin', lang,
-        runner_up=report.recommendation.candidates[1].name,
-        margin=report.recommendation.margin) }}
-</p>
-{% endif %}
-{% if report.recommendation.tie_break %}
-<p class="mt-1 text-sm text-slate-600">
-  {{ t('report.recommendation.tie_sub', lang,
-        sub_score=t('report.sub.' ~ report.recommendation.tie_break.sub_score, lang),
-        delta=report.recommendation.tie_break.delta) }}
-  {% if report.recommendation.tie_break.organisation_track %}
-  {{ t('report.recommendation.tie_organisation', lang,
-        track=report.recommendation.tie_break.organisation_track) }}
-  {% endif %}
-</p>
-{% endif %}
-{% if report.recommendation.justification %}
-<p class="mt-1 text-sm text-slate-700">
-  {% if report.recommendation.justification.runner_up %}
-  {{ t('report.recommendation.justification', lang,
-        track=report.recommendation.justification.track,
-        sub_score=t('report.sub.' ~ report.recommendation.justification.sub_score, lang),
-        delta=report.recommendation.justification.delta,
-        runner_up=report.recommendation.justification.runner_up,
-        applies_when=report.recommendation.justification.applies_when) }}
-  {% else %}
-  {{ t('report.recommendation.justification_single', lang,
-        track=report.recommendation.justification.track,
-        applies_when=report.recommendation.justification.applies_when) }}
-  {% endif %}
-</p>
-{% endif %}
-{% if report.recommendation.not_graded %}
-<p class="mt-1 text-xs text-slate-500">
-  {{ t('report.recommendation.not_graded', lang,
-        names=report.recommendation.not_graded | map(attribute='name') | join(', ')) }}
-</p>
-{% endif %}
-{% endif %}
-
+{# 3 — The four sub-score cards, each with a one-line caption. #}
 <h2 class="mt-8 text-lg font-semibold">{{ t('report.sub_scores', lang) }}</h2>
-<div class="mt-3 space-y-3">
+<div class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
   {% for name, sub in report.score.sub_scores.items() %}
-  <div class="rounded-lg border border-slate-200 bg-white p-4">
-    <div class="flex flex-wrap items-center justify-between gap-2">
-      <span class="text-sm font-medium">{{ t('report.sub.' + name, lang) }}</span>
-      <span class="text-xs text-slate-500">
-        {{ t('report.weight', lang) }} {{ '%.3f'|format(report.score.effective_weights.get(name, 0)) }}
-      </span>
-      {# PRD §12.1: a sub-score is shown as a percentage out of 100, never as a
-         fraction — 29, not 0.29. What is stored is untouched; this is display.
-         The Skills split renders the same way, both parts included. #}
-      <span class="text-lg font-semibold">{{ '%.0f'|format(sub.value * 100) }}</span>
-    </div>
+  <div class="rounded-card border border-card-border bg-surface-1 p-4">
+    {{ ui.score(sub.value, t('report.sub.' + name, lang), t('report.sub_caption.' + name, lang)) }}
     {% if sub.detail is defined and sub.detail.direct is defined %}
-    <p class="mt-1 text-sm text-slate-600">
-      {{ t('report.skills_split', lang,
-            direct='%.0f'|format(sub.detail.direct * 100),
-            transfer='%.0f'|format(sub.detail.transfer * 100)) }}
+    {# F5.5.2: the Skills split, both parts as integers out of 100. #}
+    {% set direct = (sub.detail.direct * 100) | round | int %}
+    {% set transfer = (sub.detail.transfer * 100) | round | int %}
+    {% set total = (sub.value * 100) | round | int %}
+    <div class="split-bar">
+      <span class="split-direct" style="width: {{ direct }}%"></span>
+      <span class="split-transfer" style="width: {{ transfer }}%"></span>
+    </div>
+    <p class="mt-1 text-sm text-text-2">
+      {{ t('report.skills_split_total', lang, total=total, direct=direct, transfer=transfer) }}
     </p>
     {% endif %}
-    {# F5.5.2: Experience shows what it counted — relevant years against total
-       years held, the roles that made them relevant, and the posting's tasks with
-       their level. Rows scored before w4 carry none of these fields. #}
+    {# F5.5.2: Experience shows what it counted — relevant years against total years
+       held, the roles that made them relevant, and the posting's tasks with their
+       level. Rows scored before w4 carry none of these fields. #}
     {% if sub.detail is defined and sub.detail.relevant_years is defined %}
-    <p class="mt-1 text-sm text-slate-600">
+    <p class="mt-1 text-sm text-text-2">
       {{ t('report.experience_years', lang,
             relevant='%.2f'|format(sub.detail.relevant_years),
             held='%.2f'|format(sub.detail.held_years)) }}
     </p>
     {% if sub.detail.relevant_roles %}
-    <p class="mt-1 text-sm text-slate-600">
+    <p class="mt-1 text-sm text-text-2">
       {{ t('report.experience_roles', lang) }}:
       {% for role in sub.detail.relevant_roles %}{{ role.title }} ({{ role.weight }}){% if not loop.last %}, {% endif %}{% endfor %}
     </p>
     {% endif %}
     {% if sub.detail.tasks %}
-    <ul class="mt-1 space-y-1 text-sm text-slate-600">
+    <ul class="mt-1 space-y-1 text-sm text-text-2">
       {% for task in sub.detail.tasks %}
       <li>{{ task.text }} — {{ t('report.level_label', lang) }} {{ task.level }}</li>
       {% endfor %}
@@ -178,177 +122,117 @@
     {% endif %}
     <div class="mt-2 flex flex-wrap gap-2">
       {% for term in sub.matched %}
-      <span class="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-700">{{ term }}</span>
+      <span class="rounded-tag bg-surface-2 px-2 py-0.5 text-xs text-text-2">{{ term }}</span>
       {% endfor %}
       {% for term in sub.missing %}
-      <span class="rounded border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs text-amber-900">{{ term }}</span>
+      <span class="rounded-tag border border-sev-warning px-2 py-0.5 text-xs text-sev-warning">{{ term }}</span>
       {% endfor %}
     </div>
   </div>
   {% endfor %}
 </div>
 
-{% if application.scan_boolean %}
-{% include "_recall.html" %}
-{% endif %}
-
+{# 4 — The two scans, as the two questions a person actually asks. #}
 {% if application.scan_readability %}
-{# F5.1: the document's findings, the same panel the upload screen shows. The cap
-   itself, its reason and the uncapped score sit in the total block above — and this
-   line restates it only when the cap actually lowered the score. #}
-{% if report.score.cap_reason and report.score.capped < report.score.uncapped %}
-<p class="mt-8 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-  {{ t('report.readability_capped', lang, check=t('gate.check.' ~ report.score.cap_reason, lang)) }}
-</p>
+  {% set findings_heading = t('report.scan_readability_question', lang) %}
+  {% include "_findings.html" %}
 {% endif %}
-{% include "_findings.html" %}
+{% if application.scan_boolean %}
+  {% include "_recall.html" %}
 {% endif %}
 
-{% if report.disqualifiers %}
-<h2 class="mt-8 text-lg font-semibold">{{ t('report.disqualifiers', lang) }}</h2>
-<p class="mt-1 text-xs text-slate-500">{{ t('report.disqualifiers_hint', lang) }}</p>
-{# F6.1: three-way verdicts, beside the score and never inside it. `unverified` is
-   the honest default and is never rendered as `met`. #}
+{# 5 — Requirements and evidence. #}
+<h2 class="mt-8 text-lg font-semibold">{{ t('report.requirements', lang) }}</h2>
+<p class="mt-1 text-xs text-text-3">{{ t('report.grades_hint', lang) }}</p>
 <ul class="mt-3 space-y-2">
-  {% for item in report.disqualifiers %}
-  <li class="flex flex-wrap items-center justify-between gap-2 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-    <span>{{ item.requirement }}</span>
-    <span class="rounded bg-white px-2 py-0.5 text-xs">{{ t('report.verdict.' ~ item.verdict, lang) }}</span>
-  </li>
-  {% endfor %}
-</ul>
-{% if report.disqualifiers | selectattr('verdict', 'equalto', 'unverified') | list %}
-<p class="mt-2 text-xs text-slate-500">{{ t('report.disqualifiers_unverified_hint', lang) }}</p>
-{% endif %}
-{% elif report.jd.hard_requirements %}
-<ul class="mt-3 space-y-2">
-  {% for item in report.jd.hard_requirements %}
-  <li class="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">{{ item }}</li>
-  {% endfor %}
-</ul>
-{% endif %}
-
-<h2 class="mt-8 text-lg font-semibold">{{ t('report.grades', lang) }}</h2>
-<p class="mt-1 text-xs text-slate-500">{{ t('report.grades_hint', lang) }}</p>
-<ul class="mt-3 divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white">
   {% for grade in report.grades %}
-  <li class="p-4">
-    <div class="flex flex-wrap items-center justify-between gap-2">
+  <li class="rounded-card border border-card-border bg-surface-1 p-4">
+    <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
       <span class="text-sm font-medium">{{ grade.requirement }}</span>
-      <span class="text-xs text-slate-500">
+      <span class="flex flex-wrap items-center gap-2 text-xs text-text-3">
         {{ t('report.must_have', lang) if grade.must_have else t('report.nice_to_have', lang) }}
-      </span>
-      <span class="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-700">
-        {{ t('report.level_label', lang) }} {{ grade.level }} · {{ t('report.level.' ~ grade.level, lang) }}
+        · {{ t('report.level_label', lang) }} {{ grade.level }}
+        {{ ui.level_bars(grade.level) }}
       </span>
     </div>
     {# F5.4.1: the basis column, the transfer reason for every non-direct row, and
        the marks the rules left — clamped, downgraded, fallback language. Rows
        stored before w3 carry none of these fields and show none of this. F5.5.2
        adds `inferred`: the level came from family data, so the downgraded mark is
-       not shown beside it — the row was not left at transferable. #}
+       not shown beside it. #}
     {% if grade.basis is defined %}
-    <p class="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
-      <span class="rounded bg-slate-100 px-2 py-0.5">{{ t('report.basis.' ~ grade.basis, lang) }}</span>
+    <p class="mt-1 flex flex-wrap items-center gap-2 text-xs text-text-3">
+      <span class="rounded-tag bg-surface-2 px-2 py-0.5">{{ t('report.basis.' ~ grade.basis, lang) }}</span>
       {% if grade.source and grade.source != 'bullet' %}
-      <span class="rounded bg-slate-100 px-2 py-0.5">{{ t('report.source.' ~ grade.source, lang) }}</span>
+      <span class="rounded-tag bg-surface-2 px-2 py-0.5">{{ t('report.source.' ~ grade.source, lang) }}</span>
       {% endif %}
-      {% if grade.clamped %}<span class="rounded bg-amber-100 px-2 py-0.5 text-amber-900">{{ t('report.grade_clamped', lang) }}</span>{% endif %}
-      {% if grade.inferred %}<span class="rounded bg-slate-100 px-2 py-0.5">{{ t('report.grade_inferred', lang) }}</span>{% endif %}
-      {% if grade.downgraded and not grade.inferred %}<span class="rounded bg-amber-100 px-2 py-0.5 text-amber-900">{{ t('report.grade_downgraded', lang) }}</span>{% endif %}
-      {% if grade.fallback %}<span class="rounded bg-amber-100 px-2 py-0.5 text-amber-900">{{ t('report.grade_fallback', lang) }}</span>{% endif %}
+      {% if grade.clamped %}<span class="rounded-tag border border-sev-warning px-2 py-0.5 text-sev-warning">{{ t('report.grade_clamped', lang) }}</span>{% endif %}
+      {% if grade.inferred %}<span class="rounded-tag bg-surface-2 px-2 py-0.5">{{ t('report.grade_inferred', lang) }}</span>{% endif %}
+      {% if grade.downgraded and not grade.inferred %}<span class="rounded-tag border border-sev-warning px-2 py-0.5 text-sev-warning">{{ t('report.grade_downgraded', lang) }}</span>{% endif %}
+      {% if grade.fallback %}<span class="rounded-tag border border-sev-warning px-2 py-0.5 text-sev-warning">{{ t('report.grade_fallback', lang) }}</span>{% endif %}
     </p>
     {% endif %}
     {% if grade.transfer_reason %}
-    <p class="mt-1 text-sm text-slate-700">{{ t('report.transfer_reason', lang) }} {{ grade.transfer_reason }}</p>
+    <p class="mt-1 text-sm text-text-2">{{ t('report.transfer_reason', lang) }} {{ grade.transfer_reason }}</p>
     {% endif %}
     {% if grade.bullet_text %}
-    <p class="mt-1 text-sm text-slate-600">{{ grade.bullet_text }}</p>
+    <p class="mt-1 text-sm text-text-2">{{ grade.bullet_text }}</p>
     {% else %}
-    <p class="mt-1 text-sm text-slate-500">{{ t('report.no_citation', lang) }}</p>
+    <p class="mt-1 text-sm text-text-3">{{ t('report.no_citation', lang) }}</p>
     {% endif %}
   </li>
   {% else %}
-  <li class="p-4 text-sm text-slate-600">{{ t('report.no_grades', lang) }}</li>
+  <li class="rounded-card border border-card-border bg-surface-1 p-4 text-sm text-text-2">{{ t('report.no_grades', lang) }}</li>
   {% endfor %}
 </ul>
 {% if report.grading_note %}
-<p class="mt-2 text-sm text-slate-600">{{ report.grading_note }}</p>
+<p class="mt-2 text-sm text-text-2">{{ report.grading_note }}</p>
 {% endif %}
 
-<h2 class="mt-8 text-lg font-semibold">{{ t('report.gaps', lang) }}</h2>
-{% if report.gaps %}
-{% set gap_rows = report.gaps.gaps %}
-{% if gap_rows %}
-{# F6's summary view: three to five lines of the headline problems — the top of
-   F6.1's band order, which is how determinative each gap is. #}
-<ul class="mt-3 space-y-1 text-sm text-slate-700">
-  {% for gap in gap_rows[:5] %}
-  <li>
-    {% if gap.blocking %}<span class="rounded bg-amber-100 px-2 py-0.5 text-xs text-amber-900">{{ t('report.gap_blocking', lang) }}</span> {% endif %}{{ gap.interpretation or gap.requirement }}
+{# 6 — Before applying: the one warning, its alerts and disqualifiers, then gaps beside
+   the claims that are only transferable. #}
+<h2 class="mt-8 text-lg font-semibold" id="before-applying">{{ t('report.before_applying', lang) }}</h2>
+
+{% if report.disqualifiers %}
+<p class="mt-3 text-sm font-semibold">{{ t('report.disqualifiers', lang) }}</p>
+<p class="mt-1 text-xs text-text-3">{{ t('report.disqualifiers_hint', lang) }}</p>
+{# F6.1: three-way verdicts, beside the score and never inside it. `unverified` is
+   the honest default and is never rendered as `met`. #}
+<ul class="mt-2 space-y-2">
+  {% for item in report.disqualifiers %}
+  <li class="flex flex-wrap items-center justify-between gap-2 rounded-control border border-sev-warning px-3 py-2 text-sm">
+    <span>{{ item.requirement }}</span>
+    <span class="rounded-tag bg-surface-2 px-2 py-0.5 text-xs">{{ t('report.verdict.' ~ item.verdict, lang) }}</span>
   </li>
   {% endfor %}
 </ul>
-{# The detailed list: every gap, its level, the requirement text, whether a bullet
-   came close, and the blocking flag. #}
-<details class="mt-3">
-  <summary class="cursor-pointer text-sm text-slate-600">{{ t('report.gaps_all', lang, count=gap_rows|length) }}</summary>
-  <ul class="mt-2 divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white">
-    {% for gap in gap_rows %}
-    <li class="p-4">
-      <div class="flex flex-wrap items-center justify-between gap-2">
-        <span class="text-sm font-medium">{{ gap.requirement }}</span>
-        <span class="flex flex-wrap items-center gap-2 text-xs text-slate-500">
-          {{ t('report.must_have', lang) if gap.must_have else t('report.nice_to_have', lang) }}
-          · {{ t('report.level_label', lang) }} {{ gap.level }}
-          {% if gap.blocking %}<span class="rounded bg-amber-100 px-2 py-0.5 text-amber-900">{{ t('report.gap_blocking', lang) }}</span>{% endif %}
-        </span>
-      </div>
-      {% if gap.bullet_text %}
-      <p class="mt-1 text-sm text-slate-600">{{ t('report.came_close', lang) }}: {{ gap.bullet_text }}</p>
-      {% endif %}
-      {% if gap.interpretation %}
-      <p class="mt-1 text-sm text-slate-700">{{ gap.interpretation }}</p>
-      {% endif %}
-    </li>
-    {% endfor %}
-  </ul>
-</details>
-{% else %}
-<p class="mt-2 text-sm text-slate-600">{{ t('report.no_gaps', lang) }}</p>
+{% if report.disqualifiers | selectattr('verdict', 'equalto', 'unverified') | list %}
+<p class="mt-2 text-xs text-text-3">{{ t('report.disqualifiers_unverified_hint', lang) }}</p>
 {% endif %}
-{% if report.gaps.covered_by_transfer %}
-{# F6.1's fifth band: not a gap in the score's sense — the claim most likely to be
-   questioned, listed so the user can prepare the argument. #}
-<h3 class="mt-6 text-sm font-semibold">{{ t('report.transfer_band', lang) }}</h3>
-<p class="mt-1 text-xs text-slate-500">{{ t('report.transfer_band_hint', lang) }}</p>
-<ul class="mt-2 divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white">
-  {% for gap in report.gaps.covered_by_transfer %}
-  <li class="p-4">
-    <div class="flex flex-wrap items-center justify-between gap-2">
-      <span class="text-sm font-medium">{{ gap.requirement }}</span>
-      <span class="flex flex-wrap items-center gap-2 text-xs text-slate-500">
-        {{ t('report.must_have', lang) if gap.must_have else t('report.nice_to_have', lang) }}
-        · {{ t('report.level_label', lang) }} {{ gap.level }}
-      </span>
-    </div>
-    {% if gap.transfer_reason %}
-    <p class="mt-1 text-sm text-slate-700">{{ t('report.transfer_reason', lang) }} {{ gap.transfer_reason }}</p>
-    {% endif %}
-    {% if gap.bullet_text %}
-    <p class="mt-1 text-sm text-slate-600">{{ gap.bullet_text }}</p>
-    {% endif %}
-  </li>
+{% elif report.jd.hard_requirements %}
+<ul class="mt-3 space-y-2">
+  {% for item in report.jd.hard_requirements %}
+  <li class="rounded-control border border-sev-warning px-3 py-2 text-sm">{{ item }}</li>
   {% endfor %}
 </ul>
 {% endif %}
-{% if report.gaps.alerts %}
+
+{% if report.gaps and report.gaps.warning.text %}
+<div class="mt-4 rounded-control border border-sev-warning px-3 py-2 text-sm">
+  <p>{{ t('report.gap_warning', lang) }} {{ report.gaps.warning.text }}</p>
+  {% if report.gaps.warning.handling %}
+  <p class="mt-1">{{ t('report.gap_handling', lang) }} {{ report.gaps.warning.handling }}</p>
+  {% endif %}
+</div>
+{% endif %}
+
+{% if report.gaps and report.gaps.alerts %}
 {# F6.1's alerts beside the single warning, never inside the gap list and never in
    the score: seniority in either direction (F5.5.2) and location. #}
-<h3 class="mt-6 text-sm font-semibold">{{ t('report.alerts', lang) }}</h3>
+<p class="mt-4 text-sm font-semibold">{{ t('report.alerts', lang) }}</p>
 <ul class="mt-2 space-y-2">
   {% for alert in report.gaps.alerts %}
-  <li class="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+  <li class="rounded-control border border-sev-warning px-3 py-2 text-sm">
     {% if alert.kind == 'over_seniority' %}
     {{ t('report.alert.over_seniority', lang) }}
     {% elif alert.kind == 'under_seniority' %}
@@ -360,80 +244,216 @@
     {{ language_alert(alert, lang) }}
     {% else %}
     {{ t('report.alert.location', lang, requirement=alert.requirement) }}
-    <span class="rounded bg-white px-2 py-0.5 text-xs">{{ t('report.verdict.' ~ alert.verdict, lang) }}</span>
+    <span class="rounded-tag bg-surface-2 px-2 py-0.5 text-xs">{{ t('report.verdict.' ~ alert.verdict, lang) }}</span>
     {% endif %}
   </li>
   {% endfor %}
 </ul>
 {% endif %}
-{% if report.gaps.warning.text %}
-<div class="mt-4 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-  <p>{{ t('report.gap_warning', lang) }} {{ report.gaps.warning.text }}</p>
-  {% if report.gaps.warning.handling %}
-  <p class="mt-1">{{ t('report.gap_handling', lang) }} {{ report.gaps.warning.handling }}</p>
-  {% endif %}
+
+{% if report.gaps %}
+{% set gap_rows = report.gaps.gaps %}
+<div class="mt-5 grid grid-cols-1 gap-6 sm:grid-cols-2">
+  <div>
+    <p class="text-sm font-semibold">{{ t('report.gaps', lang) }}</p>
+    {% if gap_rows %}
+    {# F6's summary view: the headline problems first, which is F6.1's band order. #}
+    <ul class="mt-2 space-y-1 text-sm text-text-2">
+      {% for gap in gap_rows[:5] %}
+      <li>
+        {% if gap.blocking %}<span class="rounded-tag border border-sev-warning px-2 py-0.5 text-xs text-sev-warning">{{ t('report.gap_blocking', lang) }}</span> {% endif %}{{ gap.interpretation or gap.requirement }}
+      </li>
+      {% endfor %}
+    </ul>
+    {# The detailed list: every gap, its level, the requirement text, whether a bullet
+       came close, and the blocking flag. #}
+    <details class="mt-3">
+      <summary class="cursor-pointer text-sm text-text-2">{{ t('report.gaps_all', lang, count=gap_rows|length) }}</summary>
+      <ul class="mt-2 space-y-2">
+        {% for gap in gap_rows %}
+        <li class="rounded-control border border-card-border bg-surface-1 p-3">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <span class="text-sm font-medium">{{ gap.requirement }}</span>
+            <span class="flex flex-wrap items-center gap-2 text-xs text-text-3">
+              {{ t('report.must_have', lang) if gap.must_have else t('report.nice_to_have', lang) }}
+              · {{ t('report.level_label', lang) }} {{ gap.level }}
+              {% if gap.blocking %}<span class="rounded-tag border border-sev-warning px-2 py-0.5 text-sev-warning">{{ t('report.gap_blocking', lang) }}</span>{% endif %}
+            </span>
+          </div>
+          {% if gap.bullet_text %}
+          <p class="mt-1 text-sm text-text-2">{{ t('report.came_close', lang) }}: {{ gap.bullet_text }}</p>
+          {% endif %}
+          {% if gap.interpretation %}
+          <p class="mt-1 text-sm text-text-2">{{ gap.interpretation }}</p>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+    </details>
+    {% else %}
+    <p class="mt-2 text-sm text-text-2">{{ t('report.no_gaps', lang) }}</p>
+    {% endif %}
+  </div>
+  <div>
+    {% if report.gaps.covered_by_transfer %}
+    {# F6.1's fifth band: not a gap in the score's sense — the claim most likely to be
+       questioned, listed so the user can prepare the argument. #}
+    <p class="text-sm font-semibold">{{ t('report.transfer_band', lang) }}</p>
+    <p class="mt-1 text-xs text-text-3">{{ t('report.transfer_band_hint', lang) }}</p>
+    <ul class="mt-2 space-y-2">
+      {% for gap in report.gaps.covered_by_transfer %}
+      <li class="rounded-control border border-card-border bg-surface-1 p-3">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <span class="text-sm font-medium">{{ gap.requirement }}</span>
+          <span class="flex flex-wrap items-center gap-2 text-xs text-text-3">
+            {{ t('report.must_have', lang) if gap.must_have else t('report.nice_to_have', lang) }}
+            · {{ t('report.level_label', lang) }} {{ gap.level }}
+          </span>
+        </div>
+        {% if gap.transfer_reason %}
+        <p class="mt-1 text-sm text-text-2">{{ t('report.transfer_reason', lang) }} {{ gap.transfer_reason }}</p>
+        {% endif %}
+        {% if gap.bullet_text %}
+        <p class="mt-1 text-sm text-text-2">{{ gap.bullet_text }}</p>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+  </div>
 </div>
-{% endif %}
 {% if not report.gaps.stories_used %}
 {# Said by the pipeline, not by the model: when the table was empty the output
    names that, rather than implying none of the stories were relevant. #}
-<p class="mt-2 text-sm text-slate-600">{{ t('report.no_stories_available', lang) }}</p>
+<p class="mt-2 text-sm text-text-2">{{ t('report.no_stories_available', lang) }}</p>
 {% endif %}
 {% if report.gaps.not_found %}
-<p class="mt-2 text-sm text-slate-600">{{ report.gaps.not_found }}</p>
+<p class="mt-2 text-sm text-text-2">{{ report.gaps.not_found }}</p>
 {% endif %}
 {% endif %}
 
-{% if report.advice %}
-{# F7.2: the six deterministic rules, in order. A report stored before the rules
-   existed has no `advice` and renders exactly as it did. #}
+{# 7 — Potencial (F7.4) is not built yet: nothing is rendered, and no placeholder. #}
+
+{# 8 — Recommendations: the track table and the edit advice, side by side. #}
+{% if report.recommendation or report.advice %}
 <h2 class="mt-8 text-lg font-semibold">{{ t('report.advice', lang) }}</h2>
-<p class="mt-1 text-xs text-slate-500">{{ t('report.advice.intro', lang) }}</p>
-<ul class="mt-3 space-y-2">
-  {% for item in report.advice %}
-  <li class="rounded border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
-    {{ advice_line(item, lang) }}
-    {% if item.evidence %}
-    <p class="mt-1 text-xs text-slate-500">{{ t('report.advice.evidence', lang) }}: {{ item.evidence }}</p>
+<div class="mt-3 grid grid-cols-1 gap-6 sm:grid-cols-2">
+  <div>
+    {% if report.recommendation %}
+    {# F7.1: the posting scored against every candidate track, above the components of
+       the chosen one. A report stored before the recommendation existed has none. #}
+    <p class="text-sm font-semibold">{{ t('report.recommendation', lang) }}</p>
+    <p class="mt-1 text-xs text-text-3">{{ t('report.recommendation.intro', lang) }}</p>
+    {% if report.recommendation.candidates %}
+    <div class="mt-2 overflow-x-auto rounded-control border border-card-border bg-surface-1">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-card-border text-xs uppercase tracking-wide text-text-3">
+            <th class="px-3 py-2 text-left">{{ t('report.recommendation.track', lang) }}</th>
+            <th class="px-3 py-2 text-right">{{ t('report.total', lang) }}</th>
+            {% for name in ['skills', 'experience', 'title', 'keywords'] %}
+            <th class="px-3 py-2 text-right">{{ t('report.sub.' ~ name, lang) }}</th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for candidate in report.recommendation.candidates %}
+          <tr class="border-b border-card-border last:border-0">
+            <td class="px-3 py-2">
+              {{ candidate.name }}
+              {% if candidate.chosen %}
+              <span class="rounded-tag border border-score-strong px-2 py-0.5 text-xs text-score-strong">{{ t('report.recommendation.chosen', lang) }}</span>
+              {% endif %}
+            </td>
+            <td class="px-3 py-2 text-right font-semibold">{{ candidate.job_match }}</td>
+            {% for name in ['skills', 'experience', 'title', 'keywords'] %}
+            <td class="px-3 py-2 text-right text-text-2">{{ candidate.sub_scores.get(name, '—') }}</td>
+            {% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
     {% endif %}
-  </li>
-  {% endfor %}
-</ul>
+    {% if report.recommendation.margin is not none %}
+    <p class="mt-2 text-sm text-text-2">
+      {{ t('report.recommendation.margin', lang,
+            runner_up=report.recommendation.candidates[1].name,
+            margin=report.recommendation.margin) }}
+    </p>
+    {% endif %}
+    {% if report.recommendation.tie_break %}
+    <p class="mt-1 text-sm text-text-2">
+      {{ t('report.recommendation.tie_sub', lang,
+            sub_score=t('report.sub.' ~ report.recommendation.tie_break.sub_score, lang),
+            delta=report.recommendation.tie_break.delta) }}
+      {% if report.recommendation.tie_break.organisation_track %}
+      {{ t('report.recommendation.tie_organisation', lang,
+            track=report.recommendation.tie_break.organisation_track) }}
+      {% endif %}
+    </p>
+    {% endif %}
+    {% if report.recommendation.justification %}
+    <p class="mt-1 text-sm">
+      {% if report.recommendation.justification.runner_up %}
+      {{ t('report.recommendation.justification', lang,
+            track=report.recommendation.justification.track,
+            sub_score=t('report.sub.' ~ report.recommendation.justification.sub_score, lang),
+            delta=report.recommendation.justification.delta,
+            runner_up=report.recommendation.justification.runner_up,
+            applies_when=report.recommendation.justification.applies_when) }}
+      {% else %}
+      {{ t('report.recommendation.justification_single', lang,
+            track=report.recommendation.justification.track,
+            applies_when=report.recommendation.justification.applies_when) }}
+      {% endif %}
+    </p>
+    {% endif %}
+    {% if report.recommendation.not_graded %}
+    <p class="mt-1 text-xs text-text-3">
+      {{ t('report.recommendation.not_graded', lang,
+            names=report.recommendation.not_graded | map(attribute='name') | join(', ')) }}
+    </p>
+    {% endif %}
+    {% endif %}
+  </div>
+  <div>
+    {% if report.advice %}
+    {# F7.2: the six deterministic rules, in order. Each item is a claim, a one-line
+       reason and the rule it came from. A report stored before the rules existed has
+       no `advice` and renders exactly as it did. #}
+    <p class="text-sm font-semibold">{{ t('report.advice.intro', lang) }}</p>
+    <ul class="mt-2 space-y-2">
+      {% for item in report.advice %}
+      <li class="rounded-control border border-card-border bg-surface-1 px-3 py-2 text-sm">
+        <span class="rounded-tag border border-link px-2 py-0.5 text-xs text-link">{{ t('report.advice.tag.' ~ item.kind, lang) }}</span>
+        <span class="mt-1 block">{{ advice_line(item, lang) }}</span>
+        {% if item.evidence %}
+        <span class="mt-1 block text-xs text-text-3">{{ t('report.advice.evidence', lang) }}: {{ item.evidence }}</span>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+  </div>
+</div>
 {% endif %}
 
-<h2 class="mt-8 text-lg font-semibold">{{ t('report.jd_fields', lang) }}</h2>
-<div class="mt-3 rounded-lg border border-slate-200 bg-white p-5">
-  <dl class="grid grid-cols-2 gap-3 sm:grid-cols-3">
-    <div>
-      <dt class="text-xs uppercase tracking-wide text-slate-500">{{ t('report.language', lang) }}</dt>
-      <dd class="text-sm">{{ report.jd.language }}</dd>
-    </div>
-    <div>
-      <dt class="text-xs uppercase tracking-wide text-slate-500">{{ t('report.seniority', lang) }}</dt>
-      <dd class="text-sm">{{ report.jd.seniority }}</dd>
-    </div>
-    <div>
-      <dt class="text-xs uppercase tracking-wide text-slate-500">{{ t('report.years', lang) }}</dt>
-      <dd class="text-sm">{{ report.jd.years_required if report.jd.years_required is not none else t('common.none', lang) }}</dd>
-    </div>
-  </dl>
-  <p class="mt-3 text-sm">
-    <span class="text-xs uppercase tracking-wide text-slate-500">{{ t('report.must_have', lang) }}</span><br>
-    {{ report.jd.must_have|join(', ') or t('common.none', lang) }}
-  </p>
-  <p class="mt-2 text-sm">
-    <span class="text-xs uppercase tracking-wide text-slate-500">{{ t('report.nice_to_have', lang) }}</span><br>
-    {{ report.jd.nice_to_have|join(', ') or t('common.none', lang) }}
-  </p>
-  <p class="mt-2 text-sm">
-    <span class="text-xs uppercase tracking-wide text-slate-500">{{ t('report.keywords', lang) }}</span><br>
-    {{ report.jd.raw_keywords|join(', ') or t('common.none', lang) }}
-  </p>
-</div>
-
+{# 9 — Traceability: the run's versions, its cache state, its cost, and the fields the
+   extraction read, collapsed. #}
 <h2 class="mt-8 text-lg font-semibold">{{ t('report.audit', lang) }}</h2>
-<div class="mt-3 rounded-lg border border-slate-200 bg-white p-5">
-  <dl class="space-y-2 text-xs text-slate-600">
+<div class="mt-3 rounded-card border border-card-border bg-surface-1 p-5">
+  <dl class="space-y-2 text-xs text-text-2">
+    <div class="flex flex-wrap justify-between gap-2">
+      <dt>{{ t('report.calculation', lang) }}</dt>
+      <dd>{{ application.weights_version }} · {{ report.score.effective_weights_hash }}</dd>
+    </div>
+    <div class="flex flex-wrap justify-between gap-2">
+      <dt>{{ t('report.prompt_versions', lang) }}</dt>
+      <dd>
+        {% for purpose, version in application.prompt_versions.items() %}{{ purpose }}={{ version }}{% if not loop.last %} · {% endif %}{% endfor %}
+      </dd>
+    </div>
     <div class="flex flex-wrap justify-between gap-2">
       <dt>{{ t('report.cost_label', lang) }}</dt>
       <dd>${{ '%.6f'|format(application.token_cost_usd) }}</dd>
@@ -449,28 +469,47 @@
     </div>
     {% endfor %}
     {% if report.llm.calls | selectattr('ledger_error') | list %}
-    <div class="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+    <div class="rounded-control border border-sev-warning px-3 py-2 text-xs text-sev-warning">
       {{ t('common.ledger_unrecorded', lang) }}
     </div>
     {% endif %}
     <div class="flex flex-wrap justify-between gap-2">
-      <dt>{{ t('report.weights_version', lang) }}</dt>
-      <dd>{{ application.weights_version }} · {{ report.score.effective_weights_hash }}</dd>
-    </div>
-    <div class="flex flex-wrap justify-between gap-2">
-      <dt>{{ t('report.prompt_versions', lang) }}</dt>
-      <dd>
-        {% for purpose, version in application.prompt_versions.items() %}{{ purpose }}={{ version }}{% if not loop.last %} · {% endif %}{% endfor %}
-      </dd>
-    </div>
-    <div class="flex flex-wrap justify-between gap-2">
       <dt>{{ t('report.jd_hash', lang) }}</dt>
-      <dd>{{ application.jd_hash }}</dd>
+      <dd class="font-mono">{{ application.jd_hash }}</dd>
     </div>
   </dl>
+  <details class="mt-4">
+    <summary class="cursor-pointer text-sm text-text-2">{{ t('report.jd_fields', lang) }}</summary>
+    <dl class="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
+      <div>
+        <dt class="text-xs uppercase tracking-wide text-text-3">{{ t('report.language', lang) }}</dt>
+        <dd class="text-sm">{{ report.jd.language }}</dd>
+      </div>
+      <div>
+        <dt class="text-xs uppercase tracking-wide text-text-3">{{ t('report.seniority', lang) }}</dt>
+        <dd class="text-sm">{{ report.jd.seniority }}</dd>
+      </div>
+      <div>
+        <dt class="text-xs uppercase tracking-wide text-text-3">{{ t('report.years', lang) }}</dt>
+        <dd class="text-sm">{{ report.jd.years_required if report.jd.years_required is not none else t('common.none', lang) }}</dd>
+      </div>
+    </dl>
+    <p class="mt-3 text-sm">
+      <span class="text-xs uppercase tracking-wide text-text-3">{{ t('report.must_have', lang) }}</span><br>
+      {{ report.jd.must_have|join(', ') or t('common.none', lang) }}
+    </p>
+    <p class="mt-2 text-sm">
+      <span class="text-xs uppercase tracking-wide text-text-3">{{ t('report.nice_to_have', lang) }}</span><br>
+      {{ report.jd.nice_to_have|join(', ') or t('common.none', lang) }}
+    </p>
+    <p class="mt-2 text-sm">
+      <span class="text-xs uppercase tracking-wide text-text-3">{{ t('report.keywords', lang) }}</span><br>
+      {{ report.jd.raw_keywords|join(', ') or t('common.none', lang) }}
+    </p>
+  </details>
 </div>
 
 <p class="mt-6 text-sm">
-  <a href="/analyze" class="underline">{{ t('report.again', lang) }}</a>
+  <a href="/analyze" class="text-link underline">{{ t('report.again', lang) }}</a>
 </p>
 {% endblock %}

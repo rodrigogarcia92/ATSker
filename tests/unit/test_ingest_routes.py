@@ -805,7 +805,7 @@ def test_a_tracks_analysis_is_capped_by_the_document_it_came_from(
     # applied — this is the «Limitado a 40 … sin límite sería 29» bug class.
     assert "hoy no resta puntos" in page
     assert "Limitado a" not in page
-    assert "Lectura del documento" in page, "the same findings panel the upload screen shows"
+    assert "¿El ATS lee bien tu CV?" in page, "the same findings panel, as the report's question"
     assert "Bloqueante" in page
     assert "No se ejecutaron para este formato" in page, "a DOCX cannot answer every check"
 

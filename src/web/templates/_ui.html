@@ -5,14 +5,14 @@
    into the integer 0–100 the interface shows — the report does not change. Bands
    (75 / 50) are presentation settings, never scoring: changing them changes a colour
    and a word, and never a number. #}
-{% macro score(value, label, caption) -%}
+{% macro score(value, label, caption, out_of_100=False) -%}
 {%- set percent = (value * 100) | round | int -%}
 {%- set band = 'strong' if percent >= 75 else ('adequate' if percent >= 50 else 'weak') -%}
 <div class="score" data-band="{{ band }}">
   <div class="score-head">
     <span class="score-label">{{ label }}</span>
     {# Score colour is fill, and only on a score surface; the band attribute carries it. #}
-    <span class="score-number">{{ percent }}</span>
+    <span class="score-number">{{ percent }}{% if out_of_100 %}<span class="score-scale"> / 100</span>{% endif %}</span>
   </div>
   {# Five segments, one per 20 points; the band word is beside them, so colour is never
      the only signal. #}

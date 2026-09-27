@@ -1450,7 +1450,7 @@ def test_the_report_page_shows_the_recall_panel(client, session, career, provide
 
     assert application.scan_boolean is not None
     assert application.scan_boolean["failed"] == 1
-    assert "Recuperación booleana" in page
+    assert "¿Te encuentra el reclutador?" in page
     assert "Falla en «machine learning»" in page
     assert "no aparece ningún alias de este término" in page
     assert "No entra en el Encaje total" in page, "the panel says it is not part of the score"
@@ -1477,5 +1477,114 @@ def test_a_stored_recall_without_query_text_still_renders(client, session, caree
 
     page = text_of(client.get(posted.headers["location"]).text)
 
-    assert "Recuperación booleana" in page and "Falla en «machine learning»" in page
+    assert "¿Te encuentra el reclutador?" in page and "Falla en «machine learning»" in page
     assert "Copiar" not in page, "an old report has nothing to copy"
+
+
+# --- N6.3: the result page's order, its numbers and its missing words -------------
+
+
+def assert_in_order(page: str, headings: list[str]) -> None:
+    positions = [page.index(heading) for heading in headings]
+    assert positions == sorted(positions), f"out of order: {headings}"
+    assert len(set(positions)) == len(positions), "a heading appears twice"
+
+
+def test_the_report_sections_follow_the_approved_order_with_a_readability_scan(
+    client, session, career, provider
+):
+    """§12.1's list, top to bottom: the score, its components, the two scans, the
+    requirements, what to do before applying, and the traceability footer."""
+    application = store_flagged(
+        session, career.first_profile.id, capped=40, uncapped=62, cap=40, severity="blocker"
+    )
+    login(client, career.first.email)
+
+    page = text_of(client.get(f"/applications/{application.id}").text)
+
+    assert_in_order(
+        page,
+        [
+            "Encaje total",
+            "Componentes",
+            "¿El ATS lee bien tu CV?",
+            "Requisitos y evidencia",
+            "Antes de postular",
+            "Trazabilidad",
+        ],
+    )
+
+
+def test_the_report_sections_follow_the_approved_order_with_a_recall_scan(
+    client, session, career, provider
+):
+    login(client, career.first.email)
+    posted = client.post("/analyze", data={"jd_text": POSTING}, follow_redirects=False)
+
+    page = text_of(client.get(posted.headers["location"]).text)
+
+    assert_in_order(
+        page,
+        [
+            "Encaje total",
+            "Componentes",
+            "¿Te encuentra el reclutador?",
+            "Requisitos y evidencia",
+            "Antes de postular",
+            "Trazabilidad",
+        ],
+    )
+    if "Recomendaciones" in page:
+        assert page.index("Antes de postular") < page.index("Recomendaciones")
+        assert page.index("Recomendaciones") < page.index("Trazabilidad")
+
+
+def test_no_weight_word_appears_on_the_report_page(client, session, career, provider):
+    """§12.1: the page shows no weights, so nothing reads as the employer's priorities."""
+    login(client, career.first.email)
+    posted = client.post("/analyze", data={"jd_text": POSTING}, follow_redirects=False)
+    url = posted.headers["location"]
+
+    spanish = client.get(url).text
+    assert "peso" not in spanish.lower(), "no weight word in Spanish"
+    assert "weight" not in spanish.lower(), "no weight word anywhere"
+
+    career.first.ui_lang = "en"
+    session.commit()
+    english = client.get(url).text
+    assert "weight" not in english.lower(), "nor in English"
+
+
+def test_every_score_on_the_report_page_is_an_integer(client, session, career, provider):
+    login(client, career.first.email)
+    posted = client.post("/analyze", data={"jd_text": POSTING}, follow_redirects=False)
+
+    page = client.get(posted.headers["location"]).text
+    numbers = re.findall(r'class="score-number">([^<]*)', page)
+
+    assert len(numbers) == 5, "the Job Match and the four sub-scores"
+    assert all(re.fullmatch(r"\d+", value.strip()) for value in numbers), numbers
+
+
+def test_the_form_prefills_from_an_application_and_refuses_another_profiles(
+    client, session, career, provider
+):
+    login(client, career.first.email)
+    posted = client.post(
+        "/analyze",
+        data={"jd_text": POSTING, "company": "Banco Demo", "title": "Analista"},
+        follow_redirects=False,
+    )
+    assert posted.status_code == 303
+    application = session.query(Application).one()
+
+    form = client.get(f"/analyze?application={application.id}").text
+
+    assert "Banco Demo" in form and 'value="Analista"' in form
+    assert "machine learning" in form, "the posting is carried over"
+
+    logout = client.post("/logout", follow_redirects=False)
+    assert logout.status_code in (302, 303)
+    login(client, career.second.email)
+
+    assert client.get(f"/analyze?application={application.id}").status_code == 404

@@ -198,7 +198,9 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "No analyses yet. Paste a posting and it will appear here.",
     },
     # Scan B — boolean recall (F5.2)
-    "recall.title": {"es": "Recuperación booleana", "en": "Boolean recall"},
+    "recall.title": {"es": "¿Te encuentra el reclutador?", "en": "Will the recruiter find you?"},
+    "recall.appears": {"es": "Apareces", "en": "You appear"},
+    "recall.not_appears": {"es": "No apareces", "en": "You do not appear"},
     "recall.intro": {
         "es": "Las consultas que un reclutador escribiría en un ATS o en un portal, y "
         "si tu puesto objetivo aparecería en sus resultados. No entra en el Encaje "
@@ -333,7 +335,62 @@ STRINGS: dict[str, dict[str, str]] = {
     "report.sub.evidence": {"es": "Cobertura de evidencia", "en": "Evidence coverage"},
     "report.sub.keyword": {"es": "Contexto de palabras clave", "en": "Keyword context"},
     "report.sub.semantic": {"es": "Encaje semántico", "en": "Semantic fit"},
-    "report.weight": {"es": "peso", "en": "weight"},
+    # §12.1: no weights are shown on the report page, so there is no word for one. The
+    # calculation version is what the page names instead.
+    "report.calculation": {"es": "Cálculo", "en": "Calculation"},
+    "report.model": {"es": "Modelo", "en": "Model"},
+    "report.calls_cost": {"es": "Llamadas y coste", "en": "Calls and cost"},
+    "report.evidence_language": {"es": "Idioma de la evidencia", "en": "Evidence language"},
+    "report.analyse_another": {
+        "es": "Analizar con otro puesto",
+        "en": "Analyse with another posting",
+    },
+    "report.job_match_caption": {
+        "es": "Qué tan bien encaja este CV con lo que pide la oferta; no es la "
+        "probabilidad de ser contratado.",
+        "en": "How well this CV fits what the posting asks for; not the probability of "
+        "being hired.",
+    },
+    "report.scan_readability_question": {
+        "es": "¿El ATS lee bien tu CV?",
+        "en": "Does the ATS read your CV correctly?",
+    },
+    "report.requirements": {"es": "Requisitos y evidencia", "en": "Requirements and evidence"},
+    "report.before_applying": {"es": "Antes de postular", "en": "Before applying"},
+    "report.skills_split_total": {
+        "es": "Habilidades {total} = {direct} directo + {transfer} transferible",
+        "en": "Skills {total} = {direct} direct + {transfer} transfer",
+    },
+    # One-line captions for the sub-score cards. The three `w1` names are kept so a
+    # stored report renders with a caption rather than a bare key.
+    "report.sub_caption.skills": {
+        "es": "Lo que demuestras de lo que la oferta pide.",
+        "en": "What you demonstrate of what the posting asks for.",
+    },
+    "report.sub_caption.experience": {
+        "es": "Años de experiencia pertinentes a este puesto.",
+        "en": "Years of experience pertinent to this posting.",
+    },
+    "report.sub_caption.title": {
+        "es": "Cuánto se acerca tu título al del puesto.",
+        "en": "How close your title is to the posting's.",
+    },
+    "report.sub_caption.keywords": {
+        "es": "Términos de la oferta presentes en tu CV.",
+        "en": "Terms from the posting present in your CV.",
+    },
+    "report.sub_caption.evidence": {
+        "es": "Cobertura de evidencia del informe almacenado.",
+        "en": "Evidence coverage, as the stored report recorded it.",
+    },
+    "report.sub_caption.keyword": {
+        "es": "Contexto de palabras clave del informe almacenado.",
+        "en": "Keyword context, as the stored report recorded it.",
+    },
+    "report.sub_caption.semantic": {
+        "es": "Encaje semántico del informe almacenado.",
+        "en": "Semantic fit, as the stored report recorded it.",
+    },
     "report.disqualifiers": {"es": "Requisitos eliminatorios", "en": "Disqualifiers"},
     "report.disqualifiers_hint": {
         "es": "No entran en la puntuación: un requisito eliminatorio no es un porcentaje.",
@@ -508,6 +565,14 @@ STRINGS: dict[str, dict[str, str]] = {
         "titles in {language}.",
     },
     "report.advice.evidence": {"es": "Evidencia", "en": "Evidence"},
+    # The source tag on every advice item: which of F7.2's rules produced it, in a word.
+    "report.advice.tag.promote_bullet": {"es": "Promover", "en": "Promote"},
+    "report.advice.tag.add_bullet": {"es": "Añadir", "en": "Add"},
+    "report.advice.tag.surface_skill": {"es": "Habilidad", "en": "Skill"},
+    "report.advice.tag.fix_query": {"es": "Búsqueda", "en": "Search"},
+    "report.advice.tag.title_language": {"es": "Título", "en": "Title"},
+    "report.advice.tag.title_headline": {"es": "Titular", "en": "Headline"},
+    "report.advice.tag.language": {"es": "Idioma", "en": "Language"},
     "report.no_grades": {
         "es": "La oferta no produjo requisitos que evaluar.",
         "en": "The posting produced no requirements to grade.",
@@ -524,7 +589,7 @@ STRINGS: dict[str, dict[str, str]] = {
     },
     "report.from_cache": {"es": "desde caché", "en": "from cache"},
     "report.fresh_call": {"es": "llamada nueva", "en": "fresh call"},
-    "report.weights_version": {"es": "Pesos", "en": "Weights"},
+    # Removed: "report.weights_version" — the page names the calculation, never weights.
     "report.prompt_versions": {"es": "Versiones de prompt", "en": "Prompt versions"},
     "report.jd_hash": {"es": "Hash de la oferta", "en": "Posting hash"},
     "report.again": {"es": "Analizar otra oferta", "en": "Analyse another posting"},
