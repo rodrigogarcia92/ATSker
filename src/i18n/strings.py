@@ -677,6 +677,37 @@ STRINGS: dict[str, dict[str, str]] = {
         "es": "Sugerencia de traducción: este bullet no tiene texto en el idioma del aviso.",
         "en": "Suggested translation: this bullet has no text in the posting's language.",
     },
+    # Tier 3b: up to three bullets a story supports, each reviewed before it exists.
+    "generate.propose_bullets": {"es": "Proponer bullets", "en": "Propose bullets"},
+    "generate.story_title": {
+        "es": "Bullets propuestos desde la historia",
+        "en": "Bullets proposed from the story",
+    },
+    "generate.story_intro": {
+        "es": "Hasta tres bullets a partir de esta historia. Cada uno es una propuesta "
+        "que revisas antes de que exista; aceptarlo crea un bullet con la historia como "
+        "origen. La historia no cambia.",
+        "en": "Up to three bullets from this story. Each is a proposal you review before "
+        "it exists; accepting creates a bullet with the story as its source. The story "
+        "does not change.",
+    },
+    "generate.bullet_text": {"es": "Texto del bullet", "en": "Bullet text"},
+    "generate.role": {"es": "Puesto", "en": "Role"},
+    "generate.chips": {"es": "Chips", "en": "Chips"},
+    "generate.chips_hint": {
+        "es": "Separados por comas. Un término que el vocabulario no conoce se guarda "
+        "como pendiente, no se pierde.",
+        "en": "Comma-separated. A term the vocabulary does not know is kept as pending, "
+        "never lost.",
+    },
+    "generate.need_roles": {
+        "es": "Necesitas al menos un puesto para que un bullet tenga dónde vivir.",
+        "en": "You need at least one role for a bullet to live on.",
+    },
+    "generate.no_bullets": {
+        "es": "El modelo no propuso ningún bullet para esta historia.",
+        "en": "The model proposed no bullets for this story.",
+    },
 
     # Profile
     "profile.title": {"es": "Perfil", "en": "Profile"},

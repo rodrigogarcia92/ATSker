@@ -89,6 +89,10 @@
 </form>
 
 {% if story %}
+{# F7.3 Tier 3b: one call, on demand, proposing bullets the story supports. #}
+<p class="mt-4">
+  <a href="/stories/{{ story.id }}/bullets" class="text-link underline">{{ t('generate.propose_bullets', lang) }}</a>
+</p>
 <a href="/stories/{{ story.id }}/delete" class="mt-4 inline-block text-sm text-sev-blocker underline">{{ t('common.delete', lang) }}</a>
 {% endif %}
 {% endblock %}

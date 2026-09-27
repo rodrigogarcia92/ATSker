@@ -1,0 +1,70 @@
+{# F7.3 Tier 3b: up to three bullets a story supports, each a reviewable candidate
+   with its chips. A candidate that failed a validator is shown marked and cannot be
+   accepted; the story itself is never touched. #}
+{% extends "base.html" %}
+{% block title %}{{ t('generate.story_title', lang) }} — {{ t('app.name', lang) }}{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-semibold tracking-tight">{{ t('generate.story_title', lang) }}</h1>
+<p class="mt-1 text-sm text-text-2">{{ t('generate.story_intro', lang) }}</p>
+<p class="mt-1 text-xs text-text-3">{{ story.title }} · {{ language }}</p>
+<p class="mt-2 text-xs">
+  <a href="?lang=es" class="text-link underline {% if language == 'es' %}font-semibold{% endif %}">ES</a>
+  ·
+  <a href="?lang=en" class="text-link underline {% if language == 'en' %}font-semibold{% endif %}">EN</a>
+</p>
+
+{% if error %}
+<p class="mt-4 rounded-control border border-sev-warning px-3 py-2 text-sm text-sev-warning">{{ error }}</p>
+{% endif %}
+
+{% if candidates %}
+<ul class="mt-4 space-y-4">
+  {% for candidate in candidates %}
+  <li class="min-w-0 rounded-card border border-card-border bg-surface-1 p-4">
+    {% if candidate.violations %}
+    {% set violations = candidate.violations %}
+    {% set item_text = candidate.text %}
+    {% include "generate/_violations.html" %}
+    {% else %}
+    <form method="post" action="/stories/{{ story.id }}/bullets/accept" class="space-y-3">
+      <input type="hidden" name="lang" value="{{ language }}">
+      <div>
+        <label for="bullet-text-{{ loop.index }}" class="mb-1 block text-sm font-medium">{{ t('generate.bullet_text', lang) }}</label>
+        <textarea id="bullet-text-{{ loop.index }}" name="text" rows="3"
+                  class="w-full rounded-control border border-border px-3 py-2 text-sm">{{ candidate.text }}</textarea>
+      </div>
+      <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div>
+          <label for="bullet-role-{{ loop.index }}" class="mb-1 block text-sm font-medium">{{ t('generate.role', lang) }}</label>
+          <select id="bullet-role-{{ loop.index }}" name="role_id"
+                  class="w-full rounded-control border border-border px-3 py-2 text-sm">
+            {% for role in roles %}
+            <option value="{{ role.id }}" {% if candidate.role_id == role.id|string %}selected{% endif %}>
+              {{ role.title_es or role.title_en }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label for="bullet-chips-{{ loop.index }}" class="mb-1 block text-sm font-medium">{{ t('generate.chips', lang) }}</label>
+          <input id="bullet-chips-{{ loop.index }}" name="chips" value="{{ candidate.chips }}"
+                 class="w-full rounded-control border border-border px-3 py-2 text-sm">
+          <p class="mt-1 text-xs text-text-3">{{ t('generate.chips_hint', lang) }}</p>
+        </div>
+      </div>
+      <button type="submit" class="rounded-control bg-link px-3 py-2 text-sm font-medium text-bg hover:opacity-90">
+        {{ t('generate.accept', lang) }}
+      </button>
+    </form>
+    {% endif %}
+  </li>
+  {% endfor %}
+</ul>
+{% elif not error %}
+<p class="mt-4 text-sm text-text-2">{{ t('generate.no_bullets', lang) }}</p>
+{% endif %}
+
+<p class="mt-6 text-sm">
+  <a href="/stories/{{ story.id }}" class="text-link underline">{{ t('common.back', lang) }}</a>
+</p>
+{% endblock %}

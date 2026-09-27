@@ -13,7 +13,7 @@ from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
 
 from src.applications import get_application
-from src.bullets import bullet_text, get_bullet
+from src.bullets import bullet_text, get_bullet, suggest_skills
 from src.extract.client import (
     CallOptions,
     NoModelConfigured,
@@ -21,11 +21,13 @@ from src.extract.client import (
     StructuredOutputError,
     model_configured,
 )
-from src.extract.generation import generate_bullet, generate_summary
+from src.extract.generation import generate_bullet, generate_story_bullets, generate_summary
 from src.generate.proposals import (
     accept_bullet,
+    accept_story_bullet,
     accept_summary,
     check_bullet,
+    check_story_bullet,
     check_summary,
     grades_of,
     pool_skills,
@@ -34,6 +36,8 @@ from src.generate.proposals import (
 from src.generate.validators import Violation
 from src.i18n import t
 from src.jd import StructuredJD
+from src.roles import get_role, list_roles
+from src.stories import get_story
 from src.summaries import get_summary
 from src.tracks import get_track, track_bullets
 from src.web.deps import DbSession, OwnProfile, SignedInUser
@@ -365,3 +369,171 @@ def accept_bullet_proposal(
 
     session.commit()
     return RedirectResponse(f"/applications/{application.id}", status_code=303)
+
+
+# --- N7.4: Tier 3b, bullets a story supports ---------------------------------------
+
+
+def _role_text(role) -> str:
+    return " ".join(part for part in (role.title_es, role.title_en) if part)
+
+
+def _story_roles(story, session, profile):
+    """The story's own role when it has one, otherwise the roles to choose from."""
+    if story.role_id is not None:
+        linked = get_role(profile.id, session, story.role_id)
+        return [linked] if linked is not None else []
+    return list_roles(profile.id, session, active_only=True)
+
+
+def _story_language(story, lang: str | None) -> str:
+    return (lang or story.lang or "es")[:5]
+
+
+def _story_page(
+    request,
+    user,
+    profile,
+    story,
+    roles,
+    language: str,
+    *,
+    candidates: list[dict[str, Any]] | None = None,
+    error: str | None = None,
+):
+    return render(
+        request,
+        "generate/story.html",
+        user=user,
+        profile=profile,
+        story=story,
+        roles=roles,
+        language=language,
+        candidates=candidates or [],
+        error=error,
+    )
+
+
+@router.get("/stories/{story_id}/bullets")
+def propose_story_bullets(
+    story_id: str,
+    request: Request,
+    user: SignedInUser,
+    session: DbSession,
+    profile: OwnProfile,
+    lang: str | None = None,
+):
+    """One call, on demand: up to three bullets this story supports (F7.3, Tier 3b)."""
+    story = get_story(profile.id, session, story_id)
+    if story is None:
+        return render(request, "not_found.html", user=user, status_code=404)
+    language = _story_language(story, lang)
+    roles = _story_roles(story, session, profile)
+    if not roles:
+        return _story_page(
+            request,
+            user,
+            profile,
+            story,
+            roles,
+            language,
+            error=t("generate.need_roles", user.ui_lang),
+        )
+    if not model_configured():
+        return _story_page(
+            request, user, profile, story, roles, language, error=t(_NO_MODEL, user.ui_lang)
+        )
+
+    # reads first, then the call; nothing is stored until a candidate is accepted.
+    pairs = [(str(role.id), _role_text(role)) for role in roles]
+    body = story.body
+    session.commit()
+    try:
+        proposal = generate_story_bullets(
+            session,
+            story_id=str(story.id),
+            body=body,
+            roles=pairs,
+            language=language,
+            options=CallOptions(profile_id=profile.id),
+        )
+    except (NoModelConfigured, ProviderUnavailable, StructuredOutputError):
+        session.commit()
+        return _story_page(
+            request, user, profile, story, roles, language, error=t("generate.failed", user.ui_lang)
+        )
+
+    session.commit()
+    names = {str(role.id): _role_text(role) for role in roles}
+    candidates = []
+    for draft in proposal.output.get("bullets") or []:
+        violations = check_story_bullet(
+            profile.id, session, story, roles, {"bullets": [draft]}
+        )
+        candidates.append(
+            {
+                "text": draft["text"],
+                "role_id": draft["role_id"],
+                "role_name": names.get(str(draft["role_id"]), ""),
+                "chips": ", ".join(suggest_skills(profile.id, session, draft["text"])),
+                "violations": violations,
+            }
+        )
+    return _story_page(request, user, profile, story, roles, language, candidates=candidates)
+
+
+@router.post("/stories/{story_id}/bullets/accept")
+def accept_story_bullet_proposal(
+    story_id: str,
+    request: Request,
+    user: SignedInUser,
+    session: DbSession,
+    profile: OwnProfile,
+    text: Annotated[str, Form()],
+    role_id: Annotated[str, Form()],
+    chips: Annotated[str, Form()] = "",
+    lang: Annotated[str, Form()] = "",
+):
+    """Accept one story-derived bullet: validate again, then create it on the role.
+
+    The bullet stores `source_story_id` (PRD 3) and joins no track. The role is
+    owner-scoped, so another profile's role is a 404 rather than a refusal.
+    """
+    story = get_story(profile.id, session, story_id)
+    role = get_role(profile.id, session, role_id)
+    if story is None or role is None:
+        return render(request, "not_found.html", user=user, status_code=404)
+    language = _story_language(story, lang or None)
+    chip_list = [chip.strip() for chip in chips.split(",") if chip.strip()]
+
+    _, violations = accept_story_bullet(
+        profile.id,
+        session,
+        story_id=story.id,
+        role_id=role.id,
+        text=text,
+        language=language,
+        chips=chip_list,
+    )
+    if violations:
+        return _story_page(
+            request,
+            user,
+            profile,
+            story,
+            [role],
+            language,
+            candidates=[
+                {
+                    "text": text,
+                    "role_id": str(role.id),
+                    "role_name": _role_text(role),
+                    "chips": chips,
+                    "violations": violations,
+                }
+            ],
+            error=t("generate.refused", user.ui_lang),
+        )
+
+    session.commit()
+    return RedirectResponse(f"/stories/{story.id}", status_code=303)

@@ -12,9 +12,10 @@ from decimal import Decimal
 import pytest
 
 from src.applications import create_application
-from src.bullets import get_bullet
+from src.bullets import get_bullet, list_bullets
 from src.extract import client as extract_client
-from src.models import BulletRevision, Summary
+from src.models import Bullet, BulletRevision, Summary, TrackBullet
+from src.stories import get_story
 from src.tracks import get_track
 from tests.conftest import login
 
@@ -352,3 +353,119 @@ def test_a_bullet_without_text_in_the_posting_language_is_a_suggested_translatio
     page = client.get(rephrase_url(application, career.first_bullet.id)).text
 
     assert "Sugerencia de traducción" in page
+
+
+# --- N7.4: Tier 3b, bullets a story supports ---------------------------------------
+
+
+STORY_BULLET = "Automaticé el reporte manual y lo llevé a un proceso continuo."
+
+
+def story_bullets_url(story):
+    return f"/stories/{story.id}/bullets"
+
+
+def test_story_bullets_are_proposed_as_reviewable_candidates(client, session, career, provider):
+    provider.answers["StoryBullets"] = {
+        "bullets": [
+            {
+                "text": STORY_BULLET,
+                "story_id": str(career.first_story.id),
+                "role_id": str(career.first_role.id),
+            }
+        ]
+    }
+    login(client, career.first.email)
+
+    page = client.get(story_bullets_url(career.first_story)).text
+
+    assert STORY_BULLET in page
+    assert f'action="{story_bullets_url(career.first_story)}/accept"' in page
+    assert 'name="chips"' in page, "the candidate carries typed chips (F2.9)"
+
+
+def test_accepting_a_story_bullet_creates_it_with_its_provenance(client, session, career, provider):
+    login(client, career.first.email)
+
+    accepted = client.post(
+        f"{story_bullets_url(career.first_story)}/accept",
+        data={
+            "text": STORY_BULLET,
+            "role_id": str(career.first_role.id),
+            "chips": "python, cobalto",
+            "lang": "es",
+        },
+        follow_redirects=False,
+    )
+
+    assert accepted.status_code == 303
+    session.expire_all()
+    created = [
+        bullet
+        for bullet in list_bullets(career.first_profile.id, session, active_only=False)
+        if bullet.text_es == STORY_BULLET
+    ]
+    assert len(created) == 1
+    bullet = created[0]
+    assert bullet.source_story_id == career.first_story.id
+    assert bullet.role_id == career.first_role.id
+    assert bullet.skills == ["python"]
+    assert bullet.pending_terms == ["cobalto"], "an unknown chip is kept, not dropped"
+    assert session.query(TrackBullet).count() == 2, "the new bullet joins no track"
+
+
+def test_a_story_bullet_with_an_invented_number_cannot_be_accepted(
+    client, session, career, provider
+):
+    login(client, career.first.email)
+    before = session.query(Bullet).count()
+
+    refused = client.post(
+        f"{story_bullets_url(career.first_story)}/accept",
+        data={
+            "text": "Reduje un 40% el trabajo manual.",
+            "role_id": str(career.first_role.id),
+            "chips": "",
+            "lang": "es",
+        },
+    )
+
+    assert refused.status_code == 200
+    assert "40%" in refused.text
+    assert session.query(Bullet).count() == before
+
+
+def test_a_role_of_another_profile_is_refused(client, session, career, provider):
+    login(client, career.first.email)
+
+    response = client.post(
+        f"{story_bullets_url(career.first_story)}/accept",
+        data={
+            "text": STORY_BULLET,
+            "role_id": str(career.second_role.id),
+            "chips": "",
+            "lang": "es",
+        },
+    )
+
+    assert response.status_code == 404
+
+
+def test_accepting_a_story_bullet_leaves_the_story_unchanged(client, session, career, provider):
+    login(client, career.first.email)
+    before = (career.first_story.title, career.first_story.body)
+
+    client.post(
+        f"{story_bullets_url(career.first_story)}/accept",
+        data={
+            "text": STORY_BULLET,
+            "role_id": str(career.first_role.id),
+            "chips": "",
+            "lang": "es",
+        },
+        follow_redirects=False,
+    )
+
+    session.expire_all()
+    story = get_story(career.first_profile.id, session, career.first_story.id)
+    assert (story.title, story.body) == before
