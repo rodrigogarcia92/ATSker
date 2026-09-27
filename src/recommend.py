@@ -44,6 +44,11 @@ CLOSE_MARGIN = 5
 # recommendation table is part of that page: same scale, same numbers.
 SCALE = 100
 
+# The two calls an analysis makes about the posting rather than about a track (F7.1):
+# the extraction and the recruiter's queries. They are made once and read by every
+# candidate, so they are shared, and both the total and the rows have to say so once.
+SHARED_PURPOSES = ("jd_extract", "boolean_queries")
+
 
 def _pre_rank(
     profile_id: uuid.UUID,
@@ -99,6 +104,21 @@ def candidate_tracks(
     )
 
 
+def _own_cost(analysis: Analysis) -> Decimal:
+    """What this candidate alone cost: its calls, without the posting's own two.
+
+    `Analysis.cost_usd` includes the extraction — one call, made once, whatever the
+    number of candidates — so a row that carried it would count the same call once
+    per track, exactly as the total used to (D.7.1). A row's number is its grading and
+    its gap interpretation; the posting-level calls are reported once, by
+    `recommendation_payload`'s `shared_cost_usd`.
+    """
+    return sum(
+        (call.cost_usd for call in analysis.calls if call.purpose not in SHARED_PURPOSES),
+        Decimal("0"),
+    )
+
+
 def _row(track: Track, analysis: Analysis) -> dict[str, object]:
     score = analysis.report["score"]
     return {
@@ -109,7 +129,7 @@ def _row(track: Track, analysis: Analysis) -> dict[str, object]:
             name: round(float(sub["value"]) * SCALE)
             for name, sub in score["sub_scores"].items()
         },
-        "cost_usd": str(analysis.cost_usd),
+        "cost_usd": str(_own_cost(analysis)),
         "applies_when": track.applies_when,
         "organisation_kind": track.organisation_kind,
         "chosen": False,
@@ -155,6 +175,9 @@ def recommendation_payload(
     the pair (candidates, tie-break) is the feature's whole answer.
     """
     rows = [_row(track, analysis) for track, analysis in analyses]
+    # The rows add up to the total minus what the posting's own calls cost: counted
+    # once here, never once per candidate (F7.1, PRD 7).
+    shared_cost = cost_usd - sum((Decimal(str(row["cost_usd"])) for row in rows), Decimal("0"))
     ordered = sorted(rows, key=lambda row: (-int(row["job_match"]), str(row["name"])))
     if ordered:
         # The winner is the first highest — the analyses' own order breaks a tie, and
@@ -198,7 +221,11 @@ def recommendation_payload(
         "margin": margin,
         "tie_break": tie_break,
         "justification": justification,
+        # `cost_usd` is the whole request; the rows are each candidate's own calls and
+        # this is the posting's two, so rows + shared = cost, with nothing counted
+        # twice (F7.1, PRD 7).
         "cost_usd": str(cost_usd),
+        "shared_cost_usd": str(shared_cost),
     }
 
 
@@ -265,7 +292,21 @@ def recommend(
         )
         return replace(analysis, report=report)
 
-    cost = sum((analysis.cost_usd for _, analysis in analyses), Decimal("0"))
+    # The audit lists every call the request made, in the order they were made. The
+    # extraction and the derivation are one call each — the same objects in every
+    # candidate's list — so the merge counts them once, and the cost is the sum of
+    # what it lists. Adding up the candidates' own `cost_usd` would count the shared
+    # extraction once per graded track (D.7.1); a cached call costs $0 and is listed.
+    calls: list[Completion] = []
+    seen: set[int] = set()
+    for _, analysis in analyses:
+        for call in analysis.calls:
+            if id(call) in seen:
+                continue
+            seen.add(id(call))
+            calls.append(call)
+    cost = sum((call.cost_usd for call in calls), Decimal("0"))
+
     chosen = max(
         range(len(analyses)),
         key=lambda index: (analyses[index][1].report["score"]["capped"], -index),
@@ -275,17 +316,5 @@ def recommend(
     report["recommendation"] = recommendation_payload(
         analyses, not_graded=not_graded, company=company, cost_usd=cost
     )
-    # The audit lists every call the request made, in the order they were made, and
-    # the cost is their sum — the report's own `llm` section, widened (F7.1). The
-    # extraction and the derivation are one call each: they are the same objects in
-    # every candidate's list, so the merge counts them once.
-    calls: list[Completion] = []
-    seen: set[int] = set()
-    for _, analysis in analyses:
-        for call in analysis.calls:
-            if id(call) in seen:
-                continue
-            seen.add(id(call))
-            calls.append(call)
     report["llm"] = llm_section(calls, cost)
     return replace(winner, report=report, cost_usd=cost)

@@ -284,6 +284,12 @@ def test_the_posting_is_extracted_and_its_queries_derived_once(session, career, 
 
 
 def test_the_cost_is_the_sum_of_every_candidate_call(session, career, stub):
+    """D.7.1: the total is the calls the report lists, each counted once.
+
+    Three tracks make eight calls — one extraction, one derivation, and a grading and
+    a gap interpretation each — but the two repeat gap interpretations are cache hits
+    at $0, so the request costs $0.0006, not $0.0001 per listed call.
+    """
     profile_id = career.first_profile.id
     retire(session, career)
     for name in ("Uno", "Dos", "Tres"):
@@ -291,14 +297,51 @@ def test_the_cost_is_the_sum_of_every_candidate_call(session, career, stub):
 
     analysis = recommend(profile_id, session, jd_text=POSTING)
 
-    # Eight calls at $0.0001 for three tracks: one extraction, one derivation, and a
-    # grading and a gap interpretation each. The winner's report does not hide them.
-    assert analysis.cost_usd == Decimal("0.0008")
-    assert analysis.report["llm"]["cost_usd"] == str(analysis.cost_usd)
-    purposes = [call["purpose"] for call in analysis.report["llm"]["calls"]]
+    reported = analysis.report["llm"]["calls"]
+    purposes = [call["purpose"] for call in reported]
     assert purposes.count("evidence_grade") == 3
     assert len(purposes) == 8
+    assert analysis.cost_usd == sum(
+        (Decimal(call["cost_usd"]) for call in reported), Decimal("0")
+    ), "the number is the listed calls, never a per-candidate sum"
+    assert analysis.cost_usd == Decimal("0.0006")
+    assert analysis.report["llm"]["cost_usd"] == str(analysis.cost_usd)
     assert analysis.report["recommendation"]["cost_usd"] == str(analysis.cost_usd)
+
+
+def test_the_shared_extraction_is_counted_once(session, career, stub):
+    """D.7.1: the posting's own call is one call, however many tracks were graded."""
+    profile_id = career.first_profile.id
+    retire(session, career)
+    for name in ("Uno", "Dos", "Tres"):
+        make_track(session, career, name, [f"Python {STRONG} para {name}"])
+
+    analysis = recommend(profile_id, session, jd_text=POSTING)
+
+    reported = analysis.report["llm"]["calls"]
+    extraction = [call for call in reported if call["purpose"] == "jd_extract"]
+    assert len(extraction) == 1
+    others = sum(
+        (Decimal(call["cost_usd"]) for call in reported if call["purpose"] != "jd_extract"),
+        Decimal("0"),
+    )
+    assert analysis.cost_usd - others == Decimal(extraction[0]["cost_usd"])
+
+
+def test_the_rows_and_the_shared_cost_add_up_to_the_total(session, career, stub):
+    """D.7.1: a row is its own calls; the posting's two are reported once, apart."""
+    profile_id = career.first_profile.id
+    retire(session, career)
+    for name in ("Uno", "Dos", "Tres"):
+        make_track(session, career, name, [f"Python {STRONG} para {name}"])
+
+    analysis = recommend(profile_id, session, jd_text=POSTING)
+
+    payload = analysis.report["recommendation"]
+    rows = sum((Decimal(row["cost_usd"]) for row in payload["candidates"]), Decimal("0"))
+    assert Decimal(payload["shared_cost_usd"]) == Decimal("0.0002"), "extraction + queries"
+    assert rows + Decimal(payload["shared_cost_usd"]) == Decimal(payload["cost_usd"])
+    assert payload["cost_usd"] == str(analysis.cost_usd)
 
 
 def test_a_single_track_analysis_is_unchanged(session, career, stub):
