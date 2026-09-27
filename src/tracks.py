@@ -5,9 +5,7 @@ skills, so editing one updates it everywhere and removing it from a track delete
 nothing. `profile_id` comes first and ownership lives inside the query (F1), so
 another profile's track is simply not found — never found and then rejected.
 
-The headline slots and summary references are the whole CV the track presents
-(F4.1); `tracks.headline` and `tracks.summary` are legacy columns kept unread for
-the expand/contract migration (PRD 6's `0009` paragraph).
+The headline slots and summary references are the whole CV the track presents (F4.1).
 """
 
 import uuid

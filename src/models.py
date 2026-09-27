@@ -304,12 +304,6 @@ class Track(Base):
     # nothing ranks on them yet.
     organisation_kind: Mapped[str | None] = mapped_column(String(60))
     specialisation: Mapped[str | None] = mapped_column(String(60))
-    # Legacy single-language slots: the expand half of an expand/contract change
-    # (PRD 6's `0009` paragraph). Unread by the new code, so the database can be
-    # migrated before the push while the old revision still serves; the contract
-    # migration that drops them is not part of this run.
-    headline: Mapped[str | None] = mapped_column(String(200))
-    summary: Mapped[str | None] = mapped_column(Text)
     # The whole CV the track presents (F4.1): a headline and a pool summary per
     # language, plus the skill selection from the profile's pool. A track owns no
     # content: the slots reference pool rows the way the selection references
