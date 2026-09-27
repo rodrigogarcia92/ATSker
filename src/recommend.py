@@ -168,23 +168,33 @@ def recommendation_payload(
     not_graded: Sequence[Track],
     company: str | None,
     cost_usd: Decimal,
+    chosen_track_id: uuid.UUID | str | None = None,
 ) -> dict[str, object]:
     """F7.1's payload — the report's `recommendation`, and what the page's table shows.
 
     Public because it is the stored shape: the page renders it, the tests pin it, and
     the pair (candidates, tie-break) is the feature's whole answer.
+
+    `chosen_track_id` is the track the application was stored against; the table has
+    to mark that row, and it is placed first. Without one — a caller that ranks
+    nothing, or a request with no candidate at all — no row is marked.
     """
     rows = [_row(track, analysis) for track, analysis in analyses]
     # The rows add up to the total minus what the posting's own calls cost: counted
     # once here, never once per candidate (F7.1, PRD 7).
     shared_cost = cost_usd - sum((Decimal(str(row["cost_usd"])) for row in rows), Decimal("0"))
     ordered = sorted(rows, key=lambda row: (-int(row["job_match"]), str(row["name"])))
-    if ordered:
-        # The winner is the first highest — the analyses' own order breaks a tie, and
-        # `sorted` keeps exactly that order among equal scores.
-        ordered[0]["chosen"] = True
-    winner = ordered[0] if ordered else None
-    runner_up = ordered[1] if len(ordered) > 1 else None
+    # The stored analysis decides which row is `chosen` — on an exact Job Match tie
+    # that is the first in graded order, so both rules are one rule (D.7.3).
+    chosen = next(
+        (row for row in rows if row["track_id"] == str(chosen_track_id)),
+        None,
+    )
+    if chosen is not None:
+        chosen["chosen"] = True
+        ordered = [chosen, *(row for row in ordered if row is not chosen)]
+    winner = chosen if chosen is not None else (ordered[0] if ordered else None)
+    runner_up = next((row for row in ordered if row is not winner), None)
 
     margin: int | None = None
     tie_break: dict[str, object] | None = None
@@ -307,6 +317,10 @@ def recommend(
             calls.append(call)
     cost = sum((call.cost_usd for call in calls), Decimal("0"))
 
+    # One ranking rule (F7.1): Job Match descending, and an exact tie goes to the
+    # first in graded order — which is the pre-rank's order when more tracks exist
+    # than are graded. The payload is told which row that is rather than ranking a
+    # second time (D.7.3).
     chosen = max(
         range(len(analyses)),
         key=lambda index: (analyses[index][1].report["score"]["capped"], -index),
@@ -314,7 +328,11 @@ def recommend(
     winner = analyses[chosen][1]
     report = dict(winner.report)
     report["recommendation"] = recommendation_payload(
-        analyses, not_graded=not_graded, company=company, cost_usd=cost
+        analyses,
+        not_graded=not_graded,
+        company=company,
+        cost_usd=cost,
+        chosen_track_id=analyses[chosen][0].id,
     )
     report["llm"] = llm_section(calls, cost)
     return replace(winner, report=report, cost_usd=cost)

@@ -197,6 +197,7 @@ def test_a_margin_under_five_names_the_sub_score_that_decided_it(session, career
         not_graded=(),
         company=None,
         cost_usd=Decimal("0"),
+        chosen_track_id=first.id,
     )
 
     assert payload["margin"] == 4 < 5
@@ -481,3 +482,77 @@ def test_an_unticked_box_with_two_tracks_runs_the_plain_analysis(client, session
     assert "recommendation" not in application.report
     assert application.track_id is None
     assert stub.turns("EvidenceGrading") == 1
+
+
+# D.7.3's tie fixture: two tracks that tie on Job Match, in the order the pre-rank
+# puts them — "Zeta" leads because its shorter line scores the keywords higher, and
+# the pre-rank is title + keywords. `BASE` and `PADDED` differ by four words nobody
+# asked for, which is under the point of Job Match but enough to order the pre-rank.
+BASE = "Analista de datos con Python y machine learning, reportes para dirección"
+PADDED = BASE + " extra extra extra extra"
+TIE_FIXTURE = {
+    "Zeta": ["Python con resultados medibles", BASE],
+    "Alfa": ["Python con resultados medibles", PADDED],
+}
+TIE_FILLERS = [
+    "Reportes semanales para dirección",
+    "Modelé el riesgo de crédito con Python",
+    "Puse modelos de machine learning en producción",
+    "Analista de datos con reportes",
+]
+TIE_OUTSIDE = ["Cuidé plantas y ordené la oficina", "Toqué la guitarra los domingos"]
+
+
+def test_the_table_marks_the_track_that_was_stored(session, career, stub):
+    """D.7.3: one ranking rule. On an exact Job Match tie, graded order decides, and
+    the row the application was stored against is the row the table marks."""
+    profile_id = career.first_profile.id
+    retire(session, career)
+    for name, texts in TIE_FIXTURE.items():
+        make_track(session, career, name, texts)
+    for index, text in enumerate(TIE_FILLERS):
+        make_track(session, career, f"F{index}", [text])
+    for index, text in enumerate(TIE_OUTSIDE):
+        make_track(session, career, f"X{index}", [text])
+
+    analysis = recommend(profile_id, session, jd_text=POSTING)
+
+    payload = analysis.report["recommendation"]
+    rows = payload["candidates"]
+    assert [row["name"] for row in rows[:2]] == ["Zeta", "Alfa"], "a tie, and Zeta led"
+    assert rows[0]["job_match"] == rows[1]["job_match"]
+    assert payload["margin"] == 0, "the chosen row comes first, so the margin cannot be negative"
+    assert [row["chosen"] for row in rows].count(True) == 1
+    assert rows[0]["chosen"] is True
+    assert rows[0]["track_id"] == analysis.report["track"]["id"], "the stored track is marked"
+    assert [row["name"] for row in payload["not_graded"]] == ["X0", "X1"]
+
+
+def test_the_payload_marks_the_chosen_track_and_nothing_without_one(session, career, stub):
+    """D.7.3: the payload is told which row won; it does not rank a second time."""
+    profile_id = career.first_profile.id
+    retire(session, career)
+    earlier = make_track(session, career, "Alfa", [f"Python {STRONG}"])
+    later = make_track(session, career, "Zeta", [f"Python {STRONG}"])
+    analysis = analyze(profile_id, session, jd_text=POSTING, track=later)
+    analyses = [(earlier, analysis), (later, analysis)]
+
+    tied = recommendation_payload(
+        analyses,
+        not_graded=(),
+        company=None,
+        cost_usd=Decimal("0"),
+        chosen_track_id=later.id,
+    )
+
+    assert [row["name"] for row in tied["candidates"]] == ["Zeta", "Alfa"]
+    assert [row["chosen"] for row in tied["candidates"]] == [True, False]
+    assert tied["margin"] == 0
+
+    unmarked = recommendation_payload(
+        analyses, not_graded=(), company=None, cost_usd=Decimal("0")
+    )
+
+    assert [row["name"] for row in unmarked["candidates"]] == ["Alfa", "Zeta"]
+    assert [row["chosen"] for row in unmarked["candidates"]] == [False, False]
+    assert unmarked["margin"] == 0
