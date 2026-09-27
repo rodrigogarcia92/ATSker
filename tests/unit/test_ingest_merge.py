@@ -6,6 +6,7 @@ text it had.
 """
 
 import hashlib
+import json
 from dataclasses import replace
 
 from sqlalchemy import select
@@ -13,11 +14,13 @@ from sqlalchemy import select
 from src.bullets import create_bullet, get_bullet, list_bullets, set_bullet_active
 from src.certifications import list_certifications
 from src.education import list_educations
+from src.extract import client as extract_client
 from src.ingest.draft import DraftBullet, DraftCertification, DraftEducation, DraftRole, ResumeDraft
 from src.ingest.merge import MergeResult, Selections, apply_merge, diff_draft
-from src.models import BulletRevision, Resume, Summary, TrackBullet
+from src.ingest.translation import TranslationSelections, apply_translation, plan_translation
+from src.models import BulletRevision, Resume, Role, Summary, TrackBullet
 from src.resumes import create_resume
-from src.roles import list_roles
+from src.roles import create_role, list_roles
 from src.summaries import list_summaries
 from src.tracks import get_track, set_track_bullets, track_bullets
 
@@ -62,6 +65,23 @@ def full_draft(bullet_text: str = "Modelé el riesgo de crédito con Python") ->
             DraftCertification(name="Scrum Master", issuer="Scrum Alliance", issued_date="2020-03")
         ],
     )
+
+
+class Pairing:
+    """One scripted BulletPairing answer: the single line of each side is the pair.
+
+    The translation path's own judgements are tested in `test_translation_import`;
+    here the pairing only has to let `apply_translation` reach the title it fills.
+    """
+
+    def __call__(self, payload: dict, api_key: str) -> dict:
+        assert payload["response_format"]["json_schema"]["name"] == "BulletPairing"
+        return {
+            "choices": [
+                {"message": {"content": json.dumps({"pairs": [{"existing": 0, "draft": 0}]})}}
+            ],
+            "usage": {"prompt_tokens": 120, "completion_tokens": 12, "cost": "0.0002"},
+        }
 
 
 def select_all(plan) -> Selections:
@@ -737,3 +757,123 @@ def test_a_summary_already_in_the_pool_is_matched_not_duplicated(session, career
     pooled = session.get(Summary, one.summary_es_id)
     assert pooled.source_resume_id == first.id, "the row keeps the résumé it came from"
     assert second_result.track_summary_filled is True, "the new track's slot is filled"
+
+
+def test_an_english_draft_matches_a_role_by_its_english_title(session, career):
+    """F2.5 + F4.2: `title` holds one language, so the index has to carry all three.
+
+    The English CV of a job whose row reads 'Analista de Datos' is that same job,
+    not a second one.
+    """
+    profile_id = career.first_profile.id
+    role = create_role(
+        profile_id,
+        session,
+        employer="Globex",
+        title_es="Analista de Datos",
+        title_en="Data Analyst",
+    )
+    session.flush()
+    draft = ResumeDraft(language="en", roles=[DraftRole(employer="Globex", title="Data Analyst")])
+    resume = make_resume(session, profile_id, draft, "cv-en")
+    before = len(list_roles(profile_id, session))
+
+    plan = diff_draft(profile_id, session, draft)
+    result = apply_merge(
+        profile_id,
+        session,
+        resume_id=resume.id,
+        draft=draft,
+        plan=plan,
+        selections=select_all(plan),
+    )
+
+    assert [entry.label for entry in plan.roles] == ["unchanged"]
+    assert plan.roles[0].existing_id == role.id
+    assert (result.roles_created, result.roles_updated) == (0, 0)
+    assert len(list_roles(profile_id, session)) == before, "no duplicate role was proposed"
+
+
+def test_a_dated_english_draft_changes_the_role_and_keeps_the_spanish_title(session, career):
+    """F4.2: matching through `title_en` still writes only the document's own column."""
+    profile_id = career.first_profile.id
+    role = create_role(
+        profile_id,
+        session,
+        employer="Globex",
+        title_es="Analista de Datos",
+        title_en="Data Analyst",
+    )
+    session.flush()
+    draft = ResumeDraft(
+        language="en",
+        roles=[DraftRole(employer="Globex", title="Data Analyst", start_date="2020-02")],
+    )
+    resume = make_resume(session, profile_id, draft, "cv-en")
+
+    plan = diff_draft(profile_id, session, draft)
+    assert [entry.label for entry in plan.roles] == ["changed"], "the dates moved"
+    apply_merge(
+        profile_id,
+        session,
+        resume_id=resume.id,
+        draft=draft,
+        plan=plan,
+        selections=select_all(plan),
+    )
+
+    refreshed = next(entry for entry in list_roles(profile_id, session) if entry.id == role.id)
+    assert refreshed.title_es == "Analista de Datos", "the other language keeps its text"
+    assert refreshed.title_en == "Data Analyst"
+
+
+def test_a_title_the_translation_filled_matches_the_english_draft_again(
+    session, career, test_settings, monkeypatch
+):
+    """F4.2 then F2.5: once `apply_translation` fills `title_en`, the ordinary diff of
+    the very CV the translation came from finds the row instead of proposing a new one.
+    """
+    profile_id = career.first_profile.id
+    monkeypatch.setattr(extract_client, "_post", Pairing())
+    draft = ResumeDraft(
+        language="en",
+        roles=[
+            DraftRole(
+                employer="Acme",
+                title="Data Analyst",
+                start_date="2020-02",
+                bullets=[DraftBullet(text="Cut reporting time by 30% with Python")],
+            )
+        ],
+    )
+    resume = make_resume(session, profile_id, draft, "cv-en", career.first_track.id)
+
+    plan = plan_translation(profile_id, session, track=career.first_track, draft=draft)
+    apply_translation(
+        profile_id,
+        session,
+        resume_id=resume.id,
+        plan=plan,
+        selections=TranslationSelections(pairs=frozenset({0})),
+    )
+
+    assert career.first_role.title_en == "Data Analyst", "the translation filled the slot"
+    again = diff_draft(profile_id, session, draft)
+    assert [entry.label for entry in again.roles] == ["changed"], "not a new role"
+    assert again.roles[0].existing_id == career.first_role.id
+
+
+def test_a_role_that_only_carries_title_still_matches(session, career):
+    """A pre-0011 row has `title` and nothing else: it matches exactly as before."""
+    profile_id = career.first_profile.id
+    role = Role(profile_id=profile_id, employer="Initech", title="Analista de datos")
+    session.add(role)
+    session.flush()
+    draft = ResumeDraft(
+        language="es", roles=[DraftRole(employer="Initech", title="ANALISTA DE DATOS")]
+    )
+
+    plan = diff_draft(profile_id, session, draft)
+
+    assert [entry.label for entry in plan.roles] == ["unchanged"]
+    assert plan.roles[0].existing_id == role.id

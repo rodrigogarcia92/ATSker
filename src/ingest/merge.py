@@ -235,17 +235,34 @@ def _similarity(left: frozenset[str], right: frozenset[str]) -> float:
     return len(left & right) / len(left | right)
 
 
+def _role_titles(role: Role) -> set[str]:
+    """Every non-empty title the role carries, folded (F4.2).
+
+    `title` holds one language — the role's primary one — so the document of the
+    other language names the same job only through `title_es`/`title_en`. A row
+    from before the split carries `title` alone and is indexed by it.
+    """
+    return {fold(title) for title in (role.title, role.title_es, role.title_en) if title}
+
+
 def _role_index(roles: list[Role]) -> dict[str, Role]:
-    """Folded employer+title → the role to match; the active, most recent one wins."""
+    """Folded employer+any title → the role to match; the active, most recent wins.
+
+    One role is indexed under each of its titles: reached through two of them it is
+    still one row, and two roles sharing a key are separated by the same preference
+    whichever key found them (F2.5, F4.2).
+    """
     index: dict[str, Role] = {}
     for role in roles:
-        key = f"{fold(role.employer)}\x00{fold(role.title)}"
-        current = index.get(key)
-        if current is None or (role.active, role.start_date or date.min) > (
-            current.active,
-            current.start_date or date.min,
-        ):
-            index[key] = role
+        employer = fold(role.employer)
+        for title in _role_titles(role):
+            key = f"{employer}\x00{title}"
+            current = index.get(key)
+            if current is None or (role.active, role.start_date or date.min) > (
+                current.active,
+                current.start_date or date.min,
+            ):
+                index[key] = role
     return index
 
 
