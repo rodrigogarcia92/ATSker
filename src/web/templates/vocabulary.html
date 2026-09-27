@@ -2,12 +2,12 @@
 {% block title %}{{ t('vocabulary.title', lang) }} — {{ t('app.name', lang) }}{% endblock %}
 {% block content %}
 <h1 class="text-2xl font-semibold tracking-tight">{{ t('vocabulary.title', lang) }}</h1>
-<p class="mt-1 text-sm text-slate-600">{{ t('vocabulary.unmapped_hint', lang) }}</p>
+<p class="mt-1 text-sm text-text-2">{{ t('vocabulary.unmapped_hint', lang) }}</p>
 
 <h2 class="mt-8 text-lg font-semibold">{{ t('vocabulary.skills', lang) }}</h2>
-<div class="mt-3 overflow-x-auto rounded-lg border border-slate-200 bg-white">
+<div class="mt-3 overflow-x-auto rounded-card border border-card-border bg-surface-1">
   <table class="w-full text-sm">
-    <thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+    <thead class="bg-surface-1 text-left text-xs uppercase tracking-wide text-text-3">
       <tr>
         <th class="px-3 py-2">{{ t('vocabulary.canonical', lang) }}</th>
         <th class="px-3 py-2">{{ t('vocabulary.kind', lang) }}</th>
@@ -15,42 +15,42 @@
         <th class="px-3 py-2">{{ t('vocabulary.lang_tags', lang) }}</th>
       </tr>
     </thead>
-    <tbody class="divide-y divide-slate-100">
+    <tbody class="divide-y divide-card-border">
       {% for skill in skills %}
       <tr>
         <td class="px-3 py-2 font-medium">{{ skill.canonical }}</td>
         <td class="px-3 py-2">
-          <span class="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-700">{{ t('kind.' + skill.kind, lang) }}</span>
+          <span class="rounded-control bg-surface-2 px-2 py-0.5 text-xs text-text">{{ t('kind.' + skill.kind, lang) }}</span>
         </td>
-        <td class="px-3 py-2 text-slate-600">{{ skill.aliases | join(', ') }}</td>
-        <td class="px-3 py-2 text-slate-500">{{ skill.lang_tags | join('/') }}</td>
+        <td class="px-3 py-2 text-text-2">{{ skill.aliases | join(', ') }}</td>
+        <td class="px-3 py-2 text-text-3">{{ skill.lang_tags | join('/') }}</td>
       </tr>
       {% else %}
-      <tr><td colspan="4" class="px-3 py-3 text-slate-600">{{ t('common.empty', lang) }}</td></tr>
+      <tr><td colspan="4" class="px-3 py-3 text-text-2">{{ t('common.empty', lang) }}</td></tr>
       {% endfor %}
     </tbody>
   </table>
 </div>
 
 <h2 class="mt-10 text-lg font-semibold">{{ t('vocabulary.unmapped', lang) }}</h2>
-<div class="mt-3 overflow-x-auto rounded-lg border border-slate-200 bg-white">
+<div class="mt-3 overflow-x-auto rounded-card border border-card-border bg-surface-1">
   <table class="w-full text-sm">
-    <thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+    <thead class="bg-surface-1 text-left text-xs uppercase tracking-wide text-text-3">
       <tr>
         <th class="px-3 py-2">{{ t('vocabulary.canonical', lang) }}</th>
         <th class="px-3 py-2">{{ t('vocabulary.seen', lang) }}</th>
         <th class="px-3 py-2">{{ t('vocabulary.status', lang) }}</th>
       </tr>
     </thead>
-    <tbody class="divide-y divide-slate-100">
+    <tbody class="divide-y divide-card-border">
       {% for term in unmapped %}
       <tr>
         <td class="px-3 py-2 font-medium">{{ term.term }}</td>
-        <td class="px-3 py-2 text-slate-600">{{ term.seen_count }}</td>
-        <td class="px-3 py-2 text-slate-500">{{ term.status }}</td>
+        <td class="px-3 py-2 text-text-2">{{ term.seen_count }}</td>
+        <td class="px-3 py-2 text-text-3">{{ term.status }}</td>
       </tr>
       {% else %}
-      <tr><td colspan="3" class="px-3 py-3 text-slate-600">{{ t('vocabulary.no_unmapped', lang) }}</td></tr>
+      <tr><td colspan="3" class="px-3 py-3 text-text-2">{{ t('vocabulary.no_unmapped', lang) }}</td></tr>
       {% endfor %}
     </tbody>
   </table>

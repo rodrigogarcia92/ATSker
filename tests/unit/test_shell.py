@@ -5,6 +5,8 @@ href, not by styling: a link that disappears behind an icon is still a link, and
 that is not in the HTML is not reachable at all.
 """
 
+import pytest
+
 from tests.conftest import login
 
 # The nine destinations §12.1 groups under Postular, Tu material and Cuenta.
@@ -55,6 +57,60 @@ def test_trayectoria_appears_nowhere_in_the_rendered_spanish_pages(client, caree
         response = client.get(path)
         assert response.status_code == 200, path
         assert "Trayectoria" not in response.text, f"the rename reached {path}"
+
+
+SCREEN_PATHS = (
+    "/dashboard",
+    "/analyze",
+    "/applications",
+    "/import",
+    "/tracks",
+    "/tracks/new",
+    "/tracks/{track}",
+    "/tracks/{track}/bullets",
+    "/tracks/{track}/edit",
+    "/tracks/{track}/delete",
+    "/roles",
+    "/roles/new",
+    "/roles/{role}",
+    "/roles/{role}/edit",
+    "/roles/{role}/delete",
+    "/roles/{role}/bullets/new",
+    "/stories",
+    "/stories/new",
+    "/stories/{story}",
+    "/stories/{story}/delete",
+    "/letters",
+    "/letters/new",
+    "/letters/{letter}/edit",
+    "/letters/{letter}/delete",
+    "/summaries/{summary}",
+    "/summaries/{summary}/delete",
+    "/bullets/{bullet}/edit",
+    "/bullets/{bullet}/delete",
+    "/profile",
+    "/profile/delete",
+    "/vocabulary",
+)
+
+
+@pytest.mark.parametrize("path", SCREEN_PATHS)
+def test_every_signed_in_screen_renders_with_the_shell(client, career, path):
+    """N6.4: no screen 500s on a template error after the tokens were applied."""
+    login(client, career.first.email)
+    url = path.format(
+        track=career.first_track.id,
+        role=career.first_role.id,
+        story=career.first_story.id,
+        letter=career.first_letter.id,
+        summary=career.first_summary.id,
+        bullet=career.first_bullet.id,
+    )
+
+    response = client.get(url)
+
+    assert response.status_code == 200, url
+    assert 'id="rail-body"' in response.text, f"the shell reached {url}"
 
 
 def test_vocabulario_is_reachable_from_perfil(client, career):

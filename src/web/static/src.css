@@ -41,6 +41,24 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* Dark controls by default, so a field added without a class still reads in the theme
+   rather than as a white box on a dark page. */
+input,
+textarea,
+select {
+  background: var(--color-surface-2);
+  color: var(--color-text);
+  border-color: var(--color-border);
+}
+input::placeholder,
+textarea::placeholder {
+  color: var(--color-text-3);
+}
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: var(--color-link);
+}
+
 /* The shell (§12.1). A 64px icon rail on desktop; a top bar with a menu button under
    640px. Labels appear when `body.rail-open` is toggled — no storage, no state. */
 .shell {
@@ -244,6 +262,28 @@ body.rail-open .rail-body {
 }
 .band-weak.is-on {
   background: var(--color-score-weak);
+}
+
+/* Shared tags: outlined, never a fill, so a tag reads as a label and not as a state. */
+.tag {
+  display: inline-block;
+  padding: 0.125rem 0.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-tag);
+  font-size: 0.75rem;
+  color: var(--color-text-2);
+}
+.tag-strong {
+  border-color: var(--color-score-strong);
+  color: var(--color-score-strong);
+}
+.tag-warning {
+  border-color: var(--color-sev-warning);
+  color: var(--color-sev-warning);
+}
+.tag-danger {
+  border-color: var(--color-sev-blocker);
+  color: var(--color-sev-blocker);
 }
 
 /* Severity (§12.1): outlined, never filled, and in its own palette. */

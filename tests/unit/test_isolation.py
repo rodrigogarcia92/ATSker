@@ -66,12 +66,12 @@ def test_profile_page_shows_only_the_signed_in_user(client, career):
     assert "Ana" in page
     assert "Bea" not in page
 
-    # A.9.1: F2.8's "Eliminar todo" link is white text, so it is invisible unless the
-    # committed build carries its background. `test_css_classes` checks every template
-    # class; this checks that the link itself is still rendered with them.
+    # A.9.1: F2.8's "Eliminar todo" link needs its background in the committed build or
+    # its text disappears into the page. `test_css_classes` checks every template class;
+    # this checks the link itself still renders with the danger style (§12.1's tokens).
     link = re.search(r'<a href="/profile/delete"\s+class="([^"]+)"', page, re.S)
     assert link is not None, "the profile page carries the delete-everything link"
-    assert {"bg-red-700", "hover:bg-red-600", "text-white"} <= set(link.group(1).split())
+    assert {"bg-sev-blocker", "text-bg"} <= set(link.group(1).split())
 
 
 def test_another_users_track_is_404_on_every_route(client, session, career):

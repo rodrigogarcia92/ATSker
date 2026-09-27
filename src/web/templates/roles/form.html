@@ -6,7 +6,7 @@
 </h1>
 
 <form method="post" action="{{ '/roles' if not role else '/roles/' ~ role.id }}"
-      class="mt-6 space-y-4 rounded-lg border border-slate-200 bg-white p-5">
+      class="mt-6 space-y-4 rounded-card border border-card-border bg-surface-1 p-5">
   <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
     {# F4.2: one title per language. `title` is not a field any more — it is written
        from whichever of the two the role's primary language names. #}
@@ -14,46 +14,46 @@
       <label for="title_es" class="mb-1 block text-sm font-medium">{{ t('roles.title_es', lang) }}</label>
       <input id="title_es" name="title_es"
              value="{{ role.title_es if role and role.title_es else (role.title if role and not role.title_en else '') }}"
-             class="w-full rounded border border-slate-300 px-3 py-2 text-sm">
+             class="w-full rounded-control border border-border px-3 py-2 text-sm">
     </div>
     <div>
       <label for="title_en" class="mb-1 block text-sm font-medium">{{ t('roles.title_en', lang) }}</label>
       <input id="title_en" name="title_en" value="{{ role.title_en if role and role.title_en else '' }}"
-             class="w-full rounded border border-slate-300 px-3 py-2 text-sm">
+             class="w-full rounded-control border border-border px-3 py-2 text-sm">
     </div>
   </div>
-  <p class="text-xs text-slate-500">{{ t('roles.title_hint', lang) }}</p>
+  <p class="text-xs text-text-3">{{ t('roles.title_hint', lang) }}</p>
   <div>
     <label for="employer" class="mb-1 block text-sm font-medium">{{ t('roles.employer', lang) }}</label>
     <input id="employer" name="employer" required value="{{ role.employer if role else '' }}"
-           class="w-full rounded border border-slate-300 px-3 py-2 text-sm">
+           class="w-full rounded-control border border-border px-3 py-2 text-sm">
   </div>
   <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
     <div>
       <label for="start_date" class="mb-1 block text-sm font-medium">{{ t('roles.start', lang) }}</label>
       <input id="start_date" name="start_date" type="date"
              value="{{ role.start_date.isoformat() if role and role.start_date else '' }}"
-             class="w-full rounded border border-slate-300 px-3 py-2 text-sm">
+             class="w-full rounded-control border border-border px-3 py-2 text-sm">
     </div>
     <div>
       <label for="end_date" class="mb-1 block text-sm font-medium">{{ t('roles.end', lang) }}</label>
       <input id="end_date" name="end_date" type="date"
              value="{{ role.end_date.isoformat() if role and role.end_date else '' }}"
-             class="w-full rounded border border-slate-300 px-3 py-2 text-sm">
+             class="w-full rounded-control border border-border px-3 py-2 text-sm">
     </div>
   </div>
-  <p class="text-xs text-slate-500">{{ t('roles.dates_hint', lang) }}</p>
+  <p class="text-xs text-text-3">{{ t('roles.dates_hint', lang) }}</p>
 
   {% if role %}
   <label class="flex items-center gap-2 text-sm">
     <input type="checkbox" name="active" value="on" {% if role.active %}checked{% endif %}>
     {{ t('common.active', lang) }}
   </label>
-  <p class="text-xs text-slate-500">{{ t('roles.deactivate_hint', lang) }}</p>
+  <p class="text-xs text-text-3">{{ t('roles.deactivate_hint', lang) }}</p>
   {% endif %}
 
   <div class="flex items-center gap-4">
-    <button type="submit" class="rounded bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800">
+    <button type="submit" class="rounded-control bg-link px-3 py-2 text-sm font-medium text-bg hover:opacity-90">
       {{ t('common.save', lang) }}
     </button>
     <a href="{{ '/roles' if not role else '/roles/' ~ role.id }}" class="text-sm underline">
