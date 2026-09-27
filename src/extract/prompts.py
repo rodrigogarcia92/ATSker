@@ -335,6 +335,36 @@ GAP_INTERPRETATION = Prompt(
 )
 
 
+BULLET_PAIRING_V1 = Prompt(
+    version="bullet_pairing_v1",
+    # F4.2's translation import: the same achievements, written in the other
+    # language. The rules are the whole system message — the two lists are the only
+    # thing that varies between roles — and they are the grading call's citation
+    # rules in miniature: indexes that exist, one-to-one, and silence rather than a
+    # guess.
+    system=(
+        "You match the same achievement written in two languages. You are given two "
+        "numbered lists: the lines a person already has, in one language, and the "
+        "lines of a CV in the other. A pair means the two lines describe the same "
+        "piece of work — the same project, the same role, the same result — not "
+        "merely a shared topic or verb.\n\n"
+        "Cite only indexes from the lists. Every index may appear at most once "
+        "across the pairs, in either list: the pairing is one-to-one, because one "
+        "line of the CV is one line of the résumé and never two. A line whose other "
+        "language you do not find is left unpaired — omit it, do not force it into a "
+        "pair. Returning an index that does not exist, or the same index twice, is a "
+        "failure. Return an empty list when nothing pairs."
+    ),
+    template=(
+        "Existing lines (language {lang_existing}; use their indexes as `existing`):\n"
+        "{existing}\n\n"
+        "The CV's lines (language {lang_draft}; use their indexes as `draft`):\n"
+        "{draft}\n\n"
+        "Return the pairs that say the same thing."
+    ),
+)
+
+
 BOOLEAN_RECALL = Prompt(
     version="boolean_recall_v1",
     # Instructions and vocabulary are the stable prefix; the posting is the whole user

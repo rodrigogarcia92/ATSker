@@ -1067,6 +1067,82 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "Summary: left alone, the track already had one.",
     },
     "import.merge_submit": {"es": "Importar la selección", "en": "Import the selection"},
+    # F4.2: the same CV in the other language, imported as a translation.
+    "import.translate_offer": {
+        "es": "Este CV parece la versión en el otro idioma de tu puesto objetivo",
+        "en": "This CV looks like the other-language version of your track",
+    },
+    "import.translate_offer_hint": {
+        "es": "Importar como traducción rellena las columnas vacías de las viñetas y "
+        "el título que ya tienes en lugar de crear un currículum aparte.",
+        "en": "Importing as a translation fills the empty columns of the bullets and "
+        "the title you already have instead of creating a second résumé.",
+    },
+    "import.translate_submit": {
+        "es": "Importar como traducción",
+        "en": "Import as translation",
+    },
+    "import.translate_title": {
+        "es": "Importar como traducción",
+        "en": "Import as translation",
+    },
+    "import.translate_intro": {
+        "es": "El documento está en {document} y tu puesto objetivo está en {track}. "
+        "Empareja las viñetas que dicen lo mismo; lo que no empareje entra abajo como "
+        "candidato nuevo.",
+        "en": "The document is in {document} and your track is in {track}. Pair the "
+        "bullets that say the same thing; whatever does not pair enters below as a new "
+        "candidate.",
+    },
+    "import.translate_hint": {
+        "es": "Nada existente se sobrescribe: una columna que ya tiene texto se "
+        "conserva tal cual.",
+        "en": "Nothing existing is overwritten: a column that already holds text keeps "
+        "it as it is.",
+    },
+    "import.translate_pairs": {"es": "Viñetas emparejadas", "en": "Paired bullets"},
+    "import.translate_pairs_hint": {
+        "es": "Las dos columnas son la misma viñeta en cada idioma. Desmarca lo que no "
+        "quieras escribir.",
+        "en": "The two columns are the same bullet in each language. Untick whatever "
+        "you do not want written.",
+    },
+    "import.translate_fills": {
+        "es": "Rellena el texto en {language}.",
+        "en": "Fills the {language} text.",
+    },
+    "import.translate_kept_hint": {
+        "es": "Ya tiene texto en el otro idioma: se conserva, no se sobrescribe.",
+        "en": "It already has the other language's text: it is kept, not overwritten.",
+    },
+    "import.translate_no_pairs": {
+        "es": "Ninguna viñeta dice lo mismo en los dos idiomas.",
+        "en": "No bullet says the same thing in both languages.",
+    },
+    "import.translate_new": {"es": "Entra como nuevo", "en": "Enters as new"},
+    "import.translate_new_hint": {
+        "es": "Las viñetas sin pareja y los puestos que no coinciden siguen las reglas "
+        "de F2.5.",
+        "en": "Unpaired bullets and roles that do not match follow F2.5's rules.",
+    },
+    "import.translate_apply": {
+        "es": "Aplicar la traducción",
+        "en": "Apply the translation",
+    },
+    "import.translate_failed": {
+        "es": "No se pudo emparejar las viñetas: el modelo no devolvió una respuesta "
+        "utilizable. Puedes importar el documento como una selección normal.",
+        "en": "The bullets could not be paired: the model did not return a usable "
+        "answer. You can import the document as an ordinary selection.",
+    },
+    "import.translations_filled": {
+        "es": "Traducciones escritas",
+        "en": "Translations filled",
+    },
+    "import.translations_kept": {
+        "es": "Traducciones conservadas",
+        "en": "Translations kept",
+    },
     "import.merged_title": {"es": "Importación aplicada", "en": "Import applied"},
     "import.merged_at": {"es": "Importado el", "en": "Merged on"},
     "import.merged_intro": {

@@ -23,6 +23,7 @@ from src.extract.client import (
     StructuredOutputError,
     model_configured,
 )
+from src.extract.grading import CitationViolation
 from src.extract.resume import EmptyExtraction, extract_resume
 from src.i18n import t
 from src.ingest.documents import UnreadableDocument, UnsupportedDocument, load_document
@@ -35,6 +36,12 @@ from src.ingest.draft import (
     build_draft,
 )
 from src.ingest.merge import HEADLINE_LIMIT, Selections, apply_merge, diff_draft
+from src.ingest.translation import (
+    TranslationSelections,
+    apply_translation,
+    plan_translation,
+    translation_available,
+)
 from src.models import Resume, Track
 from src.parse.gate import checks_not_run
 from src.resumes import (
@@ -608,6 +615,7 @@ async def import_confirm(
     draft = draft_from_form(form, language=language)
     save_draft(profile.id, session, resume_id, draft.model_dump(mode="json"))
     session.commit()
+    track = get_track(profile.id, session, resume.track_id) if resume.track_id else None
     return render(
         request,
         "import/merge.html",
@@ -615,8 +623,14 @@ async def import_confirm(
         profile=profile,
         resume=resume,
         draft=draft,
-        track=get_track(profile.id, session, resume.track_id) if resume.track_id else None,
+        track=track,
         plan=diff_draft(profile.id, session, draft),
+        # F4.2: the screen offers the translation import when this document is the
+        # other language of the track it was tagged with, and holds a job that track
+        # already has. No provider call is made to decide it.
+        translation_available=translation_available(
+            profile.id, session, track=track, draft=draft
+        ),
     )
 
 
@@ -670,6 +684,124 @@ async def import_merge(
         draft=draft,
         result=result,
         pending=_pending_chips(session, draft),
+        track=get_track(profile.id, session, resume.track_id) if resume.track_id else None,
+    )
+
+
+@router.post("/import/{resume_id}/translate")
+async def import_translate(
+    resume_id: str,
+    request: Request,
+    user: SignedInUser,
+    session: DbSession,
+    profile: OwnProfile,
+):
+    """The other-language CV as a translation (F4.2): propose the pairs, then apply.
+
+    One provider call per matched role, made with no transaction held. The screen
+    that follows is the same form as the merge screen — the pairs above, the ordinary
+    candidates below — posting to one route, so a confirmed pair and a ticked new
+    bullet are one write.
+    """
+    resume = get_resume(profile.id, session, resume_id)
+    if resume is None or resume.merged_at is not None or not resume.draft:
+        raise HTTPException(status_code=404)
+    draft = ResumeDraft.model_validate(resume.draft)
+    track = get_track(profile.id, session, resume.track_id) if resume.track_id else None
+    if track is None or not translation_available(profile.id, session, track=track, draft=draft):
+        raise HTTPException(status_code=404)
+    plan = diff_draft(profile.id, session, draft)
+    session.commit()
+    try:
+        translation = plan_translation(
+            profile.id,
+            session,
+            track=track,
+            draft=draft,
+            options=CallOptions(profile_id=profile.id),
+        )
+    except (NoModelConfigured, ProviderUnavailable, StructuredOutputError, CitationViolation):
+        # The pairs cannot be reviewed without the answer, and a citation violation
+        # after its retry is not something to paper over. The normal merge is still
+        # there, so the screen says what failed rather than losing the upload.
+        session.commit()
+        return render(
+            request,
+            "import/merge.html",
+            user=user,
+            profile=profile,
+            resume=resume,
+            draft=draft,
+            track=track,
+            plan=plan,
+            translation_available=True,
+            error=t("import.translate_failed", user.ui_lang),
+        )
+    session.commit()
+    return render(
+        request,
+        "import/translate.html",
+        user=user,
+        profile=profile,
+        resume=resume,
+        draft=draft,
+        track=track,
+        translation=translation,
+        plan=translation.plan,
+    )
+
+
+@router.post("/import/{resume_id}/translate/apply")
+async def import_translate_apply(
+    resume_id: str,
+    request: Request,
+    user: SignedInUser,
+    session: DbSession,
+    profile: OwnProfile,
+):
+    resume = get_resume(profile.id, session, resume_id)
+    if resume is None or resume.merged_at is not None or not resume.draft:
+        raise HTTPException(status_code=404)
+    draft = ResumeDraft.model_validate(resume.draft)
+    track = get_track(profile.id, session, resume.track_id) if resume.track_id else None
+    if track is None or not translation_available(profile.id, session, track=track, draft=draft):
+        raise HTTPException(status_code=404)
+    session.commit()
+    # The pairing is re-derived from the same inputs, so the cache serves it and the
+    # review the user confirmed and the write are the same answer by construction.
+    translation = plan_translation(
+        profile.id,
+        session,
+        track=track,
+        draft=draft,
+        options=CallOptions(profile_id=profile.id),
+    )
+    form = await request.form()
+    selections = TranslationSelections(
+        pairs=frozenset(_checked_indices(form, "pair_")),
+        merge=Selections(
+            roles=frozenset(_checked_indices(form, "merge_role_")),
+            bullets=frozenset(_checked_pairs(form, "merge_bullet_")),
+            educations=frozenset(_checked_indices(form, "merge_education_")),
+            certifications=frozenset(_checked_indices(form, "merge_certification_")),
+            skills=frozenset(_checked_indices(form, "merge_skill_")),
+        ),
+    )
+    result = apply_translation(
+        profile.id, session, resume_id=resume.id, plan=translation, selections=selections
+    )
+    if result is None:
+        raise HTTPException(status_code=404)
+    session.commit()
+    return render(
+        request,
+        "import/merged.html",
+        user=user,
+        profile=profile,
+        resume=resume,
+        draft=draft,
+        result=result,
+        pending=_pending_chips(session, translation.draft),
         track=get_track(profile.id, session, resume.track_id) if resume.track_id else None,
     )
 

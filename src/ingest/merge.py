@@ -171,6 +171,12 @@ class MergeResult:
     # or joined because the upload was tagged with it.
     track_id: uuid.UUID | None = None
     track_created: bool = False
+    # F4.2's translation import: the columns a confirmed pair filled, the pairs whose
+    # column already held different text, and — with the bullets created above — the
+    # filled / kept / new the translation result page reports. They count as writes:
+    # an import whose only action was filling columns did something.
+    translations_filled: int = 0
+    translations_kept: int = 0
     # A draft headline longer than the column is never written and never truncated:
     # a cut sentence says something else. (characters, limit) is the note both
     # screens render in either language; `note` is its English form.
@@ -191,6 +197,8 @@ class MergeResult:
         "skipped",
         "track_bullets_added",
         "track_skills_added",
+        "translations_filled",
+        "translations_kept",
     )
 
     @property
@@ -634,6 +642,13 @@ def apply_merge(
                 if existing is None:
                     counts["skipped"] += 1
                     continue
+                # A document carries one language, so it rewrites that column and
+                # leaves the other alone (F4.2): the draft's `None` half is "this
+                # document says nothing about that language", never "erase it".
+                if draft.language == "en":
+                    text_es = existing.text_es
+                else:
+                    text_en = existing.text_en
                 if bullet.old_text is not None:
                     session.add(
                         BulletRevision(

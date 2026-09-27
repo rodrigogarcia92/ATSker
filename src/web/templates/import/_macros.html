@@ -1,0 +1,17 @@
+{# The badges and boxes the import screens share (F2.5, F4.2): one diff, two screens.
+   Imported by name so the call sites read the same in both. #}
+{% macro badge(label, lang) -%}
+<span class="rounded px-2 py-0.5 text-xs
+             {% if label == 'new' %}bg-emerald-100 text-emerald-900
+             {% elif label == 'changed' %}bg-amber-100 text-amber-900
+             {% else %}bg-slate-100 text-slate-600{% endif %}">{{ t('import.label.' ~ label, lang) }}</span>
+{%- endmacro %}
+{% macro checkbox(name, checked, lang, text) -%}
+<label class="flex items-start gap-2 text-sm">
+  <input type="checkbox" name="{{ name }}" value="on" {% if checked %}checked{% endif %} class="mt-0.5">
+  <span>{{ text }}</span>
+</label>
+{%- endmacro %}
+{% macro change_list(fields, lang) -%}
+{% for field in fields %}{{ t('import.change.' ~ field, lang) }}{% if not loop.last %}, {% endif %}{% endfor %}
+{%- endmacro %}

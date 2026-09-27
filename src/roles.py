@@ -109,7 +109,7 @@ def role_title(role: Role, lang: str | None = None) -> tuple[str, bool]:
     return (role.title or "").strip(), False
 
 
-def _mirror_title(title_es: str | None, title_en: str | None, language: str) -> str:
+def mirror_title(title_es: str | None, title_en: str | None, language: str) -> str:
     """What `title` holds: the primary language's title, or the other one when it is
     the only one filled. Never a translation: an empty column stays empty."""
     own, other = ("en", "es") if language == "en" else ("es", "en")
@@ -136,7 +136,7 @@ def create_role(
     role = Role(
         profile_id=profile_id,
         employer=employer.strip(),
-        title=_mirror_title(
+        title=mirror_title(
             title_es, title_en, role_language(profile_id, session, language=language)
         ),
         title_es=_clean(title_es),
@@ -168,7 +168,7 @@ def update_role(
     role.employer = employer.strip()
     # The primary language is read before the write, from the bullets as they are:
     # the title being saved is a title, never evidence of the role's language.
-    role.title = _mirror_title(
+    role.title = mirror_title(
         title_es, title_en, role_language(profile_id, session, role_id, language=language)
     )
     role.title_es = _clean(title_es)
