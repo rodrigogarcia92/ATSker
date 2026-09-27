@@ -54,6 +54,84 @@
   </p>
 </div>
 
+{% if report.recommendation %}
+{# F7.1: the posting scored against every candidate track, above the components of
+   the chosen one. A report stored before the recommendation existed has none. #}
+<h2 class="mt-8 text-lg font-semibold">{{ t('report.recommendation', lang) }}</h2>
+<p class="mt-1 text-xs text-slate-500">{{ t('report.recommendation.intro', lang) }}</p>
+{% if report.recommendation.candidates %}
+<div class="mt-3 overflow-x-auto rounded-lg border border-slate-200 bg-white">
+  <table class="w-full text-sm">
+    <thead>
+      <tr class="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
+        <th class="px-3 py-2 text-left">{{ t('report.recommendation.track', lang) }}</th>
+        <th class="px-3 py-2 text-right">{{ t('report.total', lang) }}</th>
+        {% for name in ['skills', 'experience', 'title', 'keywords'] %}
+        <th class="px-3 py-2 text-right">{{ t('report.sub.' ~ name, lang) }}</th>
+        {% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for candidate in report.recommendation.candidates %}
+      <tr class="border-b border-slate-100 last:border-0">
+        <td class="px-3 py-2">
+          {{ candidate.name }}
+          {% if candidate.chosen %}
+          <span class="rounded bg-emerald-100 px-2 py-0.5 text-xs text-emerald-900">{{ t('report.recommendation.chosen', lang) }}</span>
+          {% endif %}
+        </td>
+        <td class="px-3 py-2 text-right font-semibold">{{ candidate.job_match }}</td>
+        {% for name in ['skills', 'experience', 'title', 'keywords'] %}
+        <td class="px-3 py-2 text-right text-slate-600">{{ candidate.sub_scores.get(name, '—') }}</td>
+        {% endfor %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{% if report.recommendation.margin is not none %}
+<p class="mt-2 text-sm text-slate-600">
+  {{ t('report.recommendation.margin', lang,
+        runner_up=report.recommendation.candidates[1].name,
+        margin=report.recommendation.margin) }}
+</p>
+{% endif %}
+{% if report.recommendation.tie_break %}
+<p class="mt-1 text-sm text-slate-600">
+  {{ t('report.recommendation.tie_sub', lang,
+        sub_score=t('report.sub.' ~ report.recommendation.tie_break.sub_score, lang),
+        delta=report.recommendation.tie_break.delta) }}
+  {% if report.recommendation.tie_break.organisation_track %}
+  {{ t('report.recommendation.tie_organisation', lang,
+        track=report.recommendation.tie_break.organisation_track) }}
+  {% endif %}
+</p>
+{% endif %}
+{% if report.recommendation.justification %}
+<p class="mt-1 text-sm text-slate-700">
+  {% if report.recommendation.justification.runner_up %}
+  {{ t('report.recommendation.justification', lang,
+        track=report.recommendation.justification.track,
+        sub_score=t('report.sub.' ~ report.recommendation.justification.sub_score, lang),
+        delta=report.recommendation.justification.delta,
+        runner_up=report.recommendation.justification.runner_up,
+        applies_when=report.recommendation.justification.applies_when) }}
+  {% else %}
+  {{ t('report.recommendation.justification_single', lang,
+        track=report.recommendation.justification.track,
+        applies_when=report.recommendation.justification.applies_when) }}
+  {% endif %}
+</p>
+{% endif %}
+{% if report.recommendation.not_graded %}
+<p class="mt-1 text-xs text-slate-500">
+  {{ t('report.recommendation.not_graded', lang,
+        names=report.recommendation.not_graded | map(attribute='name') | join(', ')) }}
+</p>
+{% endif %}
+{% endif %}
+
 <h2 class="mt-8 text-lg font-semibold">{{ t('report.sub_scores', lang) }}</h2>
 <div class="mt-3 space-y-3">
   {% for name, sub in report.score.sub_scores.items() %}

@@ -5,6 +5,7 @@ user reads is the row the dataset keeps — not a re-render of live data that co
 drift from it.
 """
 
+import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Form, HTTPException, Request
@@ -23,16 +24,18 @@ from src.extract.client import (
 from src.extract.grading import CitationViolation
 from src.i18n import t
 from src.parse.gate import checks_not_run
+from src.recommend import recommend
 from src.resumes import source_document_for_track
 from src.tracks import get_track, list_tracks
 from src.web.deps import DbSession, OwnProfile, SignedInUser
 from src.web.findings import document_kind, finding_rows
+from src.web.forms import is_checked
 from src.web.recall import query_rows
 from src.web.templating import render
 
 router = APIRouter()
 
-EMPTY_FORM = {"jd_text": "", "company": "", "title": "", "track_id": ""}
+EMPTY_FORM = {"jd_text": "", "company": "", "title": "", "track_id": "", "recommend": "on"}
 
 
 def _form(
@@ -72,12 +75,16 @@ def analyze_submit(
     company: Annotated[str | None, Form()] = None,
     title: Annotated[str | None, Form()] = None,
     track_id: Annotated[str | None, Form()] = None,
+    # The box is named `recommend` in the form; the parameter is not, so that the
+    # imported function of the same name stays the function (F7.1).
+    recommend_track: Annotated[str | None, Form(alias="recommend")] = None,
 ):
     values = {
         "jd_text": jd_text,
         "company": company or "",
         "title": title or "",
         "track_id": track_id or "",
+        "recommend": "on" if is_checked(recommend_track) else "off",
     }
     if not jd_text.strip():
         message = t("analyze.need_text", user.ui_lang)
@@ -95,15 +102,27 @@ def analyze_submit(
     try:
         # F2.8: the ledger rows of every call this analysis makes record whose call
         # they were — attribution rides `options`, which `analyze` forwards unchanged.
-        analysis = analyze(
-            profile.id,
-            session,
-            jd_text=jd_text,
-            company=company,
-            title=title,
-            track=track,
-            options=CallOptions(profile_id=profile.id),
-        )
+        if track is None and is_checked(recommend_track):
+            # F7.1: no track chosen and the box ticked — score every candidate track
+            # and store the winner. The report carries the whole table.
+            analysis = recommend(
+                profile.id,
+                session,
+                jd_text=jd_text,
+                company=company,
+                title=title,
+                options=CallOptions(profile_id=profile.id),
+            )
+        else:
+            analysis = analyze(
+                profile.id,
+                session,
+                jd_text=jd_text,
+                company=company,
+                title=title,
+                track=track,
+                options=CallOptions(profile_id=profile.id),
+            )
     except NoModelConfigured:
         message = t("analyze.no_model", user.ui_lang)
         return _form(request, user, session, profile, values=values, error=message)
@@ -114,6 +133,14 @@ def analyze_submit(
         message = t("analyze.failed", user.ui_lang)
         return _form(request, user, session, profile, values=values, error=message)
 
+    # F7.1: a recommendation stores the winner's track — that is the application the
+    # user would send — and the report names it either way. The snapshot holds the id
+    # as a string, which is what a JSON report can hold.
+    stored_track = (analysis.report.get("track") or {}).get("id")
+    try:
+        winner_track_id = uuid.UUID(str(stored_track)) if stored_track else None
+    except ValueError:  # pragma: no cover - only a hand-edited report can do this
+        winner_track_id = None
     application = create_application(
         profile.id,
         session,
@@ -125,7 +152,7 @@ def analyze_submit(
         weights_version=analysis.weights_version,
         prompt_versions=analysis.prompt_versions,
         token_cost_usd=analysis.cost_usd,
-        track_id=track.id if track is not None else None,
+        track_id=track.id if track is not None else winner_track_id,
         # The findings of the document that capped the score, if one did (F5.1). The
         # report already carries the same JSON under `gate`; the column is what the
         # report page reads, and what N4's boolean recall will sit beside.

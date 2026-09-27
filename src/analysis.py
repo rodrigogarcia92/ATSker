@@ -35,7 +35,7 @@ from src.documents import (
     track_document,
 )
 from src.education import list_educations
-from src.extract.boolean import BooleanQuery, derive_boolean_queries
+from src.extract.boolean import BooleanQuery, BooleanQuerySet, derive_boolean_queries
 from src.extract.client import CallOptions, Completion
 from src.extract.gaps import GapInput, interpret_gaps
 from src.extract.grading import grade_evidence
@@ -85,9 +85,15 @@ class Analysis:
     bullets: tuple[Bullet, ...]
     document: tuple[DocumentUnit, ...] = ()
     recall: RecallReport = RecallReport()
+    # Every call this analysis made, for F7.1's recommendation: one posting scored
+    # against six tracks shows what all of them cost, not only the winner's.
+    calls: tuple[Completion, ...] = ()
+    # The recruiter's derivation this analysis scored against — F7.1 reads it off the
+    # first track and hands the same answer to the rest.
+    queries: BooleanQuerySet | None = None
 
 
-def _llm_section(calls: Sequence[Completion], cost: Decimal) -> dict[str, object]:
+def llm_section(calls: Sequence[Completion], cost: Decimal) -> dict[str, object]:
     """The cost ledger for this analysis, as it will be shown on the report page."""
     return {
         "cost_usd": str(cost),
@@ -125,6 +131,59 @@ def _recall_payload(recall: RecallReport, queries: Sequence[BooleanQuery]) -> di
     return payload
 
 
+@dataclass(frozen=True)
+class Preparation:
+    """What every track of one posting shares (PRD F7.1): the extraction.
+
+    A recommendation scores one posting against several tracks, and two of its calls
+    are about the posting alone: the extraction, made here, and the recruiter's
+    queries, derived from the posting's text and passed to `score_track` by whoever
+    made the first one. A single analysis derives them itself, in the same place it
+    always did — which is what keeps a report produced before the split comparable
+    with one produced now.
+    """
+
+    jd: StructuredJD
+    extraction: Completion
+    aliases: dict[str, str]
+    vocabulary_hash: str
+    today: date
+
+
+def prepare(
+    profile_id: uuid.UUID,
+    session: Session,
+    *,
+    jd_text: str,
+    model: str | None = None,
+    options: CallOptions | None = None,
+) -> Preparation:
+    """Extract the posting and derive the recruiter's queries, once (F7.1).
+
+    Transaction boundaries are the unit of work's: the reads end before each provider
+    call (`client.complete_json` refuses to run inside a transaction).
+    """
+    profile = session.get(Profile, profile_id)
+    if profile is None:
+        raise RuntimeError("an analysis needs a profile that exists")
+    aliases = alias_map(session)
+    # The vocabulary this report was scored against (F3.1), read with the alias map
+    # it produced: a vocabulary change moves scores, so two reports must be able to
+    # say whether they saw the same words before the scorer is blamed.
+    vocab_hash = vocabulary_hash(session)
+    today = date.today()
+
+    session.commit()
+    jd, extraction = extract_jd(session, jd_text, model=model, options=options)
+    return Preparation(
+        jd=jd,
+        extraction=extraction,
+        aliases=aliases,
+        vocabulary_hash=vocab_hash,
+        today=today,
+    )
+
+
 def analyze(
     profile_id: uuid.UUID,
     session: Session,
@@ -152,11 +211,52 @@ def analyze(
 
     `options` exists for the model-selection experiment, which must bypass the
     content-hash cache to measure the judge rather than the cache.
+
+    The two halves are named so that F7.1's recommendation can run the first once and
+    the second per track; a single analysis is still exactly the same two steps in the
+    same order, which is what keeps every stored report comparable with the ones this
+    produced before the split.
+    """
+    prepared = prepare(profile_id, session, jd_text=jd_text, model=model, options=options)
+    return score_track(
+        profile_id,
+        session,
+        jd_text=jd_text,
+        prepared=prepared,
+        company=company,
+        title=title,
+        gate=gate,
+        model=model,
+        options=options,
+        track=track,
+    )
+
+
+def score_track(
+    profile_id: uuid.UUID,
+    session: Session,
+    *,
+    jd_text: str,
+    prepared: Preparation,
+    company: str | None = None,
+    title: str | None = None,
+    gate: ParseReport | None = None,
+    model: str | None = None,
+    options: CallOptions | None = None,
+    track: Track | None = None,
+    queries: BooleanQuerySet | None = None,
+) -> Analysis:
+    """One track's analysis of a prepared posting: document, grading, score, gaps.
+
+    `queries` is the recruiter's derivation when somebody else already made it — F7.1
+    derives it once and hands the same answer to every candidate track. Without one,
+    this derives it here, exactly where a single analysis always has.
     """
     profile = session.get(Profile, profile_id)
     if profile is None:
         raise RuntimeError("an analysis needs a profile that exists")
 
+    jd = prepared.jd
     roles = list_roles(profile_id, session, active_only=True)
     # The evidence and the document are one decision (F5.5.1): the same bullets,
     # read through the same rule — active, under an active role, the track's
@@ -170,25 +270,13 @@ def analyze(
             source = source_document_for_track(profile_id, session, track.id)
             if source is not None and source.gate:
                 gate = ParseReport.from_dict(source.gate)
-    aliases = alias_map(session)
-    # The vocabulary this report was scored against (F3.1), read with the alias map
-    # it produced: a vocabulary change moves scores, so two reports must be able to
-    # say whether they saw the same words before the scorer is blamed.
-    vocab_hash = vocabulary_hash(session)
-    today = date.today()
+    aliases = prepared.aliases
+    vocab_hash = prepared.vocabulary_hash
+    today = prepared.today
 
-    # Transaction boundaries are the unit of work's: release the profile, role and
-    # bullet reads before each provider call (client.complete_json refuses to run
-    # inside a transaction, which is the connection the database kills).
-    session.commit()
-    jd, extraction = extract_jd(session, jd_text, model=model, options=options)
-    # The extraction just wrote its unmapped-term notes; the grading call must not
-    # carry them across the network either.
-    session.commit()
     # The document as one reader sees it, in the posting's language (F4.1): what the
     # keyword scan runs over, what the title sub-score reads its headline from, and
-    # where a citation's snapshot comes from. Only the extraction can say which
-    # language that is, so it is built here and read before the next call.
+    # where a citation's snapshot comes from. The reads end before the next call.
     document = track_document(profile_id, session, track, jd.language)
     session.commit()
     grading = grade_evidence(
@@ -203,12 +291,15 @@ def analyze(
         known_names=[profile.display_name] if profile.display_name else None,
         options=options,
     )
-    # F5.2's scan is its own provider call, so the same boundary applies: the reads
-    # below happen after it, and the call starts with nothing held.
-    session.commit()
-    queries, recall_call = derive_boolean_queries(
-        session, jd_text, model=model, options=options
-    )
+    # The extraction wrote its unmapped-term notes; the derivation must not carry
+    # them across the network either. F7.1 derives the queries once and passes them
+    # in; a single analysis derives them here, after the grading call, as before.
+    recall_call: Completion | None = None
+    if queries is None:
+        session.commit()
+        queries, recall_call = derive_boolean_queries(
+            session, jd_text, model=model, options=options
+        )
     recall = evaluate(
         queries.queries,
         searchable_units(document),
@@ -406,7 +497,12 @@ def analyze(
         options=options,
     )
 
-    calls = (extraction, *grading.calls, recall_call, *reading.calls)
+    calls = (
+        prepared.extraction,
+        *grading.calls,
+        *([recall_call] if recall_call is not None else []),
+        *reading.calls,
+    )
     cost = sum((call.cost_usd for call in calls), Decimal("0"))
 
     report: dict[str, object] = {
@@ -472,7 +568,7 @@ def analyze(
         # query is a gate, like a disqualifier, not a percentage.
         "recall": _recall_payload(recall, queries.queries),
         "score": score.to_dict(),
-        "llm": _llm_section(calls, cost),
+        "llm": llm_section(calls, cost),
     }
     # F7.2: the six edit rules, computed from the report just built and the user's own
     # rows — deterministic, free, and made no provider call, so this runs after the
@@ -503,4 +599,6 @@ def analyze(
         bullets=tuple(bullets),
         document=tuple(document),
         recall=recall,
+        calls=calls,
+        queries=queries,
     )

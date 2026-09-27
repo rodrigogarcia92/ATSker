@@ -136,6 +136,15 @@ STRINGS: dict[str, dict[str, str]] = {
         "tiene, su titular.",
         "en": "With a track, the score uses only its bullets and, when set, its headline.",
     },
+    # F7.1: the recommendation, for the user who has not decided which track to apply
+    # with. It only acts when no track is chosen.
+    "analyze.recommend": {"es": "Recomendar puesto", "en": "Recommend a track"},
+    "analyze.recommend_hint": {
+        "es": "Puntúa la oferta contra tus puestos objetivo, hasta seis, y te dice "
+        "cuál gana y por qué. Solo se usa si no eliges un puesto arriba.",
+        "en": "Scores the posting against up to six of your tracks and says which one "
+        "wins and why. Used only when no track is chosen above.",
+    },
     # Application history (F9)
     "applications.title": {"es": "Historial", "en": "History"},
     "applications.new": {"es": "Analizar una oferta", "en": "Analyse a posting"},
@@ -252,6 +261,49 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "No track: every active bullet was scored.",
     },
     "report.sub_scores": {"es": "Componentes", "en": "Components"},
+    # F7.1: the table the recommendation produces, above the components, with the
+    # chosen track marked. The justification is a code-built line, not prose from a
+    # model: the winner, the sub-score it leads on, and the track's own "when to use".
+    "report.recommendation": {
+        "es": "Recomendación de puesto",
+        "en": "Track recommendation",
+    },
+    "report.recommendation.intro": {
+        "es": "La oferta puntuada contra cada puesto objetivo candidato. La elegida es "
+        "la que se guarda en esta aplicación.",
+        "en": "The posting scored against each candidate track. The chosen one is what "
+        "this application stores.",
+    },
+    "report.recommendation.track": {"es": "Puesto", "en": "Track"},
+    "report.recommendation.chosen": {"es": "Elegido", "en": "Chosen"},
+    "report.recommendation.not_graded": {
+        "es": "Sin evaluar: {names}",
+        "en": "Not graded: {names}",
+    },
+    "report.recommendation.margin": {
+        "es": "Margen sobre {runner_up}: {margin} puntos.",
+        "en": "Margin over {runner_up}: {margin} points.",
+    },
+    "report.recommendation.tie_sub": {
+        "es": "Lo que más las separa es {sub_score}: {delta} puntos.",
+        "en": "The largest difference is {sub_score}: {delta} points.",
+    },
+    "report.recommendation.tie_organisation": {
+        "es": "La empresa encaja con {track} por su tipo de organización.",
+        "en": "The company matches {track} on its organisation kind.",
+    },
+    "report.recommendation.justification": {
+        "es": "{track} lidera en {sub_score} (+{delta}) sobre {runner_up}. {applies_when}",
+        "en": "{track} leads on {sub_score} (+{delta}) over {runner_up}. {applies_when}",
+    },
+    "report.recommendation.justification_single": {
+        "es": "{track}. {applies_when}",
+        "en": "{track}. {applies_when}",
+    },
+    "report.recommendation.cost": {
+        "es": "Coste de recomendar: ${cost}",
+        "en": "Cost of recommending: ${cost}",
+    },
     "report.sub.title": {"es": "Alineación del título", "en": "Title alignment"},
     "report.sub.skills": {"es": "Habilidades", "en": "Skills"},
     "report.sub.keywords": {"es": "Palabras clave", "en": "Keywords"},
