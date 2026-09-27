@@ -1,0 +1,55 @@
+{# §12.1's score and severity components, in one place so every screen shows the same
+   value the same way. Imported `with context` so the macros can reach `t` and `lang`.
+
+   `score(value, ...)` takes the stored 0–1 value and is the only place it is turned
+   into the integer 0–100 the interface shows — the report does not change. Bands
+   (75 / 50) are presentation settings, never scoring: changing them changes a colour
+   and a word, and never a number. #}
+{% macro score(value, label, caption) -%}
+{%- set percent = (value * 100) | round | int -%}
+{%- set band = 'strong' if percent >= 75 else ('adequate' if percent >= 50 else 'weak') -%}
+<div class="score" data-band="{{ band }}">
+  <div class="score-head">
+    <span class="score-label">{{ label }}</span>
+    {# Score colour is fill, and only on a score surface; the band attribute carries it. #}
+    <span class="score-number">{{ percent }}</span>
+  </div>
+  {# Five segments, one per 20 points; the band word is beside them, so colour is never
+     the only signal. #}
+  <div class="score-segments" role="img" aria-label="{{ percent }} / 100">
+    {%- for step in range(1, 6) -%}
+    <span class="score-segment band-{{ band }}{% if percent >= step * 20 %} is-on{% endif %}"></span>
+    {%- endfor -%}
+  </div>
+  <p class="score-band">{{ t('ui.band.' ~ band, lang) }}</p>
+  {%- if caption %}<p class="score-caption">{{ caption }}</p>{%- endif -%}
+</div>
+{%- endmacro %}
+
+{# Severity is never fill: an outlined tag with its icon and an uppercase word, in the
+   palette that is deliberately not the score scale. #}
+{% macro severity(level, text) -%}
+<span class="sev-tag sev-{{ level }}">
+  {%- if level == 'blocker' -%}
+  <svg class="sev-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true" focusable="false"><path d="M8 3h8l5 5v8l-5 5H8l-5-5V8z"/></svg>
+  {%- elif level == 'warning' -%}
+  <svg class="sev-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true" focusable="false"><path d="M12 4 21 20H3z"/><path d="M12 10v4"/></svg>
+  {%- else -%}
+  <svg class="sev-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="8"/></svg>
+  {%- endif -%}
+  <span class="sev-label">{{ text }}</span>
+</span>
+{%- endmacro %}
+
+{# Evidence levels 0–3, in the score colours and never filling past the level. The
+   number is always written beside the bars. #}
+{% macro level_bars(level) -%}
+{%- set level = level | int -%}
+{%- set band = 'strong' if level >= 3 else ('adequate' if level == 2 else ('weak' if level == 1 else 'none')) -%}
+<span class="level-bars" data-level="{{ level }}">
+  {%- for step in range(1, 4) -%}
+  <span class="level-bar band-{{ band }}{% if band != 'none' and level >= step %} is-on{% endif %}"></span>
+  {%- endfor -%}
+  <span class="level-number">{{ level }}</span>
+</span>
+{%- endmacro %}

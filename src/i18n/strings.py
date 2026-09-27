@@ -51,6 +51,11 @@ STRINGS: dict[str, dict[str, str]] = {
     # with the strings rather than in the caller.
     "common.and": {"es": "y", "en": "and"},
     "common.none": {"es": "—", "en": "—"},
+    # §12.1's score bands, presentation words for the three-stop scale. They name a
+    # colour, never a scoring rule; the thresholds (75/50) live in `_ui.html`.
+    "ui.band.strong": {"es": "Fuerte", "en": "Strong"},
+    "ui.band.adequate": {"es": "Adecuado", "en": "Adequate"},
+    "ui.band.weak": {"es": "Débil", "en": "Weak"},
     "common.back": {"es": "Volver", "en": "Back"},
     "common.empty": {"es": "Sin datos todavía.", "en": "Nothing here yet."},
     "common.not_found": {"es": "No encontrado.", "en": "Not found."},
