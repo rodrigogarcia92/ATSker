@@ -30,6 +30,15 @@
     <input id="chips" name="chips" value="{{ chips }}"
            class="w-full rounded border border-slate-300 px-3 py-2 text-sm">
     <p class="mt-1 text-xs text-slate-500">{{ t('bullets.skills_hint', lang) }}</p>
+    {% if pending %}
+    {# F2.9: the chips the vocabulary does not know. They are in the field above —
+       saving keeps them — and this says which of them are stored as pending. #}
+    <p class="mt-2 flex flex-wrap gap-1">
+      {% for term in pending %}
+      <span class="rounded border border-dashed border-amber-200 bg-amber-50 px-2 py-0.5 text-xs text-amber-900">{{ t('vocabulary.pending', lang) }}: {{ term }}</span>
+      {% endfor %}
+    </p>
+    {% endif %}
   </div>
 
   {% if bullet %}

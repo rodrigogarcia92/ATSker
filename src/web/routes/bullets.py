@@ -19,6 +19,7 @@ from src.bullets import (
 from src.deletion import delete_bullet, impact_bullet
 from src.i18n import t
 from src.roles import get_role
+from src.vocabulary import resolve_bullet_terms
 from src.web.deps import DbSession, OwnProfile, SignedInUser
 from src.web.forms import is_checked, parse_text
 from src.web.templating import render
@@ -35,6 +36,7 @@ def _form_context(
     bullet=None,
     chips: str = "",
     detected: list[str] | None = None,
+    pending: list[str] | None = None,
     error: str | None = None,
 ):
     return render(
@@ -46,6 +48,7 @@ def _form_context(
         bullet=bullet,
         chips=chips,
         detected=detected or [],
+        pending=pending or [],
         error=error,
     )
 
@@ -94,8 +97,17 @@ def bullet_edit(
     if bullet is None:
         return render(request, "not_found.html", user=user, status_code=404)
     role = get_role(profile.id, session, bullet.role_id)
+    # F2.9: the pending terms go back into the field with the canonicals, so editing
+    # the text does not lose a chip the vocabulary does not know yet — an update
+    # replaces `pending_terms` with what the form submitted, exactly like `skills`.
     return _form_context(
-        request, user, profile, role, bullet=bullet, chips=", ".join(bullet.skills)
+        request,
+        user,
+        profile,
+        role,
+        bullet=bullet,
+        chips=", ".join([*bullet.skills, *bullet.pending_terms]),
+        pending=list(bullet.pending_terms),
     )
 
 
@@ -124,6 +136,9 @@ def bullet_detect(
     detected = suggest_skills(profile.id, session, f"{text_es or ''} {text_en or ''}")
     existing = [part.strip() for part in (chips or "").split(",") if part.strip()]
     combined = existing + [skill for skill in detected if skill not in existing]
+    # F2.9: the same answer the save would store, said before it is stored — this
+    # screen is where an unknown word is cheapest to fix or promote.
+    _, pending = resolve_bullet_terms(session, combined)
     return _form_context(
         request,
         user,
@@ -132,6 +147,7 @@ def bullet_detect(
         bullet=bullet,
         chips=", ".join(combined),
         detected=detected,
+        pending=pending,
     )
 
 

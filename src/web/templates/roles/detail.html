@@ -37,6 +37,14 @@
       {% endfor %}
     </p>
     {% endif %}
+    {% if bullet.pending_terms %}
+    {# F2.9: kept, logged, and counted for nothing until the operator promotes it. #}
+    <p class="mt-2 flex flex-wrap gap-1">
+      {% for term in bullet.pending_terms %}
+      <span class="rounded border border-dashed border-amber-200 bg-amber-50 px-2 py-0.5 text-xs text-amber-900">{{ t('vocabulary.pending', lang) }}: {{ term }}</span>
+      {% endfor %}
+    </p>
+    {% endif %}
     <p class="mt-2 text-xs text-slate-500">
       {{ t('bullets.metrics', lang) }}:
       {% if bullet.metrics %}{{ bullet.metrics | join(', ') }}{% else %}{{ t('bullets.metrics_none', lang) }}{% endif %}

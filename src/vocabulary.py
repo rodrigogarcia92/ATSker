@@ -12,7 +12,7 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from src.models import Application, Skill, UnmappedTerm
+from src.models import Application, Bullet, Profile, Skill, UnmappedTerm
 from src.normalize.text import fold
 from src.normalize.vocabulary import match_text, resolve_terms
 
@@ -158,13 +158,54 @@ def list_unmapped(session: Session, *, status: str | None = None) -> Sequence[Un
     return list(session.scalars(stmt))
 
 
+def resolve_pending(session: Session, term: str) -> int:
+    """Resolve a now-known term on every bullet still holding it (PRD F2.9).
+
+    A pending term counts for nothing while the vocabulary does not know it, so this
+    is the other half of holding it: the canonical moves into each bullet's `skills`
+    and into that bullet's profile pool, and the term leaves `pending_terms`. Tracks
+    are untouched — a promotion is a decision about words, not about a selection the
+    user made.
+
+    It crosses profiles by design, the way `family_candidate_pairs` reads every
+    profile's report: the vocabulary is shared, so a promotion is one decision about
+    every bullet at once. `profile_id` therefore cannot be the first argument, and
+    this is the only write in the module that reaches past one profile.
+
+    Returns how many bullets it resolved, which is what the operator's script reports.
+    """
+    folded = fold(term)
+    if not folded:
+        return 0
+    canonical = alias_map(session).get(folded)
+    if canonical is None:
+        return 0
+    resolved = 0
+    # `!= []` on the array column: the only empty value a bullet can hold, and the
+    # one predicate that reads the same on PostgreSQL and on the offline SQLite.
+    for bullet in session.scalars(select(Bullet).where(Bullet.pending_terms != [])):
+        if folded not in bullet.pending_terms:
+            continue
+        bullet.pending_terms = [held for held in bullet.pending_terms if held != folded]
+        if canonical not in bullet.skills:
+            bullet.skills = [*bullet.skills, canonical]
+        profile = session.get(Profile, bullet.profile_id)
+        if profile is not None and canonical not in profile.skills:
+            profile.skills = [*profile.skills, canonical]
+        resolved += 1
+    session.flush()
+    return resolved
+
+
 def promote_alias(
     session: Session, canonical: str, alias: str, *, lang_tags: Sequence[str] = ("es", "en")
 ) -> Skill:
     """Add an alias to an existing canonical skill, or create the canonical.
 
     The operator runs this monthly against the unmapped-term log; the term's status
-    moves to `promoted` so the same decision is not asked twice.
+    moves to `promoted` so the same decision is not asked twice. Every bullet that
+    was holding the term as pending resolves in the same call (F2.9) — the log, the
+    vocabulary and the data move together or not at all.
     """
     canonical = fold(canonical)
     alias = fold(alias)
@@ -180,4 +221,5 @@ def promote_alias(
         if record is not None:
             record.status = "promoted"
     session.flush()
+    resolve_pending(session, alias)
     return skill

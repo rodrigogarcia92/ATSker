@@ -139,7 +139,14 @@ class Role(Base):
         ForeignKey("profiles.id", ondelete="CASCADE"), index=True
     )
     employer: Mapped[str] = mapped_column(String(200))
+    # `title` keeps being written — older code, stored reports and the snapshots
+    # inside them read it — and holds the title in the role's primary language. The
+    # two slots below are what a posting in a given language reads (F4.2): one
+    # language per title, filled by the user or by importing the other-language CV,
+    # never by an automatic translation.
     title: Mapped[str] = mapped_column(String(200))
+    title_es: Mapped[str | None] = mapped_column(String(200))
+    title_en: Mapped[str | None] = mapped_column(String(200))
     start_date: Mapped[date | None] = mapped_column(Date)
     end_date: Mapped[date | None] = mapped_column(Date)
     # Optional scale (PRD 3): what the position was responsible for. Hand-entered;
@@ -166,6 +173,10 @@ class Bullet(Base):
     text_en: Mapped[str | None] = mapped_column(Text)
     text_es: Mapped[str | None] = mapped_column(Text)
     skills: Mapped[list[str]] = mapped_column(_StringList, default=list)
+    # F2.9: chips the vocabulary does not know, kept rather than dropped. A pending
+    # term counts for nothing — pools, tracks, scoring and advice all read `skills`
+    # — until the operator promotes it, which moves it into `skills` and the pool.
+    pending_terms: Mapped[list[str]] = mapped_column(_StringList, default=list)
     metrics: Mapped[list[str]] = mapped_column(_StringList, default=list)
     # Set when a story proposed the bullet (F7.3): provenance is permanent, and the
     # column is what the validators will read. Nothing writes it until N7.

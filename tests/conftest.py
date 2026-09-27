@@ -30,11 +30,25 @@ PASSWORD = "correct horse battery staple"  # noqa: S105 - synthetic fixture pass
 TEST_MODEL = "test/model-v1"
 
 
+# Every `OPENROUTER_*` variable `Settings` reads. A developer's `.env` or shell
+# supplies them too, and a provider setting leaking into the suite would make a
+# test pass or fail for a reason the test does not name — so the fixture removes
+# all of them before setting the two a run needs.
+OPENROUTER_VARIABLES = (
+    "OPENROUTER_API_KEY",
+    "OPENROUTER_MODEL",
+    "OPENROUTER_REASONING_EFFORT",
+    "OPENROUTER_TIMEOUT_SECONDS",
+)
+
+
 @pytest.fixture
 def test_settings(monkeypatch):
     """Values a developer's .env would otherwise supply; no real credentials."""
     monkeypatch.setenv("ENV", "development")
     monkeypatch.setenv("SESSION_SECRET", "test-session-secret")
+    for variable in OPENROUTER_VARIABLES:
+        monkeypatch.delenv(variable, raising=False)
     monkeypatch.setenv("OPENROUTER_MODEL", TEST_MODEL)
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-api-key")
     get_settings.cache_clear()

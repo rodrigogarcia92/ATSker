@@ -768,6 +768,12 @@ STRINGS: dict[str, dict[str, str]] = {
     "vocabulary.aliases": {"es": "Alias", "en": "Aliases"},
     "vocabulary.lang_tags": {"es": "Idiomas", "en": "Languages"},
     "vocabulary.skills": {"es": "Habilidades", "en": "Skills"},
+    # F2.9: a chip the vocabulary does not know is kept on the bullet and labelled
+    # with this, so the user can see it is stored and not yet counted.
+    "vocabulary.pending": {
+        "es": "pendiente de vocabulario",
+        "en": "pending vocabulary",
+    },
     "vocabulary.unmapped": {"es": "Términos sin mapear", "en": "Unmapped terms"},
     "vocabulary.seen": {"es": "veces", "en": "seen"},
     "vocabulary.unmapped_hint": {

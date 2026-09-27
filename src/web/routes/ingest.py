@@ -45,6 +45,7 @@ from src.resumes import (
     set_resume_active,
 )
 from src.tracks import get_track, list_tracks
+from src.vocabulary import resolve_bullet_terms
 from src.web.deps import DbSession, OwnProfile, SignedInUser
 from src.web.findings import document_kind, finding_rows
 from src.web.forms import is_checked
@@ -217,6 +218,22 @@ def draft_from_form(form: Mapping[str, Any], *, language: str) -> ResumeDraft:
         educations=educations,
         certifications=certifications,
     )
+
+
+def _pending_chips(session: Session, draft: ResumeDraft | None) -> list[str]:
+    """The draft's chips the vocabulary does not know (F2.9).
+
+    The merge stores them on the bullet as pending terms rather than dropping them,
+    and the result screen labels them with the same function that decided it — a
+    second answer here would be a second convention.
+    """
+    if draft is None:
+        return []
+    _, pending = resolve_bullet_terms(
+        session,
+        [chip for role in draft.roles for bullet in role.bullets for chip in bullet.chips],
+    )
+    return pending
 
 
 def _failure_message(failure: Exception, lang: str) -> str:
@@ -447,14 +464,16 @@ def import_review(
     if resume is None:
         return render(request, "not_found.html", user=user, status_code=404)
     if resume.merged_at is not None:
+        merged_draft = ResumeDraft.model_validate(resume.draft) if resume.draft else None
         return render(
             request,
             "import/merged.html",
             user=user,
             profile=profile,
             resume=resume,
-            draft=ResumeDraft.model_validate(resume.draft) if resume.draft else None,
+            draft=merged_draft,
             result=None,
+            pending=_pending_chips(session, merged_draft),
             track=get_track(profile.id, session, resume.track_id) if resume.track_id else None,
         )
     draft = ResumeDraft.model_validate(resume.draft) if resume.draft else None
@@ -650,6 +669,7 @@ async def import_merge(
         resume=resume,
         draft=draft,
         result=result,
+        pending=_pending_chips(session, draft),
         track=get_track(profile.id, session, resume.track_id) if resume.track_id else None,
     )
 

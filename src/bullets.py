@@ -74,6 +74,10 @@ def create_bullet(
         text_en=(text_en or "").strip() or None,
         text_es=(text_es or "").strip() or None,
         skills=canonical,
+        # F2.9: what the vocabulary did not know is kept, folded and de-duplicated by
+        # `resolve_terms`, so the chip the user typed is still there when the operator
+        # promotes the term. It counts for nothing until then.
+        pending_terms=unmatched,
         metrics=extract_metrics(source),
     )
     session.add(bullet)
@@ -99,6 +103,10 @@ def update_bullet(
     bullet.text_en = (text_en or "").strip() or None
     bullet.text_es = (text_es or "").strip() or None
     bullet.skills = canonical
+    # Replaced by what the form submitted, exactly like `skills` (F2.9) — which is
+    # why the form is handed the pending terms back as chips: a term the user typed
+    # is not lost by editing the bullet's text.
+    bullet.pending_terms = unmatched
     bullet.metrics = extract_metrics(
         " ".join(part for part in (bullet.text_es, bullet.text_en) if part)
     )

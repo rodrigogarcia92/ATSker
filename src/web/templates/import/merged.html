@@ -96,7 +96,9 @@
     </p>
     <ul class="mt-2 space-y-1 text-sm text-slate-700">
       {% for bullet in role.bullets %}
-      <li>· {{ bullet.text }}{% if bullet.chips %} <span class="text-xs text-slate-500">({{ bullet.chips | join(', ') }})</span>{% endif %}</li>
+      {# F2.9: a chip the vocabulary did not know is stored on the bullet as a
+         pending term; the screen says which of the typed chips those were. #}
+      <li>· {{ bullet.text }}{% if bullet.chips %} <span class="text-xs text-slate-500">({% for chip in bullet.chips %}{{ chip }}{% if chip | fold in pending %} — {{ t('vocabulary.pending', lang) }}{% endif %}{% if not loop.last %}, {% endif %}{% endfor %})</span>{% endif %}</li>
       {% endfor %}
     </ul>
   </div>
