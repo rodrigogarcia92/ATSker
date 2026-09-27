@@ -50,7 +50,7 @@ from src.models import Bullet, Profile, Track
 from src.normalize.vocabulary import match_text
 from src.parse.gate import ParseReport
 from src.resumes import source_document_for_track
-from src.roles import list_roles
+from src.roles import list_roles, role_title
 from src.score.aggregate import SubScore, aggregate
 from src.score.evidence import Level, evidence_coverage
 from src.score.experience import CitedLevel, RoleSpan, relevant_experience_score
@@ -218,7 +218,13 @@ def analyze(
         "title": title_alignment(
             jd,
             headline=document_headline(document),
-            roles=[(role.title, role.start_date, role.end_date) for role in roles],
+            # F4.2: the title a reader of this posting sees — the posting's language,
+            # the other one as the fallback. `role.title` stays what it was, the
+            # primary language's title.
+            roles=[
+                (role_title(role, jd.language)[0], role.start_date, role.end_date)
+                for role in roles
+            ],
             aliases=aliases,
         ),
         "skills": evidence_coverage(
@@ -362,8 +368,9 @@ def analyze(
     )
     # F4.2 (A.9.3): what the document had to read in the other language. A real screen
     # matches the words in the file, so a fallback is worth saying out loud — and the
-    # alert is not part of the score, like every other alert here. Role titles are not
-    # counted: they carry no language of their own yet.
+    # alert is not part of the score, like every other alert here. Role titles carry a
+    # language each since 2026-09-27, so they are counted beside the bullets.
+    title_units = [unit for unit in document if unit.kind == "role"]
     language: dict[str, object] = {
         "posting": jd.language,
         "other": "en" if jd.language == "es" else "es",
@@ -371,11 +378,14 @@ def analyze(
         "fallback_summary": any(unit.fallback for unit in document if unit.kind == "summary"),
         "fallback_bullets": sum(1 for unit in bullet_units.values() if unit.fallback),
         "bullets": len(bullet_units),
+        "fallback_titles": sum(1 for unit in title_units if unit.fallback),
+        "titles": len(title_units),
     }
     if (
         language["fallback_headline"]
         or language["fallback_summary"]
         or language["fallback_bullets"]
+        or language["fallback_titles"]
     ):
         alerts.append({"kind": "language_mismatch", **language})
     stories = list_stories(profile_id, session)

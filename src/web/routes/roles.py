@@ -10,7 +10,7 @@ from src.deletion import delete_role, impact_role
 from src.i18n import t
 from src.roles import create_role, get_role, list_roles, set_role_active, update_role
 from src.web.deps import DbSession, OwnProfile, SignedInUser
-from src.web.forms import is_checked, parse_date
+from src.web.forms import is_checked, parse_date, parse_text
 from src.web.templating import render
 
 router = APIRouter()
@@ -36,15 +36,21 @@ def role_create(
     session: DbSession,
     profile: OwnProfile,
     employer: Annotated[str, Form()],
-    title: Annotated[str, Form()],
+    title_es: Annotated[str | None, Form()] = None,
+    title_en: Annotated[str | None, Form()] = None,
     start_date: Annotated[str | None, Form()] = None,
     end_date: Annotated[str | None, Form()] = None,
 ):
+    # F4.2: one title per language, and one of the two has to be there — a role with
+    # no title is a date range, and every screen names it.
+    if not (parse_text(title_es) or parse_text(title_en)):
+        raise HTTPException(status_code=422, detail="a role needs a title in one language")
     role = create_role(
         profile.id,
         session,
         employer=employer,
-        title=title,
+        title_es=parse_text(title_es),
+        title_en=parse_text(title_en),
         start_date=parse_date(start_date),
         end_date=parse_date(end_date),
     )
@@ -85,17 +91,21 @@ def role_save(
     session: DbSession,
     profile: OwnProfile,
     employer: Annotated[str, Form()],
-    title: Annotated[str, Form()],
+    title_es: Annotated[str | None, Form()] = None,
+    title_en: Annotated[str | None, Form()] = None,
     start_date: Annotated[str | None, Form()] = None,
     end_date: Annotated[str | None, Form()] = None,
     active: Annotated[str | None, Form()] = None,
 ):
+    if not (parse_text(title_es) or parse_text(title_en)):
+        raise HTTPException(status_code=422, detail="a role needs a title in one language")
     role = update_role(
         profile.id,
         session,
         role_id,
         employer=employer,
-        title=title,
+        title_es=parse_text(title_es),
+        title_en=parse_text(title_en),
         start_date=parse_date(start_date),
         end_date=parse_date(end_date),
         active=is_checked(active),

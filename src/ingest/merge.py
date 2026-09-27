@@ -44,7 +44,7 @@ from src.models import (
 )
 from src.normalize.text import fold
 from src.resumes import get_resume, mark_merged
-from src.roles import create_role, list_roles, update_role
+from src.roles import create_role, get_role, list_roles, update_role
 from src.summaries import create_summary, list_summaries
 from src.tracks import create_track, get_track, set_track_bullets, track_bullets
 
@@ -478,6 +478,25 @@ def _text_columns(language: str, text: str) -> tuple[str | None, str | None]:
     return (text, None) if language == "en" else (None, text)
 
 
+def _title_columns(
+    existing: Role | None, language: str, title: str
+) -> tuple[str | None, str | None]:
+    """(title_en, title_es) for a role written from a document (F4.2).
+
+    The document carries one title, in its own language: that is the column it fills.
+    The other column keeps whatever the row already held — a translation somebody
+    typed is not something this document brought, so it is never replaced by the
+    empty half of the pair. A new role has nothing to keep, and gets one column.
+    """
+    provided_en, provided_es = _text_columns(language, title)
+    if existing is None:
+        return provided_en, provided_es
+    return (
+        provided_en if provided_en is not None else existing.title_en,
+        provided_es if provided_es is not None else existing.title_es,
+    )
+
+
 def _contributed_bullet_ids(
     plan: MergePlan, new_bullet_ids: dict[tuple[int, int], uuid.UUID]
 ) -> list[uuid.UUID]:
@@ -539,26 +558,44 @@ def apply_merge(
         if index not in selections.roles:
             continue
         if role.label == "new":
+            # F4.2: the document's title is the one title it carries, so it goes into
+            # the column of the document's language. `title` is derived from both, as
+            # it always was.
+            title_en, title_es = _title_columns(None, draft.language, role.title)
             created = create_role(
                 profile_id,
                 session,
                 employer=role.employer,
-                title=role.title,
+                title_es=title_es,
+                title_en=title_en,
                 start_date=role.start_date,
                 end_date=role.end_date,
+                language=draft.language,
             )
             counts["roles_created"] += 1
             role_ids[index] = created.id
         elif role.label == "changed":
+            # The document's title fills its own language's column; the other column
+            # keeps what the row holds (F4.2) — a merge never replaces a translation
+            # it did not bring.
+            title_en, title_es = _title_columns(
+                get_role(profile_id, session, role.existing_id)
+                if role.existing_id is not None
+                else None,
+                draft.language,
+                role.title,
+            )
             updated = update_role(
                 profile_id,
                 session,
                 role.existing_id,
                 employer=role.employer,
-                title=role.title,
+                title_es=title_es,
+                title_en=title_en,
                 start_date=role.start_date,
                 end_date=role.end_date,
                 active=True,
+                language=draft.language,
             )
             if updated is not None:
                 counts["roles_updated"] += 1

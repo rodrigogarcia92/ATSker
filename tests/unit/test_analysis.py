@@ -23,6 +23,7 @@ from src.extract.grading import grade_evidence
 from src.extract.jd import extract_jd
 from src.jd import StructuredJD, jd_hash
 from src.models import Application, LlmCall
+from src.roles import update_role
 from src.score.weights import W4
 from src.summaries import create_summary
 from src.tracks import create_track, set_track_bullets, update_track
@@ -724,6 +725,54 @@ def test_the_same_posting_scores_differently_against_two_tracks(session, career,
     assert second.report["track"]["name"] == "Sin reportes"
 
 
+def test_an_english_posting_reads_the_spanish_title_as_a_fallback(session, career, provider):
+    """F4.2: a title is read in the posting's language, falling back to the other one
+    exactly as a bullet does, and the fallback is counted and named in the alert."""
+    provider.answers["JDProposal"] = json.dumps({**json.loads(PROPOSAL), "language": "en"})
+
+    analysis = analyze(career.first_profile.id, session, jd_text=POSTING)
+
+    titles = [unit for unit in analysis.document if unit.kind == "role"]
+    assert [unit.text for unit in titles] == ["Analista de datos"]
+    assert [unit.fallback for unit in titles] == [True]
+    assert analysis.report["language"]["fallback_titles"] == 1
+    assert analysis.report["language"]["titles"] == 1
+    # The title sub-score read that Spanish title — the JD's own title words are all
+    # in it, so an English read that found nothing would score this 0.0.
+    assert analysis.report["score"]["sub_scores"]["title"]["value"] == 1.0
+    assert [
+        alert["kind"]
+        for alert in analysis.report["gaps"]["alerts"]
+        if alert["kind"] == "language_mismatch"
+    ] == ["language_mismatch"]
+
+
+def test_the_postings_language_title_is_read_when_it_exists(session, career, provider):
+    """With `title_en` filled, the English posting reads the English title and counts
+    no title fallback — the Spanish title is not read on top of it (F4.2)."""
+    provider.answers["JDProposal"] = json.dumps({**json.loads(PROPOSAL), "language": "en"})
+    update_role(
+        career.first_profile.id,
+        session,
+        career.first_role.id,
+        employer=career.first_role.employer,
+        title_es="Analista de datos",
+        title_en="Data Analyst",
+        start_date=career.first_role.start_date,
+        end_date=career.first_role.end_date,
+    )
+    session.commit()
+
+    analysis = analyze(career.first_profile.id, session, jd_text=POSTING)
+
+    titles = [unit for unit in analysis.document if unit.kind == "role"]
+    assert [unit.text for unit in titles] == ["Data Analyst"]
+    assert [unit.fallback for unit in titles] == [False]
+    assert analysis.report["language"]["fallback_titles"] == 0
+    assert analysis.report["language"]["titles"] == 1
+    assert analysis.report["score"]["sub_scores"]["title"]["value"] == 0.0
+
+
 def test_a_tracks_headline_replaces_the_profiles_for_title_alignment(session, career, provider):
     profile_id = career.first_profile.id
     career.first_profile.headline = "Camarero de eventos"
@@ -942,6 +991,8 @@ def test_an_english_posting_against_a_spanish_only_track_alerts_the_language_gap
         "fallback_summary": False,
         "fallback_bullets": 1,
         "bullets": 1,
+        "fallback_titles": 1,
+        "titles": 1,
     }
     alerts = analysis.report["gaps"]["alerts"]
     language_alerts = [alert for alert in alerts if alert["kind"] == "language_mismatch"]
@@ -970,6 +1021,16 @@ def test_a_track_in_the_postings_language_raises_no_language_alert(session, care
         text_en="Cut reporting time by 30% with Python",
         chips=["python", "cobalto"],
     )
+    update_role(
+        profile_id,
+        session,
+        career.first_role.id,
+        employer=career.first_role.employer,
+        title_es="Analista de datos",
+        title_en="Data analyst",
+        start_date=career.first_role.start_date,
+        end_date=career.first_role.end_date,
+    )
     session.commit()
 
     analysis = analyze(profile_id, session, jd_text=POSTING, track=career.first_track)
@@ -981,6 +1042,8 @@ def test_a_track_in_the_postings_language_raises_no_language_alert(session, care
         "fallback_summary": False,
         "fallback_bullets": 0,
         "bullets": 1,
+        "fallback_titles": 0,
+        "titles": 1,
     }
     assert [
         alert for alert in analysis.report["gaps"]["alerts"] if alert["kind"] == "language_mismatch"
@@ -1001,7 +1064,9 @@ def test_the_report_page_names_the_language_gap(client, session, career, provide
     page = text_of(client.get(posted.headers["location"]).text)
 
     assert "Este aviso está en inglés" in page
-    assert "1 de tus 1 bullets y tu titular solo existen en español" in page
+    # F4.2: the list names what fell back, joined by the language's conjunction —
+    # here the bullet, the title and the headline, never "and … and".
+    assert "1 de tus 1 bullets, tus cargos y tu titular solo existen en español" in page
     assert "Un ATS real lee las palabras que envías" in page
 
 

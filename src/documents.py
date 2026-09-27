@@ -26,7 +26,7 @@ from src.bullets import bullet_text, list_bullets
 from src.certifications import list_certifications
 from src.education import list_educations
 from src.models import Bullet, Profile, Summary, Track
-from src.roles import list_roles
+from src.roles import list_roles, role_title
 from src.summaries import get_summary
 from src.tracks import track_bullets
 
@@ -162,11 +162,14 @@ def track_document(
             )
         )
 
-    units.extend(
-        DocumentUnit("role", role.title)
-        for role in list_roles(profile_id, session, active_only=True)
-        if role.title
-    )
+    # F4.2: a title is read in the posting's language and falls back to the other one
+    # exactly as a bullet's text does, and the unit carries the fallback the way a
+    # bullet's does — the recruiter search and the keyword scan run over these units,
+    # and both have to see the words the user would send.
+    for role in list_roles(profile_id, session, active_only=True):
+        text, fallback = role_title(role, lang)
+        if text:
+            units.append(DocumentUnit("role", text, source_id=str(role.id), fallback=fallback))
     units.extend(
         DocumentUnit(
             "education",

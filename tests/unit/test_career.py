@@ -73,7 +73,7 @@ def test_create_edit_and_delete_round_trip_through_the_browser(client, career):
 
     created = client.post(
         "/roles",
-        data={"title": "Consultora", "employer": "Initech", "start_date": "2021-03-01"},
+        data={"title_es": "Consultora", "employer": "Initech", "start_date": "2021-03-01"},
         follow_redirects=False,
     )
     assert created.status_code == 303
@@ -105,6 +105,43 @@ def test_create_edit_and_delete_round_trip_through_the_browser(client, career):
 
     assert client.post(f"/letters/{letter_id}/delete", follow_redirects=False).status_code == 303
     assert client.get(f"/letters/{letter_id}/edit").status_code == 404
+
+
+def test_the_role_form_writes_each_title_in_its_language(client, session, career):
+    """F4.2: two fields, one title per language, and `title` mirrors the role's own."""
+    login(client, career.first.email)
+
+    created = client.post(
+        "/roles",
+        data={"title_es": "Analista de datos", "title_en": "Data Analyst", "employer": "Initech"},
+        follow_redirects=False,
+    )
+    assert created.status_code == 303
+    url = created.headers["location"]
+
+    role = next(
+        entry
+        for entry in list_roles(career.first_profile.id, session)
+        if str(entry.id) == url.rsplit("/", 1)[1]
+    )
+    assert (role.title_es, role.title_en, role.title) == (
+        "Analista de datos",
+        "Data Analyst",
+        "Analista de datos",
+    )
+
+    edited = client.get(f"{url}/edit")
+    assert edited.status_code == 200
+    assert 'name="title_es"' in edited.text and 'name="title_en"' in edited.text
+    assert "Data Analyst" in edited.text
+
+    # One of the two titles has to be there: a role with neither is a date range.
+    blank = client.post(
+        f"{url}",
+        data={"title_es": "  ", "title_en": "", "employer": "Initech", "active": "on"},
+        follow_redirects=False,
+    )
+    assert blank.status_code == 422
 
 
 def test_bullet_needs_text_in_at_least_one_language(client, career):

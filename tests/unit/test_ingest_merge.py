@@ -271,6 +271,56 @@ def test_a_second_upload_of_the_same_draft_is_unchanged_and_duplicates_nothing(s
     )
 
 
+def test_a_merge_writes_a_new_roles_title_in_the_documents_language(session, career):
+    """F4.2: the document carries one title, so it lands in its own language's column
+    and `title` mirrors it — the other column is left for the user."""
+    profile_id = career.first_profile.id
+    draft = full_draft().model_copy(update={"language": "en"})
+    resume = make_resume(session, profile_id, draft)
+    plan = diff_draft(profile_id, session, draft)
+
+    result = apply_merge(
+        profile_id,
+        session,
+        resume_id=resume.id,
+        draft=draft,
+        plan=plan,
+        selections=select_all(plan),
+    )
+
+    assert result is not None and result.roles_created == 1
+    role = next(entry for entry in list_roles(profile_id, session) if entry.employer == "Globex")
+    assert (role.title, role.title_en, role.title_es) == ("Data Scientist", "Data Scientist", None)
+
+    # The other half of the rule: a Spanish document over the same role — the diff
+    # matches on `title`, which still mirrors the English slot — writes the Spanish
+    # column and leaves the English one exactly as the user left it.
+    role.title_en = "Data Scientist (EN)"
+    session.flush()
+    second_draft = full_draft().model_copy(
+        update={
+            "language": "es",
+            "roles": [full_draft().roles[0].model_copy(update={"end_date": "2023-06"})],
+        }
+    )
+    second = make_resume(session, profile_id, second_draft, "second")
+    plan = diff_draft(profile_id, session, second_draft)
+    assert plan.roles[0].label == "changed", "the dates differ, so the role is written"
+
+    apply_merge(
+        profile_id,
+        session,
+        resume_id=second.id,
+        draft=second_draft,
+        plan=plan,
+        selections=select_all(plan),
+    )
+
+    refreshed = next(entry for entry in list_roles(profile_id, session) if entry.id == role.id)
+    assert refreshed.title_es == "Data Scientist", "the document's language, and only it"
+    assert refreshed.title_en == "Data Scientist (EN)", "a translation is never overwritten"
+
+
 def test_a_reworded_bullet_is_changed_and_keeps_the_old_text(session, career):
     profile_id = career.first_profile.id
     original = career.first_bullet

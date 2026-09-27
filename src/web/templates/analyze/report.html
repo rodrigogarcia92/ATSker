@@ -277,12 +277,9 @@
     {{ t('report.alert.under_seniority', lang, jd_rung=alert.jd_rung) }}
     {% elif alert.kind == 'language_mismatch' %}
     {# F4.2 (A.9.3): the posting's language and the counts, in words a reader knows —
-       the stored report keeps the ISO codes. #}
-    {{ t('report.alert.language_mismatch', lang,
-          posting=t('lang.' ~ alert.posting, lang), other=t('lang.' ~ alert.other, lang),
-          n=alert.fallback_bullets, m=alert.bullets,
-          headline=(t('report.alert.language_headline', lang) if alert.fallback_headline else ''),
-          summary=(t('report.alert.language_summary', lang) if alert.fallback_summary else '')) }}
+       the stored report keeps the ISO codes, and the list of what fell back is
+       joined by the language's own conjunction. #}
+    {{ language_alert(alert, lang) }}
     {% else %}
     {{ t('report.alert.location', lang, requirement=alert.requirement) }}
     <span class="rounded bg-white px-2 py-0.5 text-xs">{{ t('report.verdict.' ~ alert.verdict, lang) }}</span>

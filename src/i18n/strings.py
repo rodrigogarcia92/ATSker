@@ -5,6 +5,8 @@ then to the key itself, so a half-translated screen renders in Spanish rather
 than showing an empty cell.
 """
 
+from collections.abc import Sequence
+
 DEFAULT_LANG = "es"
 LANGUAGES = ("es", "en")
 
@@ -39,6 +41,10 @@ STRINGS: dict[str, dict[str, str]] = {
     "common.active": {"es": "activo", "en": "active"},
     "common.inactive": {"es": "inactivo", "en": "inactive"},
     "common.optional": {"es": "opcional", "en": "optional"},
+    # The conjunction `join_list` puts before a list's last item: "a, b y c" in
+    # Spanish, "a, b and c" in English. It is a word of the language, so it lives
+    # with the strings rather than in the caller.
+    "common.and": {"es": "y", "en": "and"},
     "common.none": {"es": "—", "en": "—"},
     "common.back": {"es": "Volver", "en": "Back"},
     "common.empty": {"es": "Sin datos todavía.", "en": "Nothing here yet."},
@@ -356,18 +362,25 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "Location to confirm: {requirement}",
     },
     # F4.2 (A.9.3): a real screen reads the words that were sent, so a fallback is
-    # worth saying out loud. The two fragments are the sentence's optional parts, and
-    # the language names are the words a reader knows, never the stored codes.
+    # worth saying out loud. `{items}` is the list of what fell back — bullets,
+    # titles, headline, summary — joined by `join_list`, so three of them read
+    # "bullets, titular y resumen" rather than "and … and". The language names are
+    # the words a reader knows, never the stored codes.
     "report.alert.language_mismatch": {
-        "es": "Este aviso está en {posting}; {n} de tus {m} bullets{headline}{summary} "
-        "solo existen en {other}. Un ATS real lee las palabras que envías: envía la "
-        "versión en {posting}.",
-        "en": "This posting is in {posting}; {n} of your {m} bullets{headline}{summary} "
-        "exist only in {other}. A real ATS reads the words you send — send the "
-        "{posting} version.",
+        "es": "Este aviso está en {posting}; {items} solo existen en {other}. "
+        "Un ATS real lee las palabras que envías: envía la versión en {posting}.",
+        "en": "This posting is in {posting}; {items} exist only in {other}. "
+        "A real ATS reads the words you send — send the {posting} version.",
     },
-    "report.alert.language_headline": {"es": " y tu titular", "en": " and your headline"},
-    "report.alert.language_summary": {"es": " y tu resumen", "en": " and your summary"},
+    # The parts, as they read inside that list: no leading space, no conjunction —
+    # the join supplies both.
+    "report.alert.language_bullets": {
+        "es": "{n} de tus {m} bullets",
+        "en": "{n} of your {m} bullets",
+    },
+    "report.alert.language_titles": {"es": "tus cargos", "en": "your titles"},
+    "report.alert.language_headline": {"es": "tu titular", "en": "your headline"},
+    "report.alert.language_summary": {"es": "tu resumen", "en": "your summary"},
     "lang.es": {"es": "español", "en": "Spanish"},
     "lang.en": {"es": "inglés", "en": "English"},
     "report.no_grades": {
@@ -420,7 +433,18 @@ STRINGS: dict[str, dict[str, str]] = {
     "roles.title": {"es": "Trayectoria", "en": "Experience"},
     "roles.new": {"es": "Nuevo puesto", "en": "New role"},
     "roles.employer": {"es": "Empleador", "en": "Employer"},
-    "roles.position": {"es": "Puesto", "en": "Job title"},
+    # F4.2: one title per language. The words "cargo" and "title" name the slots the
+    # way the user fills them, and only one of the two has to be written.
+    "roles.title_es": {"es": "Cargo (ES)", "en": "Cargo (ES)"},
+    "roles.title_en": {"es": "Title (EN)", "en": "Title (EN)"},
+    "roles.title_hint": {
+        "es": "Una oferta en un idioma lee el título en ese idioma. Un ATS lee las "
+        "palabras que envías, así que escribe el título en el idioma de la versión "
+        "que envías; el otro puede quedar vacío.",
+        "en": "A posting in one language reads that language's title. An ATS reads "
+        "the words you send, so write the title in the language of the version you "
+        "send; the other slot may stay empty.",
+    },
     "roles.start": {"es": "Desde", "en": "From"},
     "roles.end": {"es": "Hasta", "en": "To"},
     "roles.present": {"es": "actualidad", "en": "present"},
@@ -1206,3 +1230,17 @@ def t(key: str, lang: str | None = None, **values: object) -> str:
         return key
     text = entry.get(lang or DEFAULT_LANG) or entry.get(DEFAULT_LANG) or key
     return text.format(**values) if values else text
+
+
+def join_list(items: Sequence[str], lang: str | None = None) -> str:
+    """A list of phrases as a sentence reads it: `a`, `a y b`, `a, b y c` (PRD 8).
+
+    The conjunction is the language's own word, so a caller that concatenates its
+    own "and" is wrong in one of the two languages — the reason this exists rather
+    than a template filter.
+    """
+    if not items:
+        return ""
+    if len(items) == 1:
+        return items[0]
+    return f"{', '.join(items[:-1])} {t('common.and', lang)} {items[-1]}"

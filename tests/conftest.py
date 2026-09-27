@@ -129,8 +129,12 @@ def career(session, two_accounts, vocabulary) -> SimpleNamespace:
     """One role, bullet and story for each account, so isolation can be tested."""
     (first, first_profile), (second, second_profile) = two_accounts
 
-    first_role = create_role(first_profile.id, session, employer="Acme", title="Analista de datos")
-    second_role = create_role(second_profile.id, session, employer="Globex", title="Ingeniera")
+    first_role = create_role(
+        first_profile.id, session, employer="Acme", title_es="Analista de datos", title_en=None
+    )
+    second_role = create_role(
+        second_profile.id, session, employer="Globex", title_es="Ingeniera", title_en=None
+    )
     first_bullet = create_bullet(
         first_profile.id,
         session,

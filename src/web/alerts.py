@@ -1,0 +1,52 @@
+"""The report's alerts as sentences, built from the stored report (PRD F4.2, F6.1).
+
+A stored report keeps the numbers and the ISO codes; the words are the reader's
+language, so the sentence is built when the page renders, never when the analysis
+ran. Two consumers: the report template, and the tests that pin the wording of a
+list of one, two and three items — which is why this is a function and not a
+template block.
+"""
+
+from collections.abc import Mapping
+
+from src.i18n import t
+from src.i18n.strings import join_list
+
+
+def language_alert(alert: Mapping[str, object], lang: str) -> str:
+    """The F4.2 sentence: which parts fell back to the other language, in order.
+
+    The parts are joined by the language's conjunction (`join_list`): two read
+    "1 de tus 1 bullets y tu titular", three "… bullets, tu titular y tu resumen".
+    A report stored before F4.2 gained role titles has no `fallback_titles`, and
+    reads exactly as it did.
+    """
+    parts: list[str] = []
+    if alert.get("fallback_bullets"):
+        parts.append(
+            t(
+                "report.alert.language_bullets",
+                lang,
+                n=alert.get("fallback_bullets"),
+                m=alert.get("bullets"),
+            )
+        )
+    if alert.get("fallback_titles"):
+        parts.append(t("report.alert.language_titles", lang))
+    if alert.get("fallback_headline"):
+        parts.append(t("report.alert.language_headline", lang))
+    if alert.get("fallback_summary"):
+        parts.append(t("report.alert.language_summary", lang))
+    if not parts:
+        # A stored report whose alert carries no counts at all — an artefact rather
+        # than a state this code writes. The sentence still has to read.
+        parts.append(t("report.alert.language_bullets", lang, n=0, m=alert.get("bullets")))
+    posting = str(alert.get("posting") or "")
+    other = str(alert.get("other") or "")
+    return t(
+        "report.alert.language_mismatch",
+        lang,
+        items=join_list(parts, lang),
+        posting=t(f"lang.{posting}", lang),
+        other=t(f"lang.{other}", lang),
+    )
