@@ -62,6 +62,7 @@ from src.web.locations import (
     finding_boxes,
     finding_page,
     is_locatable,
+    page_exists,
     render_page_png,
 )
 from src.web.templating import render
@@ -884,13 +885,15 @@ def finding_location(
     if page is None or not is_locatable(str(finding.get("check"))):
         # A DOCX finding, or a check with no geometry to point at.
         return render(request, "not_found.html", user=user, status_code=404)
+    if not page_exists(resume.file_bytes, page):
+        return render(request, "not_found.html", user=user, status_code=404)
     boxes = finding_boxes(finding)
     characters = (
         box_characters(resume.file_bytes, page_number=page, boxes=boxes)
         if characters_apply(str(finding.get("check")))
         else None
     )
-    return render(
+    response = render(
         request,
         "import/finding.html",
         user=user,
@@ -900,6 +903,9 @@ def finding_location(
         finding=finding_rows(resume.gate or {}, user.ui_lang)[index],
         characters=characters,
     )
+    # The view can carry the document's hidden characters, so it is never cached.
+    response.headers["Cache-Control"] = "no-store"
+    return response
 
 
 @router.get("/import/{resume_id}/findings/{index}/page.png")
@@ -919,7 +925,10 @@ def finding_page_png(
     if resume is None or finding is None:
         return Response(status_code=404)
     page = finding_page(finding)
-    if page is None:
+    if page is None or not is_locatable(str(finding.get("check"))):
+        return Response(status_code=404)
+    if not page_exists(resume.file_bytes, page):
+        # An out-of-range page is not found, never a traceback (N6.6).
         return Response(status_code=404)
     png = render_page_png(
         resume.file_bytes,

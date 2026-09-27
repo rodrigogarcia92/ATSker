@@ -90,8 +90,11 @@
       </nav>
     </aside>
   {% endif %}
-  <main class="main">
-    <div class="mx-auto w-full max-w-3xl">
+  <main class="main min-w-0">
+    {# `min-w-0` on the flex child is what lets a wide table scroll inside its own box
+       instead of stretching the page; the width block lets the report and the history
+       use a wider column than the forms (§12.1's two-column sections need it). #}
+    <div class="mx-auto w-full min-w-0 {% block width %}max-w-3xl{% endblock %}">
       {% block content %}{% endblock %}
     </div>
   </main>

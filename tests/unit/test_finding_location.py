@@ -158,6 +158,60 @@ def test_another_profile_cannot_open_the_location_view_or_its_image(
     assert client.get(f"/import/{resume.id}/findings/{index}/page.png").status_code == 404
 
 
+def test_the_location_view_is_never_cached(client, session, career, monkeypatch):
+    """N6.6: the HTML view can carry the hidden characters, so it is as uncacheable as
+    the image it embeds."""
+    provider(monkeypatch)
+    login(client, career.first.email)
+    upload(client, white_text_pdf(), "cv.pdf")
+    resume = session.query(Resume).one()
+    index = finding_index(resume, "invisible_text")
+
+    view = client.get(f"/import/{resume.id}/findings/{index}")
+
+    assert view.status_code == 200
+    assert view.headers["cache-control"] == "no-store"
+
+
+def test_a_page_the_file_does_not_have_is_a_404(client, session, career, monkeypatch):
+    """N6.6: a stored page number is not proof the page exists."""
+    provider(monkeypatch)
+    login(client, career.first.email)
+    upload(client, white_text_pdf(), "cv.pdf")
+    resume = session.query(Resume).one()
+    index = finding_index(resume, "invisible_text")
+
+    findings = [dict(finding) for finding in resume.gate["findings"]]
+    findings[index] = {
+        **findings[index],
+        "detail": {**findings[index]["detail"], "page": 9},
+    }
+    resume.gate = {**resume.gate, "findings": findings}
+    session.commit()
+
+    link = f"/import/{resume.id}/findings/{index}"
+    assert client.get(f"{link}/page.png").status_code == 404
+    assert client.get(link).status_code == 404
+
+
+def test_a_check_with_no_box_geometry_has_no_page_image(client, session, career, monkeypatch):
+    """N6.6: the PNG route checks that the check is locatable, not only the index."""
+    provider(monkeypatch)
+    login(client, career.first.email)
+    upload(client, white_text_pdf(), "cv.pdf")
+    resume = session.query(Resume).one()
+    index = finding_index(resume, "invisible_text")
+
+    findings = [dict(finding) for finding in resume.gate["findings"]]
+    findings[index] = {**findings[index], "check": "multi_column"}
+    resume.gate = {**resume.gate, "findings": findings}
+    session.commit()
+
+    link = f"/import/{resume.id}/findings/{index}"
+    assert client.get(f"{link}/page.png").status_code == 404
+    assert client.get(link).status_code == 404
+
+
 def test_a_docx_finding_says_the_location_view_is_pdf_only(
     client, session, career, monkeypatch
 ):

@@ -138,5 +138,19 @@ def box_characters(
     return readings
 
 
+def page_exists(data: bytes, page_number: int) -> bool:
+    """Whether the archived file really has a page `page_number` (N6.6).
+
+    A stored finding names a page; the file is the only authority on whether that page
+    exists. A file that will not open is not a page either — the route answers 404
+    rather than a 500.
+    """
+    try:
+        with pdfplumber.open(io.BytesIO(data)) as pdf:
+            return 1 <= page_number <= len(pdf.pages)
+    except Exception:  # noqa: BLE001 - any parse failure means "no such page here"
+        return False
+
+
 def _clamp(value: float, limit: float) -> float:
     return min(max(value, 0.0), limit)

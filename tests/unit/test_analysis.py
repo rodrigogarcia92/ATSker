@@ -28,6 +28,7 @@ from src.score.weights import W4
 from src.summaries import create_summary
 from src.tracks import create_track, set_track_bullets, update_track
 from src.vocabulary import vocabulary_hash
+from src.web.templating import short_years
 from tests.conftest import login
 
 POSTING = """
@@ -301,9 +302,61 @@ def test_the_report_shows_relevant_years_the_roles_and_the_tasks(client, session
     assert detail["relevant_years"] == detail["held_years"] > 0
 
     page = text_of(client.get(posted.headers["location"]).text)
-    assert "Años relevantes" in page
+    years = short_years(detail["relevant_years"])
+    assert f"{years} años" in page, "the tag is the relevant years, in the interface's language"
+    assert f"{years} de {years}" in page, "relevant of held, one decimal at most"
     assert "Puestos contados" in page
     assert "Preparar los reportes" in page
+
+
+def test_the_experience_years_are_localised_and_trimmed(client, session, career, provider):
+    """N6.6: "3.00 years" is wrong in a Spanish page, and "0.00 de 0.00" is unreadable."""
+    career.first_role.start_date = date(2020, 1, 1)
+    session.commit()
+
+    def sub_scores(value: float) -> dict:
+        return {
+            "skills": {"name": "skills", "value": 0.5, "matched": [], "missing": []},
+            "experience": {
+                "name": "experience",
+                "value": 0.5,
+                "detail": {
+                    "relevant_years": value,
+                    "held_years": 6.0,
+                    "relevant_roles": [],
+                    "tasks": [],
+                },
+                "matched": [],
+                "missing": [],
+            },
+            "title": {"name": "title", "value": 0.5, "matched": [], "missing": []},
+            "keywords": {"name": "keywords", "value": 0.5, "matched": [], "missing": []},
+        }
+
+    application = store_flagged(
+        session, career.first_profile.id, capped=40, uncapped=62, cap=40, severity="blocker"
+    )
+    report = application.report
+    application.report = {**report, "score": {**report["score"], "sub_scores": sub_scores(2.5)}}
+    session.commit()
+    login(client, career.first.email)
+    url = f"/applications/{application.id}"
+
+    spanish = text_of(client.get(url).text)
+    assert "2.5 años" in spanish and "2.5 de 6" in spanish
+    assert "años relevantes" not in spanish and "years" not in spanish
+
+    report = application.report
+    application.report = {**report, "score": {**report["score"], "sub_scores": sub_scores(0.0)}}
+    session.commit()
+    zero = text_of(client.get(url).text)
+    assert "0 años" in zero and "0 de 6" in zero
+    assert "0.0 años" not in zero and "0.0 de" not in zero, "no trailing .0 in the years"
+
+    career.first.ui_lang = "en"
+    session.commit()
+    english = text_of(client.get(url).text)
+    assert "0 years" in english and "0 of 6" in english
 
 
 def test_sub_scores_are_shown_as_integers_out_of_100(client, session, career, provider):
@@ -1564,6 +1617,62 @@ def test_every_score_on_the_report_page_is_an_integer(client, session, career, p
 
     assert len(numbers) == 5, "the Job Match and the four sub-scores"
     assert all(re.fullmatch(r"\d+", value.strip()) for value in numbers), numbers
+
+
+def test_the_report_page_uses_the_wider_column_and_a_two_by_two_grid(
+    client, session, career, provider
+):
+    """N6.6: §12.1's phone rule is 2 × 2 at every width, and the two-column sections
+    need the wider desktop column."""
+    login(client, career.first.email)
+    posted = client.post("/analyze", data={"jd_text": POSTING}, follow_redirects=False)
+
+    page = client.get(posted.headers["location"]).text
+
+    assert "max-w-5xl" in page
+    assert "grid grid-cols-2 gap-3" in page, "the four sub-score cards are a 2 × 2 grid"
+    assert "grid-cols-1 gap-3 sm:grid-cols-2" not in page, "never one column on the phone"
+
+
+def test_unbroken_strings_on_the_report_page_can_wrap(client, session, career, provider):
+    """N6.6: a 64-character hash and a copyable query line must not set the page width."""
+    login(client, career.first.email)
+    posted = client.post("/analyze", data={"jd_text": POSTING}, follow_redirects=False)
+
+    page = client.get(posted.headers["location"]).text
+
+    assert 'class="break-all font-mono"' in page, "the posting hash wraps"
+    assert 'class="break-all"' in page, "the prompt versions and calculation hash wrap"
+    assert "break-all select-all font-mono" in page, "the copyable query line wraps"
+
+
+def test_the_readability_question_is_always_on_the_report_page(client, session, career, provider):
+    """N6.6: with no source document the question stays and says no file was read."""
+    gated = store_flagged(
+        session, career.first_profile.id, capped=40, uncapped=62, cap=40, severity="blocker"
+    )
+    report = flagged_report(capped=62, uncapped=62, cap=None, severity="blocker")
+    report["gate"] = None
+    ungated = create_application(
+        career.first_profile.id,
+        session,
+        jd_text="Una oferta sin documento",
+        jd_hash="sha256:no-document",
+        report=report,
+        weights_version="w2",
+        prompt_versions={"jd_extract": "jd_extract_v2"},
+        token_cost_usd=Decimal("0"),
+    )
+    session.commit()
+    login(client, career.first.email)
+
+    with_document = text_of(client.get(f"/applications/{gated.id}").text)
+    assert "¿El ATS lee bien tu CV?" in with_document
+    assert "No se leyó ningún archivo" not in with_document
+
+    without = text_of(client.get(f"/applications/{ungated.id}").text)
+    assert "¿El ATS lee bien tu CV?" in without, "the question never disappears"
+    assert "No se leyó ningún archivo en este análisis" in without
 
 
 def test_the_form_prefills_from_an_application_and_refuses_another_profiles(

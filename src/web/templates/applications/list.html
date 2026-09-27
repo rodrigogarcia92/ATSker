@@ -9,6 +9,7 @@
 </th>
 {%- endmacro %}
 {% block title %}{{ t('applications.title', lang) }} — {{ t('app.name', lang) }}{% endblock %}
+{% block width %}max-w-5xl{% endblock %}
 {% block content %}
 <div class="flex items-center justify-between gap-4">
   <h1 class="text-2xl font-semibold tracking-tight">{{ t('applications.title', lang) }}</h1>
@@ -20,7 +21,7 @@
 <p class="mt-1 text-xs text-text-3">{{ t('applications.weights_hint', lang) }}</p>
 
 {% if rows %}
-<div class="mt-6 overflow-x-auto rounded-card border border-card-border bg-surface-1">
+<div class="mt-6 max-w-full overflow-x-auto rounded-card border border-card-border bg-surface-1">
   <table class="w-full text-sm">
     <thead class="border-b border-card-border">
       <tr>
@@ -91,7 +92,7 @@
           {{ t('applications.recall.pass', lang) if row.boolean.passed else t('applications.recall.fail', lang) }}
           {% else %}{{ t('common.none', lang) }}{% endif %}
         </td>
-        <td class="px-2 py-2 text-text-2">
+        <td class="break-all px-2 py-2 text-text-2">
           {% if row.prompt_versions %}
           {% for purpose, version in row.prompt_versions.items() %}{{ purpose }}={{ version }}{% if not loop.last %} · {% endif %}{% endfor %}
           {% else %}{{ t('common.none', lang) }}{% endif %}

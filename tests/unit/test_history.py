@@ -211,6 +211,8 @@ def test_the_history_page_renders_the_table_and_its_links(client, session, caree
     assert 'value="interview"' in page and "selected" in page
     assert "Sin respuesta" in page, "the outcome labels are the user's language"
     assert "Riesgo" not in page, "another profile's analysis is not in the table"
+    assert "max-w-5xl" in page, "the history table uses the wider column (N6.6)"
+    assert "max-w-full overflow-x-auto" in page, "the table scrolls inside its own box"
 
 
 def test_the_history_carries_the_sub_scores_both_scans_prompts_and_cost(

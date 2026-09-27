@@ -26,6 +26,20 @@ _TEMPLATES.env.globals["advice_line"] = advice_line
 _TEMPLATES.env.filters["fold"] = fold
 
 
+def short_years(value: object) -> str:
+    """Years with at most one decimal and no trailing `.0` (N6.6).
+
+    `3.0` reads as "3", `2.5` as "2.5" — a rounded figure the reader can trust at a
+    glance, and never the "0.00 de 0.00" the report used to print.
+    """
+    text = f"{float(value):.1f}"  # type: ignore[arg-type]
+    return text[:-2] if text.endswith(".0") else text
+
+
+# The report's Experience card shows years in the interface's language and trimmed.
+_TEMPLATES.env.filters["years"] = short_years
+
+
 def render(
     request: Request,
     template: str,

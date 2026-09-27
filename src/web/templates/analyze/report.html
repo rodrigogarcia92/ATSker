@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% import "_ui.html" as ui with context %}
 {% block title %}{{ application.title or t('report.title', lang) }} — {{ t('app.name', lang) }}{% endblock %}
+{% block width %}max-w-5xl{% endblock %}
 {% block content %}
 {# A stored report is rendered from its own sub-scores, its own weights version and its
    own `unavailable` declaration: a `w1` report has keys — and a fifth component — that
@@ -80,9 +81,9 @@
 
 {# 3 — The four sub-score cards, each with a one-line caption. #}
 <h2 class="mt-8 text-lg font-semibold">{{ t('report.sub_scores', lang) }}</h2>
-<div class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+<div class="mt-3 grid grid-cols-2 gap-3">
   {% for name, sub in report.score.sub_scores.items() %}
-  <div class="rounded-card border border-card-border bg-surface-1 p-4">
+  <div class="min-w-0 rounded-card border border-card-border bg-surface-1 p-4">
     {{ ui.score(sub.value, t('report.sub.' + name, lang), t('report.sub_caption.' + name, lang)) }}
     {% if sub.detail is defined and sub.detail.direct is defined %}
     {# F5.5.2: the Skills split, both parts as integers out of 100. #}
@@ -101,10 +102,13 @@
        held, the roles that made them relevant, and the posting's tasks with their
        level. Rows scored before w4 carry none of these fields. #}
     {% if sub.detail is defined and sub.detail.relevant_years is defined %}
-    <p class="mt-1 text-sm text-text-2">
-      {{ t('report.experience_years', lang,
-            relevant='%.2f'|format(sub.detail.relevant_years),
-            held='%.2f'|format(sub.detail.held_years)) }}
+    {# N6.6: the tag is the relevant years in the interface's language ("3 años" /
+       "3 years"), and the line is relevant-of-held with at most one decimal and no
+       trailing ".0" — the reader does not need "0.00 de 0.00". #}
+    <p class="mt-2 flex flex-wrap items-center gap-2 text-sm text-text-2">
+      <span class="tag">{{ t('report.experience_years_tag', lang, years=sub.detail.relevant_years | years) }}</span>
+      <span>{{ t('report.experience_years', lang,
+            relevant=sub.detail.relevant_years | years, held=sub.detail.held_years | years) }}</span>
     </p>
     {% if sub.detail.relevant_roles %}
     <p class="mt-1 text-sm text-text-2">
@@ -132,10 +136,15 @@
   {% endfor %}
 </div>
 
-{# 4 — The two scans, as the two questions a person actually asks. #}
+{# 4 — The two scans, as the two questions a person actually asks. The readability
+   panel is always present: an analysis with no source document says so rather than
+   dropping the question (N6.6). #}
 {% if application.scan_readability %}
   {% set findings_heading = t('report.scan_readability_question', lang) %}
   {% include "_findings.html" %}
+{% else %}
+<h2 class="mt-8 text-lg font-semibold">{{ t('report.scan_readability_question', lang) }}</h2>
+<p class="mt-1 text-sm text-text-2">{{ t('report.scan_no_document', lang) }}</p>
 {% endif %}
 {% if application.scan_boolean %}
   {% include "_recall.html" %}
@@ -345,7 +354,7 @@
     <p class="text-sm font-semibold">{{ t('report.recommendation', lang) }}</p>
     <p class="mt-1 text-xs text-text-3">{{ t('report.recommendation.intro', lang) }}</p>
     {% if report.recommendation.candidates %}
-    <div class="mt-2 overflow-x-auto rounded-control border border-card-border bg-surface-1">
+    <div class="mt-2 max-w-full overflow-x-auto rounded-control border border-card-border bg-surface-1">
       <table class="w-full text-sm">
         <thead>
           <tr class="border-b border-card-border text-xs uppercase tracking-wide text-text-3">
@@ -446,11 +455,11 @@
   <dl class="space-y-2 text-xs text-text-2">
     <div class="flex flex-wrap justify-between gap-2">
       <dt>{{ t('report.calculation', lang) }}</dt>
-      <dd>{{ application.weights_version }} · {{ report.score.effective_weights_hash }}</dd>
+      <dd class="break-all">{{ application.weights_version }} · {{ report.score.effective_weights_hash }}</dd>
     </div>
     <div class="flex flex-wrap justify-between gap-2">
       <dt>{{ t('report.prompt_versions', lang) }}</dt>
-      <dd>
+      <dd class="break-all">
         {% for purpose, version in application.prompt_versions.items() %}{{ purpose }}={{ version }}{% if not loop.last %} · {% endif %}{% endfor %}
       </dd>
     </div>
@@ -475,7 +484,7 @@
     {% endif %}
     <div class="flex flex-wrap justify-between gap-2">
       <dt>{{ t('report.jd_hash', lang) }}</dt>
-      <dd class="font-mono">{{ application.jd_hash }}</dd>
+      <dd class="break-all font-mono">{{ application.jd_hash }}</dd>
     </div>
   </dl>
   <details class="mt-4">

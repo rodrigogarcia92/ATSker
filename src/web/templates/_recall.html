@@ -30,7 +30,7 @@
        carries quotes and the browser already decoded the escaping for us. #}
     {% if query.query_text %}
     <span class="mt-1 flex items-center gap-2">
-      <code class="select-all font-mono text-xs text-text-2">{{ query.query_text }}</code>
+      <code class="break-all select-all font-mono text-xs text-text-2">{{ query.query_text }}</code>
       <button type="button"
               class="shrink-0 rounded-tag border border-border px-1.5 py-0.5 text-xs text-text-2 hover:bg-surface-2"
               onclick="navigator.clipboard.writeText(this.previousElementSibling.textContent.trim())">

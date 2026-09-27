@@ -201,6 +201,11 @@ STRINGS: dict[str, dict[str, str]] = {
     "recall.title": {"es": "¿Te encuentra el reclutador?", "en": "Will the recruiter find you?"},
     "recall.appears": {"es": "Apareces", "en": "You appear"},
     "recall.not_appears": {"es": "No apareces", "en": "You do not appear"},
+    # The labels the derivation returns, shown in the reader's language (N6.6). A label
+    # outside this set is shown as the model wrote it.
+    "recall.label.broad": {"es": "amplia", "en": "broad"},
+    "recall.label.strict": {"es": "estricta", "en": "strict"},
+    "recall.label.core": {"es": "núcleo", "en": "core"},
     "recall.intro": {
         "es": "Las consultas que un reclutador escribiría en un ATS o en un portal, y "
         "si tu puesto objetivo aparecería en sus resultados. No entra en el Encaje "
@@ -355,6 +360,12 @@ STRINGS: dict[str, dict[str, str]] = {
         "es": "¿El ATS lee bien tu CV?",
         "en": "Does the ATS read your CV correctly?",
     },
+    # N6.6: the readability panel is always present; with no source document it says so
+    # rather than disappearing, which read as a clean bill of health.
+    "report.scan_no_document": {
+        "es": "No se leyó ningún archivo en este análisis: el puesto no tiene un CV subido.",
+        "en": "No file was read for this analysis: the track has no uploaded CV.",
+    },
     "report.requirements": {"es": "Requisitos y evidencia", "en": "Requirements and evidence"},
     "report.before_applying": {"es": "Antes de postular", "en": "Before applying"},
     "report.skills_split_total": {
@@ -465,10 +476,10 @@ STRINGS: dict[str, dict[str, str]] = {
         "es": "{direct} directo + {transfer} transferible",
         "en": "{direct} direct + {transfer} transfer",
     },
-    "report.experience_years": {
-        "es": "Años relevantes {relevant} de {held} contados",
-        "en": "Relevant years {relevant} of {held} held",
-    },
+    # N6.6: the tag is the relevant years in the interface's language; the line is the
+    # split relevant-of-held, both trimmed to at most one decimal by the `years` filter.
+    "report.experience_years_tag": {"es": "{years} años", "en": "{years} years"},
+    "report.experience_years": {"es": "{relevant} de {held}", "en": "{relevant} of {held}"},
     "report.experience_roles": {"es": "Puestos contados", "en": "Counted roles"},
     "report.transfer_band": {"es": "Cubierto por transferencia", "en": "Covered by transfer"},
     "report.transfer_band_hint": {

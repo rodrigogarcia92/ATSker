@@ -7,6 +7,7 @@ that is not in the HTML is not reachable at all.
 
 import pytest
 
+from src.web.recall import query_rows
 from tests.conftest import login
 
 # The nine destinations §12.1 groups under Postular, Tu material and Cuenta.
@@ -113,6 +114,17 @@ def test_every_signed_in_screen_renders_with_the_shell(client, career, path):
     assert 'id="rail-body"' in response.text, f"the shell reached {url}"
 
 
+def test_the_content_column_can_shrink_and_wide_tables_scroll(client, career):
+    """N6.6: a wide table must scroll inside its own box, not stretch the page — which
+    only works if the flex child holding it is allowed to shrink."""
+    login(client, career.first.email)
+
+    page = client.get("/dashboard").text
+
+    assert '<main class="main min-w-0">' in page
+    assert 'class="mx-auto w-full min-w-0' in page
+
+
 def test_vocabulario_is_reachable_from_perfil(client, career):
     login(client, career.first.email)
 
@@ -126,3 +138,29 @@ def test_the_login_page_has_no_rail(client):
 
     assert 'id="rail-body"' not in page
     assert ">Postular<" not in page
+
+
+def test_recall_labels_are_shown_in_the_readers_language():
+    """N6.6: the derivation answers in its own English words; the panel does not print
+    them at a Spanish reader, and never hides a label it does not recognise."""
+    payload = {
+        "queries": [
+            {"label": "broad", "passed": True},
+            {"label": "core", "passed": True},
+            {"label": "strict", "passed": False},
+            {"label": "invented", "passed": True},
+        ]
+    }
+
+    assert [row["label"] for row in query_rows(payload, "es")] == [
+        "amplia",
+        "núcleo",
+        "estricta",
+        "invented",
+    ]
+    assert [row["label"] for row in query_rows(payload, "en")] == [
+        "broad",
+        "core",
+        "strict",
+        "invented",
+    ]
