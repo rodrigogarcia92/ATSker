@@ -186,6 +186,13 @@
     {% endif %}
     {% if grade.bullet_text %}
     <p class="mt-1 text-sm text-text-2">{{ grade.bullet_text }}</p>
+    {% if grade.bullet_id and grade.bullet_id in live_bullets %}
+    {# F7.3 Tier 3a: one call, on demand, to restate this bullet for this posting. #}
+    <p class="mt-1 text-xs">
+      <a href="/applications/{{ application.id }}/bullets/{{ grade.bullet_id }}/rephrase"
+         class="text-link underline">{{ t('generate.rephrase', lang) }}</a>
+    </p>
+    {% endif %}
     {% else %}
     <p class="mt-1 text-sm text-text-3">{{ t('report.no_citation', lang) }}</p>
     {% endif %}

@@ -1,0 +1,20 @@
+{# A proposal that failed a validator: shown, marked with the rule and the offending
+   text, and with no accept control (F7.3). `item_text` is the text the span points
+   into, passed by the page that includes this. #}
+{% if violations %}
+<section class="mt-4 rounded-card border border-sev-blocker bg-surface-1 p-4">
+  <p class="text-sm font-semibold text-sev-blocker">{{ t('generate.rejected', lang) }}</p>
+  <ul class="mt-2 space-y-1 text-sm">
+    {% for violation in violations %}
+    <li>
+      <span class="text-sev-blocker">{{ t('generate.violation.' ~ violation.rule, lang) }}</span>
+      {% if violation.span %}
+      <span class="block text-text-2">…{{ item_text[:violation.span[0]][-25:] }}<mark class="bg-surface-2 text-sev-blocker">{{ violation.text }}</mark>{{ item_text[violation.span[1]:][:25] }}…</span>
+      {% else %}
+      <span class="text-text-2">«{{ violation.text }}»</span>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}

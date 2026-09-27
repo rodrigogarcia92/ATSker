@@ -656,6 +656,27 @@ STRINGS: dict[str, dict[str, str]] = {
         "es": "Nombra una habilidad que no está en tus datos o no está respaldada.",
         "en": "Names a skill that is not in your data or is not evidenced.",
     },
+    # Tier 3a: one bullet, rewritten for the posting it was cited for.
+    "generate.rephrase": {"es": "Reformular para este aviso", "en": "Rephrase for this posting"},
+    "generate.rephrase_title": {
+        "es": "Reformular para este aviso",
+        "en": "Rephrase for this posting",
+    },
+    "generate.rephrase_intro": {
+        "es": "Una llamada por click. Aceptar guarda el texto nuevo como una revisión "
+        "y conserva el anterior.",
+        "en": "One call per click. Accepting stores the new text as a revision and "
+        "keeps the previous one.",
+    },
+    "generate.current_bullet": {"es": "Bullet actual", "en": "Current bullet"},
+    "generate.empty_bullet": {
+        "es": "— este bullet no tiene texto en este idioma —",
+        "en": "— this bullet has no text in this language —",
+    },
+    "generate.suggested_translation": {
+        "es": "Sugerencia de traducción: este bullet no tiene texto en el idioma del aviso.",
+        "en": "Suggested translation: this bullet has no text in the posting's language.",
+    },
 
     # Profile
     "profile.title": {"es": "Perfil", "en": "Profile"},

@@ -49,6 +49,10 @@ FUNCTION_WORDS = frozenset(
 _NUMBER = re.compile(r"\S*\d\S*")
 _WORD = re.compile(r"[^\W\d_]+(?:['’\-][^\W\d_]+)*", re.UNICODE)
 _SENTENCE_END = frozenset(".!?;\n")
+# A number token is trimmed of the punctuation that merely abuts it: "30%." is the
+# number `30%` at the end of a sentence, not a different claim from the source's "30%".
+_TRAILING = ".,;:!?)]}\"'”’…"
+_LEADING = "([{\"'“‘"
 
 
 @dataclass(frozen=True)
@@ -149,7 +153,12 @@ def _protected_tokens(text: str, aliases: Mapping[str, str]) -> list[tuple[str, 
             tokens.append((token, start, end))
 
     for match in _NUMBER.finditer(text):
-        add(match.group(), match.start(), match.end())
+        token, start, end = match.group(), match.start(), match.end()
+        while token and token[-1] in _TRAILING:
+            token, end = token[:-1], end - 1
+        while token and token[0] in _LEADING:
+            token, start = token[1:], start + 1
+        add(token, start, end)
     for match in _WORD.finditer(text):
         word = match.group()
         if not word[:1].isupper():

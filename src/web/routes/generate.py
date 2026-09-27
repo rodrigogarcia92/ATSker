@@ -13,7 +13,7 @@ from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
 
 from src.applications import get_application
-from src.bullets import bullet_text
+from src.bullets import bullet_text, get_bullet
 from src.extract.client import (
     CallOptions,
     NoModelConfigured,
@@ -21,9 +21,11 @@ from src.extract.client import (
     StructuredOutputError,
     model_configured,
 )
-from src.extract.generation import generate_summary
+from src.extract.generation import generate_bullet, generate_summary
 from src.generate.proposals import (
+    accept_bullet,
     accept_summary,
+    check_bullet,
     check_summary,
     grades_of,
     pool_skills,
@@ -205,3 +207,161 @@ def accept_summary_proposal(
 
     session.commit()
     return RedirectResponse(f"/tracks/{track.id}", status_code=303)
+
+
+# --- N7.3: Tier 3a, one bullet rephrased for this posting --------------------------
+
+
+def _bullet_target(application_id: str, bullet_id: str, session, profile):
+    """The application and the bullet a rephrase would rewrite."""
+    application = get_application(profile.id, session, application_id)
+    bullet = get_bullet(profile.id, session, bullet_id)
+    if application is None or bullet is None:
+        return None, None
+    return application, bullet
+
+
+def _bullet_current(bullet, language: str) -> str:
+    return (bullet.text_es if language == "es" else bullet.text_en) or ""
+
+
+def _bullet_page(
+    request,
+    user,
+    profile,
+    application,
+    bullet,
+    language: str,
+    *,
+    proposal=None,
+    violations: list[Violation] | None = None,
+    error: str | None = None,
+    refused: dict[str, Any] | None = None,
+):
+    return render(
+        request,
+        "generate/bullet.html",
+        user=user,
+        profile=profile,
+        application=application,
+        bullet=bullet,
+        language=language,
+        proposal=proposal,
+        proposal_json=(
+            json.dumps(proposal.output, ensure_ascii=False) if proposal is not None else ""
+        ),
+        violations=violations or [],
+        refused=refused,
+        current_text=_bullet_current(bullet, language),
+        is_translation=not _bullet_current(bullet, language).strip(),
+        error=error,
+    )
+
+
+@router.get("/applications/{application_id}/bullets/{bullet_id}/rephrase")
+def propose_bullet(
+    application_id: str,
+    bullet_id: str,
+    request: Request,
+    user: SignedInUser,
+    session: DbSession,
+    profile: OwnProfile,
+):
+    """One call, on demand: this bullet rewritten for this posting (F7.3, Tier 3a)."""
+    application, bullet = _bullet_target(application_id, bullet_id, session, profile)
+    if application is None or bullet is None:
+        return render(request, "not_found.html", user=user, status_code=404)
+    language = report_language(application)
+    if not model_configured():
+        return _bullet_page(
+            request, user, profile, application, bullet, language, error=t(_NO_MODEL, user.ui_lang)
+        )
+
+    # Everything the prompt reads is computed first; the reads end before the call.
+    requirements = [
+        str(grade.get("requirement"))
+        for grade in (application.report.get("grades") or [])
+        if str(grade.get("bullet_id")) == str(bullet.id)
+    ]
+    texts = {lang: text for lang, text in (("es", bullet.text_es), ("en", bullet.text_en)) if text}
+    jd_title = str((application.report.get("jd") or {}).get("title") or "")
+    session.commit()
+    try:
+        proposal = generate_bullet(
+            session,
+            bullet_id=str(bullet.id),
+            texts=texts,
+            requirements=requirements,
+            jd_title=jd_title,
+            language=language,
+            options=CallOptions(profile_id=profile.id),
+        )
+    except (NoModelConfigured, ProviderUnavailable, StructuredOutputError):
+        session.commit()
+        return _bullet_page(
+            request,
+            user,
+            profile,
+            application,
+            bullet,
+            language,
+            error=t("generate.failed", user.ui_lang),
+        )
+
+    session.commit()
+    violations = check_bullet(profile.id, session, bullet, proposal.output)
+    return _bullet_page(
+        request,
+        user,
+        profile,
+        application,
+        bullet,
+        language,
+        proposal=proposal,
+        violations=violations,
+    )
+
+
+@router.post("/applications/{application_id}/bullets/{bullet_id}/rephrase/accept")
+def accept_bullet_proposal(
+    application_id: str,
+    bullet_id: str,
+    request: Request,
+    user: SignedInUser,
+    session: DbSession,
+    profile: OwnProfile,
+    payload: Annotated[str, Form()],
+):
+    """Accept a rephrase: re-validate, then revise the one language column (F7.3)."""
+    application, bullet = _bullet_target(application_id, bullet_id, session, profile)
+    if application is None or bullet is None:
+        return render(request, "not_found.html", user=user, status_code=404)
+    try:
+        data = json.loads(payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="malformed proposal") from exc
+
+    language = report_language(application)
+    _, violations = accept_bullet(
+        profile.id,
+        session,
+        bullet.id,
+        text=str(data.get("text") or ""),
+        cites=list(data.get("cites") or []),
+        language=language,
+    )
+    if violations:
+        return _bullet_page(
+            request,
+            user,
+            profile,
+            application,
+            bullet,
+            language,
+            violations=violations,
+            refused={"text": str(data.get("text") or ""), "cites": list(data.get("cites") or [])},
+            error=t("generate.refused", user.ui_lang),
+        )
+
+    session.commit()
+    return RedirectResponse(f"/applications/{application.id}", status_code=303)

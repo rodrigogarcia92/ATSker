@@ -12,8 +12,9 @@ from decimal import Decimal
 import pytest
 
 from src.applications import create_application
+from src.bullets import get_bullet
 from src.extract import client as extract_client
-from src.models import Summary
+from src.models import BulletRevision, Summary
 from src.tracks import get_track
 from tests.conftest import login
 
@@ -75,8 +76,25 @@ def stored_application(session, career, *, language: str = "es", grades: list | 
         },
         "grades": grades
         if grades is not None
-        else [{"requirement": "python", "must_have": True, "level": 3, "bullet_id": bullet_id}],
-        "score": {},
+        else [
+            {
+                "requirement": "python",
+                "must_have": True,
+                "level": 3,
+                "bullet_id": bullet_id,
+                "bullet_text": career.first_bullet.text_es,
+            }
+        ],
+        "score": {
+            "capped": 40,
+            "uncapped": 62,
+            "cap": 40,
+            "cap_reason": "invisible_text",
+            "unavailable": {},
+            "sub_scores": {},
+            "effective_weights": {},
+            "effective_weights_hash": "sha256:0",
+        },
         "llm": {"calls": []},
     }
     application = create_application(
@@ -238,3 +256,99 @@ def test_another_profiles_application_is_a_404(client, session, career, provider
         ).status_code
         == 404
     )
+
+
+# --- N7.3: Tier 3a, one bullet rephrased for the posting ---------------------------
+
+
+REPHRASE = "Automaticé el reporte con Python y reduje el tiempo un 30%."
+
+
+def rephrase_url(application, bullet_id):
+    return f"/applications/{application.id}/bullets/{bullet_id}/rephrase"
+
+
+def test_the_report_links_each_cited_bullet_to_a_rephrase(client, session, career, provider):
+    application = stored_application(session, career)
+    login(client, career.first.email)
+
+    page = client.get(f"/applications/{application.id}").text
+
+    assert rephrase_url(application, career.first_bullet.id) in page
+    assert "Reformular para este aviso" in page
+
+
+def test_a_rephrase_is_proposed_and_shown(client, session, career, provider):
+    provider.answers["BulletRephrase"] = {
+        "text": REPHRASE,
+        "cites": [str(career.first_bullet.id)],
+    }
+    application = stored_application(session, career)
+    login(client, career.first.email)
+
+    page = client.get(rephrase_url(application, career.first_bullet.id)).text
+
+    assert REPHRASE in page
+    assert (
+        f'action="{rephrase_url(application, career.first_bullet.id)}/accept"' in page
+    )
+
+
+def test_accepting_a_rephrase_writes_a_revision_and_keeps_the_other_column(
+    client, session, career, provider
+):
+    provider.answers["BulletRephrase"] = {
+        "text": REPHRASE,
+        "cites": [str(career.first_bullet.id)],
+    }
+    application = stored_application(session, career)
+    login(client, career.first.email)
+
+    accepted = client.post(
+        f"{rephrase_url(application, career.first_bullet.id)}/accept",
+        data={"payload": json.dumps({"text": REPHRASE, "cites": [str(career.first_bullet.id)]})},
+        follow_redirects=False,
+    )
+
+    assert accepted.status_code == 303
+    session.expire_all()
+    bullet = get_bullet(career.first_profile.id, session, career.first_bullet.id)
+    assert bullet.text_es == REPHRASE
+    assert bullet.text_en is None, "the other language column is untouched"
+    revision = session.query(BulletRevision).one()
+    assert revision.text_es == "Reduje 30% el tiempo de reporte con Python"
+    assert revision.text_en is None
+
+
+def test_a_rephrase_with_an_invented_metric_is_refused(client, session, career, provider):
+    application = stored_application(session, career)
+    login(client, career.first.email)
+    tampered = "Automaticé el reporte y reduje el tiempo un 55%."
+
+    refused = client.post(
+        f"{rephrase_url(application, career.first_bullet.id)}/accept",
+        data={"payload": json.dumps({"text": tampered, "cites": [str(career.first_bullet.id)]})},
+    )
+
+    assert refused.status_code == 200
+    assert "55%" in refused.text
+    session.expire_all()
+    assert session.query(BulletRevision).count() == 0
+    assert get_bullet(career.first_profile.id, session, career.first_bullet.id).text_es == (
+        "Reduje 30% el tiempo de reporte con Python"
+    )
+
+
+def test_a_bullet_without_text_in_the_posting_language_is_a_suggested_translation(
+    client, session, career, provider
+):
+    provider.answers["BulletRephrase"] = {
+        "text": "Automated reporting with Python, cutting turnaround by 30%.",
+        "cites": [str(career.first_bullet.id)],
+    }
+    application = stored_application(session, career, language="en")
+    login(client, career.first.email)
+
+    page = client.get(rephrase_url(application, career.first_bullet.id)).text
+
+    assert "Sugerencia de traducción" in page

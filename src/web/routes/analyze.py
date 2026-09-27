@@ -224,6 +224,12 @@ def application_report(
         application=application,
         report=application.report,
         findings=finding_rows(application.scan_readability or {}, user.ui_lang),
+        # F7.3 Tier 3a: the rephrase control links only to a bullet that still exists
+        # and is active — a stored report renders a deleted citation from its snapshot,
+        # without a link to the row that is gone (F2.8/F5.4).
+        live_bullets={
+            str(bullet.id) for bullet in list_bullets(profile.id, session, active_only=True)
+        },
         # F5.1.1: the report links "show me where" through the track's source résumé —
         # the document whose gate capped this score — and only when there is one.
         findings_resume=source,

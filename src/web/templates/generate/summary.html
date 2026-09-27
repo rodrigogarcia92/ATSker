@@ -20,25 +20,7 @@
 
 {% if output %}
   {% if violations %}
-  {# The failure is shown, marked with the rule and the offending text, and there is
-     no accept control: F7.3 forbids shipping a proposal that failed a validator. #}
-  <section class="mt-4 rounded-card border border-sev-blocker bg-surface-1 p-4">
-    <p class="text-sm font-semibold text-sev-blocker">{{ t('generate.rejected', lang) }}</p>
-    <ul class="mt-2 space-y-1 text-sm">
-      {% for violation in violations %}
-      <li>
-        <span class="text-sev-blocker">{{ t('generate.violation.' ~ violation.rule, lang) }}</span>
-        {% if violation.span %}
-        <span class="block text-text-2">
-          …{{ item_text[:violation.span[0]][-25:] }}<mark class="bg-surface-2 text-sev-blocker">{{ violation.text }}</mark>{{ item_text[violation.span[1]:][:25] }}…
-        </span>
-        {% else %}
-        <span class="text-text-2">«{{ violation.text }}»</span>
-        {% endif %}
-      </li>
-      {% endfor %}
-    </ul>
-  </section>
+  {% include "generate/_violations.html" %}
   {% else %}
   {# The diff: what the track holds in this language today, beside the proposal. #}
   <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
