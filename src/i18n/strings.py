@@ -88,6 +88,11 @@ STRINGS: dict[str, dict[str, str]] = {
     "dashboard.letters": {"es": "Plantillas de carta", "en": "Letter templates"},
     "dashboard.educations": {"es": "Formación", "en": "Education"},
     "dashboard.metrics": {"es": "Métricas detectadas", "en": "Detected metrics"},
+    # F.1: the outcome habit. The window (14 days) is a presentation constant.
+    "dashboard.stale": {
+        "es": "{count} análisis de hace más de 14 días sin resultado",
+        "en": "{count} analyses older than 14 days with no outcome",
+    },
     "dashboard.next": {
         "es": "Sube tu currículum en PDF o Word: se extrae y lo revisas antes de "
         "guardar nada.",
@@ -189,6 +194,10 @@ STRINGS: dict[str, dict[str, str]] = {
     "applications.boolean": {"es": "Búsqueda", "en": "Search"},
     "applications.prompts": {"es": "Prompts", "en": "Prompts"},
     "applications.cost": {"es": "Coste", "en": "Cost"},
+    # F.1: the history can be narrowed to the analyses still waiting on a result.
+    "applications.filter.none": {"es": "Sin resultado", "en": "No outcome"},
+    "applications.filtered": {"es": "Mostrando solo: {label}", "en": "Showing only: {label}"},
+    "applications.filter_clear": {"es": "Ver todos", "en": "Show all"},
     "applications.scan.pass": {"es": "Sin hallazgos", "en": "No findings"},
     "applications.scan.capped": {"es": "≤ {cap}", "en": "≤ {cap}"},
     "applications.recall.pass": {"es": "Apareces", "en": "You appear"},

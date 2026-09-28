@@ -6,7 +6,7 @@ the fact: another profile's report is simply not found.
 
 import uuid
 from collections.abc import Mapping
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
@@ -62,6 +62,13 @@ def get_application(
 
 # The five outcomes F9 lists. A value outside this set is refused, never stored.
 OUTCOMES = ("no_reply", "screen", "interview", "offer", "rejected")
+
+# What "no outcome recorded" is in this schema: the column is NOT NULL and defaults to
+# `no_reply`, which is exactly the state F.1 nudges about — nothing has come back yet.
+NO_OUTCOME = ("no_reply",)
+
+# The nudge's window is a presentation setting, never a scoring or storage rule (F.1).
+STALE_DAYS = 14
 
 # What the history table can be sorted by, and the default when the value is unknown:
 # a bad `?sort=` is a fallback, not an error (F9's table is a view, not an API).
@@ -127,6 +134,7 @@ def list_applications(
     *,
     sort: str = "date",
     direction: str = "desc",
+    outcome: str | None = None,
 ) -> list[dict[str, object]]:
     """One row per analysis for the history table, sorted server-side (F9).
 
@@ -134,6 +142,9 @@ def list_applications(
     the score is inside the stored report and the track is a row of its own. The table
     is per profile and small, and these are the values the user sorts by — a number and
     a name, not a JSON path.
+
+    `outcome` narrows the table: one of F9's five values, or `none` for the analyses
+    where nothing has come back yet (F.1).
     """
     key = sort if sort in HISTORY_SORTS else "date"
     reverse = direction != "asc"
@@ -167,6 +178,11 @@ def list_applications(
             }
         )
 
+    if outcome == "none":
+        rows = [row for row in rows if row["outcome"] in NO_OUTCOME]
+    elif outcome in OUTCOMES:
+        rows = [row for row in rows if row["outcome"] == outcome]
+
     if key == "score":
         # An analysis with no score at all sorts last in both directions: it is not a
         # zero, and pretending otherwise would put it above real failures.
@@ -181,3 +197,38 @@ def list_applications(
         return (fold(str(row[key])), row["created_at"] or datetime.min)
 
     return sorted(rows, key=order_key, reverse=reverse)
+
+
+def _naive(value: datetime | None) -> datetime | None:
+    """A datetime comparable across drivers: sqlite hands back naive rows (F.1)."""
+    if value is not None and value.tzinfo is not None:
+        return value.astimezone(UTC).replace(tzinfo=None)
+    return value
+
+
+def _stale_cutoff(days: int, today: datetime | None) -> datetime:
+    reference = today or datetime.now(UTC)
+    return _naive(reference) - timedelta(days=days)
+
+
+def stale_application_count(
+    profile_id: uuid.UUID,
+    session: Session,
+    *,
+    days: int = STALE_DAYS,
+    today: datetime | None = None,
+) -> int:
+    """Analyses older than `days` where nothing has come back yet (F.1's nudge).
+
+    Owner-scoped like every other read: another profile's rows are not in the query at
+    all, so the count cannot leak a stranger's job hunt.
+    """
+    cutoff = _stale_cutoff(days, today)
+    count = 0
+    for application in owned_rows(Application, session, profile_id):
+        if application.outcome not in NO_OUTCOME:
+            continue
+        created = _naive(application.created_at)
+        if created is None or created < cutoff:
+            count += 1
+    return count

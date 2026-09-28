@@ -28,4 +28,12 @@
 <p class="mt-6 text-sm text-text-2">
   {% if counts.roles %} {{ t('dashboard.next', lang) }} {% else %} {{ t('dashboard.empty', lang) }} {% endif %}
 </p>
+{% if stale %}
+{# F.1: the outcome habit — a nudge, never an e-mail or a scheduler. #}
+<p class="mt-4 rounded-control border border-sev-warning px-3 py-2 text-sm text-sev-warning">
+  <a href="/applications?outcome=none&sort=date&dir=asc" class="underline">
+    {{ t('dashboard.stale', lang, count=stale) }}
+  </a>
+</p>
+{% endif %}
 {% endblock %}

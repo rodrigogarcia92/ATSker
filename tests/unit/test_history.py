@@ -11,7 +11,12 @@ from decimal import Decimal
 
 import pytest
 
-from src.applications import OUTCOMES, list_applications, set_application_outcome
+from src.applications import (
+    OUTCOMES,
+    list_applications,
+    set_application_outcome,
+    stale_application_count,
+)
 from src.models import Application
 from tests.conftest import login
 
@@ -334,3 +339,100 @@ def test_the_nav_reaches_the_history(client, career, history):
     assert '<a href="/applications"' in page
     assert page.index('href="/analyze"') < page.index('href="/applications"')
     assert page.index('href="/applications"') < page.index('href="/import"')
+
+
+# --- F.1: the outcome nudge and its filter -----------------------------------------
+
+
+def aged(days: int) -> datetime:
+    return datetime.now(UTC) - timedelta(days=days)
+
+
+def test_the_stale_count_sees_only_old_unanswered_rows(session, career):
+    session.add_all(
+        [
+            application_fixture(
+                career.first_profile.id,
+                title="Vieja sin resultado",
+                company="Acme",
+                score=50,
+                created_at=aged(30),
+            ),
+            application_fixture(
+                career.first_profile.id,
+                title="Reciente sin resultado",
+                company="Acme",
+                score=50,
+                created_at=aged(2),
+            ),
+            application_fixture(
+                career.first_profile.id,
+                title="Vieja con entrevista",
+                company="Acme",
+                score=50,
+                outcome="interview",
+                created_at=aged(30),
+            ),
+            application_fixture(
+                career.second_profile.id,
+                title="De la otra persona",
+                company="Globex",
+                score=50,
+                created_at=aged(30),
+            ),
+        ]
+    )
+    session.commit()
+
+    assert stale_application_count(career.first_profile.id, session) == 1
+    assert stale_application_count(career.second_profile.id, session) == 1, "owner-scoped"
+
+
+def test_the_history_filter_narrows_to_no_outcome_or_one_value(session, career, history):
+    profile_id = career.first_profile.id
+
+    none = list_applications(profile_id, session, outcome="none")
+    assert [row["title"] for row in none] == ["Data Engineer", "Analista antiguo"]
+
+    interview = list_applications(profile_id, session, outcome="interview")
+    assert [row["title"] for row in interview] == ["Analista de datos"]
+
+    unknown = list_applications(profile_id, session, outcome="ghosted")
+    assert len(unknown) == 3, "an unknown value is ignored, not an empty table"
+
+
+def test_the_filter_arrives_from_the_url_and_survives_a_sort(client, career, history):
+    login(client, career.first.email)
+
+    filtered = client.get("/applications?outcome=none&sort=date&dir=asc").text
+
+    interview = next(row for row in history if row.outcome == "interview")
+    assert f'href="/applications/{interview.id}"' not in filtered, (
+        "an interview is not waiting on a result"
+    )
+    for row in history:
+        if row.profile_id == career.first_profile.id and row.outcome == "no_reply":
+            assert f'href="/applications/{row.id}"' in filtered
+    assert "Mostrando solo" in filtered
+    assert "outcome=none" in filtered, "the sort links keep the filter"
+
+
+def test_the_dashboard_nudges_about_the_old_unanswered_analyses(client, session, career):
+    login(client, career.first.email)
+    assert "sin resultado" not in client.get("/dashboard").text, "nothing stale yet"
+
+    session.add(
+        application_fixture(
+            career.first_profile.id,
+            title="Vieja sin resultado",
+            company="Acme",
+            score=50,
+            created_at=aged(30),
+        )
+    )
+    session.commit()
+
+    page = client.get("/dashboard").text
+
+    assert "1 análisis de hace más de 14 días sin resultado" in page
+    assert "/applications?outcome=none&sort=date&dir=asc" in page

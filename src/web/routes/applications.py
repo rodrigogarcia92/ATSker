@@ -28,24 +28,28 @@ def applications_list(
     profile: OwnProfile,
     sort: str = "date",
     direction: Annotated[str, Query(alias="dir")] = "desc",
+    outcome: str | None = None,
 ):
     """Every analysis, newest first unless asked otherwise (F9).
 
     Two scores under different weights are not comparable, so the table shows the
     weights version beside each number instead of blending `w1` and `w2` rows into one
-    ranking.
+    ranking. `?outcome=none` narrows it to the analyses still waiting on a result
+    (F.1); any other value outside F9's five is ignored rather than refused.
     """
     key = sort if sort in HISTORY_SORTS else "date"
     order = "asc" if direction == "asc" else "desc"
+    selected = outcome if outcome in (*OUTCOMES, "none") else None
     return render(
         request,
         "applications/list.html",
         user=user,
         profile=profile,
-        rows=list_applications(profile.id, session, sort=key, direction=order),
+        rows=list_applications(profile.id, session, sort=key, direction=order, outcome=selected),
         outcomes=OUTCOMES,
         sort=key,
         direction=order,
+        outcome=selected,
     )
 
 

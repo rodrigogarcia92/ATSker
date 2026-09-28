@@ -3,7 +3,8 @@
 {% set natural = 'desc' if key in ('date', 'score') else 'asc' %}
 {% set next_dir = ('asc' if direction == 'desc' else 'desc') if sort == key else natural %}
 <th class="px-2 py-2 text-left text-xs font-medium uppercase tracking-wide text-text-3">
-  <a href="/applications?sort={{ key }}&dir={{ next_dir }}" class="hover:underline">
+  {# The filter is part of the view, so a sort link keeps it (F.1). #}
+  <a href="/applications?sort={{ key }}&dir={{ next_dir }}{% if outcome %}&outcome={{ outcome }}{% endif %}" class="hover:underline">
     {{ label }}{% if sort == key %}<span aria-hidden="true"> {{ '↑' if direction == 'asc' else '↓' }}</span>{% endif %}
   </a>
 </th>
@@ -19,6 +20,13 @@
 </div>
 <p class="mt-1 text-sm text-text-2">{{ t('applications.intro', lang) }}</p>
 <p class="mt-1 text-xs text-text-3">{{ t('applications.weights_hint', lang) }}</p>
+{% if outcome %}
+<p class="mt-2 text-sm text-text-2">
+  {{ t('applications.filtered', lang,
+        label=t('applications.filter.none', lang) if outcome == 'none' else t('applications.outcome.' ~ outcome, lang)) }}
+  <a href="/applications" class="text-link underline">{{ t('applications.filter_clear', lang) }}</a>
+</p>
+{% endif %}
 
 {% if rows %}
 {# `relative` gives the absolutely positioned sr-only label inside the table a
