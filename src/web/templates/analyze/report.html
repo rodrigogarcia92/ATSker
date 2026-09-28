@@ -461,6 +461,12 @@
 {% endif %}
 {% endif %}
 
+{# F8 (N8.4): the cover letter written for this application. #}
+<h2 class="mt-8 text-lg font-semibold">{{ t('report.letter', lang) }}</h2>
+<p class="mt-1 text-sm">
+  <a href="/applications/{{ application.id }}/letter" class="text-link underline">{{ t('report.letter_link', lang) }}</a>
+</p>
+
 {# 9 — Traceability: the run's versions, its cache state, its cost, and the fields the
    extraction read, collapsed. #}
 <h2 class="mt-8 text-lg font-semibold">{{ t('report.audit', lang) }}</h2>

@@ -1,0 +1,144 @@
+{# N8.4: the cover letter for one analysis. One paid call chooses a template and writes
+   three bridges; every template × variant is assembled here, so switching is a swap in
+   the browser and never another call. #}
+{% extends "base.html" %}
+{% block title %}{{ t('letters.letter_title', lang) }} — {{ t('app.name', lang) }}{% endblock %}
+{% block width %}max-w-5xl{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-semibold tracking-tight">{{ t('letters.letter_title', lang) }}</h1>
+<p class="mt-1 text-sm text-text-2">{{ t('letters.letter_intro', lang) }}</p>
+<p class="mt-1 text-xs text-text-3">
+  {{ application.title or t('report.title', lang) }}{% if application.company %} · {{ application.company }}{% endif %}
+  · {{ t('lang.' ~ language, lang) }}
+</p>
+
+{% if error %}
+<p class="mt-4 rounded-control border border-sev-warning px-3 py-2 text-sm text-sev-warning">{{ error }}</p>
+<p class="mt-2 text-sm"><a href="/letters" class="text-link underline">{{ t('letters.title', lang) }}</a></p>
+{% endif %}
+
+{% if run_url %}
+{# The provider call costs money, so it is a button on a POST, never a GET. #}
+<form method="post" action="{{ run_url }}" class="mt-4">
+  <button type="submit" class="rounded-control bg-link px-3 py-2 text-sm font-medium text-bg hover:opacity-90">
+    {{ t('generate.run', lang) }}
+  </button>
+</form>
+{% endif %}
+
+{% if saved and not options %}
+<h2 class="mt-6 text-lg font-semibold">{{ t('letters.letter_saved', lang) }}</h2>
+<pre id="saved-letter" class="mt-2 whitespace-pre-wrap rounded-card border border-card-border bg-surface-1 p-4 text-sm">{{ saved }}</pre>
+<button type="button" class="mt-2 rounded-tag border border-border px-2 py-0.5 text-xs text-text-2 hover:bg-surface-2"
+        onclick="navigator.clipboard.writeText(document.getElementById('saved-letter').textContent.trim())">
+  {{ t('recall.copy', lang) }}
+</button>
+{% endif %}
+
+{% if bridge %}
+{% set ns = namespace(chosen=bridge.template_id) %}
+{% for candidate in candidates %}{% if candidate.id|string == bridge.template_id %}{% set ns.chosen = candidate.name %}{% endif %}{% endfor %}
+<h2 class="mt-6 text-lg font-semibold">{{ t('report.letter', lang) }}</h2>
+<p class="mt-1 text-sm text-text-2">
+  <span class="text-text-3">{{ t('letters.letter_template', lang) }}:</span>
+  {{ ns.chosen }}
+  — <span class="text-text-3">{{ t('letters.letter_reason', lang) }}:</span> {{ bridge.reason }}
+</p>
+{% if bridge.runner_up_id %}
+<p class="mt-1 text-sm text-text-2">
+  <span class="text-text-3">{{ t('letters.letter_runner_up', lang) }}:</span>
+  {% for candidate in candidates %}{% if candidate.id|string == bridge.runner_up_id %}{{ candidate.name }}{% endif %}{% endfor %}
+</p>
+{% endif %}
+{% if bridge.risk %}
+<p class="mt-1 text-sm text-sev-warning">{{ t('letters.letter_risk', lang) }}: {{ bridge.risk }}</p>
+{% endif %}
+{% if options | length < 3 %}
+<p class="mt-1 text-xs text-text-3">{{ t('letters.letter_missing_candidates_note', lang, count=options | map(attribute='index') | unique | list | length) }}</p>
+{% endif %}
+
+<div class="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
+  <div class="space-y-2">
+    <label for="letter-template" class="mb-1 block text-sm font-medium">{{ t('letters.letter_template', lang) }}</label>
+    <select id="letter-template" class="w-full rounded-control border border-border px-3 py-2 text-sm">
+      {% for candidate in candidates %}
+      <option value="{{ candidate.id }}" {% if candidate.id|string == bridge.template_id %}selected{% endif %}>{{ candidate.name }}</option>
+      {% endfor %}
+    </select>
+    <p class="mt-3 text-sm font-medium">{{ t('letters.letter_variant', lang) }}</p>
+    {% for index in range(3) %}
+      {% set same_index = options | selectattr('index', 'equalto', index) | list %}
+      {% if same_index %}
+      <label class="flex items-start gap-2 text-sm">
+        <input type="radio" name="variant" value="{{ index }}" {% if same_index[0].default %}checked{% endif %}>
+        <span>
+          {{ same_index[0].angle }}
+          {% if same_index[0].sources %}<span class="block text-xs text-text-3">{{ same_index[0].sources | join(', ') }}</span>{% endif %}
+        </span>
+      </label>
+      {% endif %}
+    {% endfor %}
+  </div>
+  <div class="lg:col-span-2">
+    {% for option in options %}
+    <div class="letter-option min-w-0" data-key="{{ option.key }}" data-template-id="{{ option.template_id }}"
+         data-letter="{{ option.letter_text }}" {% if not option.default %}hidden{% endif %}>
+      {% if option.warning %}
+      <p class="mb-2 rounded-control border border-sev-warning px-3 py-2 text-xs text-sev-warning">
+        {{ t('letters.letter_repeat_warning', lang) }} {{ option.warning | join(', ') }}
+      </p>
+      {% endif %}
+      <pre class="whitespace-pre-wrap rounded-card border border-card-border bg-surface-1 p-4 text-sm">{{ option.highlighted | safe }}</pre>
+    </div>
+    {% endfor %}
+    <form method="post" action="/applications/{{ application.id }}/letter/save" class="mt-3 space-y-3">
+      <input type="hidden" name="template_id" id="letter-template-id" value="{{ bridge.template_id }}">
+      <label for="letter-text" class="mb-1 block text-sm font-medium">{{ t('letters.letter_title', lang) }}</label>
+      <textarea id="letter-text" name="text" rows="16"
+                class="w-full rounded-control border border-border px-3 py-2 text-sm">{{ options[0].letter_text if options else '' }}</textarea>
+      <div class="flex flex-wrap items-center gap-3">
+        <button type="submit" class="rounded-control bg-link px-3 py-2 text-sm font-medium text-bg hover:opacity-90">
+          {{ t('letters.letter_save', lang) }}
+        </button>
+        <button type="button" class="rounded-tag border border-border px-2 py-0.5 text-xs text-text-2 hover:bg-surface-2"
+                onclick="navigator.clipboard.writeText(document.getElementById('letter-text').value)">
+          {{ t('recall.copy', lang) }}
+        </button>
+        {% if cost %}<span class="text-xs text-text-3">{{ t('report.cost_label', lang) }}: ${{ cost }}</span>{% endif %}
+      </div>
+    </form>
+  </div>
+</div>
+<script>
+  // A few lines, no storage: switching template or variant shows the assembly the
+  // server already computed, and never calls the model again (N8.4).
+  (function () {
+    var select = document.getElementById('letter-template');
+    var templateField = document.getElementById('letter-template-id');
+    var textarea = document.getElementById('letter-text');
+    if (!select || !textarea) return;
+    var blocks = document.querySelectorAll('.letter-option');
+    function show() {
+      var checked = document.querySelector('input[name="variant"]:checked');
+      var key = select.value + ':' + (checked ? checked.value : '0');
+      blocks.forEach(function (block) {
+        var match = block.dataset.key === key;
+        block.hidden = !match;
+        if (match) {
+          textarea.value = block.dataset.letter;
+          templateField.value = block.dataset.templateId;
+        }
+      });
+    }
+    select.addEventListener('change', show);
+    document.querySelectorAll('input[name="variant"]').forEach(function (radio) {
+      radio.addEventListener('change', show);
+    });
+  })();
+</script>
+{% endif %}
+
+<p class="mt-6 text-sm">
+  <a href="/applications/{{ application.id }}" class="text-link underline">{{ t('generate.back', lang) }}</a>
+</p>
+{% endblock %}

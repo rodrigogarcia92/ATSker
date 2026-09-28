@@ -13,8 +13,10 @@ number that appears in the chosen template's achievements paragraph, because tha
 would be the same achievement twice rather than a new one.
 """
 
+import html
 import re
 from collections.abc import Mapping, Sequence
+from datetime import UTC, date, datetime
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -319,3 +321,113 @@ def missing_blocks(settings: LetterSettings | None) -> list[str]:
         for name in ("header", "greeting", "closing", "sign_off")
         if not (getattr(settings, name) or "").strip()
     ]
+
+
+# --- N8.4: assembly -----------------------------------------------------------------
+
+# The placeholders, accepted in either language (F8). Kept here and mirrored in
+# `src/i18n/strings.py` for the legend; the fill is code, the legend is copy.
+PLACEHOLDER_PAIRS: dict[str, tuple[str, ...]] = {
+    "role": ("[PUESTO]", "[ROLE]"),
+    "company": ("[EMPRESA]", "[COMPANY]"),
+    "area": ("[ÁREA]", "[AREA]"),
+    "date": ("[FECHA]", "[DATE]"),
+}
+
+_MONTHS = {
+    "es": (
+        "enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto",
+        "septiembre", "octubre", "noviembre", "diciembre",
+    ),
+    "en": (
+        "January", "February", "March", "April", "May", "June", "July", "August",
+        "September", "October", "November", "December",
+    ),
+}
+
+
+def format_date(value: date, language: str) -> str:
+    """The date as the language writes it: `27 de septiembre de 2026` / `September 27, 2026`."""
+    months = _MONTHS["en"] if language == "en" else _MONTHS["es"]
+    if language == "en":
+        return f"{months[value.month - 1]} {value.day}, {value.year}"
+    return f"{value.day} de {months[value.month - 1]} de {value.year}"
+
+
+def fill_placeholders(text: str, values: Mapping[str, str | None]) -> tuple[str, list[str]]:
+    """Fill the known placeholders; return the text and the keys left unresolved."""
+    filled = text
+    unresolved: list[str] = []
+    for key, tokens in PLACEHOLDER_PAIRS.items():
+        value = values.get(key)
+        for token in tokens:
+            if token not in filled:
+                continue
+            if value:
+                filled = filled.replace(token, value)
+            elif key not in unresolved:
+                unresolved.append(key)
+    return filled, unresolved
+
+
+def letter_values(
+    application: Application, language: str, *, today: date | None = None
+) -> dict[str, str | None]:
+    """What the placeholders resolve to for one application (F8)."""
+    return {
+        "role": application.title,
+        "company": application.company,
+        # The posting's area is not stored per application: the placeholder stays and
+        # is highlighted rather than guessed.
+        "area": None,
+        "date": format_date(today or datetime.now(UTC).date(), language),
+    }
+
+
+def assemble_letter(
+    *,
+    settings: LetterSettings | None,
+    template: LetterTemplate | None,
+    bridge_text: str,
+    application: Application,
+    language: str,
+    today: date | None = None,
+) -> dict[str, Any]:
+    """The whole letter in F8's order, with placeholders filled (N8.4).
+
+    Header · date · greeting · presentation · achievements · bridge · closing ·
+    sign-off. `unresolved` names the placeholder keys that stayed literal, so the page
+    can highlight them instead of shipping a blank.
+    """
+    values = letter_values(application, language, today=today)
+    raw_blocks: list[str] = [
+        settings.header if settings else "",
+        values["date"] or "",
+        settings.greeting if settings else "",
+        template.presentation if template else "",
+        template.achievements if template else "",
+        bridge_text,
+        settings.closing if settings else "",
+        settings.sign_off if settings else "",
+    ]
+    resolved: list[str] = []
+    unresolved: list[str] = []
+    for raw in raw_blocks:
+        text, missing = fill_placeholders(raw or "", values)
+        resolved.append(text.strip())
+        for key in missing:
+            if key not in unresolved:
+                unresolved.append(key)
+    return {"text": "\n\n".join(block for block in resolved if block), "unresolved": unresolved}
+
+
+def highlight_placeholders(text: str, unresolved: Sequence[str]) -> str:
+    """The letter as HTML with the unresolved placeholders marked (autoescape-safe)."""
+    escaped = html.escape(text)
+    for key in unresolved:
+        for token in PLACEHOLDER_PAIRS[key]:
+            escaped = escaped.replace(
+                html.escape(token),
+                f'<mark class="bg-surface-2 text-sev-warning">{html.escape(token)}</mark>',
+            )
+    return escaped

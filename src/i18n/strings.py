@@ -1025,6 +1025,39 @@ STRINGS: dict[str, dict[str, str]] = {
         "es": "El párrafo de logros debe ser uno solo.",
         "en": "The achievements block must be one paragraph.",
     },
+    # N8.4: the letter written for one application.
+    "letters.letter_title": {"es": "Carta de presentación", "en": "Cover letter"},
+    "letters.letter_intro": {
+        "es": "Una llamada para elegir plantilla y escribir tres puentes; el montaje es "
+        "determinista y cambiar de plantilla o variante no vuelve a llamar al modelo.",
+        "en": "One call to choose a template and write three bridges; assembly is "
+        "deterministic, and switching template or variant does not call the model again.",
+    },
+    "letters.letter_no_candidates": {
+        "es": "No hay plantillas en el idioma del aviso: créalas en Cartas.",
+        "en": "No templates in the posting's language: create them in Letters.",
+    },
+    "letters.letter_no_settings": {
+        "es": "Faltan los bloques comunes de ese idioma: escríbelos en Cartas.",
+        "en": "The common blocks for that language are missing: write them in Letters.",
+    },
+    "letters.letter_reason": {"es": "Elegida porque", "en": "Chosen because"},
+    "letters.letter_runner_up": {"es": "Alternativa", "en": "Runner-up"},
+    "letters.letter_risk": {"es": "Riesgo", "en": "Risk"},
+    "letters.letter_template": {"es": "Plantilla", "en": "Template"},
+    "letters.letter_variant": {"es": "Variante", "en": "Variant"},
+    "letters.letter_repeat_warning": {
+        "es": "Repite un número del párrafo de logros de esta plantilla.",
+        "en": "Repeats a number from this template's achievements paragraph.",
+    },
+    "letters.letter_save": {"es": "Guardar carta", "en": "Save letter"},
+    "letters.letter_saved": {"es": "Carta guardada", "en": "Saved letter"},
+    "letters.letter_missing_candidates_note": {
+        "es": "Solo sobrevivieron {count} variantes; no se rellenan hasta tres.",
+        "en": "Only {count} variants survived; three are never padded.",
+    },
+    "report.letter": {"es": "Carta de presentación", "en": "Cover letter"},
+    "report.letter_link": {"es": "Escribir la carta", "en": "Write the letter"},
     "letters.placeholders": {"es": "Marcadores", "en": "Placeholders"},
     "letters.placeholders_hint": {
         "es": "Se rellenan al montar la carta, en cualquiera de los dos idiomas: {list}.",

@@ -37,6 +37,7 @@ from src.extract.generation import (
     GENERATE_BULLET,
     GENERATE_SUMMARY,
     LETTER_BLOCKS,
+    LETTER_BRIDGE,
     STORY_BULLETS,
 )
 from src.extract.grading import PURPOSE as EVIDENCE_GRADE
@@ -63,8 +64,8 @@ from src.scoping import owned_row, owned_rows
 
 # F2.8's personal-content purposes, as the ledger records them. `jd_extract` and
 # `boolean_queries` are deliberately absent: those answers are not personal and are
-# kept whole. F7.3's three added theirs: a generated summary or bullet is the user's
-# own material, so "Eliminar todo" blanks it like the résumé it came from.
+# kept whole. F7.3's three added theirs, and F8's two letter calls: generated prose is
+# the user's own material, so "Eliminar todo" blanks it like the résumé it came from.
 PERSONAL_PURPOSES = (
     RESUME_EXTRACT,
     EVIDENCE_GRADE,
@@ -74,6 +75,7 @@ PERSONAL_PURPOSES = (
     GENERATE_BULLET,
     STORY_BULLETS,
     LETTER_BLOCKS,
+    LETTER_BRIDGE,
 )
 
 # What `delete_everything` totals: one key per entity of the §F2.8 table, plus the
