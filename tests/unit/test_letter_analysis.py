@@ -282,3 +282,70 @@ def test_no_template_in_the_postings_language_says_so(client, session, career, p
     assert "No hay plantillas en el idioma del aviso" in page
     assert client.post(f"{url(application)}/generate").status_code == 200
     assert provider.calls == []
+
+
+# --- N8.5: the checklist and the history mark --------------------------------------
+
+
+def test_the_checklist_is_rendered_beside_the_letter(client, session, career, provider):
+    application, _letter = ready(session, career, provider)
+    login(client, career.first.email)
+
+    page = client.post(f"{url(application)}/generate").text
+
+    assert "Sin marcadores pendientes" in page
+    assert "Aparece el título exacto del aviso" in page
+    assert "Se nombra la empresa" in page
+    assert "Una página" in page
+    assert "✓" in page
+
+
+def test_an_unresolved_placeholder_fails_its_check(session, career, provider):
+    from src.generate.letters import letter_checklist
+
+    application, _letter = ready(session, career, provider)
+    items = {
+        item["key"]: item
+        for item in letter_checklist(
+            text="Carta con [ÁREA] pendiente.",
+            application=application,
+            language="es",
+            unresolved=["area"],
+            facts_attributed=True,
+        )
+    }
+
+    assert items["placeholders"]["ok"] is False
+    assert items["placeholders"]["detail"] == "area"
+    assert items["title"]["ok"] is False, "the title is not in that text"
+
+
+def test_a_one_page_letter_passes_the_length_check(session, career, provider):
+    from src.generate.letters import letter_checklist
+
+    application, _letter = ready(session, career, provider)
+    items = {
+        item["key"]: item
+        for item in letter_checklist(
+            text=" ".join(["palabra"] * 421),
+            application=application,
+            language="es",
+            unresolved=[],
+            facts_attributed=True,
+        )
+    }
+
+    assert items["length"]["ok"] is False, "421 words is over one page"
+
+
+def test_the_history_marks_an_application_with_a_saved_letter(client, session, career, provider):
+    application, letter = ready(session, career, provider)
+    login(client, career.first.email)
+    client.post(
+        f"{url(application)}/save",
+        data={"text": "Carta guardada.", "template_id": str(letter.id)},
+    )
+
+    page = client.get("/applications").text
+
+    assert ">carta<" in page.replace("\n", "")

@@ -176,6 +176,8 @@ def list_applications(
                 "boolean": _boolean_scan(application.scan_boolean),
                 "prompt_versions": dict(application.prompt_versions or {}),
                 "token_cost_usd": application.token_cost_usd,
+                # F8/N8.5: the history marks the applications with a saved letter.
+                "has_letter": bool((application.letter_text or "").strip()),
             }
         )
 

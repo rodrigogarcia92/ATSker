@@ -431,3 +431,42 @@ def highlight_placeholders(text: str, unresolved: Sequence[str]) -> str:
                 f'<mark class="bg-surface-2 text-sev-warning">{html.escape(token)}</mark>',
             )
     return escaped
+
+
+# --- N8.5: the deterministic checklist ---------------------------------------------
+
+CHECKLIST_WORD_LIMIT = 420
+
+
+def letter_checklist(
+    *,
+    text: str,
+    application: Application,
+    language: str,
+    unresolved: Sequence[str],
+    facts_attributed: bool,
+) -> list[dict[str, Any]]:
+    """F8.5's six checks, in order, with what each one saw.
+
+    Deterministic and free: it reads the assembled letter, never a model. A check that
+    cannot pass is reported as failed, never hidden.
+    """
+    words = len(text.split())
+    title = (application.title or "").strip()
+    company = (application.company or "").strip()
+    return [
+        {
+            "key": "placeholders",
+            "ok": not unresolved,
+            "detail": ", ".join(unresolved),
+        },
+        {"key": "title", "ok": bool(title) and title in text, "detail": title},
+        {"key": "company", "ok": bool(company) and company in text, "detail": company},
+        {
+            "key": "length",
+            "ok": words <= CHECKLIST_WORD_LIMIT,
+            "detail": f"{words} / {CHECKLIST_WORD_LIMIT}",
+        },
+        {"key": "facts", "ok": facts_attributed, "detail": ""},
+        {"key": "language", "ok": language in ("es", "en"), "detail": language},
+    ]

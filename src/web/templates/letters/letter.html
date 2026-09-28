@@ -89,6 +89,22 @@
       </p>
       {% endif %}
       <pre class="whitespace-pre-wrap rounded-card border border-card-border bg-surface-1 p-4 text-sm">{{ option.highlighted | safe }}</pre>
+      {# F8.5: the deterministic checklist, beside the letter it judges. #}
+      <ul class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs">
+        {% for item in option.checklist %}
+        {% if item.ok %}
+        <li class="text-score-strong">
+          ✓ {{ t('letters.check.' ~ item.key, lang) }}
+          {% if item.detail %}<span class="text-text-3">{{ item.detail }}</span>{% endif %}
+        </li>
+        {% else %}
+        <li class="text-sev-warning">
+          ✗ {{ t('letters.check.' ~ item.key, lang) }}
+          {% if item.detail %}<span class="text-text-3">{{ item.detail }}</span>{% endif %}
+        </li>
+        {% endif %}
+        {% endfor %}
+      </ul>
     </div>
     {% endfor %}
     <form method="post" action="/applications/{{ application.id }}/letter/save" class="mt-3 space-y-3">

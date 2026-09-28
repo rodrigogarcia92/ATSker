@@ -25,6 +25,7 @@ from src.generate.letters import (
     check_variants,
     highlight_placeholders,
     letter_candidates,
+    letter_checklist,
     letter_settings_for,
     material_for_application,
     numbers_in,
@@ -77,6 +78,16 @@ def _options(
             options.append(
                 {
                     "key": f"{template.id}:{index}",
+                    "checklist": letter_checklist(
+                        text=assembled["text"],
+                        application=application,
+                        language=language,
+                        unresolved=assembled["unresolved"],
+                        facts_attributed=(
+                            variant.get("company_fact") is None
+                            or bool((variant.get("company_fact") or {}).get("jd_quote"))
+                        ),
+                    ),
                     "template_id": str(template.id),
                     "template_name": template.name,
                     "index": index,

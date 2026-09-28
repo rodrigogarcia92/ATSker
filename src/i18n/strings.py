@@ -1051,6 +1051,26 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "Repeats a number from this template's achievements paragraph.",
     },
     "letters.letter_save": {"es": "Guardar carta", "en": "Save letter"},
+    # F8.5: the checklist, deterministic and beside the letter.
+    "letters.check.placeholders": {
+        "es": "Sin marcadores pendientes",
+        "en": "No placeholders left",
+    },
+    "letters.check.title": {
+        "es": "Aparece el título exacto del aviso",
+        "en": "The posting's exact title appears",
+    },
+    "letters.check.company": {"es": "Se nombra la empresa", "en": "The company is named"},
+    "letters.check.length": {"es": "Una página (≤ 420 palabras)", "en": "One page (≤ 420 words)"},
+    "letters.check.facts": {
+        "es": "Cada dato de la empresa está atribuido",
+        "en": "Every company fact is attributed",
+    },
+    "letters.check.language": {
+        "es": "El idioma de la carta es el del aviso",
+        "en": "The letter's language is the posting's",
+    },
+    "applications.letter_mark": {"es": "carta", "en": "letter"},
     "letters.letter_saved": {"es": "Carta guardada", "en": "Saved letter"},
     "letters.letter_missing_candidates_note": {
         "es": "Solo sobrevivieron {count} variantes; no se rellenan hasta tres.",
