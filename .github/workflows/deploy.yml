@@ -22,7 +22,28 @@ permissions:
   id-token: write # Workload Identity Federation, no downloadable key (build steps E8)
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Lint
+        run: uv run ruff check src tests scripts
+
+      - name: Test
+        # Offline by construction: the suite stubs the provider and runs against an
+        # in-memory database, so it needs no DATABASE_URL and no OpenRouter key (G.2).
+        run: uv run pytest -q
+
   deploy:
+    needs: test
     runs-on: ubuntu-latest
     env:
       GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
