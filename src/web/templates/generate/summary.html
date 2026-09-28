@@ -18,6 +18,15 @@
 {% set output = refused or (proposal.output if proposal else none) %}
 {% set item_text = output.summary.text if output and output.summary else (output.text if output else '') %}
 
+{% if run_url and not output %}
+{# The provider call costs money, so it is a button on a POST, never a GET (F.0). #}
+<form method="post" action="{{ run_url }}" class="mt-4">
+  <button type="submit" class="rounded-control bg-link px-3 py-2 text-sm font-medium text-bg hover:opacity-90">
+    {{ t('generate.run', lang) }}
+  </button>
+</form>
+{% endif %}
+
 {% if output %}
   {% if violations %}
   {% include "generate/_violations.html" %}

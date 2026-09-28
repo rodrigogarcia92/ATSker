@@ -126,10 +126,10 @@
     {% endif %}
     <div class="mt-2 flex flex-wrap gap-2">
       {% for term in sub.matched %}
-      <span class="rounded-tag bg-surface-2 px-2 py-0.5 text-xs text-text-2">{{ term }}</span>
+      <span class="rounded-tag bg-surface-2 px-2 py-0.5 text-xs text-text-2">{{ term | localised_term(lang) }}</span>
       {% endfor %}
       {% for term in sub.missing %}
-      <span class="rounded-tag border border-sev-warning px-2 py-0.5 text-xs text-sev-warning">{{ term }}</span>
+      <span class="rounded-tag border border-sev-warning px-2 py-0.5 text-xs text-sev-warning">{{ term | localised_term(lang) }}</span>
       {% endfor %}
     </div>
   </div>

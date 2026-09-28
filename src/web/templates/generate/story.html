@@ -17,6 +17,16 @@
 <p class="mt-4 rounded-control border border-sev-warning px-3 py-2 text-sm text-sev-warning">{{ error }}</p>
 {% endif %}
 
+{% if run_url %}
+{# The provider call costs money, so it is a button on a POST, never a GET (F.0). #}
+<form method="post" action="{{ run_url }}" class="mt-4">
+  <input type="hidden" name="lang" value="{{ language }}">
+  <button type="submit" class="rounded-control bg-link px-3 py-2 text-sm font-medium text-bg hover:opacity-90">
+    {{ t('generate.run', lang) }}
+  </button>
+</form>
+{% endif %}
+
 {% if candidates %}
 <ul class="mt-4 space-y-4">
   {% for candidate in candidates %}

@@ -47,6 +47,7 @@ FUNCTION_WORDS = frozenset(
 )
 
 _NUMBER = re.compile(r"\S*\d\S*")
+_NUMBER_IN_TEXT = re.compile(r"\d[\d.,]*%?")
 _WORD = re.compile(r"[^\W\d_]+(?:['’\-][^\W\d_]+)*", re.UNICODE)
 _SENTENCE_END = frozenset(".!?;\n")
 # A number token is trimmed of the punctuation that merely abuts it: "30%." is the
@@ -136,6 +137,45 @@ def _grade_parts(grade: Any) -> tuple[int, str | None]:
     )
 
 
+def _number_key(token: str) -> str:
+    """A number token's identity: `30%`, `30` and `30.` are the same claim.
+
+    Thousands separators and a trailing decimal point are formatting, not data; the
+    percent sign is dropped so `30%` and `30` compare equal — a source that says `30`
+    supports an output that says `30%`.
+    """
+    return fold(token).replace("%", "").replace(",", "").rstrip(".")
+
+
+@dataclass(frozen=True)
+class _SourceTokens:
+    words: frozenset[str]
+    numbers: frozenset[str]
+
+
+def _source_tokens(text: str) -> _SourceTokens:
+    """The cited sources as whole tokens — never substrings (F.0)."""
+    folded = fold(text)
+    return _SourceTokens(
+        words=frozenset(_WORD.findall(folded)),
+        numbers=frozenset(_number_key(match.group()) for match in _NUMBER_IN_TEXT.finditer(folded)),
+    )
+
+
+def _token_found(token: str, source: _SourceTokens) -> bool:
+    """Whether a protected token is one of the source's own tokens.
+
+    A token with a digit is a number and matches by numeric identity (`30` matches
+    `30%`, `3` does not); anything else must be present word for word, so `Ban` does
+    not match `Banco`.
+    """
+    folded = fold(token)
+    if any(char.isdigit() for char in folded):
+        return _number_key(folded) in source.numbers
+    words = _WORD.findall(folded)
+    return bool(words) and all(word in source.words for word in words)
+
+
 def _protected_tokens(text: str, aliases: Mapping[str, str]) -> list[tuple[str, int, int]]:
     """(token, start, end) for numbers, proper nouns and vocabulary aliases.
 
@@ -208,9 +248,9 @@ def validate(
 
     # 2 — Literal preservation.
     for name, text, cites in items:
-        cited_text = fold(" ".join(sources.text_of(cite) for cite in cites))
+        source = _source_tokens(" ".join(sources.text_of(cite) for cite in cites))
         for token, start, end in _protected_tokens(text, sources.aliases):
-            if fold(token) not in cited_text:
+            if not _token_found(token, source):
                 violations.append(
                     Violation(
                         LITERAL,

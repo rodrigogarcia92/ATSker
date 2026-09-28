@@ -1,5 +1,6 @@
 """Template rendering with the interface language and the current user injected."""
 
+import re
 from pathlib import Path
 from typing import Any
 
@@ -38,6 +39,23 @@ def short_years(value: object) -> str:
 
 # The report's Experience card shows years in the interface's language and trimmed.
 _TEMPLATES.env.filters["years"] = short_years
+
+# The scorer writes its matched/missing tags in English (`3.00 years`) and is frozen,
+# so the display localises the one shape it produces (F.0).
+_YEARS_TERM = re.compile(r"^(\d+(?:[.,]\d+)?)\s*years?$", re.IGNORECASE)
+
+
+def localised_term(value: object, lang: str = DEFAULT_LANG) -> str:
+    """A sub-score's matched/missing term, in the reader's language (F.0)."""
+    text = str(value)
+    match = _YEARS_TERM.match(text.strip())
+    if match is None:
+        return text
+    years = short_years(match.group(1).replace(",", "."))
+    return t("report.experience_years_tag", lang, years=years)
+
+
+_TEMPLATES.env.filters["localised_term"] = localised_term
 
 
 def render(

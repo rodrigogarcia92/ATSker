@@ -359,6 +359,49 @@ def test_the_experience_years_are_localised_and_trimmed(client, session, career,
     assert "0 years" in english and "0 of 6" in english
 
 
+def test_the_experience_years_terms_are_localised_in_the_sub_score_tags(
+    client, session, career, provider
+):
+    """F.0: the scorer writes its tags in English (`3.00 years`) and is frozen, so the
+    card localises them."""
+    application = store_flagged(
+        session, career.first_profile.id, capped=40, uncapped=62, cap=40, severity="blocker"
+    )
+    report = application.report
+    application.report = {
+        **report,
+        "score": {
+            **report["score"],
+            "sub_scores": {
+                "experience": {
+                    "name": "experience",
+                    "value": 0.5,
+                    "detail": {
+                        "relevant_years": 3.0,
+                        "held_years": 5.0,
+                        "relevant_roles": [],
+                        "tasks": [],
+                    },
+                    "matched": ["3.00 years"],
+                    "missing": ["1.50 years"],
+                }
+            },
+        },
+    }
+    session.commit()
+    login(client, career.first.email)
+    url = f"/applications/{application.id}"
+
+    spanish = text_of(client.get(url).text)
+    assert "3 años" in spanish and "1.5 años" in spanish
+    assert "years" not in spanish, "no English tag on the Spanish page"
+
+    career.first.ui_lang = "en"
+    session.commit()
+    english = text_of(client.get(url).text)
+    assert "3 years" in english and "1.5 years" in english
+
+
 def test_sub_scores_are_shown_as_integers_out_of_100(client, session, career, provider):
     """PRD §12.1: what sits under a sub-score is a percentage, never a fraction —
     the page shows 29, not 0.29. The stored value is untouched."""

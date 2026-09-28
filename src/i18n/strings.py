@@ -609,6 +609,8 @@ STRINGS: dict[str, dict[str, str]] = {
         "es": "Proponer resumen y habilidades",
         "en": "Propose a summary and skills",
     },
+    # The provider call is a button on a POST, never a GET (F.0).
+    "generate.run": {"es": "Generar propuesta", "en": "Generate proposal"},
     "generate.title": {
         "es": "Resumen y habilidades propuestos",
         "en": "Proposed summary and skills",

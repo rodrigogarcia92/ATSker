@@ -95,6 +95,12 @@ def _page(
         violations=violations or [],
         refused=refused,
         current=_current(session, track, language),
+        # The call costs money, so it is a button on a POST, never a GET (F.0).
+        run_url=(
+            f"/applications/{application.id}/summary/generate"
+            if proposal is None and refused is None and error is None
+            else None
+        ),
         error=error,
     )
 
@@ -107,7 +113,26 @@ def propose_summary(
     session: DbSession,
     profile: OwnProfile,
 ):
-    """One call, on demand: the Tier-1 proposal for this application (F7.3)."""
+    """The Tier-1 page. A GET renders the button; the provider call is the POST (F.0)."""
+    application, track = _target(application_id, session, profile)
+    if application is None or track is None:
+        return render(request, "not_found.html", user=user, status_code=404)
+    if not model_configured():
+        return _page(
+            request, user, profile, application, track, session, error=t(_NO_MODEL, user.ui_lang)
+        )
+    return _page(request, user, profile, application, track, session)
+
+
+@router.post("/applications/{application_id}/summary/generate")
+def generate_summary_proposal(
+    application_id: str,
+    request: Request,
+    user: SignedInUser,
+    session: DbSession,
+    profile: OwnProfile,
+):
+    """One paid call, on demand: the Tier-1 proposal for this application (F7.3)."""
     application, track = _target(application_id, session, profile)
     if application is None or track is None:
         return render(request, "not_found.html", user=user, status_code=404)
@@ -258,6 +283,11 @@ def _bullet_page(
         refused=refused,
         current_text=_bullet_current(bullet, language),
         is_translation=not _bullet_current(bullet, language).strip(),
+        run_url=(
+            f"/applications/{application.id}/bullets/{bullet.id}/rephrase/generate"
+            if proposal is None and refused is None and error is None
+            else None
+        ),
         error=error,
     )
 
@@ -271,7 +301,28 @@ def propose_bullet(
     session: DbSession,
     profile: OwnProfile,
 ):
-    """One call, on demand: this bullet rewritten for this posting (F7.3, Tier 3a)."""
+    """The Tier-3a page. A GET renders the button; the provider call is the POST (F.0)."""
+    application, bullet = _bullet_target(application_id, bullet_id, session, profile)
+    if application is None or bullet is None:
+        return render(request, "not_found.html", user=user, status_code=404)
+    language = report_language(application)
+    if not model_configured():
+        return _bullet_page(
+            request, user, profile, application, bullet, language, error=t(_NO_MODEL, user.ui_lang)
+        )
+    return _bullet_page(request, user, profile, application, bullet, language)
+
+
+@router.post("/applications/{application_id}/bullets/{bullet_id}/rephrase/generate")
+def generate_bullet_proposal(
+    application_id: str,
+    bullet_id: str,
+    request: Request,
+    user: SignedInUser,
+    session: DbSession,
+    profile: OwnProfile,
+):
+    """One paid call, on demand: this bullet rewritten for this posting (F7.3, Tier 3a)."""
     application, bullet = _bullet_target(application_id, bullet_id, session, profile)
     if application is None or bullet is None:
         return render(request, "not_found.html", user=user, status_code=404)
@@ -410,6 +461,11 @@ def _story_page(
         roles=roles,
         language=language,
         candidates=candidates or [],
+        run_url=(
+            f"/stories/{story.id}/bullets/generate"
+            if not candidates and error is None
+            else None
+        ),
         error=error,
     )
 
@@ -423,11 +479,43 @@ def propose_story_bullets(
     profile: OwnProfile,
     lang: str | None = None,
 ):
-    """One call, on demand: up to three bullets this story supports (F7.3, Tier 3b)."""
+    """The Tier-3b page. A GET renders the button; the provider call is the POST (F.0)."""
     story = get_story(profile.id, session, story_id)
     if story is None:
         return render(request, "not_found.html", user=user, status_code=404)
     language = _story_language(story, lang)
+    roles = _story_roles(story, session, profile)
+    if not roles:
+        return _story_page(
+            request,
+            user,
+            profile,
+            story,
+            roles,
+            language,
+            error=t("generate.need_roles", user.ui_lang),
+        )
+    if not model_configured():
+        return _story_page(
+            request, user, profile, story, roles, language, error=t(_NO_MODEL, user.ui_lang)
+        )
+    return _story_page(request, user, profile, story, roles, language)
+
+
+@router.post("/stories/{story_id}/bullets/generate")
+def generate_story_bullets_proposal(
+    story_id: str,
+    request: Request,
+    user: SignedInUser,
+    session: DbSession,
+    profile: OwnProfile,
+    lang: Annotated[str, Form()] = "",
+):
+    """One paid call, on demand: up to three bullets this story supports (F7.3, Tier 3b)."""
+    story = get_story(profile.id, session, story_id)
+    if story is None:
+        return render(request, "not_found.html", user=user, status_code=404)
+    language = _story_language(story, lang or None)
     roles = _story_roles(story, session, profile)
     if not roles:
         return _story_page(

@@ -127,14 +127,16 @@ def proposal_payload(
 def test_the_proposal_is_shown_as_a_diff(client, session, career, provider):
     application = stored_application(session, career)
     login(client, career.first.email)
+    url = f"/applications/{application.id}/summary"
 
-    response = client.get(f"/applications/{application.id}/summary")
+    button = client.get(url)
+    assert button.status_code == 200
+    assert f'action="{url}/generate"' in button.text, "a GET offers the call, it does not make it"
 
-    assert response.status_code == 200
-    page = response.text
+    page = client.post(f"{url}/generate").text
     assert "Ahora" in page and "Propuesta" in page, "both sides of the diff"
     assert "Automaticé el reporte con Python." in page
-    assert f'action="/applications/{application.id}/summary/accept"' in page
+    assert f'action="{url}/accept"' in page
 
 
 def test_accepting_writes_the_pool_row_the_track_skills_and_the_track_slot(
@@ -239,10 +241,11 @@ def test_a_generated_proposal_that_fails_a_validator_cannot_be_accepted(
     application = stored_application(session, career)
     login(client, career.first.email)
 
-    page = client.get(f"/applications/{application.id}/summary").text
+    url = f"/applications/{application.id}/summary"
+    page = client.post(f"{url}/generate").text
 
     assert "no pasó la validación" in page
-    assert f'action="/applications/{application.id}/summary/accept"' not in page
+    assert f'action="{url}/accept"' not in page
 
 
 def test_another_profiles_application_is_a_404(client, session, career, provider):
@@ -287,12 +290,13 @@ def test_a_rephrase_is_proposed_and_shown(client, session, career, provider):
     application = stored_application(session, career)
     login(client, career.first.email)
 
-    page = client.get(rephrase_url(application, career.first_bullet.id)).text
+    url = rephrase_url(application, career.first_bullet.id)
+
+    assert f'action="{url}/generate"' in client.get(url).text, "a GET only offers the call"
+    page = client.post(f"{url}/generate").text
 
     assert REPHRASE in page
-    assert (
-        f'action="{rephrase_url(application, career.first_bullet.id)}/accept"' in page
-    )
+    assert f'action="{url}/accept"' in page
 
 
 def test_accepting_a_rephrase_writes_a_revision_and_keeps_the_other_column(
@@ -350,7 +354,8 @@ def test_a_bullet_without_text_in_the_posting_language_is_a_suggested_translatio
     application = stored_application(session, career, language="en")
     login(client, career.first.email)
 
-    page = client.get(rephrase_url(application, career.first_bullet.id)).text
+    url = rephrase_url(application, career.first_bullet.id)
+    page = client.post(f"{url}/generate").text
 
     assert "Sugerencia de traducción" in page
 
@@ -377,10 +382,13 @@ def test_story_bullets_are_proposed_as_reviewable_candidates(client, session, ca
     }
     login(client, career.first.email)
 
-    page = client.get(story_bullets_url(career.first_story)).text
+    url = story_bullets_url(career.first_story)
+
+    assert f'action="{url}/generate"' in client.get(url).text, "a GET only offers the call"
+    page = client.post(f"{url}/generate", data={"lang": "es"}).text
 
     assert STORY_BULLET in page
-    assert f'action="{story_bullets_url(career.first_story)}/accept"' in page
+    assert f'action="{url}/accept"' in page
     assert 'name="chips"' in page, "the candidate carries typed chips (F2.9)"
 
 
@@ -469,3 +477,40 @@ def test_accepting_a_story_bullet_leaves_the_story_unchanged(client, session, ca
     session.expire_all()
     story = get_story(career.first_profile.id, session, career.first_story.id)
     assert (story.title, story.body) == before
+
+
+# --- F.0: a paid call is a POST, and only a POST -----------------------------------
+
+
+def test_a_get_makes_no_provider_call_and_the_post_does(client, session, career, provider):
+    application = stored_application(session, career)
+    login(client, career.first.email)
+
+    client.get(f"/applications/{application.id}/summary")
+    client.get(rephrase_url(application, career.first_bullet.id))
+    client.get(story_bullets_url(career.first_story))
+    assert provider.calls == [], "a GET never pays for a call"
+
+    client.post(f"/applications/{application.id}/summary/generate")
+    assert len(provider.calls) == 1, "the POST is what calls the provider"
+
+
+def test_the_generate_posts_refuse_another_profiles_ids(client, session, career, provider):
+    application = stored_application(session, career)
+    login(client, career.second.email)
+
+    assert (
+        client.post(f"/applications/{application.id}/summary/generate").status_code == 404
+    )
+    assert (
+        client.post(
+            f"/applications/{application.id}/bullets/{career.first_bullet.id}/rephrase/generate"
+        ).status_code
+        == 404
+    )
+    assert (
+        client.post(
+            f"/stories/{career.first_story.id}/bullets/generate", data={"lang": "es"}
+        ).status_code
+        == 404
+    )

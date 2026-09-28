@@ -21,7 +21,10 @@
 <p class="mt-1 text-xs text-text-3">{{ t('applications.weights_hint', lang) }}</p>
 
 {% if rows %}
-<div class="mt-6 max-w-full overflow-x-auto rounded-card border border-card-border bg-surface-1">
+{# `relative` gives the absolutely positioned sr-only label inside the table a
+   positioned ancestor; without it the label is laid out against the page and widens
+   the document instead of scrolling with the table (F.0). #}
+<div class="relative mt-6 max-w-full overflow-x-auto rounded-card border border-card-border bg-surface-1">
   <table class="w-full text-sm">
     <thead class="border-b border-card-border">
       <tr>

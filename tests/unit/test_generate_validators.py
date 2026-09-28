@@ -158,3 +158,43 @@ def test_a_clean_output_passes_every_rule():
     grades = [{"level": 3, "evidence_id": "b1"}]
 
     assert validate_summary(output, grades=grades) == []
+
+
+# --- F.0: literal preservation compares tokens, never substrings -------------------
+
+
+NUMBERED = Sources(
+    bullets={"b1": "Reduje 30% el tiempo de reporte"},
+    stories={},
+    skills=frozenset(),
+    aliases={},
+)
+
+
+def literal(text: str, *, source: Sources = NUMBERED) -> list[str]:
+    output = {"text": text, "cites": ["b1"]}
+    violations = validate(output, sources=source, profile_id="p", session=None, kind="bullet")
+    return [violation.text for violation in violations if violation.rule == LITERAL]
+
+
+def test_a_number_the_source_does_not_have_is_a_violation():
+    """`3` is not `30%`: the old substring check let "3 meses" through (F.0)."""
+    assert literal("Reduje en 3 meses el tiempo") == ["3"]
+
+
+def test_a_number_the_source_has_passes():
+    assert literal("Reduje el tiempo de reporte un 30%") == []
+
+
+def test_a_number_matches_its_own_source_without_the_sign():
+    assert literal("Reduje el tiempo un 30") == []
+
+
+def test_a_word_prefix_is_not_a_match():
+    base = Sources(bullets={"b1": "Trabajé en Banco Demo"}, aliases={})
+    assert literal("Trabajé en Ban Andino", source=base) == ["Ban"]
+
+
+def test_a_word_the_source_has_passes():
+    base = Sources(bullets={"b1": "Trabajé en Banco Demo"}, aliases={})
+    assert literal("Trabajé en Banco Demo", source=base) == []
