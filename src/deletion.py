@@ -41,6 +41,7 @@ from src.models import (
     Application,
     Bullet,
     BulletRevision,
+    LetterSettings,
     LetterTemplate,
     LlmCall,
     Profile,
@@ -80,6 +81,7 @@ EVERYTHING_KEYS = (
     "tracks",
     "stories",
     "letter_templates",
+    "letter_settings",
     "applications",
     "skills",
     "ledger_redacted",
@@ -491,10 +493,23 @@ def impact_story(
 def delete_letter_template(
     profile_id: uuid.UUID, session: Session, letter_id: str | uuid.UUID
 ) -> dict[str, int] | None:
-    """§F2.8's letter-template half: the row and its links — it has none."""
+    """§F2.8's letter-template half: the row and its links.
+
+    Applications that used it keep their letter: `letter_template_id` is nulled (the
+    FK is SET NULL too, but doing it here keeps one session's flush consistent) and
+    `letter_text` is a snapshot, so what was sent is unchanged.
+    """
     letter = owned_row(LetterTemplate, session, profile_id, letter_id)
     if letter is None:
         return None
+    session.execute(
+        update(Application)
+        .where(
+            Application.profile_id == profile_id,
+            Application.letter_template_id == letter.id,
+        )
+        .values(letter_template_id=None)
+    )
     session.delete(letter)
     session.flush()
     return {"letter_templates": 1}
@@ -574,6 +589,9 @@ def delete_everything(profile_id: uuid.UUID, session: Session) -> dict[str, int]
     for letter in owned_rows(LetterTemplate, session, profile_id):
         if delete_letter_template(profile_id, session, letter.id):
             totals["letter_templates"] += 1
+    for settings in owned_rows(LetterSettings, session, profile_id):
+        session.delete(settings)
+        totals["letter_settings"] += 1
     profile = session.get(Profile, profile_id)
     if profile is not None:
         for skill in list(profile.skills):
@@ -614,6 +632,9 @@ def impact_everything(profile_id: uuid.UUID, session: Session) -> dict[str, int]
         "stories": _count(session, select(Story.id).where(Story.profile_id == profile_id)),
         "letter_templates": _count(
             session, select(LetterTemplate.id).where(LetterTemplate.profile_id == profile_id)
+        ),
+        "letter_settings": _count(
+            session, select(LetterSettings.id).where(LetterSettings.profile_id == profile_id)
         ),
         "applications": _count(
             session, select(Application.id).where(Application.profile_id == profile_id)

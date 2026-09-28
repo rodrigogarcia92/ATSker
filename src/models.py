@@ -39,6 +39,7 @@ from sqlalchemy import (
     Numeric,
     String,
     Text,
+    UniqueConstraint,
     Uuid,
     func,
     text,
@@ -251,11 +252,41 @@ class LetterTemplate(Base):
     profile_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("profiles.id", ondelete="CASCADE"), index=True
     )
+    # A template is typically the one combination the user applies with for a track
+    # (PRD F8): the link is optional, and deleting the track only unlinks it.
+    track_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("tracks.id", ondelete="SET NULL"), index=True
+    )
     name: Mapped[str] = mapped_column(String(120))
     applies_when: Mapped[str] = mapped_column(Text)
     presentation: Mapped[str] = mapped_column(Text)
     achievements: Mapped[str] = mapped_column(Text)
     lang: Mapped[str] = mapped_column(String(5), default="es")
+
+
+class LetterSettings(Base):
+    """The blocks every letter shares, per profile and language (PRD F8).
+
+    Header, greeting, closing and sign-off do not change between applications, so they
+    are data the user writes once per language; `voice_notes` is free text that rides
+    in every generation prompt (register is data, never code). One row per language.
+    """
+
+    __tablename__ = "letter_settings"
+    __table_args__ = (
+        UniqueConstraint("profile_id", "lang", name="uq_letter_settings_profile_lang"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    profile_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("profiles.id", ondelete="CASCADE"), index=True
+    )
+    lang: Mapped[str] = mapped_column(String(5), default="es")
+    header: Mapped[str] = mapped_column(Text, default="")
+    greeting: Mapped[str] = mapped_column(Text, default="")
+    closing: Mapped[str] = mapped_column(Text, default="")
+    sign_off: Mapped[str] = mapped_column(Text, default="")
+    voice_notes: Mapped[str] = mapped_column(Text, default="")
 
 
 class Skill(Base):
@@ -468,6 +499,12 @@ class Application(Base):
     prompt_versions: Mapped[dict] = mapped_column(_JsonDoc, default=dict)
     token_cost_usd: Mapped[Decimal] = mapped_column(Numeric(10, 6), default=Decimal("0"))
     outcome: Mapped[str] = mapped_column(String(20), default="no_reply")
+    # The letter saved for this application (PRD F8): the assembled text is a snapshot,
+    # so deleting the template it was built from cannot change what was sent.
+    letter_text: Mapped[str | None] = mapped_column(Text)
+    letter_template_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("letter_templates.id", ondelete="SET NULL")
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
