@@ -111,6 +111,20 @@ def _text_and_cites(output: Mapping[str, Any], kind: str) -> list[tuple[str, str
             ]
             items.append((f"bullet {index + 1}", str(bullet.get("text") or ""), cites))
         return items
+    if kind == "letter_blocks":
+        # F8's reusable paragraphs: a presentation and an achievements paragraph, each
+        # citing the bullet, story or role ids it draws on (N8.3).
+        items = []
+        for name in ("presentation", "achievements"):
+            paragraph = output.get(name) or {}
+            items.append(
+                (
+                    name,
+                    str(paragraph.get("text") or ""),
+                    [str(value) for value in paragraph.get("sources") or []],
+                )
+            )
+        return items
     raise ValueError(f"unknown generation kind {kind!r}")
 
 

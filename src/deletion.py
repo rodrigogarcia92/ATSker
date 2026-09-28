@@ -33,7 +33,12 @@ from sqlalchemy import delete, func, select, update
 from sqlalchemy.orm import Session
 
 from src.extract.gaps import PURPOSE as GAP_INTERPRET
-from src.extract.generation import GENERATE_BULLET, GENERATE_SUMMARY, STORY_BULLETS
+from src.extract.generation import (
+    GENERATE_BULLET,
+    GENERATE_SUMMARY,
+    LETTER_BLOCKS,
+    STORY_BULLETS,
+)
 from src.extract.grading import PURPOSE as EVIDENCE_GRADE
 from src.extract.resume import PURPOSE as RESUME_EXTRACT
 from src.extract.stories import PURPOSE as STORY_SUGGEST
@@ -68,6 +73,7 @@ PERSONAL_PURPOSES = (
     GENERATE_SUMMARY,
     GENERATE_BULLET,
     STORY_BULLETS,
+    LETTER_BLOCKS,
 )
 
 # What `delete_everything` totals: one key per entity of the §F2.8 table, plus the

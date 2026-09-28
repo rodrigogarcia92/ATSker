@@ -996,6 +996,35 @@ STRINGS: dict[str, dict[str, str]] = {
     "letters.group_unlinked": {"es": "Sin puesto objetivo", "en": "No track"},
     "letters.track_link": {"es": "Puesto objetivo (opcional)", "en": "Track (optional)"},
     "letters.track_none": {"es": "— sin puesto —", "en": "— no track —"},
+    # N8.3: the two reusable paragraphs, proposed from the track's own material.
+    "letters.propose": {
+        "es": "Proponer presentación y logros",
+        "en": "Propose presentation and achievements",
+    },
+    "letters.propose_title": {
+        "es": "Presentación y logros propuestos",
+        "en": "Proposed presentation and achievements",
+    },
+    "letters.propose_intro": {
+        "es": "Dos párrafos escritos a partir del material del puesto objetivo. Nada se "
+        "guarda hasta que aceptes, y al aceptar se vuelve a validar.",
+        "en": "Two paragraphs written from the track's own material. Nothing is stored "
+        "until you accept, and accepting validates them again.",
+    },
+    "letters.propose_no_track": {
+        "es": "Esta plantilla no está ligada a un puesto objetivo: sin uno no hay "
+        "material del que escribir.",
+        "en": "This template is not linked to a track: without one there is no material "
+        "to write from.",
+    },
+    "generate.violation.length": {
+        "es": "El párrafo no tiene la extensión pedida.",
+        "en": "The paragraph is not the requested length.",
+    },
+    "generate.violation.shape": {
+        "es": "El párrafo de logros debe ser uno solo.",
+        "en": "The achievements block must be one paragraph.",
+    },
     "letters.placeholders": {"es": "Marcadores", "en": "Placeholders"},
     "letters.placeholders_hint": {
         "es": "Se rellenan al montar la carta, en cualquiera de los dos idiomas: {list}.",
