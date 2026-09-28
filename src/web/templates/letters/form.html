@@ -37,6 +37,28 @@
       <option value="en" {% if letter and letter.lang == 'en' %}selected{% endif %}>EN</option>
     </select>
   </div>
+  <div>
+    {# F8: a template is typically the one combination the user applies with for a track. #}
+    <label for="track_id" class="mb-1 block text-sm font-medium">{{ t('letters.track_link', lang) }}</label>
+    <select id="track_id" name="track_id" class="w-full rounded-control border border-border px-3 py-2 text-sm">
+      <option value="">{{ t('letters.track_none', lang) }}</option>
+      {% for track in tracks %}
+      <option value="{{ track.id }}" {% if letter and letter.track_id == track.id %}selected{% endif %}>
+        {{ track.name }}
+      </option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="rounded-control border border-card-border bg-surface-1 p-3">
+    <p class="text-xs font-medium">{{ t('letters.placeholders', lang) }}</p>
+    <p class="mt-1 text-xs text-text-3">
+      {{ t('letters.placeholders_hint', lang, list=[
+           t('letters.placeholder.role', lang),
+           t('letters.placeholder.company', lang),
+           t('letters.placeholder.area', lang),
+           t('letters.placeholder.date', lang)] | join(' · ')) }}
+    </p>
+  </div>
   <div class="flex items-center gap-4">
     <button type="submit" class="rounded-control bg-link px-3 py-2 text-sm font-medium text-bg hover:opacity-90">
       {{ t('common.save', lang) }}

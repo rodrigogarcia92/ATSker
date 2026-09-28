@@ -969,6 +969,42 @@ STRINGS: dict[str, dict[str, str]] = {
     "letters.presentation": {"es": "Párrafo de presentación", "en": "Presentation paragraph"},
     "letters.achievements": {"es": "Párrafo de logros", "en": "Achievements paragraph"},
     "letters.empty": {"es": "Todavía no hay plantillas.", "en": "No templates yet."},
+    # N8.2: the blocks every letter shares, and the template's optional track link.
+    "letters.settings_title": {"es": "Bloques comunes", "en": "Common blocks"},
+    "letters.settings_hint": {
+        "es": "Lo que no cambia entre candidaturas: se escribe una vez por idioma y lo "
+        "usan todas las cartas de ese idioma.",
+        "en": "What does not change between applications: written once per language, "
+        "used by every letter in that language.",
+    },
+    "letters.blocks_header": {
+        "es": "Encabezado (nombre, contacto)",
+        "en": "Header (name, contact)",
+    },
+    "letters.blocks_greeting": {"es": "Saludo", "en": "Greeting"},
+    "letters.blocks_closing": {"es": "Cierre", "en": "Closing"},
+    "letters.blocks_sign_off": {"es": "Firma", "en": "Sign-off"},
+    "letters.blocks_voice": {"es": "Notas de voz", "en": "Voice notes"},
+    "letters.blocks_voice_hint": {
+        "es": "Registro, tuteo, lo que quieras que diga cada generación. Es dato, no "
+        "código.",
+        "en": "Register, formality, anything every generation should say. It is data, "
+        "not code.",
+    },
+    "letters.save_blocks": {"es": "Guardar bloques", "en": "Save blocks"},
+    "letters.templates_title": {"es": "Plantillas", "en": "Templates"},
+    "letters.group_unlinked": {"es": "Sin puesto objetivo", "en": "No track"},
+    "letters.track_link": {"es": "Puesto objetivo (opcional)", "en": "Track (optional)"},
+    "letters.track_none": {"es": "— sin puesto —", "en": "— no track —"},
+    "letters.placeholders": {"es": "Marcadores", "en": "Placeholders"},
+    "letters.placeholders_hint": {
+        "es": "Se rellenan al montar la carta, en cualquiera de los dos idiomas: {list}.",
+        "en": "Filled in when the letter is assembled, in either language: {list}.",
+    },
+    "letters.placeholder.role": {"es": "[PUESTO] / [ROLE]", "en": "[PUESTO] / [ROLE]"},
+    "letters.placeholder.company": {"es": "[EMPRESA] / [COMPANY]", "en": "[EMPRESA] / [COMPANY]"},
+    "letters.placeholder.area": {"es": "[ÁREA] / [AREA]", "en": "[ÁREA] / [AREA]"},
+    "letters.placeholder.date": {"es": "[FECHA] / [DATE]", "en": "[FECHA] / [DATE]"},
     # F2.8: Eliminar is permanent. Every delete goes through a confirmation screen
     # that states its consequences in numbers before anything happens.
     "delete.title": {"es": "¿Eliminar para siempre?", "en": "Delete permanently?"},
