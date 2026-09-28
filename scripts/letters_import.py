@@ -7,8 +7,9 @@ into one profile's rows. It is deliberately boring:
   nothing.
 * **`--apply` requires typing `IMPORT`**, because the file is personal data going into
   a shared database and a typo is not undoable.
-* **A dev database is refused** unless `--prod` is given: the fragment below is the
-  development host, and personal letters belong in the real one.
+* **The production database is refused** unless `--prod` is given: the fragment below
+  is the production endpoint, and an import there must be deliberate. A dev
+  import needs no flag.
 * Settings upsert by (profile, language); templates upsert by (profile, name, language).
   A `track_name` that matches no track links nothing and is listed for the operator.
 
@@ -42,9 +43,10 @@ from src.letters import (
 from src.models import Track, User
 from src.profiles import get_own_profile
 
-# The development database's host fragment. Importing personal letters there is a
-# mistake that a dry run would not catch, so it needs an explicit flag to override.
-DEV_HOST_FRAGMENT = "REDACTED-PROD-ENDPOINT"
+# The production database's host fragment (`scripts/golden_run.py`'s
+# PRODUCTION_HOST_MARK). Importing personal letters there is deliberate, so it needs an
+# explicit flag to confirm.
+PRODUCTION_HOST_FRAGMENT = "REDACTED-PROD-ENDPOINT"
 
 
 class ImportRefused(RuntimeError):
@@ -70,17 +72,17 @@ def load_payload(path: Path) -> dict[str, Any]:
 
 
 def database_host(database_url: str) -> str:
-    """The host of a connection string, for the dev-database refusal."""
+    """The host of a connection string, for the production-database refusal."""
     return (urlparse(database_url).hostname or "").lower()
 
 
 def refusal_reason(database_url: str, *, prod: bool) -> str | None:
     """Why this database must not be written to, or None when it may."""
     host = database_host(database_url)
-    if DEV_HOST_FRAGMENT in host and not prod:
+    if PRODUCTION_HOST_FRAGMENT in host and not prod:
         return (
-            f"refusing to import personal letters into the development database ({host}); "
-            "pass --prod for the real one"
+            f"refusing to import into the production database ({host}); "
+            "pass --prod to confirm"
         )
     return None
 
@@ -209,7 +211,7 @@ def main(
     parser.add_argument("--email", required=True)
     parser.add_argument("--file", required=True, help="local JSON file, never committed")
     parser.add_argument("--apply", action="store_true", help="write; otherwise dry run")
-    parser.add_argument("--prod", action="store_true", help="allow the development host")
+    parser.add_argument("--prod", action="store_true", help="allow the production host")
     args = parser.parse_args(argv)
 
     payload = load_payload(Path(args.file))

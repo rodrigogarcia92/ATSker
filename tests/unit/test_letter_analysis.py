@@ -209,6 +209,84 @@ def test_an_invented_number_is_rejected(client, session, career, provider):
     assert "no pasó la validación" not in page, "a bad variant is reported, not fatal"
 
 
+# --- N8.7: the bridge must cite the user's own material -----------------------------
+
+
+def _variant(text: str, cites: list[str]) -> dict:
+    return {"angle": "impacto", "text": text, "sources": cites, "company_fact": None}
+
+
+def test_a_variant_citing_nothing_of_the_users_material_is_refused(session, career, provider):
+    """The posting is not the user's material: a cite of `__posting__` alone proves nothing."""
+    from src.generate.letters import check_variants
+    from src.generate.validators import PROVENANCE, Sources
+
+    _application, letter = ready(session, career, provider)
+    sources = Sources(bullets={str(career.first_bullet.id): career.first_bullet.text_es})
+
+    survivors, violations = check_variants(
+        {"template_id": str(letter.id), "variants": [_variant("Aporto valor al equipo.", [])]},
+        sources=sources,
+        candidates=[letter],
+        jd_text=JD,
+        company="Banco Demo",
+        title="Analista de datos",
+        achievements_text="",
+    )
+
+    assert [violation.rule for violation in violations] == [PROVENANCE]
+    assert violations[0].message == "the bridge cites none of your material"
+    assert survivors, "the variant is still shown, with the rule it broke"
+
+
+def test_a_variant_citing_only_an_unknown_id_is_refused(session, career, provider):
+    from src.generate.letters import check_variants
+    from src.generate.validators import PROVENANCE, Sources
+
+    _application, letter = ready(session, career, provider)
+    sources = Sources(bullets={str(career.first_bullet.id): career.first_bullet.text_es})
+
+    _survivors, violations = check_variants(
+        {
+            "template_id": str(letter.id),
+            "variants": [_variant("Aporto valor al equipo.", ["nadie-que-yo-conozca"])],
+        },
+        sources=sources,
+        candidates=[letter],
+        jd_text=JD,
+        company="Banco Demo",
+        title="Analista de datos",
+        achievements_text="",
+    )
+
+    messages = [violation.message for violation in violations if violation.rule == PROVENANCE]
+    assert "the bridge cites none of your material" in messages
+    assert "nadie-que-yo-conozca was not a supplied source" in messages
+
+
+def test_a_variant_citing_one_owned_bullet_passes(session, career, provider):
+    from src.generate.letters import check_variants
+    from src.generate.validators import Sources
+
+    _application, letter = ready(session, career, provider)
+    sources = Sources(bullets={str(career.first_bullet.id): career.first_bullet.text_es})
+
+    _survivors, violations = check_variants(
+        {
+            "template_id": str(letter.id),
+            "variants": [_variant("Aporto valor al equipo.", [str(career.first_bullet.id)])],
+        },
+        sources=sources,
+        candidates=[letter],
+        jd_text=JD,
+        company="Banco Demo",
+        title="Analista de datos",
+        achievements_text="",
+    )
+
+    assert violations == [], "one of the user's own sources is enough"
+
+
 def test_saving_persists_the_letter_and_the_template(client, session, career, provider):
     application, letter = ready(session, career, provider)
     login(client, career.first.email)

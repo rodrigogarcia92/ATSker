@@ -206,7 +206,7 @@ def test_a_second_apply_updates_instead_of_duplicating(session, career, tmp_path
     )
 
 
-def test_the_dev_database_is_refused(monkeypatch, session, career, tmp_path, capsys):
+def test_the_production_database_is_refused(monkeypatch, session, career, tmp_path, capsys):
     monkeypatch.setenv(
         "DATABASE_URL",
         "postgresql://user:secret@REDACTED-PROD-ENDPOINT/db",
@@ -220,7 +220,7 @@ def test_the_dev_database_is_refused(monkeypatch, session, career, tmp_path, cap
     )
 
     assert code == 3
-    assert "development database" in capsys.readouterr().err
+    assert "production database" in capsys.readouterr().err
     assert get_letter_settings(career.first_profile.id, session, "es") is None
 
 

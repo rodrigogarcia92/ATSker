@@ -242,7 +242,8 @@ def check_variants(
 
     A variant whose company fact is not a verbatim quote of the posting is **dropped**,
     not weakened (F8.4); the other rules are reported as violations for the variants
-    that keep.
+    that keep. Every variant must cite at least one of the profile's own bullets,
+    stories or roles: the posting itself is not the user's material.
     """
     allowed_ids = {str(letter.id) for letter in candidates}
     chosen = str(output.get("template_id") or "")
@@ -279,6 +280,13 @@ def check_variants(
                     ", ".join(sorted(repeated)),
                     "repeats a number from the template's achievements paragraph",
                 )
+            )
+        # The posting is not the user's material: a variant must cite at least one of
+        # the profile's own bullets, stories or roles *before* `__posting__` is added,
+        # or a bridge built only from the posting's own words would pass provenance.
+        if not any(cite in sources.ids for cite in cites):
+            violations.append(
+                Violation(PROVENANCE, name, "", "the bridge cites none of your material")
             )
         # The posting, the company and the title are citable for this rule: a variant
         # may name the employer it is writing to (F8.4).
