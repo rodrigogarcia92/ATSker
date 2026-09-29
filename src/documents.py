@@ -89,12 +89,22 @@ def track_document(
     session: Session,
     track: Track | None,
     lang: str,
+    *,
+    bullets: Sequence[Bullet] | None = None,
+    headline: str | None = None,
+    summary_text: str | None = None,
+    skills: Sequence[str] | None = None,
 ) -> list[DocumentUnit]:
     """The track as one reader sees it, in reading order, in `lang` (PRD F4.1).
 
     Every item falls back to the other language and says so with `fallback: True`.
     The headline's last resort is the profile's own (F4.1's table); that text
     carries no language of its own and is not marked as a fallback.
+
+    The four keyword-only overrides exist for F10's ephemeral track (A4): an attempt
+    reads the *file's* text where it differs from the master and the master's where it
+    matches, so an unchanged export produces exactly the document the analysis scored.
+    They are None here, which is the analysis path unchanged.
     """
     own, other = _language(lang)
     profile = session.get(Profile, profile_id)
@@ -102,22 +112,27 @@ def track_document(
         raise RuntimeError("a document needs a profile that exists")
 
     units: list[DocumentUnit] = []
+    headline_given = headline is not None
 
-    headline, headline_fallback = None, False
+    headline_text, headline_fallback = None, False
     if track is not None:
-        headline = _clean(getattr(track, f"headline_{own}", None))
-        if headline is None:
-            headline = _clean(getattr(track, f"headline_{other}", None))
-            headline_fallback = headline is not None
-    if headline is None:
-        headline = _clean(profile.headline)
-    if headline:
-        units.append(DocumentUnit("headline", headline, fallback=headline_fallback))
+        headline_text = _clean(getattr(track, f"headline_{own}", None))
+        if headline_text is None:
+            headline_text = _clean(getattr(track, f"headline_{other}", None))
+            headline_fallback = headline_text is not None
+    if headline_text is None:
+        headline_text = _clean(profile.headline)
+    if headline_given:
+        headline_text, headline_fallback = _clean(headline), False
+    if headline_text:
+        units.append(DocumentUnit("headline", headline_text, fallback=headline_fallback))
 
     summary: Summary | None = None
-    summary_text: str | None = None
     summary_fallback = False
-    if track is not None:
+    summary_given = summary_text is not None
+    if summary_given:
+        summary_text = _clean(summary_text)
+    elif track is not None:
         slot = getattr(track, f"summary_{own}_id", None)
         summary = get_summary(profile_id, session, slot) if slot else None
         if summary is None:
@@ -138,10 +153,10 @@ def track_document(
             )
         )
 
-    bullets = document_bullets(profile_id, session, track)
+    bullets = list(bullets) if bullets is not None else document_bullets(profile_id, session, track)
     if track is not None:
         seen: set[str] = set()
-        for canonical in track.skills:
+        for canonical in skills if skills is not None else track.skills:
             name = _clean(canonical)
             if name and name not in seen:
                 seen.add(name)
