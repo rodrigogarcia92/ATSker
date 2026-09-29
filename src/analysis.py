@@ -254,6 +254,7 @@ def score_track(
     bullets: Sequence[Bullet] | None = None,
     document: Sequence[DocumentUnit] | None = None,
     interpret: bool = True,
+    ceiling_document: Sequence[DocumentUnit] | None = None,
 ) -> Analysis:
     """One track's analysis of a prepared posting: document, grading, score, gaps.
 
@@ -605,15 +606,21 @@ def score_track(
         report["track"] = {"id": str(track.id), "name": track.name}
     # F10.2/A10: the ceiling from the user's own material, computed here so the report
     # carries it. The page recomputes it only when the fingerprint below has moved.
+    # F10.10 criterion 2: the ceiling is what the *user's material* allows, so an
+    # attempt computes it from the master document it was scored against, never from
+    # the file's own claims — an unheld keyword in the file must not raise it.
+    ceiling_units = ceiling_document if ceiling_document is not None else document
     report["ceiling"] = compute_ceiling(
         jd,
         report=report,
-        document_texts=[unit.text for unit in document],
+        document_texts=[unit.text for unit in ceiling_units],
         master=master_data(profile_id, session, track),
         aliases=aliases,
+        # The fingerprint is over the material the ceiling read, so an attempt's
+        # temporary ids cannot make a current ceiling look stale (A10).
         track_bullet_ids=[
             unit.source_id
-            for unit in document
+            for unit in ceiling_units
             if unit.kind == "bullet" and unit.source_id is not None
         ],
         today=today,

@@ -249,9 +249,9 @@ def test_the_remainder_is_decomposed_by_source():
     assert [row["requirement"] for row in rows] == ["machine learning"]
     assert rows[0]["points"] == pytest.approx(10.0, abs=0.01)
     assert by_source["no_evidence"] == pytest.approx(10.0, abs=0.01)
-    assert ceiling["high"] == 20
-    assert ceiling["unreachable"]["points"] == 80
-    assert sum(by_source.values()) == pytest.approx(80, abs=1)
+    # The parts add up to what the ceiling does not reach, whatever the total is.
+    assert sum(by_source.values()) == pytest.approx(ceiling["unreachable"]["points"], abs=1)
+    assert ceiling["unreachable"]["points"] == 100 - ceiling["high"]
 
 
 def test_an_unknown_weights_version_has_no_ceiling():

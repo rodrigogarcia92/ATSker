@@ -367,8 +367,10 @@ def compute_ceiling(
     def current(name: str) -> float:
         return float((sub_scores.get(name) or {}).get("value") or 0.0)  # type: ignore[union-attr]
 
-    keyword_detail = sub_scores.get("keywords") or {}  # type: ignore[union-attr]
-    matched = tuple(keyword_detail.get("matched") or [])  # type: ignore[union-attr]
+    # Which posting terms the document the ceiling reads already matches: taken from
+    # that document, not from the report's sub-scores, so an attempt that claims a term
+    # the master material lacks cannot change what the ceiling adds (F10.10 criterion 2).
+    matched = tuple(keyword_context(jd, document_texts, aliases=aliases).matched)
 
     siblings = _family_siblings(master)
     basis_credit = getattr(chosen, "basis_credit", W4.basis_credit)

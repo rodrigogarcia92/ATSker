@@ -29,6 +29,7 @@ from sqlalchemy.orm import Session
 from src.analysis import preparation_from_report, queries_from_report, score_track
 from src.attempt_flags import change_list, document_flags, previous_attempt_report
 from src.attempt_track import ephemeral_track
+from src.documents import track_document
 from src.extract.client import CallOptions, Completion
 from src.extract.resume import ResumeExtraction, extract_resume
 from src.ingest.documents import LoadedDocument, load_document
@@ -238,6 +239,10 @@ def run_pipeline(
         document=list(ephemeral.document),
         options=CallOptions(profile_id=profile_id),
         interpret=False,
+        # The ceiling reads the master document, not the file (F10.10 criterion 2).
+        ceiling_document=track_document(
+            profile_id, session, track, prepared.jd.language
+        ),
     )
     report = dict(analysis.report)
     # A6: the draft lives in the report, so "Incorporar a mi material" can open the
