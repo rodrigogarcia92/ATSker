@@ -5,11 +5,13 @@ first, the pipeline runs, then the row is `done` or `failed`. The response is th
 status partial, which is also what `GET …/attempts/{n}` returns for polling.
 """
 
+import logging
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Annotated
 
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile
+from sqlalchemy.orm import Session
 
 from src.analysis import ceiling_for_report
 from src.applications import get_application
@@ -46,6 +48,8 @@ from src.web.templating import render
 
 router = APIRouter()
 
+logger = logging.getLogger(__name__)
+
 
 def failure_message(failure: Exception, lang: str) -> str:
     """What to say when an attempt's extraction produced nothing (F2.3.1)."""
@@ -68,8 +72,59 @@ def _status(request: Request, user, application, attempt, session):
     )
 
 
+def _run_attempt(
+    profile_id,
+    session: Session,
+    *,
+    application,
+    attempt,
+    filename: str,
+    data: bytes,
+    display_name: str | None,
+    lang: str,
+) -> None:
+    """Extract and score, with every failure landing on the row.
+
+    A run that raises must never leave the row `running`: it would count towards the
+    limit and read as failed only after ten minutes (A5). An unexpected exception is
+    logged without the document's text and reported as a plain failure.
+    """
+    try:
+        result = extract(
+            profile_id,
+            session,
+            filename=filename,
+            data=data,
+            display_name=display_name,
+            language_hint=lang,
+        )
+        report, analysis = run_pipeline(
+            profile_id,
+            session,
+            application=application,
+            attempt=attempt,
+            extracted=result,
+        )
+        finish_run(attempt, report=report, analysis=analysis, lang=result.draft.language)
+    except NoModelConfigured:
+        fail_attempt(attempt, t("import.no_model", lang))
+    except (
+        ProviderUnavailable,
+        StructuredOutputError,
+        EmptyExtraction,
+        UnreadableDocument,
+    ) as failure:
+        # A failure is not counted towards the limit (A6): `effective_status` and
+        # `counted_attempts` both leave it out.
+        fail_attempt(attempt, failure_message(failure, lang))
+    except Exception:  # noqa: BLE001 - the row must not be left running
+        logger.exception("attempt %s failed", attempt.id)  # never the document text
+        fail_attempt(attempt, t("import.failed", lang))
+    session.commit()
+
+
 @router.post("/applications/{application_id}/attempts")
-async def attempt_upload(
+def attempt_upload(
     request: Request,
     user: SignedInUser,
     session: DbSession,
@@ -77,13 +132,17 @@ async def attempt_upload(
     application_id: str,
     file: Annotated[UploadFile, File()],
 ):
+    """Sync on purpose: FastAPI runs a `def` handler in the threadpool, so a run of
+    30-90 s cannot freeze the event loop every other request on the instance shares.
+    `file.file` is the synchronous read; nothing here awaits.
+    """
     # Another profile's analysis is not found, not forbidden (F1).
     application = get_application(profile.id, session, application_id)
     if application is None:
         raise HTTPException(status_code=404)
 
     filename = (file.filename or "documento").strip()
-    data = await file.read()
+    data = file.file.read()
     suffix = Path(filename).suffix.lower()
     # Preconditions: an empty, oversized or unsupported file never becomes an attempt,
     # so it cannot consume one of the ten.
@@ -109,38 +168,16 @@ async def attempt_upload(
     )
     # A5 step 1: the row exists as `running` before the work starts.
     session.commit()
-
-    try:
-        # The reads end here; `complete_json` refuses to run inside a transaction.
-        result = extract(
-            profile.id,
-            session,
-            filename=filename,
-            data=data,
-            display_name=profile.display_name,
-            language_hint=user.ui_lang,
-        )
-    except NoModelConfigured:
-        fail_attempt(attempt, t("import.no_model", user.ui_lang))
-    except (
-        ProviderUnavailable,
-        StructuredOutputError,
-        EmptyExtraction,
-        UnreadableDocument,
-    ) as failure:
-        # A failure is not counted towards the limit (A6): `effective_status` and
-        # `counted_attempts` both leave it out.
-        fail_attempt(attempt, failure_message(failure, user.ui_lang))
-    else:
-        report, analysis = run_pipeline(
-            profile.id,
-            session,
-            application=application,
-            attempt=attempt,
-            extracted=result,
-        )
-        finish_run(attempt, report=report, analysis=analysis, lang=result.draft.language)
-    session.commit()
+    _run_attempt(
+        profile.id,
+        session,
+        application=application,
+        attempt=attempt,
+        filename=filename,
+        data=data,
+        display_name=profile.display_name,
+        lang=user.ui_lang,
+    )
     return _status(request, user, application, attempt, session)
 
 

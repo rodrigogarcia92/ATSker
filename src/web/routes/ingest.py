@@ -353,7 +353,7 @@ def import_index(request: Request, user: SignedInUser, session: DbSession, profi
 
 
 @router.post("/import")
-async def import_upload(
+def import_upload(
     request: Request,
     user: SignedInUser,
     session: DbSession,
@@ -362,7 +362,9 @@ async def import_upload(
     track_id: Annotated[str | None, Form()] = None,
 ):
     filename = (file.filename or "documento").strip()
-    data = await file.read()
+    # Sync on purpose: the handler runs in the threadpool, so the extraction cannot
+    # freeze the event loop every request on this instance shares (F10.C0).
+    data = file.file.read()
     values = {"filename": filename, "track_id": track_id or ""}
 
     error: str | None = None
@@ -700,7 +702,7 @@ async def import_merge(
 
 
 @router.post("/import/{resume_id}/translate")
-async def import_translate(
+def import_translate(
     resume_id: str,
     request: Request,
     user: SignedInUser,

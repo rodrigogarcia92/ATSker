@@ -23,7 +23,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
 
 from src.analysis import preparation_from_report, queries_from_report, score_track
@@ -42,24 +42,37 @@ from src.tracks import get_track
 MAX_ATTEMPTS = 10
 STALE_AFTER = timedelta(minutes=10)
 
-# What the limit counts: a running or finished attempt. A failed one — an empty
-# extraction, an unreadable file — is not counted (A6), so a failure cannot consume
-# the user's budget.
-COUNTED_STATUSES = ("running", "done")
-
-
 def now() -> datetime:
     return datetime.now(UTC)
 
 
 def counted_attempts(
-    profile_id: uuid.UUID, session: Session, application_id: uuid.UUID
+    profile_id: uuid.UUID,
+    session: Session,
+    application_id: uuid.UUID,
+    *,
+    at: datetime | None = None,
 ) -> int:
-    """The attempts of this application that count towards the limit."""
+    """The attempts of this application that count towards the limit.
+
+    A `running` row counts only while it could still finish: past `STALE_AFTER` it
+    reads as failed (`effective_status`) and must not consume the user's ten (A5). The
+    predicate is in SQL so the count and the status cannot disagree.
+    """
+    reference = at or now()
+    if reference.tzinfo is None:
+        reference = reference.replace(tzinfo=UTC)
+    cutoff = reference - STALE_AFTER
     stmt = select(func.count()).select_from(ApplicationAttempt).where(
         ApplicationAttempt.profile_id == profile_id,
         ApplicationAttempt.application_id == application_id,
-        ApplicationAttempt.status.in_(COUNTED_STATUSES),
+        or_(
+            ApplicationAttempt.status == "done",
+            and_(
+                ApplicationAttempt.status == "running",
+                ApplicationAttempt.created_at >= cutoff,
+            ),
+        ),
     )
     return int(session.scalar(stmt) or 0)
 
