@@ -510,6 +510,9 @@ class Application(Base):
     sent_attempt_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("application_attempts.id", ondelete="SET NULL"), index=True
     )
+    # F10.6 (migration 0015): the Job Match the user decided is good enough for this
+    # posting. Capped at the ceiling's high end when it is read (F10.6).
+    target_match: Mapped[int | None] = mapped_column(Integer)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

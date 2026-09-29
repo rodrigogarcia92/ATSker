@@ -440,6 +440,55 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "no cost (reused)",
     },
     "attempt.sent": {"es": "Enviada", "en": "Sent"},
+    # F10.6 (C.2): the readiness checklist, its message, and the personal target.
+    "attempt.ready.title": {"es": "Listo para enviar", "en": "Ready to send"},
+    "attempt.ready.message": {
+        "es": "CV optimizado — lo que falta es experiencia que ATSker no tiene "
+        "registrada: {gaps}.",
+        "en": "Optimised CV — what is missing is experience ATSker has no record of: "
+        "{gaps}.",
+    },
+    "attempt.ready.message_plain": {
+        "es": "CV optimizado — nada más que ATSker pueda añadir con tu material.",
+        "en": "Optimised CV — nothing more ATSker can add from your material.",
+    },
+    "attempt.ready.checklist": {"es": "Falta:", "en": "Missing:"},
+    "attempt.ready.match_band": {
+        "es": "El encaje ({job_match}) no llega al techo ({ceiling_low}) dentro del "
+        "margen de {band}.",
+        "en": "The match ({job_match}) does not reach the ceiling ({ceiling_low}) "
+        "within the {band}-point band.",
+    },
+    "attempt.ready.match_target": {
+        "es": "El encaje ({job_match}) no llega a tu objetivo ({target}).",
+        "en": "The match ({job_match}) does not reach your target ({target}).",
+    },
+    "attempt.ready.readability": {
+        "es": "El documento tiene bloqueantes de formato: {items}.",
+        "en": "The document has format blockers: {items}.",
+    },
+    "attempt.ready.search": {
+        "es": "Búsquedas que no te devuelven: {items}.",
+        "en": "Searches that do not return you: {items}.",
+    },
+    "attempt.ready.advice": {
+        "es": "Recomendaciones pendientes: {items}.",
+        "en": "Advice still open: {items}.",
+    },
+    "attempt.ready.language": {
+        "es": "El documento no está en el idioma de la oferta.",
+        "en": "The document is not in the posting's language.",
+    },
+    "attempt.ready.target_label": {
+        "es": "Tu objetivo (máximo {ceiling_high})",
+        "en": "Your target (max {ceiling_high})",
+    },
+    "attempt.ready.target_save": {"es": "Guardar objetivo", "en": "Save target"},
+    "attempt.ready.target_hint": {
+        "es": "Se guarda en este análisis, no en el intento.",
+        "en": "Saved on this analysis, not on the attempt.",
+    },
+    "attempt.ready.target_name": {"es": "Objetivo", "en": "Target"},
     "attempt.done_heading": {
         "es": "Intento {n} — informe completo",
         "en": "Attempt {n} — full report",

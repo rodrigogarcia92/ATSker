@@ -10,12 +10,14 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Annotated
 
-from fastapi import APIRouter, File, HTTPException, Request, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
+from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from src.analysis import ceiling_for_report
 from src.applications import get_application
 from src.attempt_flags import discard_attempt
+from src.attempt_readiness import cap_target, readiness
 from src.attempts import (
     MAX_ATTEMPTS,
     attempt_view,
@@ -76,6 +78,13 @@ def _previous_number(session, application, attempt) -> int | None:
     return rows[-1].attempt_no if rows else None
 
 
+def _readiness(application, attempt):
+    """F10.6's checklist for the attempt's report, or None while it has none."""
+    if not attempt.report:
+        return None
+    return readiness(attempt.report, target=application.target_match)
+
+
 def _status(request: Request, user, application, attempt, session):
     return render(
         request,
@@ -88,6 +97,7 @@ def _status(request: Request, user, application, attempt, session):
             analysis_score=_analysis_score(application),
             previous=_previous_number(session, application, attempt),
         ),
+        readiness=_readiness(application, attempt),
         attempts=list_attempts(application.profile_id, session, application.id),
     )
 
@@ -216,6 +226,35 @@ def _owned(profile_id, session, application_id: str, attempt_id: str):
     return application, attempt
 
 
+@router.post("/applications/{application_id}/target")
+def application_target(
+    request: Request,
+    user: SignedInUser,
+    session: DbSession,
+    profile: OwnProfile,
+    application_id: str,
+    target: Annotated[str, Form()] = "",
+    attempt: Annotated[str | None, Form()] = None,
+):
+    """Set the user's own stopping point for this posting (F10.6).
+
+    Stored on the application (migration 0015) and capped at the ceiling's high end: a
+    target above what the material allows is not attainable. An empty field clears it.
+    """
+    application = get_application(profile.id, session, application_id)
+    if application is None:
+        return render(request, "not_found.html", user=user, status_code=404)
+    ceiling = (application.report or {}).get("ceiling") or {}
+    wanted = int(target) if target.strip().isdigit() else None
+    application.target_match = cap_target(wanted, ceiling.get("high"))
+    session.commit()
+    if attempt:
+        return RedirectResponse(
+            f"/applications/{application_id}/attempts/{attempt}/report", status_code=303
+        )
+    return RedirectResponse(f"/applications/{application_id}", status_code=303)
+
+
 @router.get("/applications/{application_id}/attempts/{attempt_id}")
 def attempt_status(
     request: Request,
@@ -304,6 +343,7 @@ def attempt_report(
         # C.0 answer 2: an attempt's full report is read-only.
         attempt_view=True,
         attempt_no=attempt.attempt_no,
+        readiness=_readiness(application, attempt),
         advice_for_file=True,
         findings=finding_rows(report.get("gate") or {}, user.ui_lang),
         live_bullets={

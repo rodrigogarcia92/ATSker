@@ -81,6 +81,9 @@
   <p class="text-text-3">{{ t('attempt.flags.none', lang) }}</p>
   {% endif %}
 
+  {# 7 — Readiness (F10.6, C.2). #}
+  {% if readiness is defined and readiness %}{% include "attempts/_readiness.html" %}{% endif %}
+
   {# Cost (C.0 answer 6) and 9 — the full report. #}
   <p class="text-xs text-text-3">
     {% if view.cost_reused %}{{ t('attempt.cost_reused', lang) }}{% else %}{{ t('attempt.cost', lang, amount='$%.6f'|format(view.cost_usd)) }}{% endif %}

@@ -603,6 +603,9 @@
 </p>
 {% endif %}
 
+{# F10.6 (C.2): the readiness checklist, when the caller has one (an attempt). #}
+{% if readiness is defined and readiness %}{% include "attempts/_readiness.html" %}{% endif %}
+
 {# 9 — Traceability: the run's versions, its cache state, its cost, and the fields the
    extraction read, collapsed. #}
 <h2 class="mt-8 text-lg font-semibold">{{ t('report.audit', lang) }}</h2>
