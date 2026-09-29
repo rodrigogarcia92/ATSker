@@ -358,6 +358,100 @@ STRINGS: dict[str, dict[str, str]] = {
         "es": "Todavía no hay intentos.",
         "en": "No attempts yet.",
     },
+    # F10.1/F10.4 (Run C): the modal, the result's content order and its wording.
+    "attempt.form.submit": {"es": "Probar", "en": "Test"},
+    "attempt.form.file": {"es": "Archivo (.docx o .pdf)", "en": "File (.docx or .pdf)"},
+    "attempt.form.confirm_close": {
+        "es": "Hay un resultado sin guardar. ¿Cerrar igualmente?",
+        "en": "There is an unsaved result. Close anyway?",
+    },
+    "attempt.form.error": {
+        "es": "No se pudo subir el archivo: {detail}",
+        "en": "The file could not be uploaded: {detail}",
+    },
+    "attempt.delta": {
+        "es": "{delta} vs. análisis del puesto",
+        "en": "{delta} vs. the posting analysis",
+    },
+    "attempt.delta_flat": {
+        "es": "sin cambio significativo",
+        "en": "no significant change",
+    },
+    "attempt.vs_previous": {
+        "es": "vs. intento {n}",
+        "en": "vs. attempt {n}",
+    },
+    "attempt.change.title": {"es": "Qué cambió", "en": "What changed"},
+    "attempt.change.none_first": {
+        "es": "Sin cambios respecto al análisis del puesto",
+        "en": "No changes against the posting analysis",
+    },
+    "attempt.change.none_previous": {
+        "es": "Sin cambios respecto al intento anterior",
+        "en": "No changes against the previous attempt",
+    },
+    "attempt.change.searches_found": {
+        "es": "Búsquedas que ahora te devuelven: {items}",
+        "en": "Searches that now return you: {items}",
+    },
+    "attempt.change.searches_lost": {
+        "es": "Búsquedas que ya no te devuelven: {items}",
+        "en": "Searches that no longer return you: {items}",
+    },
+    "attempt.change.gaps_closed": {"es": "Huecos cerrados: {items}", "en": "Gaps closed: {items}"},
+    "attempt.change.gaps_opened": {"es": "Huecos abiertos: {items}", "en": "Gaps opened: {items}"},
+    "attempt.change.findings_fixed": {
+        "es": "Hallazgos de formato corregidos: {items}",
+        "en": "Format findings fixed: {items}",
+    },
+    "attempt.change.findings_introduced": {
+        "es": "Hallazgos de formato introducidos: {items}",
+        "en": "Format findings introduced: {items}",
+    },
+    "attempt.flags.title": {
+        "es": "Nuevo en este documento",
+        "en": "New in this document",
+    },
+    "attempt.flags.none": {
+        "es": "Nada nuevo: el documento dice lo que dice tu material.",
+        "en": "Nothing new: the document says what your material says.",
+    },
+    "attempt.flags.skills": {
+        "es": "Habilidades que tu material no tiene: {items}",
+        "en": "Skills your material does not have: {items}",
+    },
+    "attempt.flags.claims": {
+        "es": "Cifras, fechas o nombres sin respaldo: {items}",
+        "en": "Figures, dates or names with no support: {items}",
+    },
+    "attempt.flags.titles": {
+        "es": "Puestos que no están en tu material: {items}",
+        "en": "Roles your material does not carry: {items}",
+    },
+    "attempt.flags.above_ceiling": {
+        "es": "Este CV puntúa por encima de lo que tu material permite; revisa las "
+        "afirmaciones nuevas.",
+        "en": "This CV scores above what your material allows; check the new claims.",
+    },
+    "attempt.left.title": {"es": "Qué queda", "en": "What's left"},
+    "attempt.cost": {"es": "Coste {amount}", "en": "Cost {amount}"},
+    "attempt.cost_reused": {
+        "es": "sin costo (reutilizado)",
+        "en": "no cost (reused)",
+    },
+    "attempt.sent": {"es": "Enviada", "en": "Sent"},
+    "attempt.done_heading": {
+        "es": "Intento {n} — informe completo",
+        "en": "Attempt {n} — full report",
+    },
+    "attempt.back": {
+        "es": "Volver al análisis",
+        "en": "Back to the analysis",
+    },
+    "attempt.running": {
+        "es": "Leyendo y puntuando el documento…",
+        "en": "Reading and scoring the document…",
+    },
     "report.cost_label": {"es": "Coste del análisis", "en": "Analysis cost"},
     "report.readability_capped": {
         "es": "El documento limita la puntuación: {check}.",

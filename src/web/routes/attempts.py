@@ -18,9 +18,9 @@ from src.applications import get_application
 from src.attempt_flags import discard_attempt
 from src.attempts import (
     MAX_ATTEMPTS,
+    attempt_view,
     counted_attempts,
     create_attempt,
-    effective_status,
     extract,
     fail_attempt,
     finish_run,
@@ -60,6 +60,22 @@ def failure_message(failure: Exception, lang: str) -> str:
     return t("import.failed", lang)
 
 
+def _analysis_score(application) -> int | None:
+    score = (application.report or {}).get("score") or {}
+    return score.get("capped")
+
+
+def _previous_number(session, application, attempt) -> int | None:
+    """The attempt the delta is measured against (C.0 answer 4): the previous one, or
+    None for Intento 1, which is measured against the posting analysis."""
+    rows = [
+        row
+        for row in list_attempts(application.profile_id, session, application.id)
+        if row.attempt_no < attempt.attempt_no and row.status == "done"
+    ]
+    return rows[-1].attempt_no if rows else None
+
+
 def _status(request: Request, user, application, attempt, session):
     return render(
         request,
@@ -67,7 +83,11 @@ def _status(request: Request, user, application, attempt, session):
         user=user,
         application=application,
         attempt=attempt,
-        status=effective_status(attempt),
+        view=attempt_view(
+            attempt,
+            analysis_score=_analysis_score(application),
+            previous=_previous_number(session, application, attempt),
+        ),
         attempts=list_attempts(application.profile_id, session, application.id),
     )
 
@@ -281,6 +301,9 @@ def attempt_report(
         ceiling=ceiling,
         ceiling_recomputed=ceiling is not None and not same,
         ceiling_remainder=ceiling_remainder(ceiling, user.ui_lang) if ceiling else None,
+        # C.0 answer 2: an attempt's full report is read-only.
+        attempt_view=True,
+        attempt_no=attempt.attempt_no,
         advice_for_file=True,
         findings=finding_rows(report.get("gate") or {}, user.ui_lang),
         live_bullets={

@@ -67,14 +67,17 @@ def test_the_remainder_attributes_each_part_to_its_source(client, session, caree
     assert "de evidencia más fuerte en requisitos que ya cubres" in page
 
 
-def test_the_try_new_cv_button_is_present_and_disabled(client, session, career, provider):
+def test_the_try_new_cv_button_opens_the_attempt_modal(client, session, career, provider):
+    """C.1: the button is live and the modal it opens is on the page."""
     url = _analyze(client, career)
 
     raw = client.get(url).text
 
     assert "Probar nueva versión del CV" in raw
-    assert ".docx" in raw and "próximamente" in raw
-    assert "disabled" in raw
+    assert ".docx" in raw
+    assert 'id="attempt-open"' in raw
+    assert "<dialog id=\"attempt-modal\"" in raw
+    assert 'action="' in raw and "/attempts" in raw
 
 
 def test_a_master_change_recomputes_the_ceiling_on_view(client, session, career, provider):

@@ -17,11 +17,14 @@
    document the user is editing. The analysis page passes nothing, so advice reads for
    the track. #}
 {% set advice_for_file = advice_for_file if advice_for_file is defined else false %}
+{# F10 (C.0 answer 2): an attempt's report is read-only — every action that would act
+   on the analysis is hidden, and the header says which attempt this is. #}
+{% set attempt_view = attempt_view if attempt_view is defined else false %}
 
 {# 1 — Header: what was posted, the track used, and the run's metadata. #}
 <header>
   <h1 class="text-2xl font-semibold tracking-tight">
-    {{ application.title or t('report.title', lang) }}
+    {% if attempt_view %}{{ t('attempt.done_heading', lang, n=attempt_no) }}{% else %}{{ application.title or t('report.title', lang) }}{% endif %}
   </h1>
   {% if application.company %}<p class="mt-1 text-text-2">{{ application.company }}</p>{% endif %}
   <p class="mt-2 text-sm">
@@ -44,7 +47,11 @@
       <dd>{{ report.jd.language or t('common.none', lang) }}</dd></div>
   </dl>
   <p class="mt-3 text-sm">
+    {% if attempt_view %}
+    <a href="/applications/{{ application.id }}" class="text-link underline">{{ t('attempt.back', lang) }}</a>
+    {% else %}
     <a href="/analyze?application={{ application.id }}" class="text-link underline">{{ t('report.analyse_another', lang) }}</a>
+    {% endif %}
   </p>
 </header>
 
@@ -211,7 +218,7 @@
     {% endif %}
     {% if grade.bullet_text %}
     <p class="mt-1 text-sm text-text-2">{{ grade.bullet_text }}</p>
-    {% if grade.bullet_id and grade.bullet_id in live_bullets %}
+    {% if grade.bullet_id and grade.bullet_id in live_bullets and not attempt_view %}
     {# F7.3 Tier 3a: one call, on demand, to restate this bullet for this posting. #}
     <p class="mt-1 text-xs">
       <a href="/applications/{{ application.id }}/bullets/{{ grade.bullet_id }}/rephrase"
@@ -479,28 +486,122 @@
     {% endif %}
   </div>
 </div>
-{% if application.track_id %}
+{% if application.track_id and not attempt_view %}
 <p class="mt-3 text-sm">
   <a href="/applications/{{ application.id }}/summary" class="text-link underline">{{ t('generate.propose_summary', lang) }}</a>
 </p>
 {% endif %}
 {% endif %}
 
-{# F10.1: the entry point into the attempt modal, below Recomendaciones (§12.1).
-   Disabled with "próximamente" until Run C builds the modal. #}
+{# F10.1: the entry point into the attempt modal, below Recomendaciones (§12.1). #}
+{% if not attempt_view %}
 <p class="mt-3">
-  <button type="button" disabled
-          class="rounded-control border border-border px-3 py-2 text-sm text-text-3">
+  <button type="button" id="attempt-open"
+          class="rounded-control border border-border px-3 py-2 text-sm">
     {{ t('report.try_new_cv', lang) }}
   </button>
   <span class="mt-1 block text-xs text-text-3">{{ t('report.try_new_cv_note', lang) }}</span>
 </p>
 
+{# F10.1/F10.4: the modal. A native `<dialog>` — focus is trapped and Escape closes it
+   by the platform — holding the upload and the result's content order (F10.4). The
+   panel polls the attempt's status while it runs and stops on done or failed. #}
+<dialog id="attempt-modal" class="attempt-modal"
+        data-confirm="{{ t('attempt.form.confirm_close', lang) }}"
+        data-error="{{ t('attempt.form.error', lang) }}">
+  <div class="p-4">
+    <div class="flex items-center justify-between gap-4">
+      <h2 class="text-lg font-semibold">{{ t('report.try_new_cv', lang) }}</h2>
+      <button type="button" id="attempt-close" class="rounded-control border border-border px-2 py-1 text-sm">
+        {{ t('common.cancel', lang) }}
+      </button>
+    </div>
+    <form id="attempt-form" method="post" enctype="multipart/form-data"
+          action="/applications/{{ application.id }}/attempts" class="mt-3 space-y-2">
+      <label for="attempt-file" class="block text-sm">{{ t('attempt.form.file', lang) }}</label>
+      <input id="attempt-file" type="file" name="file" accept=".docx,.pdf" required
+             class="block w-full text-sm">
+      <button type="submit" class="rounded-control border border-border px-3 py-2 text-sm">
+        {{ t('attempt.form.submit', lang) }}
+      </button>
+    </form>
+    <p id="attempt-error" class="mt-2 hidden text-sm text-sev-blocker"></p>
+    <div id="attempt-status" class="mt-3">
+      <h3 class="text-sm font-semibold">{{ t('attempt.list', lang) }}</h3>
+      {% include "attempts/_list.html" %}
+    </div>
+  </div>
+</dialog>
+
+<script>
+  // F10.1: open/close, poll while running, confirm before closing an unsaved result.
+  (function () {
+    const modal = document.getElementById("attempt-modal");
+    const status = document.getElementById("attempt-status");
+    const form = document.getElementById("attempt-form");
+    const error = document.getElementById("attempt-error");
+    let poll = null;
+    let unsaved = false;
+
+    function stopPoll() {
+      if (poll !== null) { clearInterval(poll); poll = null; }
+    }
+
+    function startPoll(url) {
+      stopPoll();
+      poll = setInterval(function () {
+        fetch(url, {headers: {"Accept": "text/html"}})
+          .then(function (response) { return response.text(); })
+          .then(function (html) {
+            status.innerHTML = html;
+            const root = status.querySelector("[data-status]");
+            if (!root || root.dataset.status !== "running") { stopPoll(); unsaved = true; }
+          });
+      }, 2000);
+    }
+
+    document.getElementById("attempt-open").addEventListener("click", function () {
+      modal.showModal();
+    });
+    document.getElementById("attempt-close").addEventListener("click", function () {
+      modal.close("cancel");
+    });
+    modal.addEventListener("cancel", function (event) {
+      if (unsaved && !window.confirm(modal.dataset.confirm)) { event.preventDefault(); }
+    });
+    modal.addEventListener("close", function () { stopPoll(); if (unsaved) { window.location.reload(); } });
+
+    form.addEventListener("submit", function (event) {
+      event.preventDefault();
+      error.classList.add("hidden");
+      fetch(form.action, {method: "POST", body: new FormData(form)})
+        .then(function (response) {
+          const type = response.headers.get("content-type") || "";
+          if (type.indexOf("application/json") !== -1) {
+            return response.json().then(function (body) {
+              error.textContent = modal.dataset.error.replace("{detail}", body.detail || response.status);
+              error.classList.remove("hidden");
+            });
+          }
+          return response.text().then(function (html) {
+            status.innerHTML = html;
+            const root = status.querySelector("[data-status]");
+            unsaved = true;
+            if (root && root.dataset.status === "running") { startPoll(root.dataset.attemptUrl); }
+          });
+        });
+    });
+  })();
+</script>
+{% endif %}
+
+{% if not attempt_view %}
 {# F8 (N8.4): the cover letter written for this application. #}
 <h2 class="mt-8 text-lg font-semibold">{{ t('report.letter', lang) }}</h2>
 <p class="mt-1 text-sm">
   <a href="/applications/{{ application.id }}/letter" class="text-link underline">{{ t('report.letter_link', lang) }}</a>
 </p>
+{% endif %}
 
 {# 9 — Traceability: the run's versions, its cache state, its cost, and the fields the
    extraction read, collapsed. #}

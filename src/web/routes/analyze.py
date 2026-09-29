@@ -13,6 +13,8 @@ from fastapi.responses import RedirectResponse
 
 from src.analysis import analyze, ceiling_for_report
 from src.applications import create_application, get_application
+from src.attempts import application_attempts_report
+from src.attempts import list_attempts as list_attempt_rows
 from src.bullets import list_bullets
 from src.extract.client import (
     CallOptions,
@@ -245,6 +247,10 @@ def application_report(
         ceiling=ceiling,
         ceiling_recomputed=ceiling is not None and not same,
         ceiling_remainder=ceiling_remainder(ceiling, user.ui_lang) if ceiling else None,
+        # F10.1: the modal lists the attempts this analysis already has.
+        attempts=application_attempts_report(
+            list_attempt_rows(profile.id, session, application.id)
+        ),
         findings=finding_rows(application.scan_readability or {}, user.ui_lang),
         # F7.3 Tier 3a: the rephrase control links only to a bullet that still exists
         # and is active — a stored report renders a deleted citation from its snapshot,

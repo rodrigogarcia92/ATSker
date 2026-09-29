@@ -35,6 +35,7 @@ from src.ingest.documents import LoadedDocument, load_document
 from src.ingest.draft import ResumeDraft, build_draft
 from src.models import Application, ApplicationAttempt
 from src.parse.gate import ParseReport
+from src.score.weights import STABILITY_BAND
 from src.tracks import get_track
 
 # F10.3/A5: at most ten attempts per application, and a run older than this reads as
@@ -278,6 +279,59 @@ def finish_run(
     attempt.token_cost_usd = analysis.cost_usd
     attempt.status = "done"
     attempt.error = None
+
+
+def attempt_view(
+    attempt: ApplicationAttempt, *, analysis_score: int | None, previous: int | None = None
+) -> dict[str, object]:
+    """What the modal and the status partial render (F10.4), from the stored report.
+
+    F10.4's order, minus the checklist and the actions (C.2 and C.3 own those). The
+    delta against the posting analysis reads "sin cambio significativo" inside
+    `STABILITY_BAND` (F10.4 step 2).
+    """
+    report = attempt.report or {}
+    ceiling = report.get("ceiling") or {}
+    score = report.get("score") or {}
+    sub_scores = score.get("sub_scores") or {}
+    ceilings = ceiling.get("sub_scores") or {}
+    delta = (
+        None
+        if attempt.job_match is None or analysis_score is None
+        else attempt.job_match - analysis_score
+    )
+    cost = float(attempt.token_cost_usd or 0)
+    return {
+        "status": effective_status(attempt),
+        "attempt_no": attempt.attempt_no,
+        "job_match": attempt.job_match,
+        "ceiling_low": ceiling.get("low"),
+        "ceiling_high": ceiling.get("high"),
+        "delta": delta,
+        "delta_text": f"{delta:+d}" if delta is not None else None,
+        "delta_reference": previous,
+        "delta_significant": delta is not None and abs(delta) >= STABILITY_BAND,
+        "sub_scores": [
+            {
+                "name": name,
+                "value": (sub_scores.get(name) or {}).get("value"),
+                "ceiling": (ceilings.get(name) or {}).get("ceiling"),
+                "confidence": (ceilings.get(name) or {}).get("confidence"),
+            }
+            for name in ("skills", "experience", "title", "keywords")
+        ],
+        "change": report.get("change") or {},
+        "flags": report.get("flags") or {},
+        "unreachable": ceiling.get("unreachable") or {},
+        "advice": report.get("advice") or [],
+        "cost_usd": attempt.token_cost_usd,
+        "cost_reused": cost == 0.0,
+        "error": attempt.error,
+        "has_report": bool(report),
+        "file_format": attempt.file_format,
+        "created_at": attempt.created_at,
+        "is_sent": attempt.is_sent,
+    }
 
 
 def application_attempts_report(attempts: Sequence[ApplicationAttempt]) -> list[dict]:

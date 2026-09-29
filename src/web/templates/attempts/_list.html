@@ -1,0 +1,19 @@
+{# F10.4 step 1: the attempts list — Intento N with its score, the sent one marked. #}
+<ul class="mt-2 space-y-1 text-sm">
+  {% for row in attempts %}
+  <li class="flex flex-wrap items-center gap-2">
+    <span>{{ t('attempt.title', lang, n=row.attempt_no) }}</span>
+    {% if row.job_match is not none %}
+    <span class="text-text-2">{{ row.job_match }}</span>
+    {% endif %}
+    {% if row.is_sent %}
+    <span class="rounded-tag border border-score-strong px-2 py-0.5 text-xs text-score-strong">{{ t('attempt.sent', lang) }}</span>
+    {% endif %}
+    {% if row.status == 'failed' %}
+    <span class="text-xs text-text-3">{{ t('attempt.status.failed', lang) }}</span>
+    {% endif %}
+  </li>
+  {% else %}
+  <li class="text-text-3">{{ t('attempt.none', lang) }}</li>
+  {% endfor %}
+</ul>
