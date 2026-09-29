@@ -27,6 +27,7 @@ from src.parse.gate import checks_not_run
 from src.recommend import recommend
 from src.resumes import source_document_for_track
 from src.tracks import get_track, list_tracks
+from src.web.alerts import ceiling_remainder
 from src.web.deps import DbSession, OwnProfile, SignedInUser
 from src.web.findings import document_kind, finding_rows
 from src.web.forms import is_checked
@@ -198,63 +199,6 @@ def analyze_submit(
     return RedirectResponse(f"/applications/{application.id}", status_code=303)
 
 
-def _points(value: object) -> str:
-    """A remainder figure with at most one decimal and no trailing `.0`."""
-    return f"{round(float(value or 0), 1):g}"
-
-
-def _join_clauses(parts: list[str], lang: str) -> str:
-    if len(parts) == 1:
-        return parts[0]
-    return ", ".join(parts[:-1]) + t("report.ceiling.and", lang) + parts[-1]
-
-
-def _ceiling_remainder(ceiling: dict, lang: str) -> str | None:
-    """A5: the sentence names what holds each remaining point out, part by part.
-
-    Only non-zero parts are shown, and the "requieren experiencia" clause appears only
-    when some requirement has no evidence at all — the Run A bug was attributing the
-    whole remainder to that list.
-    """
-    source = ceiling.get("unreachable") or {}
-    by = source.get("by_source") or {}
-    requirements = source.get("requirements") or []
-    clauses: list[str] = []
-    if by.get("no_evidence") and requirements:
-        names = ", ".join(str(row.get("requirement") or "") for row in requirements)
-        clauses.append(
-            t(
-                "report.ceiling.no_evidence",
-                lang,
-                points=_points(by["no_evidence"]),
-                requirements=names,
-            )
-        )
-    tail = [
-        t(key, lang, points=_points(by[field]))
-        for field, key in (
-            ("experience", "report.ceiling.experience"),
-            ("title", "report.ceiling.title"),
-            ("keywords", "report.ceiling.keywords"),
-        )
-        if by.get(field)
-    ]
-    if tail:
-        clauses.append(_join_clauses(tail, lang))
-    if by.get("stronger_evidence"):
-        clauses.append(
-            t(
-                "report.ceiling.stronger_evidence",
-                lang,
-                points=_points(by["stronger_evidence"]),
-            )
-        )
-    if not clauses:
-        return None
-    intro = t("report.ceiling.remaining", lang, points=_points(source.get("points")))
-    return f"{intro} {'; '.join(clauses)}."
-
-
 @router.get("/applications/{application_id}")
 def application_report(
     application_id: str,
@@ -300,7 +244,7 @@ def application_report(
         report=application.report,
         ceiling=ceiling,
         ceiling_recomputed=ceiling is not None and not same,
-        ceiling_remainder=_ceiling_remainder(ceiling, user.ui_lang) if ceiling else None,
+        ceiling_remainder=ceiling_remainder(ceiling, user.ui_lang) if ceiling else None,
         findings=finding_rows(application.scan_readability or {}, user.ui_lang),
         # F7.3 Tier 3a: the rephrase control links only to a bullet that still exists
         # and is active — a stored report renders a deleted citation from its snapshot,
