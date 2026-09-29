@@ -130,6 +130,10 @@ def _recall_payload(recall: RecallReport, queries: Sequence[BooleanQuery]) -> di
     # can legitimately be the shorter side here.
     for entry, query in zip(entries, queries, strict=False):
         entry["query_text"] = query.query_text
+        # F10.3: the tree itself, so an attempt re-evaluates the same queries against
+        # the file at no cost — re-deriving them would be a second model call.
+        entry["all_of"] = [list(group) for group in query.all_of]
+        entry["none_of"] = list(query.none_of)
     return payload
 
 
@@ -247,12 +251,20 @@ def score_track(
     options: CallOptions | None = None,
     track: Track | None = None,
     queries: BooleanQuerySet | None = None,
+    bullets: Sequence[Bullet] | None = None,
+    document: Sequence[DocumentUnit] | None = None,
+    interpret: bool = True,
 ) -> Analysis:
     """One track's analysis of a prepared posting: document, grading, score, gaps.
 
     `queries` is the recruiter's derivation when somebody else already made it — F7.1
     derives it once and hands the same answer to every candidate track. Without one,
     this derives it here, exactly where a single analysis always has.
+
+    `bullets` and `document` override the evidence and the text read (F10's ephemeral
+    track, A4): an attempt scores a file instead of a track, through this same path, so
+    the two can never score differently. `interpret` is False for an attempt, which
+    detects gaps but does not pay for the prose about them.
     """
     profile = session.get(Profile, profile_id)
     if profile is None:
@@ -263,7 +275,8 @@ def score_track(
     # The evidence and the document are one decision (F5.5.1): the same bullets,
     # read through the same rule — active, under an active role, the track's
     # selection or every one of them.
-    bullets = document_bullets(profile_id, session, track)
+    if bullets is None:
+        bullets = document_bullets(profile_id, session, track)
     if track is not None:
         # F5.1: a track built from an upload is capped by the document that produced
         # it. No source document — or no track — means no gate and no cap, which is
@@ -279,7 +292,8 @@ def score_track(
     # The document as one reader sees it, in the posting's language (F4.1): what the
     # keyword scan runs over, what the title sub-score reads its headline from, and
     # where a citation's snapshot comes from. The reads end before the next call.
-    document = track_document(profile_id, session, track, jd.language)
+    if document is None:
+        document = track_document(profile_id, session, track, jd.language)
     session.commit()
     grading = grade_evidence(
         session,
@@ -485,25 +499,31 @@ def score_track(
     stories = list_stories(profile_id, session)
     # The reads above end before the provider call starts, like every other call here.
     session.commit()
-    reading = interpret_gaps(
-        session,
-        [
-            GapInput(gap.requirement, gap.level, gap.must_have, gap.bullet_text) for gap in gaps
-        ],
-        jd,
-        standing_risks=profile.standing_risks,
-        stories=stories,
-        language=jd.language,
-        known_names=[profile.display_name] if profile.display_name else None,
-        model=model,
-        options=options,
-    )
+    # F10.3: an attempt detects its gaps but does not pay for the prose about them —
+    # `interpret` is False there, and the report carries the bands with empty wording.
+    reading = None
+    if interpret:
+        reading = interpret_gaps(
+            session,
+            [
+                GapInput(gap.requirement, gap.level, gap.must_have, gap.bullet_text)
+                for gap in gaps
+            ],
+            jd,
+            standing_risks=profile.standing_risks,
+            stories=stories,
+            language=jd.language,
+            known_names=[profile.display_name] if profile.display_name else None,
+            model=model,
+            options=options,
+        )
+    notes: list[object] = list(reading.notes) if reading is not None else [None] * len(gaps)
 
     calls = (
         prepared.extraction,
         *grading.calls,
         *([recall_call] if recall_call is not None else []),
-        *reading.calls,
+        *([*reading.calls] if reading is not None else []),
     )
     cost = sum((call.cost_usd for call in calls), Decimal("0"))
 
@@ -535,10 +555,10 @@ def score_track(
                     "must_have": gap.must_have,
                     "bullet_id": gap.bullet_id,
                     "bullet_text": gap.bullet_text,
-                    "blocking": note.blocking,
-                    "interpretation": note.interpretation,
+                    "blocking": bool(getattr(note, "blocking", False)),
+                    "interpretation": str(getattr(note, "interpretation", "")),
                 }
-                for gap, note in zip(gaps, reading.notes, strict=True)
+                for gap, note in zip(gaps, notes, strict=True)
             ],
             "covered_by_transfer": [
                 {
@@ -552,11 +572,11 @@ def score_track(
                 for gap in covered
             ],
             "warning": {
-                "text": reading.warning.text,
-                "handling": reading.warning.handling,
+                "text": reading.warning.text if reading is not None else "",
+                "handling": reading.warning.handling if reading is not None else "",
             },
             "alerts": alerts,
-            "not_found": reading.not_found,
+            "not_found": reading.not_found if reading is not None else "",
             "stories_used": len(stories),
         },
         # F6.1's disqualifiers, beside the score and never inside it (F5.5). The
@@ -619,6 +639,51 @@ def score_track(
         calls=calls,
         queries=queries,
     )
+
+
+def preparation_from_report(
+    report: Mapping[str, object],
+    session: Session,
+    *,
+    extraction,
+) -> Preparation:
+    """Reuse a stored report's posting, without extracting it again (F10.3).
+
+    `extraction` is the call that *did* happen — an attempt's own résumé extraction —
+    so the report's ledger names what was paid for.
+    """
+    jd = StructuredJD(**report["jd"])  # type: ignore[arg-type]
+    return Preparation(
+        jd=jd,
+        extraction=extraction,
+        aliases=alias_map(session),
+        vocabulary_hash=vocabulary_hash(session),
+        today=date.today(),
+    )
+
+
+def queries_from_report(report: Mapping[str, object]) -> BooleanQuerySet | None:
+    """The recruiter's queries a stored report carries, or None when it predates them.
+
+    F10.3 reuses the analysis's queries at no cost; a report stored before the trees
+    were recorded returns None, and the caller derives them (a call) as before.
+    """
+    recall = report.get("recall") or {}
+    rows = recall.get("queries") if isinstance(recall, Mapping) else None
+    if not rows:
+        return None
+    queries: list[BooleanQuery] = []
+    for row in rows:
+        if not isinstance(row, Mapping) or "all_of" not in row:
+            return None
+        queries.append(
+            BooleanQuery(
+                label=str(row.get("label") or ""),
+                all_of=[list(group) for group in row["all_of"]],
+                none_of=[str(term) for term in (row.get("none_of") or [])],
+            )
+        )
+    return BooleanQuerySet(queries=queries)
 
 
 def ceiling_for_report(

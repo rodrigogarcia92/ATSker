@@ -19,24 +19,22 @@ from src.attempts import counted_attempts
 from src.extract import client as extract_client
 from src.models import ApplicationAttempt
 from tests.conftest import login
-from tests.unit.test_ingest_routes import (
-    DOCX_TYPE,
-    EMPTY,
-    Provider,
-    docx_bytes,
-    long_cv,
-    plain,
-)
+from tests.unit.attempt_support import AttemptProvider, analyzed_application, resume_payload
+from tests.unit.test_ingest_routes import DOCX_TYPE, EMPTY, Provider, docx_bytes, long_cv, plain
 
 
 @pytest.fixture
-def provider(monkeypatch, test_settings) -> Provider:
-    stub = Provider()
+def provider(monkeypatch, test_settings, career) -> AttemptProvider:
+    stub = AttemptProvider(
+        bullet_id=str(career.first_bullet.id),
+        resume=resume_payload(career.first_bullet.text_es),
+    )
     monkeypatch.setattr(extract_client, "_post", stub)
     return stub
 
 
 def _application(profile_id, session):
+    """A bare row for the cases that never reach the pipeline."""
     application = create_application(
         profile_id,
         session,
@@ -62,8 +60,8 @@ def upload(client, application_id, data, name: str = "cv.docx"):
 
 def test_an_attempt_stores_its_sha_and_keeps_no_bytes(client, session, career, provider):
     login(client, career.first.email)
-    application = _application(career.first_profile.id, session)
-    data = docx_bytes("Experiencia", "Reduje el cierre un 30% con Python")
+    application, analysis = analyzed_application(session, career, provider)
+    data = docx_bytes("Experiencia", career.first_bullet.text_es)
     before = set(os.listdir(tempfile.gettempdir()))
 
     response = upload(client, application.id, data)
@@ -75,9 +73,11 @@ def test_an_attempt_stores_its_sha_and_keeps_no_bytes(client, session, career, p
     assert attempt.file_format == "docx"
     assert attempt.file_sha256 == hashlib.sha256(data).hexdigest()
     assert attempt.lang == "es"
-    # A5: the report carries the draft and the findings, never the file.
-    assert set(attempt.report or {}) == {"draft", "gate"}
-    assert "file_bytes" not in (attempt.report or {})
+    # A5: the report carries the draft, the file's bullets and the score — never bytes.
+    assert isinstance(attempt.report["draft"], dict)
+    assert attempt.report["bullets"][0]["text"] == career.first_bullet.text_es
+    assert "file_bytes" not in attempt.report
+    assert attempt.report["score"]["capped"] == analysis.report["score"]["capped"]
     assert set(os.listdir(tempfile.gettempdir())) == before, "nothing was written to disk"
 
 

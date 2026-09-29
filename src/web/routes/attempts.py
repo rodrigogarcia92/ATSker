@@ -18,8 +18,9 @@ from src.attempts import (
     effective_status,
     extract,
     fail_attempt,
-    finish_attempt,
+    finish_run,
     list_attempts,
+    run_pipeline,
 )
 from src.extract.client import (
     NoModelConfigured,
@@ -121,13 +122,13 @@ async def attempt_upload(
         # `counted_attempts` both leave it out.
         fail_attempt(attempt, failure_message(failure, user.ui_lang))
     else:
-        finish_attempt(
-            attempt,
-            report={
-                "draft": result.draft.model_dump(mode="json"),
-                "gate": result.loaded.gate.to_dict(),
-            },
-            lang=result.draft.language,
+        report, analysis = run_pipeline(
+            profile.id,
+            session,
+            application=application,
+            attempt=attempt,
+            extracted=result,
         )
+        finish_run(attempt, report=report, analysis=analysis, lang=result.draft.language)
     session.commit()
     return _status(request, user, application, attempt, session)

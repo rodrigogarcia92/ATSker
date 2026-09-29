@@ -10,7 +10,7 @@ functions and not template blocks.
 from collections.abc import Mapping
 
 from src.i18n import t
-from src.i18n.strings import join_list
+from src.i18n.strings import STRINGS, join_list
 
 
 def language_alert(alert: Mapping[str, object], lang: str) -> str:
@@ -52,15 +52,23 @@ def language_alert(alert: Mapping[str, object], lang: str) -> str:
     )
 
 
-def advice_line(item: Mapping[str, object], lang: str) -> str:
+def advice_line(item: Mapping[str, object], lang: str, *, for_file: bool = False) -> str:
     """One F7.2 item as a sentence (PRD F7.2).
 
     The stored item names a language by its code — a report written under one
     interface language must read in the other — so the code is resolved here, with
     the words a reader knows ("inglés", "English"), never the ISO string.
+
+    `for_file` picks the F10.3 wording for a document ("en tu documento") where the
+    rule's sentence would otherwise speak of a track. A kind without a variant reads
+    the base sentence, so the two cannot drift apart in silence.
     """
     values = dict(item.get("values") or {})
     code = values.get("language")
     if isinstance(code, str):
         values["language"] = t(f"lang.{code}", lang)
-    return t(f"report.advice.{item.get('kind')}", lang, **values)
+    kind = item.get("kind")
+    key = f"report.advice.{kind}"
+    if for_file and f"report.advice.file.{kind}" in STRINGS:
+        key = f"report.advice.file.{kind}"
+    return t(key, lang, **values)

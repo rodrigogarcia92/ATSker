@@ -26,12 +26,15 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from src.extract.client import CallOptions
+from src.analysis import preparation_from_report, queries_from_report, score_track
+from src.attempt_track import ephemeral_track
+from src.extract.client import CallOptions, Completion
 from src.extract.resume import ResumeExtraction, extract_resume
 from src.ingest.documents import LoadedDocument, load_document
 from src.ingest.draft import ResumeDraft, build_draft
 from src.models import Application, ApplicationAttempt
 from src.parse.gate import ParseReport
+from src.tracks import get_track
 
 # F10.3/A5: at most ten attempts per application, and a run older than this reads as
 # failed however it was left.
@@ -119,19 +122,6 @@ def create_attempt(
     return attempt
 
 
-def finish_attempt(
-    attempt: ApplicationAttempt,
-    *,
-    report: dict,
-    lang: str | None = None,
-) -> None:
-    """Mark a run done and store what it produced (A5 step 3)."""
-    attempt.report = report
-    attempt.lang = lang or attempt.lang
-    attempt.status = "done"
-    attempt.error = None
-
-
 def fail_attempt(attempt: ApplicationAttempt, message: str) -> None:
     """Mark a run failed, with the plain message the modal shows (A5 step 3)."""
     attempt.status = "failed"
@@ -157,6 +147,8 @@ class Extraction:
     loaded: LoadedDocument
     extraction: ResumeExtraction
     draft: ResumeDraft
+    # The call itself, so the attempt's report names what was paid for (F10.3/A9).
+    completion: Completion
 
 
 def extract(
@@ -175,20 +167,91 @@ def extract(
     handing the review screen an empty draft.
     """
     loaded = load_document(filename, data)
-    extraction, _completion = extract_resume(
+    extraction, completion = extract_resume(
         session,
         loaded.text,
         known_names=[display_name] if display_name else None,
         options=CallOptions(profile_id=profile_id),
     )
     draft = build_draft(session, extraction, language_hint=language_hint)
-    return Extraction(loaded=loaded, extraction=extraction, draft=draft)
+    return Extraction(
+        loaded=loaded, extraction=extraction, draft=draft, completion=completion
+    )
 
 
 def gate_of(loaded: LoadedDocument) -> ParseReport:
     return loaded.gate
 
 
+
+
+def run_pipeline(
+    profile_id: uuid.UUID,
+    session: Session,
+    *,
+    application: Application,
+    attempt: ApplicationAttempt,
+    extracted: Extraction,
+) -> tuple[dict, object]:
+    """Score the file as an ephemeral track, reusing the analysis (F10.3/B.3).
+
+    The posting (F10.3 step 1's "reused at no cost") and the recruiter's queries come
+    from the stored report, so the only calls are the attempt's own: the extraction
+    already made, and one grading call — which the content-hash cache answers without
+    a provider call when the file's evidence is the analysis's own (A4).
+    """
+    track = (
+        get_track(profile_id, session, application.track_id)
+        if application.track_id
+        else None
+    )
+    ephemeral = ephemeral_track(
+        profile_id, session, application=application, draft=extracted.draft
+    )
+    prepared = preparation_from_report(
+        application.report, session, extraction=extracted.completion
+    )
+    analysis = score_track(
+        profile_id,
+        session,
+        jd_text=application.jd_text,
+        prepared=prepared,
+        gate=extracted.loaded.gate,
+        track=track,
+        queries=queries_from_report(application.report),
+        bullets=list(ephemeral.bullets),
+        document=list(ephemeral.document),
+        options=CallOptions(profile_id=profile_id),
+        interpret=False,
+    )
+    report = dict(analysis.report)
+    # A6: the draft lives in the report, so "Incorporar a mi material" can open the
+    # F2.5 review from an attempt; "Descartar" blanks it and keeps everything else.
+    report["draft"] = extracted.draft.model_dump(mode="json")
+    # The file's bullets as read: master ids for unchanged text, temporary ids with
+    # their snapshot for new or changed text (F10.5 reads this).
+    report["bullets"] = [snapshot.to_dict() for snapshot in ephemeral.snapshots]
+    return report, analysis
+
+
+
+def finish_run(
+    attempt: ApplicationAttempt, *, report: dict, analysis, lang: str | None = None
+) -> None:
+    """Store the run's report and its headline numbers on the row (A5/A9)."""
+    ceiling = report.get("ceiling") or {}
+    score = report.get("score") or {}
+    attempt.report = report
+    attempt.lang = lang or attempt.lang
+    attempt.job_match = score.get("capped")
+    attempt.ceiling_low = ceiling.get("low")
+    attempt.ceiling_high = ceiling.get("high")
+    attempt.weights_version = str(score.get("weights_version") or "")
+    attempt.vocabulary_hash = str(report.get("vocabulary_hash") or "")
+    attempt.prompt_versions = dict(attempt.prompt_versions or {})
+    attempt.token_cost_usd = analysis.cost_usd
+    attempt.status = "done"
+    attempt.error = None
 
 
 def application_attempts_report(attempts: Sequence[ApplicationAttempt]) -> list[dict]:

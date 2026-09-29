@@ -656,6 +656,39 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "Write {bullets} of your {total_bullets} bullets and {titles} of your "
         "titles in {language}.",
     },
+    # F10.3 step 6: the same items worded for a document, not for a track. Only the
+    # kinds whose sentence mentions the track have a variant; the rest fall back.
+    "report.advice.file.promote_bullet": {
+        "es": "Mueve este bullet a las tres primeras de tu documento: demuestra "
+        "{requirement} y está en la posición {position}, con material más débil por "
+        "encima.",
+        "en": "Move this bullet into your document's first three: it demonstrates "
+        "{requirement} and it sits at position {position}, with weaker material above.",
+    },
+    "report.advice.file.add_bullet": {
+        "es": "Añade este bullet a tu documento: demuestra {canonical}, que la oferta "
+        "pide y el documento no muestra.",
+        "en": "Add this bullet to your document: it demonstrates {canonical}, which the "
+        "posting asks for and the document does not show.",
+    },
+    "report.advice.file.surface_skill": {
+        "es": "Añade {canonical} a las habilidades de tu documento: la oferta lo pide y "
+        "tú lo tienes demostrado.",
+        "en": "Add {canonical} to your document's skills list: the posting asks for it "
+        "and you have it evidenced.",
+    },
+    "report.advice.file.fix_query": {
+        "es": "La búsqueda «{query}» no te devolvería, y tienes un bullet que dice "
+        "{canonical}: inclúyela en tu documento o usa sus palabras.",
+        "en": "The search “{query}” would not return you, and you have a bullet that "
+        "says {canonical}: include it in your document, or use its words.",
+    },
+    "report.advice.file.language": {
+        "es": "Escribe en {language} {bullets} de los {total_bullets} bullets de tu "
+        "documento y {titles} de tus cargos.",
+        "en": "Write {bullets} of your document's {total_bullets} bullets and {titles} "
+        "of your titles in {language}.",
+    },
     "report.advice.evidence": {"es": "Evidencia", "en": "Evidence"},
     # The source tag on every advice item: which of F7.2's rules produced it, in a word.
     "report.advice.tag.promote_bullet": {"es": "Promover", "en": "Promote"},

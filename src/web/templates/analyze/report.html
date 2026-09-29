@@ -13,6 +13,10 @@
 {% set cap = report.score.cap %}
 {% set binding = cap is not none and report.score.capped < report.score.uncapped %}
 {% set match_band = 'strong' if report.score.capped >= 75 else ('adequate' if report.score.capped >= 50 else 'weak') %}
+{# F10.3: the same report template renders an attempt, whose advice is worded for the
+   document the user is editing. The analysis page passes nothing, so advice reads for
+   the track. #}
+{% set advice_for_file = advice_for_file if advice_for_file is defined else false %}
 
 {# 1 — Header: what was posted, the track used, and the run's metadata. #}
 <header>
@@ -465,7 +469,7 @@
       {% for item in report.advice %}
       <li class="rounded-control border border-card-border bg-surface-1 px-3 py-2 text-sm">
         <span class="rounded-tag border border-link px-2 py-0.5 text-xs text-link">{{ t('report.advice.tag.' ~ item.kind, lang) }}</span>
-        <span class="mt-1 block">{{ advice_line(item, lang) }}</span>
+        <span class="mt-1 block">{{ advice_line(item, lang, for_file=advice_for_file) }}</span>
         {% if item.evidence %}
         <span class="mt-1 block text-xs text-text-3">{{ t('report.advice.evidence', lang) }}: {{ item.evidence }}</span>
         {% endif %}
