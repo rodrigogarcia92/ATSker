@@ -335,6 +335,29 @@ STRINGS: dict[str, dict[str, str]] = {
         "es": "(.docx) — próximamente",
         "en": "(.docx) — coming soon",
     },
+    # F10.3 (Run B): attempts — the upload limit, the status the modal polls, and the
+    # list. `attempt.limit` is the stated reason the 11th upload is refused (409).
+    "attempt.limit": {
+        "es": "Este análisis ya tiene {max} intentos, que es el máximo.",
+        "en": "This analysis already has {max} attempts, which is the maximum.",
+    },
+    "attempt.title": {"es": "Intento {n}", "en": "Attempt {n}"},
+    "attempt.status.running": {"es": "En curso", "en": "Running"},
+    "attempt.status.done": {"es": "Listo", "en": "Done"},
+    "attempt.status.failed": {"es": "Fallido", "en": "Failed"},
+    "attempt.score": {
+        "es": "Encaje {score} · techo {ceiling}",
+        "en": "Match {score} · ceiling {ceiling}",
+    },
+    "attempt.view_report": {
+        "es": "Ver el informe completo",
+        "en": "View the full report",
+    },
+    "attempt.list": {"es": "Intentos", "en": "Attempts"},
+    "attempt.none": {
+        "es": "Todavía no hay intentos.",
+        "en": "No attempts yet.",
+    },
     "report.cost_label": {"es": "Coste del análisis", "en": "Analysis cost"},
     "report.readability_capped": {
         "es": "El documento limita la puntuación: {check}.",
