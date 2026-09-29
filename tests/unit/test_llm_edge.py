@@ -138,7 +138,8 @@ def test_a_runaway_answer_fails_one_call_instead_of_the_run(session, test_settin
     killed the run. It is a schema failure like any other: one call fails, one retry,
     the cost stays in the ledger, and the answer is never served back.
     """
-    nested = '{"a":' * 5000 + "1" + "}" * 5000
+    # Deep enough for every supported Python: 3.12 decodes 5,000 levels that 3.11 refuses.
+    nested = '{"a":' * 100_000 + "1" + "}" * 100_000
     with pytest.raises(RecursionError):
         json.loads(nested)
     seen = stub(monkeypatch, Answer(nested))
