@@ -190,6 +190,22 @@ def _token_found(token: str, source: _SourceTokens) -> bool:
     return bool(words) and all(word in source.words for word in words)
 
 
+def unsupported_claims(text: str, corpus: str, aliases: Mapping[str, str]) -> list[str]:
+    """Tokens in `text` that `corpus` does not support (F10.5's flags).
+
+    F7.3's literal-preservation extractor, reused: numbers, mid-sentence proper nouns
+    and vocabulary aliases in the file that appear nowhere in the user's stored
+    bullets, stories or roles. Pure — the caller supplies the corpus (A5: nothing is
+    read from a network here).
+    """
+    source = _source_tokens(corpus)
+    found: list[str] = []
+    for token, _start, _end in _protected_tokens(text, aliases):
+        if token not in found and not _token_found(token, source):
+            found.append(token)
+    return found
+
+
 def _protected_tokens(text: str, aliases: Mapping[str, str]) -> list[tuple[str, int, int]]:
     """(token, start, end) for numbers, proper nouns and vocabulary aliases.
 

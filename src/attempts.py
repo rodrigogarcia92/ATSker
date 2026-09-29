@@ -27,6 +27,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from src.analysis import preparation_from_report, queries_from_report, score_track
+from src.attempt_flags import change_list, document_flags, previous_attempt_report
 from src.attempt_track import ephemeral_track
 from src.extract.client import CallOptions, Completion
 from src.extract.resume import ResumeExtraction, extract_resume
@@ -231,6 +232,18 @@ def run_pipeline(
     # The file's bullets as read: master ids for unchanged text, temporary ids with
     # their snapshot for new or changed text (F10.5 reads this).
     report["bullets"] = [snapshot.to_dict() for snapshot in ephemeral.snapshots]
+    # F10.5 flags, and the F10.4 change list against the previous attempt.
+    ceiling = report.get("ceiling") or {}
+    above = bool(report["score"]["capped"] > (ceiling.get("high") or 100))
+    report["flags"] = document_flags(
+        profile_id, session, draft=extracted.draft, above_ceiling=above
+    )
+    report["change"] = change_list(
+        previous_attempt_report(
+            profile_id, session, application.id, before=attempt.attempt_no
+        ),
+        report,
+    )
     return report, analysis
 
 
