@@ -1155,25 +1155,29 @@ STRINGS: dict[str, dict[str, str]] = {
     },
     "delete.impact.application": {
         "es": (
-            "Se eliminará el análisis almacenado. Los ficheros del golden set viven fuera de "
-            "la base de datos."
+            "Se eliminará el análisis almacenado y sus {application_attempts} intentos. "
+            "Los ficheros del golden set viven fuera de la base de datos."
         ),
-        "en": "The stored analysis will be deleted. Golden-set files live outside the database.",
+        "en": (
+            "The stored analysis and its {application_attempts} attempts will be deleted. "
+            "Golden-set files live outside the database."
+        ),
     },
     "delete.impact.everything": {
         "es": (
             "Se eliminará todo lo del perfil: {resumes} CV, {roles} puestos, {bullets} balas, "
             "{summaries} resúmenes, {tracks} pistas, {stories} historias, {letter_templates} "
-            "plantillas, {applications} análisis y {skills} habilidades del pool. Se vaciarán "
-            "{ledger_redacted} respuestas personales del registro de modelos, conservando "
-            "tokens y coste. Tu cuenta y tu fila de perfil se quedan, vacías."
+            "plantillas, {applications} análisis, {application_attempts} intentos y {skills} "
+            "habilidades del pool. Se vaciarán {ledger_redacted} respuestas personales del "
+            "registro de modelos, conservando tokens y coste. Tu cuenta y tu fila de perfil se "
+            "quedan, vacías."
         ),
         "en": (
             "Everything in the profile goes: {resumes} CVs, {roles} roles, {bullets} bullets, "
             "{summaries} summaries, {tracks} tracks, {stories} stories, {letter_templates} "
-            "templates, {applications} analyses and {skills} pool skills. {ledger_redacted} "
-            "personal answers in the model-call ledger are blanked, keeping tokens and cost. "
-            "Your login and your profile row stay, blanked."
+            "templates, {applications} analyses, {application_attempts} attempts and {skills} "
+            "pool skills. {ledger_redacted} personal answers in the model-call ledger are "
+            "blanked, keeping tokens and cost. Your login and your profile row stay, blanked."
         ),
     },
     "delete.unattributable": {

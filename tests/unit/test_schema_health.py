@@ -33,7 +33,7 @@ def stamp(session, revision: str) -> None:
 
 
 def test_the_code_knows_the_revision_it_ships():
-    assert code_head_revision() == "0013", "read from migrations/, not hand-maintained"
+    assert code_head_revision() == "0014", "read from migrations/, not hand-maintained"
 
 
 def test_a_database_one_revision_behind_head_is_a_503_with_both_revisions(client, session):

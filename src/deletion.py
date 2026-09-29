@@ -45,6 +45,7 @@ from src.extract.resume import PURPOSE as RESUME_EXTRACT
 from src.extract.stories import PURPOSE as STORY_SUGGEST
 from src.models import (
     Application,
+    ApplicationAttempt,
     Bullet,
     BulletRevision,
     LetterSettings,
@@ -66,6 +67,13 @@ from src.scoping import owned_row, owned_rows
 # `boolean_queries` are deliberately absent: those answers are not personal and are
 # kept whole. F7.3's three added theirs, and F8's two letter calls: generated prose is
 # the user's own material, so "Eliminar todo" blanks it like the résumé it came from.
+# F10's attempt calls (A9): the file a user tests is theirs, so "Eliminar todo" blanks
+# these answers like the résumé extraction they mirror. The pipeline that writes them
+# arrives in Run B; the names are ledger strings, so the redaction is correct the day
+# the first call is made.
+ATTEMPT_EXTRACT = "attempt_extract"
+ATTEMPT_GRADE = "attempt_grade"
+
 PERSONAL_PURPOSES = (
     RESUME_EXTRACT,
     EVIDENCE_GRADE,
@@ -76,6 +84,8 @@ PERSONAL_PURPOSES = (
     STORY_BULLETS,
     LETTER_BLOCKS,
     LETTER_BRIDGE,
+    ATTEMPT_EXTRACT,
+    ATTEMPT_GRADE,
 )
 
 # What `delete_everything` totals: one key per entity of the §F2.8 table, plus the
@@ -91,6 +101,7 @@ EVERYTHING_KEYS = (
     "letter_templates",
     "letter_settings",
     "applications",
+    "application_attempts",
     "skills",
     "ledger_redacted",
 )
@@ -538,14 +549,23 @@ def impact_letter_template(
 def delete_application(
     profile_id: uuid.UUID, session: Session, application_id: str | uuid.UUID
 ) -> dict[str, int] | None:
-    """§F2.8's Analysis row: the stored application. Golden-set files live outside
-    the database and are nobody's to delete here."""
+    """§F2.8's Analysis row: the stored application and its attempts (F10). Golden-set
+    files live outside the database and are nobody's to delete here."""
     application = owned_row(Application, session, profile_id, application_id)
     if application is None:
         return None
+    attempts = list(
+        session.scalars(
+            select(ApplicationAttempt).where(
+                ApplicationAttempt.application_id == application.id
+            )
+        )
+    )
+    for attempt in attempts:
+        session.delete(attempt)
     session.delete(application)
     session.flush()
-    return {"applications": 1}
+    return {"applications": 1, "application_attempts": len(attempts)}
 
 
 def impact_application(
@@ -554,7 +574,15 @@ def impact_application(
     application = owned_row(Application, session, profile_id, application_id)
     if application is None:
         return None
-    return {"applications": 1}
+    return {
+        "applications": 1,
+        "application_attempts": _count(
+            session,
+            select(ApplicationAttempt.id).where(
+                ApplicationAttempt.application_id == application.id
+            ),
+        ),
+    }
 
 
 # --- Everything --------------------------------------------------------------
@@ -574,8 +602,10 @@ def delete_everything(profile_id: uuid.UUID, session: Session) -> dict[str, int]
     """
     totals = dict.fromkeys(EVERYTHING_KEYS, 0)
     for application in owned_rows(Application, session, profile_id):
-        if delete_application(profile_id, session, application.id):
+        removed = delete_application(profile_id, session, application.id)
+        if removed:
             totals["applications"] += 1
+            totals["application_attempts"] += removed["application_attempts"]
     totals["bullets"] = _delete_bullets(
         profile_id, session, _bullet_ids(profile_id, session)
     )["bullets"]
@@ -646,6 +676,12 @@ def impact_everything(profile_id: uuid.UUID, session: Session) -> dict[str, int]
         ),
         "applications": _count(
             session, select(Application.id).where(Application.profile_id == profile_id)
+        ),
+        "application_attempts": _count(
+            session,
+            select(ApplicationAttempt.id).where(
+                ApplicationAttempt.profile_id == profile_id
+            ),
         ),
         "skills": len(profile.skills) if profile is not None else 0,
         "ledger_redacted": _count(

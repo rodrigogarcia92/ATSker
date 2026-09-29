@@ -505,9 +505,70 @@ class Application(Base):
     letter_template_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("letter_templates.id", ondelete="SET NULL")
     )
+    # F10.7 (PRD F10.8): the attempt marked as the version sent, if the user marked
+    # one. SET NULL, so deleting the attempt cannot take the analysis with it.
+    sent_attempt_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("application_attempts.id", ondelete="SET NULL"), index=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
+
+
+class ApplicationAttempt(Base):
+    """One test of an edited CV against a stored analysis (PRD F10).
+
+    The attempt scores the file the user will send, not a re-reading of the track
+    (F10). File bytes are never stored: `file_sha256` and `file_format` identify the
+    document, `report` keeps the full F5 report plus the ceiling, flags and checklist,
+    and nothing else about the file survives the run (A5).
+
+    `status` moves running → done | failed inside the POST request (A5, Cloud Run has
+    no background worker), with `error` set on failure. A `running` row older than ten
+    minutes is read as failed. `is_sent` is enforced to at most one per application by
+    a partial unique index (F10.8).
+    """
+
+    __tablename__ = "application_attempts"
+    __table_args__ = (
+        Index(
+            "uq_application_attempt_sent",
+            "application_id",
+            unique=True,
+            postgresql_where=text("is_sent"),
+            sqlite_where=text("is_sent"),
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    application_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("applications.id", ondelete="CASCADE"), index=True
+    )
+    profile_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("profiles.id", ondelete="CASCADE"), index=True
+    )
+    attempt_no: Mapped[int] = mapped_column(Integer, default=1)
+    file_sha256: Mapped[str | None] = mapped_column(String(64))
+    file_format: Mapped[str | None] = mapped_column(String(10))
+    lang: Mapped[str | None] = mapped_column(String(5))
+    report: Mapped[dict | None] = mapped_column(_JsonDoc)
+    job_match: Mapped[int | None] = mapped_column(Integer)
+    ceiling_low: Mapped[int | None] = mapped_column(Integer)
+    ceiling_high: Mapped[int | None] = mapped_column(Integer)
+    weights_version: Mapped[str | None] = mapped_column(String(20))
+    vocabulary_hash: Mapped[str | None] = mapped_column(String(80))
+    prompt_versions: Mapped[dict | None] = mapped_column(_JsonDoc)
+    token_cost_usd: Mapped[Decimal] = mapped_column(Numeric(10, 6), default=Decimal("0"))
+    is_sent: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
+    # A5/A8: running | done | failed. `error` carries the plain failure message.
+    status: Mapped[str] = mapped_column(
+        String(10), default="running", server_default=text("'running'")
+    )
+    error: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    active: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
 
 
 class LoginAttempt(Base):
