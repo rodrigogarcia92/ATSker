@@ -10,10 +10,11 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from src.letters import get_letter
-from src.models import Application, Track
+from src.models import Application, ApplicationAttempt, Track
 from src.normalize.text import fold
 from src.scoping import owned_row, owned_rows
 from src.score import SUB_SCORES
@@ -150,6 +151,13 @@ def list_applications(
     key = sort if sort in HISTORY_SORTS else "date"
     reverse = direction != "asc"
     rows: list[dict[str, object]] = []
+    # F10.7/C.3: the history shows how many attempts each analysis has and which one was
+    # sent. One read for the whole table, not one per row.
+    attempts: dict[uuid.UUID, list[ApplicationAttempt]] = {}
+    for attempt in session.scalars(
+        select(ApplicationAttempt).where(ApplicationAttempt.profile_id == profile_id)
+    ):
+        attempts.setdefault(attempt.application_id, []).append(attempt)
     for application in owned_rows(Application, session, profile_id):
         report = application.report or {}
         score = report.get("score") or {}
@@ -178,6 +186,16 @@ def list_applications(
                 "token_cost_usd": application.token_cost_usd,
                 # F8/N8.5: the history marks the applications with a saved letter.
                 "has_letter": bool((application.letter_text or "").strip()),
+                # F10.7/C.3: the attempts this analysis has, and the one marked sent.
+                "attempt_count": len(attempts.get(application.id, [])),
+                "sent_attempt_no": next(
+                    (
+                        row.attempt_no
+                        for row in attempts.get(application.id, [])
+                        if row.is_sent
+                    ),
+                    None,
+                ),
             }
         )
 

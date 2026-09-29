@@ -353,6 +353,64 @@ STRINGS: dict[str, dict[str, str]] = {
         "es": "Ver el informe completo",
         "en": "View the full report",
     },
+    # F10.7 (C.3): the actions, the F9 history columns, and the merge hand-off.
+    "applications.attempts": {"es": "{count} intentos", "en": "{count} attempts"},
+    "applications.sent_attempt": {"es": "enviada: intento {n}", "en": "sent: attempt {n}"},
+    "attempt.actions.sent": {"es": "Marcar como enviada", "en": "Mark as sent"},
+    "attempt.actions.incorporate": {
+        "es": "Incorporar a mi material…",
+        "en": "Add to my material…",
+    },
+    "attempt.actions.discard": {"es": "Descartar", "en": "Discard"},
+    "attempt.actions.letter": {
+        "es": "Carta de presentación →",
+        "en": "Cover letter →",
+    },
+    "attempt.sent_done": {"es": "Marcada como enviada", "en": "Marked as sent"},
+    "attempt.incorporate.title": {
+        "es": "Incorporar a mi material",
+        "en": "Add to my material",
+    },
+    "attempt.incorporate.intro": {
+        "es": "Esto es lo que el documento trae y tu base de datos no tiene. Nada se "
+        "escribe hasta que confirmes, y ningún puesto se toca salvo que elijas uno.",
+        "en": "This is what the document brings that your database does not have. "
+        "Nothing is written until you confirm, and no track is touched unless you "
+        "choose one.",
+    },
+    "attempt.incorporate.none": {
+        "es": "No hay nada nuevo que incorporar.",
+        "en": "There is nothing new to add.",
+    },
+    "attempt.incorporate.bullets": {"es": "Bullets nuevos", "en": "New bullets"},
+    "attempt.incorporate.changed": {"es": "Bullets cambiados", "en": "Changed bullets"},
+    "attempt.incorporate.skills": {"es": "Habilidades nuevas", "en": "New skills"},
+    "attempt.incorporate.destination": {"es": "Destino", "en": "Destination"},
+    "attempt.incorporate.solo": {
+        "es": "Solo mi material (ningún puesto)",
+        "en": "Only my material (no track)",
+    },
+    "attempt.incorporate.este": {"es": "Este puesto", "en": "This track"},
+    "attempt.incorporate.otro": {"es": "Otro puesto", "en": "Another track"},
+    "attempt.incorporate.nuevo": {"es": "Nuevo puesto", "en": "A new track"},
+    "attempt.incorporate.new_name": {
+        "es": "Nombre del nuevo puesto",
+        "en": "New track name",
+    },
+    "attempt.incorporate.confirm": {"es": "Incorporar", "en": "Add"},
+    "attempt.incorporate.cancel": {"es": "Cancelar", "en": "Cancel"},
+    "attempt.incorporated.title": {
+        "es": "Incorporado a tu material",
+        "en": "Added to your material",
+    },
+    "attempt.incorporated.counts": {
+        "es": "Se crearon {bullets} bullets y se añadieron {skills} habilidades.",
+        "en": "Created {bullets} bullets and added {skills} skills.",
+    },
+    "attempt.incorporated.nothing": {
+        "es": "No había nada nuevo que escribir.",
+        "en": "There was nothing new to write.",
+    },
     "attempt.list": {"es": "Intentos", "en": "Attempts"},
     "attempt.none": {
         "es": "Todavía no hay intentos.",

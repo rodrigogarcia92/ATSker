@@ -17,6 +17,12 @@ from sqlalchemy.orm import Session
 from src.analysis import ceiling_for_report
 from src.applications import get_application
 from src.attempt_flags import discard_attempt
+from src.attempt_merge import (
+    apply_attempt_merge,
+    apply_destination,
+    attempt_draft,
+    merge_plan,
+)
 from src.attempt_readiness import cap_target, readiness
 from src.attempts import (
     MAX_ATTEMPTS,
@@ -40,7 +46,7 @@ from src.extract.resume import EmptyExtraction
 from src.i18n import t
 from src.ingest.documents import SUPPORTED_SUFFIXES, UnreadableDocument
 from src.parse.gate import checks_not_run
-from src.tracks import get_track
+from src.tracks import get_track, list_tracks
 from src.web.alerts import ceiling_remainder
 from src.web.deps import DbSession, OwnProfile, SignedInUser
 from src.web.findings import finding_rows
@@ -253,6 +259,97 @@ def application_target(
             f"/applications/{application_id}/attempts/{attempt}/report", status_code=303
         )
     return RedirectResponse(f"/applications/{application_id}", status_code=303)
+
+
+@router.post("/applications/{application_id}/attempts/{attempt_id}/sent")
+def attempt_sent(
+    request: Request,
+    user: SignedInUser,
+    session: DbSession,
+    profile: OwnProfile,
+    application_id: str,
+    attempt_id: str,
+):
+    """Mark this attempt as the version sent (F10.7).
+
+    One switch at a time: every other attempt is cleared first and flushed, so the
+    partial unique index never sees two sent rows in one transaction.
+    """
+    application, attempt = _owned(profile.id, session, application_id, attempt_id)
+    if attempt is None:
+        return render(request, "not_found.html", user=user, status_code=404)
+    for row in list_attempts(profile.id, session, application.id):
+        row.is_sent = False
+    session.flush()
+    attempt.is_sent = True
+    application.sent_attempt_id = attempt.id
+    session.commit()
+    return _status(request, user, application, attempt, session)
+
+
+@router.get("/applications/{application_id}/attempts/{attempt_id}/incorporate")
+def attempt_incorporate(
+    request: Request,
+    user: SignedInUser,
+    session: DbSession,
+    profile: OwnProfile,
+    application_id: str,
+    attempt_id: str,
+):
+    """The F2.5 review for the attempt's new material — before anything is written."""
+    application, attempt = _owned(profile.id, session, application_id, attempt_id)
+    if attempt is None or not attempt.report:
+        return render(request, "not_found.html", user=user, status_code=404)
+    draft = attempt_draft(attempt.report)
+    return render(
+        request,
+        "attempts/incorporate.html",
+        user=user,
+        application=application,
+        attempt=attempt,
+        plan=merge_plan(profile.id, session, draft),
+        tracks=list_tracks(profile.id, session, active_only=True),
+    )
+
+
+@router.post("/applications/{application_id}/attempts/{attempt_id}/incorporate")
+def attempt_incorporate_apply(
+    request: Request,
+    user: SignedInUser,
+    session: DbSession,
+    profile: OwnProfile,
+    application_id: str,
+    attempt_id: str,
+    destination: Annotated[str, Form()] = "solo",
+    track_id: Annotated[str | None, Form()] = None,
+    new_name: Annotated[str | None, Form()] = None,
+):
+    """Apply the confirmed review, then the destination the user chose (F10.7)."""
+    application, attempt = _owned(profile.id, session, application_id, attempt_id)
+    if attempt is None or not attempt.report:
+        return render(request, "not_found.html", user=user, status_code=404)
+    draft = attempt_draft(attempt.report)
+    plan = merge_plan(profile.id, session, draft)
+    merged = apply_attempt_merge(profile.id, session, draft=draft, plan=plan)
+    chosen = apply_destination(
+        profile.id,
+        session,
+        application=application,
+        bullet_ids=list(merged["bullet_ids"]),
+        choice=destination,
+        track_id=track_id,
+        new_name=new_name,
+    )
+    session.commit()
+    return render(
+        request,
+        "attempts/incorporated.html",
+        user=user,
+        application=application,
+        attempt=attempt,
+        counts=merged["counts"],
+        destination=destination if chosen is not None else "solo",
+    )
 
 
 @router.get("/applications/{application_id}/attempts/{attempt_id}")

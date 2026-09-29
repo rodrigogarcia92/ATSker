@@ -84,6 +84,31 @@
   {# 7 — Readiness (F10.6, C.2). #}
   {% if readiness is defined and readiness %}{% include "attempts/_readiness.html" %}{% endif %}
 
+  {# 8 — Actions (F10.7, C.3). "Descartar" keeps the report; the merge review opens on
+     its own page and writes only when confirmed. #}
+  <div class="flex flex-wrap items-center gap-2 pt-1">
+    <form method="post" action="/applications/{{ application.id }}/attempts/{{ attempt.id }}/sent">
+      <button type="submit" class="rounded-control border border-border px-2 py-1 text-sm">
+        {{ t('attempt.actions.sent', lang) }}
+      </button>
+    </form>
+    <a class="rounded-control border border-border px-2 py-1 text-sm"
+       href="/applications/{{ application.id }}/attempts/{{ attempt.id }}/incorporate">
+      {{ t('attempt.actions.incorporate', lang) }}
+    </a>
+    <form method="post" action="/applications/{{ application.id }}/attempts/{{ attempt.id }}/discard">
+      <button type="submit" class="rounded-control border border-border px-2 py-1 text-sm">
+        {{ t('attempt.actions.discard', lang) }}
+      </button>
+    </form>
+    <a class="text-sm text-link underline" href="/applications/{{ application.id }}/letter">
+      {{ t('attempt.actions.letter', lang) }}
+    </a>
+  </div>
+  {% if view.is_sent %}
+  <p class="text-xs text-score-strong">{{ t('attempt.sent_done', lang) }}</p>
+  {% endif %}
+
   {# Cost (C.0 answer 6) and 9 — the full report. #}
   <p class="text-xs text-text-3">
     {% if view.cost_reused %}{{ t('attempt.cost_reused', lang) }}{% else %}{{ t('attempt.cost', lang, amount='$%.6f'|format(view.cost_usd)) }}{% endif %}

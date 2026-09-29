@@ -72,6 +72,11 @@
           <a href="/applications/{{ row.id }}" class="font-medium hover:underline">
             {{ row.title or t('report.title', lang) }}
           </a>
+          {% if row.attempt_count %}
+          <span class="ml-1 text-xs text-text-3">
+            {{ t('applications.attempts', lang, count=row.attempt_count) }}{% if row.sent_attempt_no %} · {{ t('applications.sent_attempt', lang, n=row.sent_attempt_no) }}{% endif %}
+          </span>
+          {% endif %}
           {% if row.has_letter %}
           {# F8/N8.5: this application has a saved letter. #}
           <span class="rounded-tag border border-score-strong px-2 py-0.5 text-xs text-score-strong">{{ t('applications.letter_mark', lang) }}</span>
