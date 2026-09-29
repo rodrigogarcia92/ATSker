@@ -11,7 +11,7 @@ from typing import Annotated
 from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
 
-from src.analysis import analyze
+from src.analysis import analyze, ceiling_for_report
 from src.applications import create_application, get_application
 from src.bullets import list_bullets
 from src.extract.client import (
@@ -216,6 +216,24 @@ def application_report(
         if application.track_id
         else None
     )
+    # F10.2/A10: show the ceiling the analysis stored, and recompute it only when the
+    # master data it reads has moved since — the recomputation is offline, and a stored
+    # ceiling whose fingerprint still matches is shown as it was, not re-derived.
+    track = (
+        get_track(profile.id, session, application.track_id)
+        if application.track_id
+        else None
+    )
+    stored_ceiling = application.report.get("ceiling")
+    current_ceiling = ceiling_for_report(
+        profile.id, session, report=application.report, track=track
+    )
+    same = bool(
+        stored_ceiling
+        and current_ceiling
+        and stored_ceiling.get("fingerprint") == current_ceiling.get("fingerprint")
+    )
+    ceiling = stored_ceiling if same else current_ceiling
     return render(
         request,
         "analyze/report.html",
@@ -223,6 +241,8 @@ def application_report(
         profile=profile,
         application=application,
         report=application.report,
+        ceiling=ceiling,
+        ceiling_recomputed=ceiling is not None and not same,
         findings=finding_rows(application.scan_readability or {}, user.ui_lang),
         # F7.3 Tier 3a: the rephrase control links only to a bullet that still exists
         # and is active — a stored report renders a deleted citation from its snapshot,

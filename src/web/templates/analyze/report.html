@@ -54,6 +54,21 @@
     <span class="match-fill" style="width: {{ report.score.capped }}%"></span>
     {% if cap is not none %}<span class="match-tick" style="left: {{ cap }}%"></span>{% endif %}
   </div>
+  {# F10.2: the ceiling from the user's own material, beside the number it bounds.
+     A10: it is recomputed on view only when the master data has moved, and the page
+     says when that happened. #}
+  {% if ceiling %}
+  <p class="mt-2 flex flex-wrap items-center gap-2 text-sm">
+    <span class="rounded-tag border border-link px-2 py-0.5 text-xs text-link">{{ t('report.ceiling', lang, value=ceiling.high) }}</span>
+    {% if ceiling_recomputed %}<span class="text-xs text-text-3">{{ t('report.ceiling_recalculated', lang) }}</span>{% endif %}
+  </p>
+  {% if ceiling.unreachable.requirements %}
+  <p class="mt-1 text-xs text-text-3">
+    {{ t('report.ceiling_unreachable', lang, points=ceiling.unreachable.points,
+          requirements=ceiling.unreachable.requirements | map(attribute='requirement') | join(', ')) }}
+  </p>
+  {% endif %}
+  {% endif %}
   {% if binding %}
   <p class="mt-2 text-sm text-text-2">
     {{ t('report.capped', lang, cap=cap, uncapped=report.score.uncapped,
@@ -85,6 +100,12 @@
   {% for name, sub in report.score.sub_scores.items() %}
   <div class="min-w-0 rounded-card border border-card-border bg-surface-1 p-4">
     {{ ui.score(sub.value, t('report.sub.' + name, lang), t('report.sub_caption.' + name, lang)) }}
+    {# F10.2: each sub-score shows its own ceiling; an estimate says so (F10.2 wording). #}
+    {% if ceiling and ceiling.sub_scores.get(name) %}
+    <p class="mt-1 text-xs text-text-3">
+      {{ t('report.ceiling_sub', lang, value=(ceiling.sub_scores[name].ceiling * 100) | round | int) }}{% if ceiling.sub_scores[name].confidence == 'estimate' %} · {{ t('report.ceiling_estimate', lang) }}{% endif %}
+    </p>
+    {% endif %}
     {% if sub.detail is defined and sub.detail.direct is defined %}
     {# F5.5.2: the Skills split, both parts as integers out of 100. #}
     {% set direct = (sub.detail.direct * 100) | round | int %}
@@ -460,6 +481,16 @@
 </p>
 {% endif %}
 {% endif %}
+
+{# F10.1: the entry point into the attempt modal, below Recomendaciones (§12.1).
+   Disabled with "próximamente" until Run C builds the modal. #}
+<p class="mt-3">
+  <button type="button" disabled
+          class="rounded-control border border-border px-3 py-2 text-sm text-text-3">
+    {{ t('report.try_new_cv', lang) }}
+  </button>
+  <span class="mt-1 block text-xs text-text-3">{{ t('report.try_new_cv_note', lang) }}</span>
+</p>
 
 {# F8 (N8.4): the cover letter written for this application. #}
 <h2 class="mt-8 text-lg font-semibold">{{ t('report.letter', lang) }}</h2>

@@ -17,7 +17,7 @@ evaluator in `src.search` says which of them this track's text would be returned
 """
 
 import uuid
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
@@ -32,6 +32,7 @@ from src.documents import (
     document_headline,
     document_skills_list,
     document_summary,
+    master_data,
     track_document,
 )
 from src.education import list_educations
@@ -53,6 +54,7 @@ from src.parse.gate import ParseReport
 from src.resumes import source_document_for_track
 from src.roles import list_roles, role_title
 from src.score.aggregate import SubScore, aggregate
+from src.score.ceiling import compute_ceiling
 from src.score.evidence import Level, evidence_coverage
 from src.score.experience import CitedLevel, RoleSpan, relevant_experience_score
 from src.score.gaps import Graded, detect_gaps, disqualifier_verdicts, location_requirements
@@ -581,6 +583,21 @@ def score_track(
         # Snapshotted like a citation: renaming the track must not rewrite what a
         # stored report says it was scored against.
         report["track"] = {"id": str(track.id), "name": track.name}
+    # F10.2/A10: the ceiling from the user's own material, computed here so the report
+    # carries it. The page recomputes it only when the fingerprint below has moved.
+    report["ceiling"] = compute_ceiling(
+        jd,
+        report=report,
+        document_texts=[unit.text for unit in document],
+        master=master_data(profile_id, session, track),
+        aliases=aliases,
+        track_bullet_ids=[
+            unit.source_id
+            for unit in document
+            if unit.kind == "bullet" and unit.source_id is not None
+        ],
+        today=today,
+    )
 
     return Analysis(
         report=report,
@@ -601,4 +618,42 @@ def score_track(
         recall=recall,
         calls=calls,
         queries=queries,
+    )
+
+
+def ceiling_for_report(
+    profile_id: uuid.UUID,
+    session: Session,
+    *,
+    report: dict[str, object],
+    track: Track | None,
+    today: date | None = None,
+) -> dict[str, object] | None:
+    """Recompute a stored report's ceiling from the current master data (A10).
+
+    None when the report predates the four `w4` sub-scores, so the page renders no
+    ceiling rather than a wrong one. Deterministic and offline: it reads the database
+    and calls no provider.
+    """
+    score = report.get("score")
+    sub_scores = (score or {}).get("sub_scores") if isinstance(score, Mapping) else None
+    jd_dict = report.get("jd")
+    if not isinstance(sub_scores, Mapping) or not isinstance(jd_dict, Mapping):
+        return None
+    if not {"skills", "experience", "title", "keywords"} <= set(sub_scores):
+        return None
+    jd = StructuredJD(**jd_dict)
+    document = track_document(profile_id, session, track, jd.language)
+    return compute_ceiling(
+        jd,
+        report=report,
+        document_texts=[unit.text for unit in document],
+        master=master_data(profile_id, session, track),
+        aliases=alias_map(session),
+        track_bullet_ids=[
+            unit.source_id
+            for unit in document
+            if unit.kind == "bullet" and unit.source_id is not None
+        ],
+        today=today or date.today(),
     )

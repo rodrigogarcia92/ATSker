@@ -286,6 +286,33 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "Missing {missing}: the total is renormalised over {available} of {total} "
         "components.",
     },
+    # F10.2: the ceiling beside Job Match. A1 makes the high end wait for F7.4, so the
+    # label is one number and "(estimado)" applies to the whole ceiling.
+    "report.ceiling": {
+        "es": "Techo con tu material: {value} (estimado)",
+        "en": "Ceiling with your material: {value} (estimated)",
+    },
+    "report.ceiling_recalculated": {
+        "es": "recalculado con tu material actual",
+        "en": "recalculated with your current material",
+    },
+    "report.ceiling_sub": {"es": "techo {value}", "en": "ceiling {value}"},
+    "report.ceiling_estimate": {"es": "estimado", "en": "estimated"},
+    "report.ceiling_unreachable": {
+        "es": "Los {points} puntos restantes requieren experiencia que ATSker no tiene "
+        "registrada: {requirements}.",
+        "en": "The remaining {points} points require experience ATSker has no record "
+        "of: {requirements}.",
+    },
+    # F10.1: the way into the attempt modal. Disabled until Run C builds it.
+    "report.try_new_cv": {
+        "es": "Probar nueva versión del CV",
+        "en": "Try a new CV version",
+    },
+    "report.try_new_cv_note": {
+        "es": "(.docx) — próximamente",
+        "en": "(.docx) — coming soon",
+    },
     "report.cost_label": {"es": "Coste del análisis", "en": "Analysis cost"},
     "report.readability_capped": {
         "es": "El documento limita la puntuación: {check}.",
