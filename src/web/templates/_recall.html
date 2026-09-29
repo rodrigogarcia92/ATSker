@@ -21,7 +21,10 @@
   <li class="rounded-control border border-card-border bg-surface-1 px-3 py-2 text-sm">
     <div class="flex flex-wrap items-center gap-2">
       <span class="font-medium">{{ query.label or t('recall.unlabelled', lang) }}</span>
-      <span class="rounded-tag bg-surface-2 px-2 py-0.5 text-xs">
+      {# N8.8: the same score palette the section's verdict uses, so both read as one
+         system. The words Pasa/Falla and the clause glyphs stay: colour is never the
+         only signal. #}
+      <span class="rounded-tag border px-2 py-0.5 text-xs {% if query.passed %}border-score-strong text-score-strong{% else %}border-score-weak text-score-weak{% endif %}">
         {{ t('recall.pass', lang) if query.passed else t('recall.fails', lang) }}
       </span>
     </div>
@@ -46,10 +49,10 @@
       {% for clause in query.clauses %}
       <li class="text-xs {% if clause.matched %}text-text-2{% else %}text-text-3{% endif %}">
         {% if clause.matched %}
-        <span aria-hidden="true">✓</span> {{ t('recall.clause_met', lang, term=clause.term, unit=clause.unit) }}
+        <span aria-hidden="true" class="text-score-strong">✓</span> {{ t('recall.clause_met', lang, term=clause.term, unit=clause.unit) }}
         {% if clause.text %}<span class="block text-text-3">{{ clause.text }}</span>{% endif %}
         {% else %}
-        <span aria-hidden="true">✗</span> {{ t('recall.clause_missing', lang, term=clause.term) }}
+        <span aria-hidden="true" class="text-score-weak">✗</span> {{ t('recall.clause_missing', lang, term=clause.term) }}
         {% endif %}
       </li>
       {% endfor %}
