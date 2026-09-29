@@ -115,6 +115,14 @@ class WeightsV4(WeightsV3):
     )
 
 
+# F10.4/F10.6 (A3): the judge-stability band, in Job Match points — the spread inside
+# which two gradings of the same posting read as "sin cambio significativo". Data,
+# beside the weights, and **provisional**: 5 is a placeholder until the operator
+# measures it with `scripts/judge_stability.py` on stored analyses and sets the real
+# number here.
+STABILITY_BAND = 5
+
+
 W1 = Weights(
     version="w1",
     title=0.20,
