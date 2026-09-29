@@ -60,13 +60,13 @@
   {% if ceiling %}
   <p class="mt-2 flex flex-wrap items-center gap-2 text-sm">
     <span class="rounded-tag border border-link px-2 py-0.5 text-xs text-link">{{ t('report.ceiling', lang, value=ceiling.high) }}</span>
+    {# A5: when the gate cap applies to the Job Match above, say the ceiling ignores it,
+       so a higher ceiling beside a capped score does not read as a contradiction. #}
+    {% if binding %}<span class="text-xs text-text-3">{{ t('report.ceiling_no_cap', lang) }}</span>{% endif %}
     {% if ceiling_recomputed %}<span class="text-xs text-text-3">{{ t('report.ceiling_recalculated', lang) }}</span>{% endif %}
   </p>
-  {% if ceiling.unreachable.requirements %}
-  <p class="mt-1 text-xs text-text-3">
-    {{ t('report.ceiling_unreachable', lang, points=ceiling.unreachable.points,
-          requirements=ceiling.unreachable.requirements | map(attribute='requirement') | join(', ')) }}
-  </p>
+  {% if ceiling_remainder %}
+  <p class="mt-1 text-xs text-text-3">{{ ceiling_remainder }}</p>
   {% endif %}
   {% endif %}
   {% if binding %}

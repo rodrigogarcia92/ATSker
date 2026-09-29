@@ -296,14 +296,36 @@ STRINGS: dict[str, dict[str, str]] = {
         "es": "recalculado con tu material actual",
         "en": "recalculated with your current material",
     },
+    "report.ceiling_no_cap": {
+        "es": "(sin el límite de formato)",
+        "en": "(without the format cap)",
+    },
     "report.ceiling_sub": {"es": "techo {value}", "en": "ceiling {value}"},
     "report.ceiling_estimate": {"es": "estimado", "en": "estimated"},
-    "report.ceiling_unreachable": {
-        "es": "Los {points} puntos restantes requieren experiencia que ATSker no tiene "
-        "registrada: {requirements}.",
-        "en": "The remaining {points} points require experience ATSker has no record "
-        "of: {requirements}.",
+    # A5: the remainder decomposed by source, so the sentence names what actually
+    # holds each point out. Only the non-zero parts are shown.
+    "report.ceiling.remaining": {
+        "es": "Los {points} puntos restantes:",
+        "en": "The remaining {points} points:",
     },
+    "report.ceiling.no_evidence": {
+        "es": "{points} requieren experiencia que ATSker no tiene registrada ({requirements})",
+        "en": "{points} require experience ATSker has no record of ({requirements})",
+    },
+    "report.ceiling.experience": {
+        "es": "{points} dependen de años de experiencia",
+        "en": "{points} come from years of experience",
+    },
+    "report.ceiling.title": {"es": "{points} del título", "en": "{points} from the title"},
+    "report.ceiling.keywords": {
+        "es": "{points} de palabras clave que no figuran en tu material",
+        "en": "{points} from keywords that are not in your material",
+    },
+    "report.ceiling.stronger_evidence": {
+        "es": "{points} de evidencia más fuerte en requisitos que ya cubres",
+        "en": "{points} from stronger evidence on requirements you already cover",
+    },
+    "report.ceiling.and": {"es": " y ", "en": " and "},
     # F10.1: the way into the attempt modal. Disabled until Run C builds it.
     "report.try_new_cv": {
         "es": "Probar nueva versión del CV",

@@ -55,14 +55,16 @@ def test_every_sub_score_shows_its_own_ceiling(client, session, career, provider
     assert page.count("techo ") >= 4, "one ceiling per sub-score card"
 
 
-def test_the_unreachable_requirements_are_named(client, session, career, provider):
-    """The posting's `machine learning` is held by no bullet, so it stays a gap."""
+def test_the_remainder_attributes_each_part_to_its_source(client, session, career, provider):
+    """A5: the sentence names the requirement with no evidence, never the whole gap."""
     url = _analyze(client, career)
 
     page = text_of(client.get(url).text)
 
-    assert "puntos restantes requieren experiencia que ATSker no tiene registrada" in page
-    assert "machine learning" in page
+    assert "puntos restantes:" in page
+    assert "requieren experiencia que ATSker no tiene registrada (machine learning)" in page
+    assert "dependen de años de experiencia" in page
+    assert "de evidencia más fuerte en requisitos que ya cubres" in page
 
 
 def test_the_try_new_cv_button_is_present_and_disabled(client, session, career, provider):
@@ -96,6 +98,52 @@ def test_viewing_the_report_makes_no_model_call(client, session, career, provide
 
     assert response.status_code == 200
     assert len(provider.calls) == before, "the ceiling is deterministic and offline"
+
+
+def test_an_unknown_weights_version_shows_no_ceiling(client, session, career, provider):
+    """A5 fix 2: a w2 report is not re-scored under w4's rules, so nothing renders."""
+    url = _analyze(client, career)
+    application = session.query(Application).one()
+    report = dict(application.report)
+    report.pop("ceiling", None)
+    score = dict(report["score"])
+    score["weights_version"] = "w2"
+    report["score"] = score
+    application.report = report
+    session.commit()
+
+    page = text_of(client.get(url).text)
+
+    assert "Techo con tu material" not in page
+    assert "puntos restantes" not in page
+
+
+def test_a_capped_report_says_the_ceiling_ignores_the_format_cap(
+    client, session, career, provider
+):
+    """A5 fix 3: a ceiling above a capped Job Match must not read as a contradiction."""
+    url = _analyze(client, career)
+    application = session.query(Application).one()
+    report = dict(application.report)
+    score = dict(report["score"])
+    score.update({"capped": 40, "uncapped": 62, "cap": 40, "cap_reason": "contact_in_margin"})
+    report["score"] = score
+    application.report = report
+    session.commit()
+
+    page = text_of(client.get(url).text)
+
+    assert "Techo con tu material" in page
+    assert "(sin el límite de formato)" in page
+
+
+def test_an_uncapped_report_has_no_cap_note(client, session, career, provider):
+    url = _analyze(client, career)
+
+    page = text_of(client.get(url).text)
+
+    assert "Techo con tu material" in page
+    assert "(sin el límite de formato)" not in page
 
 
 def test_an_older_report_recomputes_its_ceiling_on_view(client, session, career, provider):

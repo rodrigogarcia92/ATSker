@@ -213,10 +213,55 @@ def test_an_unreachable_requirement_names_the_points_out_of_the_total():
     )
 
     rows = ceiling["unreachable"]["requirements"]
+    by_source = ceiling["unreachable"]["by_source"]
     assert [row["requirement"] for row in rows] == ["python"]
-    # share 1.0 × (2−0)/3 × direct credit × Skills' 0.40 weight × 100.
-    assert rows[0]["points"] == pytest.approx(26.67, abs=0.01)
+    # share 1.0 × (MAX_LEVEL−0)/MAX_LEVEL × direct credit × Skills' 0.40 weight × 100.
+    assert rows[0]["points"] == pytest.approx(40.0, abs=0.01)
     assert ceiling["unreachable"]["points"] == 100 - ceiling["high"]
+    # A5: the parts add up to the whole.
+    assert sum(by_source.values()) == pytest.approx(ceiling["unreachable"]["points"], abs=1)
+
+
+def test_the_remainder_is_decomposed_by_source():
+    """A5's Run A smoke case: a requirement with no evidence holds ten points, and the
+    rest of the Skills gap is the requirements already covered but not at the top."""
+    jd = StructuredJD(title="X", must_have=["python"], nice_to_have=["machine learning"])
+    report = _report(
+        grades=[
+            _grade("python", 2, basis="direct"),
+            _grade("machine learning", 0, must_have=False),
+        ],
+        sub_scores={
+            "skills": _sub(0.5),
+            "experience": _sub(0.0, detail={}),
+            "title": _sub(0.0),
+            "keywords": _sub(0.0, matched=["python"]),
+        },
+    )
+    master = _master(bullets=[_bullet("b1", "r1", skills=("python",))])
+
+    ceiling = compute_ceiling(
+        jd, report=report, document_texts=[], master=master, aliases={}
+    )
+
+    by_source = ceiling["unreachable"]["by_source"]
+    rows = ceiling["unreachable"]["requirements"]
+    assert [row["requirement"] for row in rows] == ["machine learning"]
+    assert rows[0]["points"] == pytest.approx(10.0, abs=0.01)
+    assert by_source["no_evidence"] == pytest.approx(10.0, abs=0.01)
+    assert ceiling["high"] == 20
+    assert ceiling["unreachable"]["points"] == 80
+    assert sum(by_source.values()) == pytest.approx(80, abs=1)
+
+
+def test_an_unknown_weights_version_has_no_ceiling():
+    """A5 fix 2: a w2 report is not re-scored under w4's rules — it gets nothing."""
+    jd = StructuredJD(title="X", must_have=["python"])
+    report = _report(grades=[_grade("python", 0)], sub_scores={"skills": _sub(0.0)}, version="w2")
+
+    assert compute_ceiling(
+        jd, report=report, document_texts=[], master=_master(), aliases={}
+    ) is None
 
 
 # --- Experience (0.25) ------------------------------------------------------------

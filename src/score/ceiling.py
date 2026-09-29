@@ -38,15 +38,15 @@ from src.score.evidence import MAX_LEVEL, Level, evidence_coverage
 from src.score.experience import CitedLevel, RoleSpan, relevant_experience_score
 from src.score.keywords import keyword_context
 from src.score.title import FUNCTION_WORDS, title_tokens
-from src.score.weights import W1, W2, W3, W4, WeightSet
+from src.score.weights import W4, WeightSet
 
 EXACT = "exact"
 ESTIMATE = "estimate"
 
-# The weights a stored report was scored under (F10.2 "at the report's weights").
-# A version this code does not know cannot be re-derived, so the current one is used
-# and the report's own `weights_version` is what the caller compares.
-_WEIGHTS: Mapping[str, WeightSet] = {"w1": W1, "w2": W2, "w3": W3, "w4": W4}
+# Only the versions whose sub-scores and config the ceiling code actually knows (A5
+# fix 2): a `w1`/`w2`/`w3` report's sub-scores are not w4's, so scoring one under w4's
+# rules would be an invention. Any other version returns no ceiling.
+_CEILING_WEIGHTS: Mapping[str, WeightSet] = {"w4": W4}
 
 
 @dataclass(frozen=True)
@@ -89,12 +89,12 @@ class MasterData:
     families: Mapping[str, str]
 
 
-def _version(weights: WeightSet | None, report: Mapping[str, object]) -> WeightSet:
+def _version(weights: WeightSet | None, report: Mapping[str, object]) -> WeightSet | None:
     if weights is not None:
         return weights
     score = report.get("score") or {}
     version = str(score.get("weights_version") or "")  # type: ignore[union-attr]
-    return _WEIGHTS.get(version, W4)
+    return _CEILING_WEIGHTS.get(version)
 
 
 def _canonical(term: str, aliases: Mapping[str, str]) -> str:
@@ -226,16 +226,16 @@ def _skills_ceiling(
                 weights_by_requirement.append((Level(requirement, level, must_have, basis), weight))
         lifted.append(Level(requirement, level, must_have, basis))
     value = evidence_coverage(lifted, basis_credit=basis_credit).value
-    # The points each unreachable requirement holds out of 100 of the *total* (A2): its
-    # share of the Skills weight, at the level it stays on, with direct credit assumed
-    # for the two levels it cannot reach, scaled by Skills' weight in the total.
+    # The points each unreachable requirement holds out of 100 of the *total* (A5): its
+    # share of the Skills weight, counted to the **top** level so the parts add up to
+    # the Skills gap, with direct credit assumed for the levels it cannot reach.
     for entry, weight in weights_by_requirement:
         if total_weight <= 0:
             continue
         share = weight / total_weight
         held = (
             share
-            * ((2 - entry.level) / MAX_LEVEL)
+            * ((MAX_LEVEL - entry.level) / MAX_LEVEL)
             * basis_credit.get("direct", 1.0)
             * skills_weight
         )
@@ -350,14 +350,17 @@ def compute_ceiling(
     track_bullet_ids: Sequence[str] = (),
     weights: WeightSet | None = None,
     today: date | None = None,
-) -> dict[str, object]:
+) -> dict[str, object] | None:
     """The ceiling for one stored report, from the current master data (F10.2/A1).
 
     Deterministic and offline: the same report and master produce the same dict, byte
     for byte, and no provider fixture is touched. `weights` overrides the report's own
-    version for tests; the report's `weights_version` selects the set otherwise.
+    version for tests; the report's `weights_version` selects the set otherwise. A
+    version the ceiling code does not know returns None, so nothing is invented for it.
     """
     chosen = _version(weights, report)
+    if chosen is None:
+        return None
     score = report.get("score") or {}
     sub_scores = score.get("sub_scores") or {}  # type: ignore[union-attr]
 
@@ -404,6 +407,19 @@ def compute_ceiling(
     weighted = sum(getattr(chosen, name) * value for name, value in ceilings.items())
     total = round(100 * min(1.0, max(0.0, weighted)))
 
+    # A5: the remainder decomposed by source, so the sentence attributes each point to
+    # what actually holds it out. `gapᵢ = 100·wᵢ·(1 − ceilingᵢ)`, and the Skills gap
+    # splits into the requirements with no evidence at all and everything else.
+    gap = {name: 100 * getattr(chosen, name) * (1 - value) for name, value in ceilings.items()}
+    no_evidence = sum(float(row["points"]) for row in unreachable)
+    by_source = {
+        "no_evidence": round(no_evidence, 2),
+        "stronger_evidence": round(max(0.0, gap["skills"] - no_evidence), 2),
+        "experience": round(gap["experience"], 2),
+        "title": round(gap["title"], 2),
+        "keywords": round(gap["keywords"], 2),
+    }
+
     return {
         "sub_scores": {
             name: {
@@ -421,6 +437,7 @@ def compute_ceiling(
             "requirements": sorted(
                 unreachable, key=lambda row: (-float(row["points"]), str(row["requirement"]))
             ),
+            "by_source": by_source,
         },
         "fingerprint": _fingerprint(master, track_bullet_ids),
         "weights_version": chosen.version,
