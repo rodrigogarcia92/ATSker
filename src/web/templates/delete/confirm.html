@@ -5,12 +5,12 @@
 
 {# F2.8: every Eliminar goes through this screen, and it states its consequences in
    numbers before anything happens. #}
-<p class="mt-4 text-sm text-slate-700">{{ impact_text }}</p>
+<p class="mt-4 text-sm text-text">{{ impact_text }}</p>
 {% if unattributable_note %}
-<p class="mt-2 text-xs text-slate-500">{{ unattributable_note }}</p>
+<p class="mt-2 text-xs text-text-3">{{ unattributable_note }}</p>
 {% endif %}
 
-<form method="post" action="{{ action }}" class="mt-6 space-y-4 rounded-lg border border-slate-200 bg-white p-5">
+<form method="post" action="{{ action }}" class="mt-6 space-y-4 rounded-card border border-card-border bg-surface-1 p-5">
   {% if skill %}<input type="hidden" name="skill" value="{{ skill }}">{% endif %}
   {% if delete_bullets_option %}
   <label class="flex items-center gap-2 text-sm">
@@ -22,12 +22,12 @@
   <div>
     <label for="confirm_word" class="mb-1 block text-sm font-medium">{{ t('delete.typed_label', lang) }}</label>
     <input id="confirm_word" name="confirm_word" required autocomplete="off"
-           class="w-full rounded border border-slate-300 px-3 py-2 text-sm">
+           class="w-full rounded-control border border-border px-3 py-2 text-sm">
   </div>
   {% endif %}
-  {% if error %}<p class="text-sm text-red-700">{{ error }}</p>{% endif %}
+  {% if error %}<p class="text-sm text-sev-blocker">{{ error }}</p>{% endif %}
   <div class="flex items-center gap-4">
-    <button type="submit" class="rounded bg-red-700 px-3 py-2 text-sm font-medium text-white hover:bg-red-600">
+    <button type="submit" class="rounded-control bg-sev-blocker px-3 py-2 text-sm font-medium text-bg hover:opacity-90">
       {{ t('common.delete', lang) }}
     </button>
     <a href="{{ cancel }}" class="text-sm underline">{{ t('common.cancel', lang) }}</a>

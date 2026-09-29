@@ -12,7 +12,7 @@ from collections.abc import Mapping
 from typing import Annotated, Any
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, Response
 from sqlalchemy.orm import Session
 
 from src.deletion import delete_resume, impact_resume
@@ -56,6 +56,15 @@ from src.vocabulary import resolve_bullet_terms
 from src.web.deps import DbSession, OwnProfile, SignedInUser
 from src.web.findings import document_kind, finding_rows
 from src.web.forms import is_checked
+from src.web.locations import (
+    box_characters,
+    characters_apply,
+    finding_boxes,
+    finding_page,
+    is_locatable,
+    page_exists,
+    render_page_png,
+)
 from src.web.templating import render
 
 router = APIRouter()
@@ -303,6 +312,8 @@ def _review_page(
         resume=resume,
         gate=gate,
         findings=finding_rows(gate, user.ui_lang),
+        findings_resume=resume,
+        findings_kind=kind,
         document_kind=kind,
         not_run=checks_not_run(kind),
         draft=draft,
@@ -832,3 +843,97 @@ def import_discard(
         raise HTTPException(status_code=404)
     session.commit()
     return RedirectResponse("/import", status_code=303)
+
+
+def _stored_findings(resume: Resume) -> list[Mapping[str, Any]]:
+    """The findings of the archived gate, in the order they were stored."""
+    return list((resume.gate or {}).get("findings") or [])
+
+
+def _addressed_finding(
+    resume: Resume | None, index: int
+) -> Mapping[str, Any] | None:
+    """The finding an index addresses, or None — unknown résumé, index out of range."""
+    if resume is None:
+        return None
+    findings = _stored_findings(resume)
+    if 0 <= index < len(findings):
+        return findings[index]
+    return None
+
+
+@router.get("/import/{resume_id}/findings/{index}")
+def finding_location(
+    resume_id: str,
+    index: int,
+    request: Request,
+    user: SignedInUser,
+    session: DbSession,
+    profile: OwnProfile,
+):
+    """The "show me where" view: the page with the finding's boxes, and what they hide.
+
+    The characters are read from the archived original here and rendered once — the
+    stored finding carries boxes and no text (decision 9). Owner-scoped like everything
+    else: another profile's résumé is not found, not forbidden (F1).
+    """
+    resume = get_resume(profile.id, session, resume_id)
+    finding = _addressed_finding(resume, index)
+    if resume is None or finding is None:
+        return render(request, "not_found.html", user=user, status_code=404)
+    page = finding_page(finding)
+    if page is None or not is_locatable(str(finding.get("check"))):
+        # A DOCX finding, or a check with no geometry to point at.
+        return render(request, "not_found.html", user=user, status_code=404)
+    if not page_exists(resume.file_bytes, page):
+        return render(request, "not_found.html", user=user, status_code=404)
+    boxes = finding_boxes(finding)
+    characters = (
+        box_characters(resume.file_bytes, page_number=page, boxes=boxes)
+        if characters_apply(str(finding.get("check")))
+        else None
+    )
+    response = render(
+        request,
+        "import/finding.html",
+        user=user,
+        profile=profile,
+        resume=resume,
+        index=index,
+        finding=finding_rows(resume.gate or {}, user.ui_lang)[index],
+        characters=characters,
+    )
+    # The view can carry the document's hidden characters, so it is never cached.
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
+
+@router.get("/import/{resume_id}/findings/{index}/page.png")
+def finding_page_png(
+    resume_id: str,
+    index: int,
+    session: DbSession,
+    profile: OwnProfile,
+) -> Response:
+    """The finding's page, boxes outlined in the severity colour, as a PNG (F5.1.1).
+
+    Nothing is written to disk, the database or a log, and the response is never cached:
+    it renders the user's own document, inside their own session.
+    """
+    resume = get_resume(profile.id, session, resume_id)
+    finding = _addressed_finding(resume, index)
+    if resume is None or finding is None:
+        return Response(status_code=404)
+    page = finding_page(finding)
+    if page is None or not is_locatable(str(finding.get("check"))):
+        return Response(status_code=404)
+    if not page_exists(resume.file_bytes, page):
+        # An out-of-range page is not found, never a traceback (N6.6).
+        return Response(status_code=404)
+    png = render_page_png(
+        resume.file_bytes,
+        page_number=page,
+        boxes=finding_boxes(finding),
+        severity=str(finding.get("severity")),
+    )
+    return Response(content=png, media_type="image/png", headers={"Cache-Control": "no-store"})

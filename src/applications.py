@@ -5,14 +5,17 @@ the fact: another profile's report is simply not found.
 """
 
 import uuid
-from datetime import datetime
+from collections.abc import Mapping
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from typing import Any
 
 from sqlalchemy.orm import Session
 
 from src.models import Application, Track
 from src.normalize.text import fold
 from src.scoping import owned_row, owned_rows
+from src.score import SUB_SCORES
 
 
 def create_application(
@@ -60,6 +63,13 @@ def get_application(
 # The five outcomes F9 lists. A value outside this set is refused, never stored.
 OUTCOMES = ("no_reply", "screen", "interview", "offer", "rejected")
 
+# What "no outcome recorded" is in this schema: the column is NOT NULL and defaults to
+# `no_reply`, which is exactly the state F.1 nudges about — nothing has come back yet.
+NO_OUTCOME = ("no_reply",)
+
+# The nudge's window is a presentation setting, never a scoring or storage rule (F.1).
+STALE_DAYS = 14
+
 # What the history table can be sorted by, and the default when the value is unknown:
 # a bad `?sort=` is a fallback, not an error (F9's table is a view, not an API).
 HISTORY_SORTS = ("date", "score", "company", "title", "track", "outcome")
@@ -81,12 +91,50 @@ def set_application_outcome(
     return application
 
 
+def _sub_scores(score: Mapping[str, Any]) -> dict[str, int | None]:
+    """F9's four sub-scores as integers 0–100, or None where the report stored none.
+
+    Sub-scores are stored as 0–1 and multiplied by 100 only for display (PRD §12.1);
+    a report from before a sub-score existed, or scored under weights that did not
+    have it, keeps a None and the table shows "—".
+    """
+    stored = score.get("sub_scores") or {}
+    values: dict[str, int | None] = {}
+    for name in SUB_SCORES:
+        entry = stored.get(name)
+        value = entry.get("value") if isinstance(entry, Mapping) else None
+        values[name] = round(float(value) * 100) if value is not None else None
+    return values
+
+
+def _readability_scan(payload: Mapping[str, Any] | None) -> dict[str, Any] | None:
+    """Scan A (F5.1) as a verdict for the table: the cap and the finding count."""
+    if not payload:
+        return None
+    return {"cap": payload.get("cap"), "findings": len(payload.get("findings") or [])}
+
+
+def _boolean_scan(payload: Mapping[str, Any] | None) -> dict[str, Any] | None:
+    """Scan B (F5.2): whether the track came back in every derived query.
+
+    No queries derived — an analysis stored before Scan B existed — is None, not a
+    pass: nothing was searched, which is not the same as being findable.
+    """
+    if not payload:
+        return None
+    queries = payload.get("queries") or []
+    if not queries:
+        return None
+    return {"queries": len(queries), "passed": all(bool(q.get("passed")) for q in queries)}
+
+
 def list_applications(
     profile_id: uuid.UUID,
     session: Session,
     *,
     sort: str = "date",
     direction: str = "desc",
+    outcome: str | None = None,
 ) -> list[dict[str, object]]:
     """One row per analysis for the history table, sorted server-side (F9).
 
@@ -94,6 +142,9 @@ def list_applications(
     the score is inside the stored report and the track is a row of its own. The table
     is per profile and small, and these are the values the user sorts by — a number and
     a name, not a JSON path.
+
+    `outcome` narrows the table: one of F9's five values, or `none` for the analyses
+    where nothing has come back yet (F.1).
     """
     key = sort if sort in HISTORY_SORTS else "date"
     reverse = direction != "asc"
@@ -115,8 +166,22 @@ def list_applications(
                 "score": score.get("capped"),
                 "weights_version": application.weights_version,
                 "outcome": application.outcome,
+                # F9's other columns. Each is absent on an analysis stored before the
+                # field existed, and renders as "—" rather than a zero or a guess:
+                # sub-scores as integers 0–100, both scans as a verdict, the prompt
+                # versions as written, and the cost as recorded.
+                "sub_scores": _sub_scores(score),
+                "readability": _readability_scan(application.scan_readability),
+                "boolean": _boolean_scan(application.scan_boolean),
+                "prompt_versions": dict(application.prompt_versions or {}),
+                "token_cost_usd": application.token_cost_usd,
             }
         )
+
+    if outcome == "none":
+        rows = [row for row in rows if row["outcome"] in NO_OUTCOME]
+    elif outcome in OUTCOMES:
+        rows = [row for row in rows if row["outcome"] == outcome]
 
     if key == "score":
         # An analysis with no score at all sorts last in both directions: it is not a
@@ -132,3 +197,38 @@ def list_applications(
         return (fold(str(row[key])), row["created_at"] or datetime.min)
 
     return sorted(rows, key=order_key, reverse=reverse)
+
+
+def _naive(value: datetime | None) -> datetime | None:
+    """A datetime comparable across drivers: sqlite hands back naive rows (F.1)."""
+    if value is not None and value.tzinfo is not None:
+        return value.astimezone(UTC).replace(tzinfo=None)
+    return value
+
+
+def _stale_cutoff(days: int, today: datetime | None) -> datetime:
+    reference = today or datetime.now(UTC)
+    return _naive(reference) - timedelta(days=days)
+
+
+def stale_application_count(
+    profile_id: uuid.UUID,
+    session: Session,
+    *,
+    days: int = STALE_DAYS,
+    today: datetime | None = None,
+) -> int:
+    """Analyses older than `days` where nothing has come back yet (F.1's nudge).
+
+    Owner-scoped like every other read: another profile's rows are not in the query at
+    all, so the count cannot leak a stranger's job hunt.
+    """
+    cutoff = _stale_cutoff(days, today)
+    count = 0
+    for application in owned_rows(Application, session, profile_id):
+        if application.outcome not in NO_OUTCOME:
+            continue
+        created = _naive(application.created_at)
+        if created is None or created < cutoff:
+            count += 1
+    return count

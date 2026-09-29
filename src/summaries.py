@@ -5,6 +5,7 @@ render it, so deactivation is the delete and there is no hard-delete function he
 """
 
 import uuid
+from datetime import UTC, datetime
 
 from sqlalchemy.orm import Session
 
@@ -19,11 +20,31 @@ def list_summaries(
     lang: str | None = None,
     active_only: bool = True,
 ) -> list[Summary]:
-    """The pool; `lang` narrows to one language, `active_only` hides retired rows."""
+    """The pool in creation order; `lang` narrows, `active_only` hides retired rows.
+
+    Creation order, oldest first, and deterministic: the pickers append a summary the
+    user just wrote at the bottom, and two rows can never swap places between two
+    reads. `create_summary` stamps a microsecond timestamp, so the order really is the
+    order they were written in; a row that predates that (or somehow ties) falls back
+    to its id, which is arbitrary but stable — never "whatever the database returned".
+    """
     entries = owned_rows(Summary, session, profile_id, active_only=active_only)
     if lang is not None:
         entries = [entry for entry in entries if entry.lang == lang]
-    return sorted(entries, key=lambda entry: entry.created_at, reverse=True)
+    return sorted(entries, key=lambda entry: (_comparable(entry.created_at), str(entry.id)))
+
+
+def _comparable(value: datetime | None) -> datetime:
+    """A naive-UTC datetime, so a freshly created aware row sorts with stored naive ones.
+
+    sqlite hands naive rows back; a row created in this session still carries the
+    `datetime.now(UTC)` it was given, and comparing the two would raise (G.1).
+    """
+    if value is None:
+        return datetime.min
+    if value.tzinfo is not None:
+        return value.astimezone(UTC).replace(tzinfo=None)
+    return value
 
 
 def get_summary(
@@ -45,6 +66,10 @@ def create_summary(
         lang=lang,
         text=" ".join(text.split()).strip(),
         source_resume_id=source_resume_id,
+        # Explicit and microsecond-precise: the pool is listed in creation order, and
+        # the database's own default has only second resolution on SQLite, which made
+        # two rows written in the same second order-ambiguous (G.1).
+        created_at=datetime.now(UTC),
     )
     session.add(entry)
     session.flush()

@@ -10,6 +10,11 @@ from typing import Any
 
 from src.i18n import t
 
+# The labels the boolean derivation is asked for, in its own English words. The panel
+# shows them in the interface's language; anything else is shown as the model wrote it
+# (N6.6) — a label this list does not know is not a reason to hide the query.
+RECALL_LABELS = frozenset({"broad", "strict", "core"})
+
 
 def query_rows(payload: Mapping[str, Any], lang: str) -> list[dict[str, Any]]:
     """One row per derived query, with its failing clause already in words."""
@@ -17,9 +22,10 @@ def query_rows(payload: Mapping[str, Any], lang: str) -> list[dict[str, Any]]:
     for query in payload.get("queries", []):
         failing_term = query.get("failing_term")
         failing_kind = query.get("failing_kind")
+        label = str(query.get("label") or "")
         rows.append(
             {
-                "label": str(query.get("label") or ""),
+                "label": t(f"recall.label.{label}", lang) if label in RECALL_LABELS else label,
                 "passed": bool(query.get("passed")),
                 # A.9.2: the line the user pastes into the ATS. Empty for a report
                 # stored before the field existed, and the panel shows nothing then.

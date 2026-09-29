@@ -1,5 +1,6 @@
 """Template rendering with the interface language and the current user injected."""
 
+import re
 from pathlib import Path
 from typing import Any
 
@@ -24,6 +25,37 @@ _TEMPLATES.env.globals["advice_line"] = advice_line
 # matches a typed chip against a stored term must fold both sides the same way
 # (F2.9's pending terms, which the user may have typed with capitals or accents).
 _TEMPLATES.env.filters["fold"] = fold
+
+
+def short_years(value: object) -> str:
+    """Years with at most one decimal and no trailing `.0` (N6.6).
+
+    `3.0` reads as "3", `2.5` as "2.5" — a rounded figure the reader can trust at a
+    glance, and never the "0.00 de 0.00" the report used to print.
+    """
+    text = f"{float(value):.1f}"  # type: ignore[arg-type]
+    return text[:-2] if text.endswith(".0") else text
+
+
+# The report's Experience card shows years in the interface's language and trimmed.
+_TEMPLATES.env.filters["years"] = short_years
+
+# The scorer writes its matched/missing tags in English (`3.00 years`) and is frozen,
+# so the display localises the one shape it produces (F.0).
+_YEARS_TERM = re.compile(r"^(\d+(?:[.,]\d+)?)\s*years?$", re.IGNORECASE)
+
+
+def localised_term(value: object, lang: str = DEFAULT_LANG) -> str:
+    """A sub-score's matched/missing term, in the reader's language (F.0)."""
+    text = str(value)
+    match = _YEARS_TERM.match(text.strip())
+    if match is None:
+        return text
+    years = short_years(match.group(1).replace(",", "."))
+    return t("report.experience_years_tag", lang, years=years)
+
+
+_TEMPLATES.env.filters["localised_term"] = localised_term
 
 
 def render(

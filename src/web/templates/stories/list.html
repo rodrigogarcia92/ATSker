@@ -3,29 +3,29 @@
 {% block content %}
 <div class="flex items-center justify-between gap-4">
   <h1 class="text-2xl font-semibold tracking-tight">{{ t('stories.title', lang) }}</h1>
-  <a href="/stories/new" class="rounded bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800">
+  <a href="/stories/new" class="rounded-control bg-link px-3 py-2 text-sm font-medium text-bg hover:opacity-90">
     {{ t('stories.new', lang) }}
   </a>
 </div>
 
-<ul class="mt-6 divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white">
+<ul class="mt-6 divide-y divide-card-border rounded-card border border-card-border bg-surface-1">
   {% for story in stories %}
   <li class="p-4">
     <a href="/stories/{{ story.id }}" class="font-medium hover:underline">{{ story.title }}</a>
-    <span class="ml-2 text-xs uppercase text-slate-500">{{ story.lang }}</span>
+    <span class="ml-2 text-xs uppercase text-text-3">{{ story.lang }}</span>
     {% if story.tags %}
     <p class="mt-2 flex flex-wrap gap-1">
       {% for tag in story.tags %}
-      <span class="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-700">{{ tag }}</span>
+      <span class="rounded-control bg-surface-2 px-2 py-0.5 text-xs text-text">{{ tag }}</span>
       {% endfor %}
     </p>
     {% endif %}
-    <p class="mt-2 text-xs text-slate-500">
+    <p class="mt-2 text-xs text-text-3">
       {{ t('stories.linked', lang, count=linked.get(story.id, 0)) }}
     </p>
   </li>
   {% else %}
-  <li class="p-4 text-sm text-slate-600">{{ t('stories.empty', lang) }}</li>
+  <li class="p-4 text-sm text-text-2">{{ t('stories.empty', lang) }}</li>
   {% endfor %}
 </ul>
 {% endblock %}

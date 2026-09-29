@@ -467,7 +467,7 @@ def test_a_docx_review_names_the_checks_that_did_not_run(client, session, career
     page = plain(client.get(uploaded.headers["location"]).text)
 
     assert "No se ejecutaron para este formato" in page
-    assert "Viñetas como imagen" in page
+    assert "Bullets como imagen" in page
     assert "Fuentes no incrustadas" in page
 
 
@@ -753,10 +753,10 @@ def test_a_tagged_upload_says_which_track_it_joins_and_how_many_bullets_it_added
     review_url = uploaded.headers["location"]
 
     merge_page = plain(client.post(f"{review_url}/review", data=REVIEWED_FORM).text)
-    assert "Las viñetas de este documento se unirán a «Analista de datos»" in merge_page
+    assert "Los bullets de este documento se unirán a «Analista de datos»" in merge_page
 
     merged = plain(client.post(f"{review_url}/merge", data=MERGE_FORM).text)
-    assert "Viñetas añadidas a «Analista de datos»: 1" in merged
+    assert "Bullets añadidos a «Analista de datos»: 1" in merged
     assert "Puesto objetivo creado" not in merged, "it joined; it did not create"
 
     session.expire_all()
@@ -805,7 +805,7 @@ def test_a_tracks_analysis_is_capped_by_the_document_it_came_from(
     # applied — this is the «Limitado a 40 … sin límite sería 29» bug class.
     assert "hoy no resta puntos" in page
     assert "Limitado a" not in page
-    assert "Lectura del documento" in page, "the same findings panel the upload screen shows"
+    assert "¿El ATS lee bien tu CV?" in page, "the same findings panel, as the report's question"
     assert "Bloqueante" in page
     assert "No se ejecutaron para este formato" in page, "a DOCX cannot answer every check"
 

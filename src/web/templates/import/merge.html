@@ -8,52 +8,52 @@
 {% if nothing_to_merge %}
 {# F2.5: a list of rows with every box unchecked reads as "the app found nothing".
    All-unchanged is a result, and it is the one the user needs stated. #}
-<p class="mt-2 rounded border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
+<p class="mt-2 rounded-control border border-score-strong bg-surface-1 px-3 py-2 text-sm text-score-strong">
   {{ t('import.nothing_to_merge', lang, compared=compared) }}
 </p>
 {% elif compared == 0 %}
-<p class="mt-2 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+<p class="mt-2 rounded-control border border-sev-warning bg-surface-1 px-3 py-2 text-sm text-sev-warning">
   {{ t('import.nothing_compared', lang) }}
 </p>
 {% endif %}
 {% if error %}
-<p class="mt-2 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">{{ error }}</p>
+<p class="mt-2 rounded-control border border-sev-warning bg-surface-1 px-3 py-2 text-sm text-sev-warning">{{ error }}</p>
 {% endif %}
 {% if translation_available %}
 {# F4.2: this document is the other language of the track it was tagged with, and it
    holds a job that track already has — so it can fill the empty columns instead of
    creating a second résumé in the other language. #}
-<div class="mt-2 rounded border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
+<div class="mt-2 rounded-control border border-card-border bg-surface-1 px-3 py-2 text-sm text-text">
   <p class="font-medium">{{ t('import.translate_offer', lang) }}</p>
-  <p class="mt-1 text-xs text-slate-500">{{ t('import.translate_offer_hint', lang) }}</p>
+  <p class="mt-1 text-xs text-text-3">{{ t('import.translate_offer_hint', lang) }}</p>
 </div>
 {% endif %}
-<p class="mt-1 text-sm text-slate-600">{{ t('import.merge_intro', lang) }}</p>
-<p class="mt-2 text-sm text-slate-500">
+<p class="mt-1 text-sm text-text-2">{{ t('import.merge_intro', lang) }}</p>
+<p class="mt-2 text-sm text-text-3">
   {{ counts.new }} {{ t('import.count_new', lang) }} ·
   {{ counts.changed }} {{ t('import.count_changed', lang) }} ·
   {{ counts.unchanged }} {{ t('import.count_unchanged', lang) }}
 </p>
-<p class="mt-1 text-xs text-slate-500">{{ t('import.role_children_hint', lang) }}</p>
+<p class="mt-1 text-xs text-text-3">{{ t('import.role_children_hint', lang) }}</p>
 
 {# Collapsed when every candidate is unchanged: the rows stay reachable, but they
    are not what the screen is about. Open in every other case. #}
 <details class="mt-6" {% if not nothing_to_merge %}open{% endif %}>
-  <summary class="cursor-pointer text-sm text-slate-600">
+  <summary class="cursor-pointer text-sm text-text-2">
     {{ t('import.merge_candidates', lang) }} · {{ compared }}
   </summary>
 <form method="post" action="/import/{{ resume.id }}/merge" class="mt-4 space-y-8">
   {% include "import/_candidates.html" %}
 
   <div class="flex flex-wrap items-center gap-4">
-    <button type="submit" class="rounded bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800">
+    <button type="submit" class="rounded-control bg-link px-3 py-2 text-sm font-medium text-bg hover:opacity-90">
       {{ t('import.merge_submit', lang) }}
     </button>
     {% if translation_available %}
     {# `formnovalidate`: this button does not merge, it opens the translation screen
        — the boxes above are ignored and the track name is not needed yet. #}
     <button type="submit" formaction="/import/{{ resume.id }}/translate" formnovalidate
-            class="rounded border border-slate-300 px-3 py-2 text-sm">
+            class="rounded-control border border-border px-3 py-2 text-sm">
       {{ t('import.translate_submit', lang) }}
     </button>
     {% endif %}

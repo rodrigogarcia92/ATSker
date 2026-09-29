@@ -126,6 +126,23 @@ def apply_gate(uncapped: int, report: ParseReport) -> int:
     return uncapped if cap is None else min(uncapped, cap)
 
 
+# The findings whose detail carries bounding boxes on a PDF (F5.1.1's table), and the
+# three whose boxes' characters are the only way to act on them. A DOCX finding of the
+# same check carries neither: a Word file has no page geometry, so the panel says the
+# location view is PDF-only rather than offering a link to nothing.
+BOX_CHECKS = frozenset(
+    {
+        "contact_in_margin",
+        "text_in_table",
+        "invisible_text",
+        "invisible_glyphs",
+        "image_bullets",
+        "mojibake",
+    }
+)
+CHARACTER_CHECKS = frozenset({"invisible_text", "invisible_glyphs", "mojibake"})
+
+
 # The DOCX gate answers the subset of F5.1 that needs no page geometry (decision 36).
 # The panel names the rest, so that "no findings" cannot read as a clean bill of
 # health (F5.1.1).

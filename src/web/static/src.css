@@ -3,3 +3,369 @@
 /* Explicit sources: the scan must not wander into docs/ or fixtures/. */
 @source "../templates";
 @source "../routes";
+
+/* §12.1 — the approved design's tokens, named so a template says what a colour means
+   rather than what it looks like. Dark theme only; the light toggle is a later pass. */
+@theme {
+  /* Surfaces and text */
+  --color-bg: #101211;
+  --color-surface-1: #181b1a;
+  --color-surface-2: #232826;
+  --color-border: #2f3633;
+  --color-card-border: #262b29;
+  --color-text: #e6e9e7;
+  --color-text-2: #aeb6b2;
+  --color-text-3: #8b9490;
+  /* Interactive: links and controls only */
+  --color-link: #8fb3ff;
+  /* Score: a three-stop scale, used as fill and only on score surfaces */
+  --color-score-strong: #3fcf8e;
+  --color-score-adequate: #e5a23b;
+  --color-score-weak: #ef6f55;
+  /* Severity: outlined tags only, never fill */
+  --color-sev-blocker: #f472b6;
+  --color-sev-warning: #a78bfa;
+  --color-sev-info: #94a3b8;
+  /* Radii */
+  --radius-card: 10px;
+  --radius-control: 6px;
+  --radius-tag: 4px;
+  /* Type */
+  --font-display: "Newsreader", ui-serif, Georgia, "Times New Roman", serif;
+  --font-sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* Every number is tabular (§12.1): scores, counts, dates and hashes line up. */
+body {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Dark controls by default, so a field added without a class still reads in the theme
+   rather than as a white box on a dark page. */
+input,
+textarea,
+select {
+  background: var(--color-surface-2);
+  color: var(--color-text);
+  border-color: var(--color-border);
+}
+input::placeholder,
+textarea::placeholder {
+  color: var(--color-text-3);
+}
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: var(--color-link);
+}
+
+/* The shell (§12.1). A 64px icon rail on desktop; a top bar with a menu button under
+   640px. Labels appear when `body.rail-open` is toggled — no storage, no state. */
+.shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+.rail {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.5rem;
+  background: var(--color-surface-1);
+  border-bottom: 1px solid var(--color-border);
+}
+.rail-toggle,
+.rail-icon-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem;
+  border-radius: var(--radius-control);
+  color: var(--color-text-2);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.rail-toggle:hover,
+.rail-icon-button:hover {
+  background: var(--color-surface-2);
+  color: var(--color-text);
+}
+.rail-body {
+  display: none;
+  flex-basis: 100%;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 0.5rem 0.25rem 0.75rem;
+}
+body.rail-open .rail-body {
+  display: flex;
+}
+.rail-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.rail-group-title {
+  margin: 0.25rem 0 0;
+  padding: 0 0.5rem;
+  color: var(--color-text-3);
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.rail-link {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem;
+  border-radius: var(--radius-control);
+  color: var(--color-text-2);
+  text-decoration: none;
+}
+.rail-link:hover,
+.rail-link:focus-visible {
+  background: var(--color-surface-2);
+  color: var(--color-text);
+}
+.rail-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  flex: none;
+}
+.rail-label {
+  white-space: nowrap;
+}
+.rail-collapsed {
+  display: none;
+}
+.main {
+  flex: 1;
+  width: 100%;
+  padding: 1.5rem 1rem;
+}
+
+/* The score component (§12.1): fill on the number and the segments, a band word beside
+   them, and never colour alone. Band colours are keyed on the band, not a utility, so a
+   threshold change is one edit here. */
+.score-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.score-label {
+  color: var(--color-text-2);
+  font-size: 0.875rem;
+}
+.score-number {
+  font-size: 1.75rem;
+  font-weight: 600;
+  line-height: 1.1;
+}
+.score[data-band="strong"] .score-number {
+  color: var(--color-score-strong);
+}
+.score[data-band="adequate"] .score-number {
+  color: var(--color-score-adequate);
+}
+.score[data-band="weak"] .score-number {
+  color: var(--color-score-weak);
+}
+.score-segments {
+  display: flex;
+  gap: 0.25rem;
+  margin-top: 0.5rem;
+}
+.score-segment {
+  height: 0.375rem;
+  flex: 1;
+  border-radius: var(--radius-tag);
+  background: var(--color-surface-2);
+}
+.score-band {
+  margin: 0.375rem 0 0;
+  color: var(--color-text-3);
+  font-size: 0.75rem;
+}
+.score-caption {
+  margin: 0.25rem 0 0;
+  color: var(--color-text-2);
+  font-size: 0.8125rem;
+}
+.score-scale {
+  font-size: 0.875rem;
+  font-weight: 400;
+  color: var(--color-text-3);
+}
+/* The Job Match bar: the score it would have without the cap, the score it has, and the
+   cap marked only as a tick (§12.1's item 2). */
+.match {
+  position: relative;
+  height: 0.5rem;
+  margin-top: 0.75rem;
+  border-radius: var(--radius-tag);
+  background: var(--color-surface-2);
+  overflow: hidden;
+}
+.match-uncapped,
+.match-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+}
+.match-uncapped {
+  background: var(--color-border);
+}
+.match-fill {
+  background: var(--color-text-3);
+}
+.match[data-band="strong"] .match-fill {
+  background: var(--color-score-strong);
+}
+.match[data-band="adequate"] .match-fill {
+  background: var(--color-score-adequate);
+}
+.match[data-band="weak"] .match-fill {
+  background: var(--color-score-weak);
+}
+.match-tick {
+  position: absolute;
+  top: -0.125rem;
+  bottom: -0.125rem;
+  width: 2px;
+  background: var(--color-text);
+}
+/* The Skills split: direct against transfer, two segments of one bar. */
+.split-bar {
+  display: flex;
+  height: 0.5rem;
+  margin-top: 0.5rem;
+  border-radius: var(--radius-tag);
+  overflow: hidden;
+  background: var(--color-surface-2);
+}
+.split-direct {
+  background: var(--color-score-strong);
+}
+.split-transfer {
+  background: var(--color-score-adequate);
+}
+
+.band-strong.is-on {
+  background: var(--color-score-strong);
+}
+.band-adequate.is-on {
+  background: var(--color-score-adequate);
+}
+.band-weak.is-on {
+  background: var(--color-score-weak);
+}
+
+/* Shared tags: outlined, never a fill, so a tag reads as a label and not as a state. */
+.tag {
+  display: inline-block;
+  padding: 0.125rem 0.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-tag);
+  font-size: 0.75rem;
+  color: var(--color-text-2);
+}
+.tag-strong {
+  border-color: var(--color-score-strong);
+  color: var(--color-score-strong);
+}
+.tag-warning {
+  border-color: var(--color-sev-warning);
+  color: var(--color-sev-warning);
+}
+.tag-danger {
+  border-color: var(--color-sev-blocker);
+  color: var(--color-sev-blocker);
+}
+
+/* Severity (§12.1): outlined, never filled, and in its own palette. */
+.sev-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.125rem 0.5rem;
+  border: 1px solid; /* colour set per level below */
+  border-radius: var(--radius-tag);
+  font-size: 0.6875rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: none;
+}
+.sev-icon {
+  width: 0.875rem;
+  height: 0.875rem;
+  flex: none;
+}
+.sev-label {
+  font-weight: 500;
+}
+.sev-blocker {
+  border-color: var(--color-sev-blocker);
+  color: var(--color-sev-blocker);
+}
+.sev-warning {
+  border-color: var(--color-sev-warning);
+  color: var(--color-sev-warning);
+}
+.sev-info {
+  border-color: var(--color-sev-info);
+  color: var(--color-sev-info);
+}
+
+/* Evidence levels 0–3: three bars, filled to the level, with the number. */
+.level-bars {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+.level-bar {
+  width: 0.75rem;
+  height: 0.375rem;
+  border-radius: var(--radius-tag);
+  background: var(--color-surface-2);
+}
+.level-number {
+  margin-left: 0.25rem;
+  color: var(--color-text-2);
+  font-size: 0.75rem;
+}
+
+@media (min-width: 640px) {
+  .shell {
+    flex-direction: row;
+  }
+  .rail {
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    width: 4rem;
+    padding: 0.75rem 0.5rem;
+    border-bottom: 0;
+    border-right: 1px solid var(--color-border);
+  }
+  .rail-body {
+    display: flex;
+    flex-basis: auto;
+    padding: 0;
+  }
+  body.rail-open .rail {
+    width: 13rem;
+  }
+  body:not(.rail-open) .rail-label {
+    display: none;
+  }
+  body:not(.rail-open) .rail-collapsed {
+    display: flex;
+  }
+  .main {
+    padding: 2rem;
+  }
+}

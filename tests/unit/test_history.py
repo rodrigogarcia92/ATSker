@@ -11,7 +11,12 @@ from decimal import Decimal
 
 import pytest
 
-from src.applications import OUTCOMES, list_applications, set_application_outcome
+from src.applications import (
+    OUTCOMES,
+    list_applications,
+    set_application_outcome,
+    stale_application_count,
+)
 from src.models import Application
 from tests.conftest import login
 
@@ -211,6 +216,72 @@ def test_the_history_page_renders_the_table_and_its_links(client, session, caree
     assert 'value="interview"' in page and "selected" in page
     assert "Sin respuesta" in page, "the outcome labels are the user's language"
     assert "Riesgo" not in page, "another profile's analysis is not in the table"
+    assert "max-w-5xl" in page, "the history table uses the wider column (N6.6)"
+    assert "max-w-full overflow-x-auto" in page, "the table scrolls inside its own box"
+    assert "relative mt-6 max-w-full overflow-x-auto" in page, (
+        "the sr-only label is positioned, not page-wide (F.0)"
+    )
+
+
+def test_the_history_carries_the_sub_scores_both_scans_prompts_and_cost(
+    client, session, career, history
+):
+    """F9's remaining columns, each from the stored report and nothing else."""
+    application = application_fixture(
+        career.first_profile.id,
+        title="Con todo",
+        company="Banco Demo",
+        score=71,
+        created_at=datetime(2026, 9, 20, 15, 0, tzinfo=UTC),
+    )
+    application.report["score"]["sub_scores"] = {
+        "skills": {"value": 0.82},
+        "experience": {"value": 0.51},
+        "title": {"value": 0.33},
+        "keywords": {"value": 0.64},
+    }
+    application.scan_readability = {
+        "cap": 40,
+        "cap_reason": "invisible_text",
+        "findings": [{"check": "invisible_text"}],
+    }
+    application.scan_boolean = {
+        "checked": True,
+        "queries": [{"passed": True}, {"passed": False}],
+    }
+    application.prompt_versions = {"jd_extract": "jd_extract_v2"}
+    session.add(application)
+    session.commit()
+
+    rows = {row["title"]: row for row in list_applications(career.first_profile.id, session)}
+    row = rows["Con todo"]
+    assert row["sub_scores"] == {"skills": 82, "experience": 51, "title": 33, "keywords": 64}
+    assert row["readability"] == {"cap": 40, "findings": 1}
+    assert row["boolean"] == {"queries": 2, "passed": False}
+    assert row["token_cost_usd"] == Decimal("0.000123")
+
+    login(client, career.first.email)
+    page = client.get("/applications").text
+    assert "82" in page and "51" in page and "33" in page and "64" in page
+    assert "≤ 40" in page, "the readability verdict is the cap it applied"
+    assert "No apareces" in page, "one failing query makes the search verdict a no"
+    assert "jd_extract=jd_extract_v2" in page
+    assert "$0.000123" in page
+
+
+def test_an_old_report_renders_a_dash_for_every_column_it_predates(session, career, history):
+    """A `w1` analysis has no sub-scores, no scans and no prompt versions — and none
+    of them renders as a zero."""
+    rows = list_applications(career.first_profile.id, session)
+    old = next(row for row in rows if row["title"] == "Analista antiguo")
+    assert old["sub_scores"] == {
+        "skills": None,
+        "experience": None,
+        "title": None,
+        "keywords": None,
+    }
+    assert old["readability"] is None and old["boolean"] is None
+    assert old["prompt_versions"] == {}
 
 
 def test_sorting_arrives_from_the_url_and_an_unknown_column_does_not_raise(client, career, history):
@@ -268,3 +339,100 @@ def test_the_nav_reaches_the_history(client, career, history):
     assert '<a href="/applications"' in page
     assert page.index('href="/analyze"') < page.index('href="/applications"')
     assert page.index('href="/applications"') < page.index('href="/import"')
+
+
+# --- F.1: the outcome nudge and its filter -----------------------------------------
+
+
+def aged(days: int) -> datetime:
+    return datetime.now(UTC) - timedelta(days=days)
+
+
+def test_the_stale_count_sees_only_old_unanswered_rows(session, career):
+    session.add_all(
+        [
+            application_fixture(
+                career.first_profile.id,
+                title="Vieja sin resultado",
+                company="Acme",
+                score=50,
+                created_at=aged(30),
+            ),
+            application_fixture(
+                career.first_profile.id,
+                title="Reciente sin resultado",
+                company="Acme",
+                score=50,
+                created_at=aged(2),
+            ),
+            application_fixture(
+                career.first_profile.id,
+                title="Vieja con entrevista",
+                company="Acme",
+                score=50,
+                outcome="interview",
+                created_at=aged(30),
+            ),
+            application_fixture(
+                career.second_profile.id,
+                title="De la otra persona",
+                company="Globex",
+                score=50,
+                created_at=aged(30),
+            ),
+        ]
+    )
+    session.commit()
+
+    assert stale_application_count(career.first_profile.id, session) == 1
+    assert stale_application_count(career.second_profile.id, session) == 1, "owner-scoped"
+
+
+def test_the_history_filter_narrows_to_no_outcome_or_one_value(session, career, history):
+    profile_id = career.first_profile.id
+
+    none = list_applications(profile_id, session, outcome="none")
+    assert [row["title"] for row in none] == ["Data Engineer", "Analista antiguo"]
+
+    interview = list_applications(profile_id, session, outcome="interview")
+    assert [row["title"] for row in interview] == ["Analista de datos"]
+
+    unknown = list_applications(profile_id, session, outcome="ghosted")
+    assert len(unknown) == 3, "an unknown value is ignored, not an empty table"
+
+
+def test_the_filter_arrives_from_the_url_and_survives_a_sort(client, career, history):
+    login(client, career.first.email)
+
+    filtered = client.get("/applications?outcome=none&sort=date&dir=asc").text
+
+    interview = next(row for row in history if row.outcome == "interview")
+    assert f'href="/applications/{interview.id}"' not in filtered, (
+        "an interview is not waiting on a result"
+    )
+    for row in history:
+        if row.profile_id == career.first_profile.id and row.outcome == "no_reply":
+            assert f'href="/applications/{row.id}"' in filtered
+    assert "Mostrando solo" in filtered
+    assert "outcome=none" in filtered, "the sort links keep the filter"
+
+
+def test_the_dashboard_nudges_about_the_old_unanswered_analyses(client, session, career):
+    login(client, career.first.email)
+    assert "sin resultado" not in client.get("/dashboard").text, "nothing stale yet"
+
+    session.add(
+        application_fixture(
+            career.first_profile.id,
+            title="Vieja sin resultado",
+            company="Acme",
+            score=50,
+            created_at=aged(30),
+        )
+    )
+    session.commit()
+
+    page = client.get("/dashboard").text
+
+    assert "1 análisis de hace más de 14 días sin resultado" in page
+    assert "/applications?outcome=none&sort=date&dir=asc" in page

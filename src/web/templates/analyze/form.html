@@ -2,46 +2,46 @@
 {% block title %}{{ t('analyze.title', lang) }} — {{ t('app.name', lang) }}{% endblock %}
 {% block content %}
 <h1 class="text-2xl font-semibold tracking-tight">{{ t('analyze.title', lang) }}</h1>
-<p class="mt-1 text-sm text-slate-600">{{ t('analyze.intro', lang) }}</p>
+<p class="mt-1 text-sm text-text-2">{{ t('analyze.intro', lang) }}</p>
 
 {% if error %}
-<p class="mt-4 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">{{ error }}</p>
+<p class="mt-4 rounded-control border border-sev-warning bg-surface-1 px-3 py-2 text-sm text-sev-warning">{{ error }}</p>
 {% endif %}
 {% if not can_analyze %}
-<p class="mt-4 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+<p class="mt-4 rounded-control border border-sev-warning bg-surface-1 px-3 py-2 text-sm text-sev-warning">
   {{ t('analyze.no_model', lang) }}
 </p>
 {% endif %}
 {% if active_bullets == 0 %}
-<p class="mt-4 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+<p class="mt-4 rounded-control border border-sev-warning bg-surface-1 px-3 py-2 text-sm text-sev-warning">
   {{ t('analyze.need_bullets', lang) }}
 </p>
 {% endif %}
 
 <form method="post" action="/analyze"
-      class="mt-6 space-y-4 rounded-lg border border-slate-200 bg-white p-5">
+      class="mt-6 space-y-4 rounded-card border border-card-border bg-surface-1 p-5">
   <div>
     <label for="jd_text" class="mb-1 block text-sm font-medium">{{ t('analyze.jd', lang) }}</label>
     <textarea id="jd_text" name="jd_text" rows="14" required
-              class="w-full rounded border border-slate-300 px-3 py-2 text-sm">{{ values.jd_text }}</textarea>
-    <p class="mt-1 text-xs text-slate-500">{{ t('analyze.jd_hint', lang) }}</p>
+              class="w-full rounded-control border border-border px-3 py-2 text-sm">{{ values.jd_text }}</textarea>
+    <p class="mt-1 text-xs text-text-3">{{ t('analyze.jd_hint', lang) }}</p>
   </div>
   <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
     <div>
       <label for="company" class="mb-1 block text-sm font-medium">{{ t('analyze.company', lang) }}</label>
       <input id="company" name="company" value="{{ values.company }}"
-             class="w-full rounded border border-slate-300 px-3 py-2 text-sm">
+             class="w-full rounded-control border border-border px-3 py-2 text-sm">
     </div>
     <div>
       <label for="title" class="mb-1 block text-sm font-medium">{{ t('analyze.role_title', lang) }}</label>
       <input id="title" name="title" value="{{ values.title }}"
-             class="w-full rounded border border-slate-300 px-3 py-2 text-sm">
+             class="w-full rounded-control border border-border px-3 py-2 text-sm">
     </div>
   </div>
   <div>
     <label for="track_id" class="mb-1 block text-sm font-medium">{{ t('analyze.track', lang) }}</label>
     <select id="track_id" name="track_id"
-            class="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm">
+            class="w-full rounded-control border border-border bg-surface-1 px-3 py-2 text-sm">
       <option value="">{{ t('analyze.track_none', lang) }}</option>
       {% for track in tracks %}
       <option value="{{ track.id }}" {% if values.track_id == track.id|string %}selected{% endif %}>
@@ -49,7 +49,7 @@
       </option>
       {% endfor %}
     </select>
-    <p class="mt-1 text-xs text-slate-500">{{ t('analyze.track_hint', lang) }}</p>
+    <p class="mt-1 text-xs text-text-3">{{ t('analyze.track_hint', lang) }}</p>
   </div>
   {% if tracks %}
   {# F7.1: for the user who has not decided which track to apply with. It only acts
@@ -61,12 +61,12 @@
            {% if values.recommend == 'on' %}checked{% endif %}>
     <span>
       {{ t('analyze.recommend', lang) }}
-      <span class="mt-1 block text-xs text-slate-500">{{ t('analyze.recommend_hint', lang) }}</span>
+      <span class="mt-1 block text-xs text-text-3">{{ t('analyze.recommend_hint', lang) }}</span>
     </span>
   </label>
   {% endif %}
-  <p class="text-xs text-slate-500">{{ t('analyze.optional_hint', lang) }}</p>
-  <button type="submit" class="rounded bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800">
+  <p class="text-xs text-text-3">{{ t('analyze.optional_hint', lang) }}</p>
+  <button type="submit" class="rounded-control bg-link px-3 py-2 text-sm font-medium text-bg hover:opacity-90">
     {{ t('analyze.submit', lang) }}
   </button>
 </form>

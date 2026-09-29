@@ -6,22 +6,22 @@
 </h1>
 
 <form method="post" action="{{ '/tracks' if not track else '/tracks/' ~ track.id }}"
-      class="mt-6 space-y-4 rounded-lg border border-slate-200 bg-white p-5">
+      class="mt-6 space-y-4 rounded-card border border-card-border bg-surface-1 p-5">
   <div>
     <label for="name" class="mb-1 block text-sm font-medium">{{ t('tracks.name', lang) }}</label>
     <input id="name" name="name" required value="{{ track.name if track else '' }}"
-           class="w-full rounded border border-slate-300 px-3 py-2 text-sm">
+           class="w-full rounded-control border border-border px-3 py-2 text-sm">
   </div>
   <div>
     <label for="applies_when" class="mb-1 block text-sm font-medium">{{ t('tracks.applies_when', lang) }}</label>
     <input id="applies_when" name="applies_when" value="{{ track.applies_when if track else '' }}"
-           class="w-full rounded border border-slate-300 px-3 py-2 text-sm">
-    <p class="mt-1 text-xs text-slate-500">{{ t('tracks.applies_hint', lang) }}</p>
+           class="w-full rounded-control border border-border px-3 py-2 text-sm">
+    <p class="mt-1 text-xs text-text-3">{{ t('tracks.applies_hint', lang) }}</p>
   </div>
   <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
     <div>
       <label for="lang" class="mb-1 block text-sm font-medium">{{ t('tracks.lang', lang) }}</label>
-      <select id="lang" name="lang" class="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm">
+      <select id="lang" name="lang" class="w-full rounded-control border border-border bg-surface-1 px-3 py-2 text-sm">
         <option value="es" {% if not track or track.lang == 'es' %}selected{% endif %}>ES</option>
         <option value="en" {% if track and track.lang == 'en' %}selected{% endif %}>EN</option>
       </select>
@@ -30,8 +30,8 @@
       <label for="target_seniority" class="mb-1 block text-sm font-medium">{{ t('tracks.seniority', lang) }}</label>
       <input id="target_seniority" name="target_seniority"
              value="{{ track.target_seniority or '' if track else '' }}"
-             class="w-full rounded border border-slate-300 px-3 py-2 text-sm">
-      <p class="mt-1 text-xs text-slate-500">{{ t('tracks.seniority_hint', lang) }}</p>
+             class="w-full rounded-control border border-border px-3 py-2 text-sm">
+      <p class="mt-1 text-xs text-text-3">{{ t('tracks.seniority_hint', lang) }}</p>
     </div>
   </div>
   <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -39,15 +39,15 @@
       <label for="organisation_kind" class="mb-1 block text-sm font-medium">{{ t('tracks.organisation_kind', lang) }}</label>
       <input id="organisation_kind" name="organisation_kind"
              value="{{ track.organisation_kind or '' if track else '' }}"
-             class="w-full rounded border border-slate-300 px-3 py-2 text-sm">
-      <p class="mt-1 text-xs text-slate-500">{{ t('tracks.organisation_kind_hint', lang) }}</p>
+             class="w-full rounded-control border border-border px-3 py-2 text-sm">
+      <p class="mt-1 text-xs text-text-3">{{ t('tracks.organisation_kind_hint', lang) }}</p>
     </div>
     <div>
       <label for="specialisation" class="mb-1 block text-sm font-medium">{{ t('tracks.specialisation', lang) }}</label>
       <input id="specialisation" name="specialisation"
              value="{{ track.specialisation or '' if track else '' }}"
-             class="w-full rounded border border-slate-300 px-3 py-2 text-sm">
-      <p class="mt-1 text-xs text-slate-500">{{ t('tracks.specialisation_hint', lang) }}</p>
+             class="w-full rounded-control border border-border px-3 py-2 text-sm">
+      <p class="mt-1 text-xs text-text-3">{{ t('tracks.specialisation_hint', lang) }}</p>
     </div>
   </div>
 
@@ -59,22 +59,22 @@
       <label for="headline_es" class="mb-1 block text-sm font-medium">{{ t('tracks.headline_es', lang) }}</label>
       <input id="headline_es" name="headline_es"
              value="{{ track.headline_es or '' if track else '' }}"
-             class="w-full rounded border border-slate-300 px-3 py-2 text-sm">
+             class="w-full rounded-control border border-border px-3 py-2 text-sm">
     </div>
     <div>
       <label for="headline_en" class="mb-1 block text-sm font-medium">{{ t('tracks.headline_en', lang) }}</label>
       <input id="headline_en" name="headline_en"
              value="{{ track.headline_en or '' if track else '' }}"
-             class="w-full rounded border border-slate-300 px-3 py-2 text-sm">
+             class="w-full rounded-control border border-border px-3 py-2 text-sm">
     </div>
   </div>
-  <p class="text-xs text-slate-500">{{ t('tracks.headline_hint', lang) }}</p>
+  <p class="text-xs text-text-3">{{ t('tracks.headline_hint', lang) }}</p>
 
   {% macro summary_slot(code, label_key, rows, selected_id) %}
-  <div class="rounded border border-slate-100 bg-slate-50 p-3">
+  <div class="rounded-control border border-card-border bg-surface-1 p-3">
     <label for="summary_{{ code }}_id" class="mb-1 block text-sm font-medium">{{ t(label_key, lang) }}</label>
     <select id="summary_{{ code }}_id" name="summary_{{ code }}_id"
-            class="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm">
+            class="w-full rounded-control border border-border bg-surface-1 px-3 py-2 text-sm">
       <option value="">{{ t('tracks.summary_none', lang) }}</option>
       {% for row in rows %}
       <option value="{{ row.id }}" {% if selected_id == row.id %}selected{% endif %}>
@@ -84,7 +84,7 @@
     </select>
     <label for="summary_{{ code }}_new" class="mt-2 block text-sm font-medium">{{ t('tracks.summary_new', lang) }}</label>
     <textarea id="summary_{{ code }}_new" name="summary_{{ code }}_new" rows="3"
-              class="w-full rounded border border-slate-300 px-3 py-2 text-sm"></textarea>
+              class="w-full rounded-control border border-border px-3 py-2 text-sm"></textarea>
   </div>
   {% endmacro %}
 
@@ -94,16 +94,16 @@
     {{ summary_slot('en', 'tracks.summary_en', summary_rows.get('en', []),
                     track.summary_en_id if track else none) }}
   </div>
-  <p class="text-xs text-slate-500">{{ t('tracks.summary_hint', lang) }}</p>
+  <p class="text-xs text-text-3">{{ t('tracks.summary_hint', lang) }}</p>
 
   <div>
     <p class="mb-1 text-sm font-medium">{{ t('tracks.skills', lang) }}</p>
-    <p class="mb-2 text-xs text-slate-500">{{ t('tracks.skills_hint', lang) }}</p>
+    <p class="mb-2 text-xs text-text-3">{{ t('tracks.skills_hint', lang) }}</p>
     {% for kind, names in skill_groups %}
-    <p class="mt-2 text-xs uppercase tracking-wide text-slate-500">{{ t('kind.' ~ kind, lang) }}</p>
+    <p class="mt-2 text-xs uppercase tracking-wide text-text-3">{{ t('kind.' ~ kind, lang) }}</p>
     <div class="mt-1 flex flex-wrap gap-2">
       {% for name in names %}
-      <label class="flex items-center gap-2 rounded border border-slate-200 bg-white px-3 py-2 text-sm">
+      <label class="flex items-center gap-2 rounded-control border border-card-border bg-surface-1 px-3 py-2 text-sm">
         <input type="checkbox" name="skill" value="{{ name }}"
                {% if track and name in track.skills %}checked{% endif %}>
         <span>{{ name }}</span>
@@ -111,7 +111,7 @@
       {% endfor %}
     </div>
     {% else %}
-    <p class="text-sm text-slate-600">{{ t('tracks.skills_pool_empty', lang) }}</p>
+    <p class="text-sm text-text-2">{{ t('tracks.skills_pool_empty', lang) }}</p>
     {% endfor %}
   </div>
 
@@ -120,11 +120,11 @@
     <input type="checkbox" name="active" value="on" {% if track.active %}checked{% endif %}>
     {{ t('common.active', lang) }}
   </label>
-  <p class="text-xs text-slate-500">{{ t('tracks.deactivate_hint', lang) }}</p>
+  <p class="text-xs text-text-3">{{ t('tracks.deactivate_hint', lang) }}</p>
   {% endif %}
 
   <div class="flex items-center gap-4">
-    <button type="submit" class="rounded bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800">
+    <button type="submit" class="rounded-control bg-link px-3 py-2 text-sm font-medium text-bg hover:opacity-90">
       {{ t('common.save', lang) }}
     </button>
     <a href="{{ '/tracks' if not track else '/tracks/' ~ track.id }}" class="text-sm underline">

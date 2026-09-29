@@ -388,3 +388,86 @@ BOOLEAN_RECALL = Prompt(
     ),
     template="{posting}",
 )
+
+
+# F7.3's generated text. Each is versioned on its own and cached by content hash like
+# every other call; `generate_summary`, `generate_bullet` and `story_bullets` are
+# personal purposes, so "Eliminar todo" redacts their answers (F2.8).
+
+SUMMARY_SKILLS_V1 = Prompt(
+    version="summary_skills_v1",
+    # The rules are the cacheable prefix; the posting, the bullets and the grades are
+    # the whole user message. The rules restate F7.3's three validators in the
+    # provider's own words — the code checks them afterwards either way.
+    system=(
+        "You write a short professional summary and a skills list for one person's "
+        "CV, tailored to one job posting, in the posting's language.\n\n"
+        "You may use only the material you are given. The bullets are the person's "
+        "own words about their own work. The summary restates what they already say, "
+        "leading with the skill the posting centres on, and never adds a number, a "
+        "percentage, a year, a date, an employer, a tool or a result that is not "
+        "written in the bullets you cite.\n\n"
+        "Every summary cites the bullet ids it draws on. A summary that cites nothing "
+        "is not a summary; return no summary rather than an uncited one.\n\n"
+        "The skills list names only canonicals from the vocabulary given, ordered so "
+        "the posting's own requirements come first, and only ones the person's pool "
+        "already contains — a skill the posting asks for and the person lacks is a "
+        "gap, so leave it out rather than adding it.\n\n"
+        "Return the summary text, the bullet ids it cites, and the ordered skills."
+    ),
+    template=(
+        "The posting, as extracted (language {lang}):\n{jd}\n\n"
+        "The track's bullets, by id — the only material the summary may restate:\n"
+        "{bullets}\n\n"
+        "The grades those bullets received for this posting (requirement, level 0-3, "
+        "weight):\n{grades}\n\n"
+        "The skills already chosen for this track:\n{track_skills}\n\n"
+        "The person's full skill pool — every canonical they may be credited with:\n"
+        "{pool}\n\n"
+        "Write the summary in {lang}."
+    ),
+)
+
+
+BULLET_REPHRASE_V1 = Prompt(
+    version="bullet_rephrase_v1",
+    system=(
+        "You rewrite one line of a person's CV so it answers one job posting, in the "
+        "posting's language. You change the words, never the facts: a number, a "
+        "percentage, a year, an employer, a tool or a result that is not in the "
+        "original line does not appear in yours. Do not add a skill the line does not "
+        "show, do not upgrade a verb's claim, and do not merge in material from "
+        "anywhere else.\n\n"
+        "The posting's own words matter: where the line already means what the "
+        "posting asks for, say it in the posting's terms. Keep it one line, and cite "
+        "the id of the line you rewrote."
+    ),
+    template=(
+        "The posting's title and requirements this line was cited for:\n{posting}\n\n"
+        "The line to rewrite, by id — its text in each language it has:\n{bullet}\n\n"
+        "Return the rewritten line in {lang}, citing that bullet id."
+    ),
+)
+
+
+STORY_BULLETS_V1 = Prompt(
+    version="story_bullets_v1",
+    system=(
+        "You turn one long-form career story into CV bullets, in the requested "
+        "language. You may write up to three, and fewer is better than padding: one "
+        "strong bullet beats three weak ones.\n\n"
+        "A bullet states what the person did and what came of it, using only what the "
+        "story says. Never add a number, a percentage, a year, a date, an employer, a "
+        "client or a tool the story does not contain; a metric the story leaves "
+        "unstated stays unstated.\n\n"
+        "Each bullet cites the story's id and the id of one of the person's roles, "
+        "chosen from the list given — the role the work belongs to. Cite nothing "
+        "else, and cite no id that is not in the lists."
+    ),
+    template=(
+        "The story, by id:\n{story}\n\n"
+        "The person's roles (id and title) — choose the role each bullet belongs "
+        "to:\n{roles}\n\n"
+        "Return up to three bullets in {lang}, each citing the story id and a role id."
+    ),
+)

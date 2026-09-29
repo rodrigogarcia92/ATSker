@@ -5,6 +5,7 @@ from typing import Annotated
 from fastapi import APIRouter, Form, HTTPException, Query, Request
 from fastapi.responses import RedirectResponse
 
+from src.applications import stale_application_count
 from src.bullets import list_bullets
 from src.deletion import (
     delete_everything,
@@ -51,6 +52,8 @@ def dashboard(request: Request, user: SignedInUser, session: DbSession, profile:
             "educations": len(educations),
             "metrics": sum(len(bullet.metrics) for bullet in bullets),
         },
+        # F.1: the outcome habit — analyses older than the window with nothing back.
+        stale=stale_application_count(profile.id, session),
     )
 
 

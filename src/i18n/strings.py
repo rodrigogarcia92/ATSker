@@ -16,19 +16,24 @@ STRINGS: dict[str, dict[str, str]] = {
         "es": "Evaluación de encaje entre tu currículum y una oferta",
         "en": "How well your résumé matches a job posting",
     },
-    # Shell
-    "nav.dashboard": {"es": "Panel", "en": "Dashboard"},
+    # Shell — the 64px icon rail of §12.1: three groups, nine links, and the account
+    # controls. Vocabulario is not a rail destination; Perfil links to it.
+    "nav.dashboard": {"es": "Inicio", "en": "Home"},
     "nav.analyze": {"es": "Analizar", "en": "Analyse"},
     "nav.applications": {"es": "Historial", "en": "History"},
-    "nav.import": {"es": "Importar", "en": "Import"},
+    "nav.import": {"es": "Importar CV", "en": "Import CV"},
     "nav.tracks": {"es": "Puestos objetivo", "en": "Tracks"},
     "nav.profile": {"es": "Perfil", "en": "Profile"},
-    "nav.roles": {"es": "Trayectoria", "en": "Experience"},
+    "nav.roles": {"es": "Experiencia", "en": "Experience"},
     "nav.stories": {"es": "Historias", "en": "Stories"},
     "nav.letters": {"es": "Cartas", "en": "Letters"},
     "nav.vocabulary": {"es": "Vocabulario", "en": "Vocabulary"},
     "nav.logout": {"es": "Salir", "en": "Log out"},
     "nav.language": {"es": "Idioma", "en": "Language"},
+    "nav.group.apply": {"es": "Postular", "en": "Apply"},
+    "nav.group.material": {"es": "Tu material", "en": "Your material"},
+    "nav.group.account": {"es": "Cuenta", "en": "Account"},
+    "nav.menu": {"es": "Menú", "en": "Menu"},
     # Shared
     "common.save": {"es": "Guardar", "en": "Save"},
     "common.create": {"es": "Crear", "en": "Create"},
@@ -46,6 +51,11 @@ STRINGS: dict[str, dict[str, str]] = {
     # with the strings rather than in the caller.
     "common.and": {"es": "y", "en": "and"},
     "common.none": {"es": "—", "en": "—"},
+    # §12.1's score bands, presentation words for the three-stop scale. They name a
+    # colour, never a scoring rule; the thresholds (75/50) live in `_ui.html`.
+    "ui.band.strong": {"es": "Fuerte", "en": "Strong"},
+    "ui.band.adequate": {"es": "Adecuado", "en": "Adequate"},
+    "ui.band.weak": {"es": "Débil", "en": "Weak"},
     "common.back": {"es": "Volver", "en": "Back"},
     "common.empty": {"es": "Sin datos todavía.", "en": "Nothing here yet."},
     "common.not_found": {"es": "No encontrado.", "en": "Not found."},
@@ -73,11 +83,16 @@ STRINGS: dict[str, dict[str, str]] = {
     "dashboard.title": {"es": "Panel", "en": "Dashboard"},
     "dashboard.welcome": {"es": "Hola, {name}", "en": "Hello, {name}"},
     "dashboard.roles": {"es": "Puestos", "en": "Roles"},
-    "dashboard.bullets": {"es": "Viñetas activas", "en": "Active bullets"},
+    "dashboard.bullets": {"es": "Bullets activos", "en": "Active bullets"},
     "dashboard.stories": {"es": "Historias", "en": "Stories"},
     "dashboard.letters": {"es": "Plantillas de carta", "en": "Letter templates"},
     "dashboard.educations": {"es": "Formación", "en": "Education"},
     "dashboard.metrics": {"es": "Métricas detectadas", "en": "Detected metrics"},
+    # F.1: the outcome habit. The window (14 days) is a presentation constant.
+    "dashboard.stale": {
+        "es": "{count} análisis de hace más de 14 días sin resultado",
+        "en": "{count} analyses older than 14 days with no outcome",
+    },
     "dashboard.next": {
         "es": "Sube tu currículum en PDF o Word: se extrae y lo revisas antes de "
         "guardar nada.",
@@ -85,14 +100,14 @@ STRINGS: dict[str, dict[str, str]] = {
         "before anything is saved.",
     },
     "dashboard.empty": {
-        "es": "Empieza por tu trayectoria, o importa un currículum y revísalo.",
+        "es": "Empieza por tu experiencia, o importa un currículum y revísalo.",
         "en": "Start with your experience, or import a résumé and review it.",
     },
     # Analysis (M5b) — the form, and the report the analysis leaves behind
     "analyze.title": {"es": "Analizar una oferta", "en": "Analyse a posting"},
     "analyze.intro": {
         "es": "Pega el texto de la oferta. Se extraen los requisitos, se contrastan "
-        "con tus viñetas y el informe queda guardado.",
+        "con tus bullets y el informe queda guardado.",
         "en": "Paste the posting. Its requirements are extracted, graded against your "
         "bullets, and the report is kept.",
     },
@@ -121,18 +136,18 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "The analysis could not be completed; no report was saved.",
     },
     "analyze.need_bullets": {
-        "es": "No hay viñetas activas: sin ellas no hay evidencia que citar y la "
+        "es": "No hay bullets activos: sin ellos no hay evidencia que citar y la "
         "cobertura será cero.",
         "en": "No active bullets: without them there is no evidence to cite and "
         "coverage will be zero.",
     },
     "analyze.track": {"es": "Puesto objetivo (opcional)", "en": "Track (optional)"},
     "analyze.track_none": {
-        "es": "Sin puesto objetivo: todas las viñetas activas",
+        "es": "Sin puesto objetivo: todos los bullets activos",
         "en": "No track: every active bullet",
     },
     "analyze.track_hint": {
-        "es": "Con un puesto objetivo, la puntuación usa solo sus viñetas y, si lo "
+        "es": "Con un puesto objetivo, la puntuación usa solo sus bullets y, si lo "
         "tiene, su titular.",
         "en": "With a track, the score uses only its bullets and, when set, its headline.",
     },
@@ -173,12 +188,33 @@ STRINGS: dict[str, dict[str, str]] = {
     "applications.outcome.interview": {"es": "Entrevista", "en": "Interview"},
     "applications.outcome.offer": {"es": "Oferta", "en": "Offer"},
     "applications.outcome.rejected": {"es": "Rechazado", "en": "Rejected"},
+    # F9's remaining columns, beside the score: the four sub-scores, both scans, the
+    # prompt versions and the cost. "—" when the analysis predates the field.
+    "applications.readability": {"es": "Lectura", "en": "Readability"},
+    "applications.boolean": {"es": "Búsqueda", "en": "Search"},
+    "applications.prompts": {"es": "Prompts", "en": "Prompts"},
+    "applications.cost": {"es": "Coste", "en": "Cost"},
+    # F.1: the history can be narrowed to the analyses still waiting on a result.
+    "applications.filter.none": {"es": "Sin resultado", "en": "No outcome"},
+    "applications.filtered": {"es": "Mostrando solo: {label}", "en": "Showing only: {label}"},
+    "applications.filter_clear": {"es": "Ver todos", "en": "Show all"},
+    "applications.scan.pass": {"es": "Sin hallazgos", "en": "No findings"},
+    "applications.scan.capped": {"es": "≤ {cap}", "en": "≤ {cap}"},
+    "applications.recall.pass": {"es": "Apareces", "en": "You appear"},
+    "applications.recall.fail": {"es": "No apareces", "en": "You do not appear"},
     "applications.empty": {
         "es": "Todavía no hay análisis. Pega una oferta y aparecerá aquí.",
         "en": "No analyses yet. Paste a posting and it will appear here.",
     },
     # Scan B — boolean recall (F5.2)
-    "recall.title": {"es": "Recuperación booleana", "en": "Boolean recall"},
+    "recall.title": {"es": "¿Te encuentra el reclutador?", "en": "Will the recruiter find you?"},
+    "recall.appears": {"es": "Apareces", "en": "You appear"},
+    "recall.not_appears": {"es": "No apareces", "en": "You do not appear"},
+    # The labels the derivation returns, shown in the reader's language (N6.6). A label
+    # outside this set is shown as the model wrote it.
+    "recall.label.broad": {"es": "amplia", "en": "broad"},
+    "recall.label.strict": {"es": "estricta", "en": "strict"},
+    "recall.label.core": {"es": "núcleo", "en": "core"},
     "recall.intro": {
         "es": "Las consultas que un reclutador escribiría en un ATS o en un portal, y "
         "si tu puesto objetivo aparecería en sus resultados. No entra en el Encaje "
@@ -207,11 +243,11 @@ STRINGS: dict[str, dict[str, str]] = {
     },
     "recall.clause_met": {"es": "{term} — lo cumple {unit}", "en": "{term} — met by {unit}"},
     "recall.clause_missing": {"es": "{term} — no aparece", "en": "{term} — absent"},
-    "recall.unit.bullet": {"es": "una viñeta", "en": "a bullet"},
+    "recall.unit.bullet": {"es": "un bullet", "en": "a bullet"},
     "recall.unit.skill": {"es": "una habilidad", "en": "a skill"},
     "recall.unit.headline": {"es": "el titular", "en": "the headline"},
     "recall.unit.summary": {"es": "el resumen", "en": "the summary"},
-    "recall.unit.role": {"es": "un puesto de tu trayectoria", "en": "a role title"},
+    "recall.unit.role": {"es": "un puesto de tu experiencia", "en": "a role title"},
     "recall.unit.education": {"es": "tu formación", "en": "your education"},
     "recall.unit.certification": {"es": "una certificación", "en": "a certification"},
     "recall.empty": {
@@ -257,7 +293,7 @@ STRINGS: dict[str, dict[str, str]] = {
     },
     "report.track": {"es": "Puesto objetivo: {name}", "en": "Track: {name}"},
     "report.no_track": {
-        "es": "Sin puesto objetivo: se puntuaron todas las viñetas activas.",
+        "es": "Sin puesto objetivo: se puntuaron todos los bullets activos.",
         "en": "No track: every active bullet was scored.",
     },
     "report.sub_scores": {"es": "Componentes", "en": "Components"},
@@ -313,7 +349,68 @@ STRINGS: dict[str, dict[str, str]] = {
     "report.sub.evidence": {"es": "Cobertura de evidencia", "en": "Evidence coverage"},
     "report.sub.keyword": {"es": "Contexto de palabras clave", "en": "Keyword context"},
     "report.sub.semantic": {"es": "Encaje semántico", "en": "Semantic fit"},
-    "report.weight": {"es": "peso", "en": "weight"},
+    # §12.1: no weights are shown on the report page, so there is no word for one. The
+    # calculation version is what the page names instead.
+    "report.calculation": {"es": "Cálculo", "en": "Calculation"},
+    "report.model": {"es": "Modelo", "en": "Model"},
+    "report.calls_cost": {"es": "Llamadas y coste", "en": "Calls and cost"},
+    "report.evidence_language": {"es": "Idioma de la evidencia", "en": "Evidence language"},
+    "report.analyse_another": {
+        "es": "Analizar con otro puesto",
+        "en": "Analyse with another posting",
+    },
+    "report.job_match_caption": {
+        "es": "Qué tan bien encaja este CV con lo que pide la oferta; no es la "
+        "probabilidad de ser contratado.",
+        "en": "How well this CV fits what the posting asks for; not the probability of "
+        "being hired.",
+    },
+    "report.scan_readability_question": {
+        "es": "¿El ATS lee bien tu CV?",
+        "en": "Does the ATS read your CV correctly?",
+    },
+    # N6.6: the readability panel is always present; with no source document it says so
+    # rather than disappearing, which read as a clean bill of health.
+    "report.scan_no_document": {
+        "es": "No se leyó ningún archivo en este análisis: el puesto no tiene un CV subido.",
+        "en": "No file was read for this analysis: the track has no uploaded CV.",
+    },
+    "report.requirements": {"es": "Requisitos y evidencia", "en": "Requirements and evidence"},
+    "report.before_applying": {"es": "Antes de postular", "en": "Before applying"},
+    "report.skills_split_total": {
+        "es": "Habilidades {total} = {direct} directo + {transfer} transferible",
+        "en": "Skills {total} = {direct} direct + {transfer} transfer",
+    },
+    # One-line captions for the sub-score cards. The three `w1` names are kept so a
+    # stored report renders with a caption rather than a bare key.
+    "report.sub_caption.skills": {
+        "es": "Lo que demuestras de lo que la oferta pide.",
+        "en": "What you demonstrate of what the posting asks for.",
+    },
+    "report.sub_caption.experience": {
+        "es": "Años de experiencia pertinentes a este puesto.",
+        "en": "Years of experience pertinent to this posting.",
+    },
+    "report.sub_caption.title": {
+        "es": "Cuánto se acerca tu título al del puesto.",
+        "en": "How close your title is to the posting's.",
+    },
+    "report.sub_caption.keywords": {
+        "es": "Términos de la oferta presentes en tu CV.",
+        "en": "Terms from the posting present in your CV.",
+    },
+    "report.sub_caption.evidence": {
+        "es": "Cobertura de evidencia del informe almacenado.",
+        "en": "Evidence coverage, as the stored report recorded it.",
+    },
+    "report.sub_caption.keyword": {
+        "es": "Contexto de palabras clave del informe almacenado.",
+        "en": "Keyword context, as the stored report recorded it.",
+    },
+    "report.sub_caption.semantic": {
+        "es": "Encaje semántico del informe almacenado.",
+        "en": "Semantic fit, as the stored report recorded it.",
+    },
     "report.disqualifiers": {"es": "Requisitos eliminatorios", "en": "Disqualifiers"},
     "report.disqualifiers_hint": {
         "es": "No entran en la puntuación: un requisito eliminatorio no es un porcentaje.",
@@ -345,7 +442,7 @@ STRINGS: dict[str, dict[str, str]] = {
     "report.grades": {"es": "Requisitos evaluados", "en": "Graded requirements"},
     "report.grades_hint": {
         "es": "0 ausente · 1 mencionado · 2 aplicado · 3 demostrado. Cada nivel cita la "
-        "viñeta que lo sostiene.",
+        "bullet que lo sostiene.",
         "en": "0 absent · 1 mentioned · 2 applied · 3 demonstrated. Every level cites "
         "the bullet that supports it.",
     },
@@ -388,10 +485,10 @@ STRINGS: dict[str, dict[str, str]] = {
         "es": "{direct} directo + {transfer} transferible",
         "en": "{direct} direct + {transfer} transfer",
     },
-    "report.experience_years": {
-        "es": "Años relevantes {relevant} de {held} contados",
-        "en": "Relevant years {relevant} of {held} held",
-    },
+    # N6.6: the tag is the relevant years in the interface's language; the line is the
+    # split relevant-of-held, both trimmed to at most one decimal by the `years` filter.
+    "report.experience_years_tag": {"es": "{years} años", "en": "{years} years"},
+    "report.experience_years": {"es": "{relevant} de {held}", "en": "{relevant} of {held}"},
     "report.experience_roles": {"es": "Puestos contados", "en": "Counted roles"},
     "report.transfer_band": {"es": "Cubierto por transferencia", "en": "Covered by transfer"},
     "report.transfer_band_hint": {
@@ -446,13 +543,13 @@ STRINGS: dict[str, dict[str, str]] = {
         "own data.",
     },
     "report.advice.promote_bullet": {
-        "es": "Mueve esta viñeta a las tres primeras del puesto: demuestra {requirement} "
+        "es": "Mueve este bullet a las tres primeras del puesto: demuestra {requirement} "
         "y está en la posición {position}, con material más débil por encima.",
         "en": "Move this bullet into the track's first three: it demonstrates "
         "{requirement} and it sits at position {position}, with weaker material above.",
     },
     "report.advice.add_bullet": {
-        "es": "Añade esta viñeta al puesto: demuestra {canonical}, que la oferta pide y "
+        "es": "Añade este bullet al puesto: demuestra {canonical}, que la oferta pide y "
         "el análisis no encontró.",
         "en": "Add this bullet to the track: it demonstrates {canonical}, which the "
         "posting asks for and the analysis did not find.",
@@ -464,7 +561,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "have it evidenced.",
     },
     "report.advice.fix_query": {
-        "es": "La búsqueda «{query}» no te devolvería, y tienes una viñeta que dice "
+        "es": "La búsqueda «{query}» no te devolvería, y tienes un bullet que dice "
         "{canonical}: inclúyela en el puesto o usa sus palabras.",
         "en": "The search “{query}” would not return you, and you have a bullet that "
         "says {canonical}: add it to the track, or use its words.",
@@ -482,12 +579,20 @@ STRINGS: dict[str, dict[str, str]] = {
         "work.",
     },
     "report.advice.language": {
-        "es": "Escribe en {language} {bullets} de tus {total_bullets} viñetas y "
+        "es": "Escribe en {language} {bullets} de tus {total_bullets} bullets y "
         "{titles} de tus cargos.",
         "en": "Write {bullets} of your {total_bullets} bullets and {titles} of your "
         "titles in {language}.",
     },
     "report.advice.evidence": {"es": "Evidencia", "en": "Evidence"},
+    # The source tag on every advice item: which of F7.2's rules produced it, in a word.
+    "report.advice.tag.promote_bullet": {"es": "Promover", "en": "Promote"},
+    "report.advice.tag.add_bullet": {"es": "Añadir", "en": "Add"},
+    "report.advice.tag.surface_skill": {"es": "Habilidad", "en": "Skill"},
+    "report.advice.tag.fix_query": {"es": "Búsqueda", "en": "Search"},
+    "report.advice.tag.title_language": {"es": "Título", "en": "Title"},
+    "report.advice.tag.title_headline": {"es": "Titular", "en": "Headline"},
+    "report.advice.tag.language": {"es": "Idioma", "en": "Language"},
     "report.no_grades": {
         "es": "La oferta no produjo requisitos que evaluar.",
         "en": "The posting produced no requirements to grade.",
@@ -504,10 +609,117 @@ STRINGS: dict[str, dict[str, str]] = {
     },
     "report.from_cache": {"es": "desde caché", "en": "from cache"},
     "report.fresh_call": {"es": "llamada nueva", "en": "fresh call"},
-    "report.weights_version": {"es": "Pesos", "en": "Weights"},
+    # Removed: "report.weights_version" — the page names the calculation, never weights.
     "report.prompt_versions": {"es": "Versiones de prompt", "en": "Prompt versions"},
     "report.jd_hash": {"es": "Hash de la oferta", "en": "Posting hash"},
     "report.again": {"es": "Analizar otra oferta", "en": "Analyse another posting"},
+    # F7.3's generated text: on demand, validated, shown as a diff, accepted by hand.
+    "generate.propose_summary": {
+        "es": "Proponer resumen y habilidades",
+        "en": "Propose a summary and skills",
+    },
+    # The provider call is a button on a POST, never a GET (F.0).
+    "generate.run": {"es": "Generar propuesta", "en": "Generate proposal"},
+    "generate.title": {
+        "es": "Resumen y habilidades propuestos",
+        "en": "Proposed summary and skills",
+    },
+    "generate.intro": {
+        "es": "Una propuesta a partir de tu propio material. Nada se guarda hasta que "
+        "aceptes, y al aceptar se vuelve a validar contra la base de datos.",
+        "en": "A proposal built from your own material. Nothing is stored until you "
+        "accept, and accepting validates it against the database again.",
+    },
+    "generate.current": {"es": "Ahora", "en": "Current"},
+    "generate.proposed": {"es": "Propuesta", "en": "Proposed"},
+    "generate.skills": {"es": "Habilidades", "en": "Skills"},
+    "generate.empty_summary": {
+        "es": "— sin resumen en este idioma —",
+        "en": "— no summary in this language —",
+    },
+    "generate.use_in_track": {
+        "es": "Usar en este puesto: {name}",
+        "en": "Use in this track: {name}",
+    },
+    "generate.accept": {"es": "Aceptar", "en": "Accept"},
+    "generate.back": {"es": "Volver al informe", "en": "Back to the report"},
+    "generate.rejected": {
+        "es": "La propuesta no pasó la validación y no se puede aceptar.",
+        "en": "The proposal failed validation and cannot be accepted.",
+    },
+    "generate.refused": {
+        "es": "No se ha guardado nada: la propuesta enviada no pasó la validación.",
+        "en": "Nothing was stored: the submitted proposal failed validation.",
+    },
+    "generate.failed": {
+        "es": "El modelo no respondió; no se ha propuesto nada. Inténtalo de nuevo.",
+        "en": "The model did not answer; nothing was proposed. Try again.",
+    },
+    "generate.violation.provenance": {
+        "es": "Cita una fuente que no existe o no es tuya.",
+        "en": "Cites a source that does not exist or is not yours.",
+    },
+    "generate.violation.literal": {
+        "es": "Un número o un nombre no aparece en la fuente citada.",
+        "en": "A number or a name does not appear in the cited source.",
+    },
+    "generate.violation.closure": {
+        "es": "Nombra una habilidad que no está en tus datos o no está respaldada.",
+        "en": "Names a skill that is not in your data or is not evidenced.",
+    },
+    # Tier 3a: one bullet, rewritten for the posting it was cited for.
+    "generate.rephrase": {"es": "Reformular para este aviso", "en": "Rephrase for this posting"},
+    "generate.rephrase_title": {
+        "es": "Reformular para este aviso",
+        "en": "Rephrase for this posting",
+    },
+    "generate.rephrase_intro": {
+        "es": "Una llamada por click. Aceptar guarda el texto nuevo como una revisión "
+        "y conserva el anterior.",
+        "en": "One call per click. Accepting stores the new text as a revision and "
+        "keeps the previous one.",
+    },
+    "generate.current_bullet": {"es": "Bullet actual", "en": "Current bullet"},
+    "generate.empty_bullet": {
+        "es": "— este bullet no tiene texto en este idioma —",
+        "en": "— this bullet has no text in this language —",
+    },
+    "generate.suggested_translation": {
+        "es": "Sugerencia de traducción: este bullet no tiene texto en el idioma del aviso.",
+        "en": "Suggested translation: this bullet has no text in the posting's language.",
+    },
+    # Tier 3b: up to three bullets a story supports, each reviewed before it exists.
+    "generate.propose_bullets": {"es": "Proponer bullets", "en": "Propose bullets"},
+    "generate.story_title": {
+        "es": "Bullets propuestos desde la historia",
+        "en": "Bullets proposed from the story",
+    },
+    "generate.story_intro": {
+        "es": "Hasta tres bullets a partir de esta historia. Cada uno es una propuesta "
+        "que revisas antes de que exista; aceptarlo crea un bullet con la historia como "
+        "origen. La historia no cambia.",
+        "en": "Up to three bullets from this story. Each is a proposal you review before "
+        "it exists; accepting creates a bullet with the story as its source. The story "
+        "does not change.",
+    },
+    "generate.bullet_text": {"es": "Texto del bullet", "en": "Bullet text"},
+    "generate.role": {"es": "Puesto", "en": "Role"},
+    "generate.chips": {"es": "Chips", "en": "Chips"},
+    "generate.chips_hint": {
+        "es": "Separados por comas. Un término que el vocabulario no conoce se guarda "
+        "como pendiente, no se pierde.",
+        "en": "Comma-separated. A term the vocabulary does not know is kept as pending, "
+        "never lost.",
+    },
+    "generate.need_roles": {
+        "es": "Necesitas al menos un puesto para que un bullet tenga dónde vivir.",
+        "en": "You need at least one role for a bullet to live on.",
+    },
+    "generate.no_bullets": {
+        "es": "El modelo no propuso ningún bullet para esta historia.",
+        "en": "The model proposed no bullets for this story.",
+    },
+
     # Profile
     "profile.title": {"es": "Perfil", "en": "Profile"},
     "profile.standing_risks": {"es": "Riesgos persistentes", "en": "Standing risks"},
@@ -535,7 +747,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "The shared skill vocabulary is reviewed under Vocabulary.",
     },
     # Roles
-    "roles.title": {"es": "Trayectoria", "en": "Experience"},
+    "roles.title": {"es": "Experiencia", "en": "Experience"},
     "roles.new": {"es": "Nuevo puesto", "en": "New role"},
     "roles.employer": {"es": "Empleador", "en": "Employer"},
     # F4.2: one title per language. The words "cargo" and "title" name the slots the
@@ -553,7 +765,7 @@ STRINGS: dict[str, dict[str, str]] = {
     "roles.start": {"es": "Desde", "en": "From"},
     "roles.end": {"es": "Hasta", "en": "To"},
     "roles.present": {"es": "actualidad", "en": "present"},
-    "roles.bullets": {"es": "viñetas", "en": "bullets"},
+    "roles.bullets": {"es": "bullets", "en": "bullets"},
     "roles.empty": {
         "es": "Todavía no hay puestos. Añade el primero.",
         "en": "No roles yet. Add the first one.",
@@ -571,7 +783,7 @@ STRINGS: dict[str, dict[str, str]] = {
     "tracks.new": {"es": "Nuevo puesto objetivo", "en": "New track"},
     "tracks.intro": {
         "es": "Un puesto objetivo es un rol al que apuntas, con una selección "
-        "ordenada de tus viñetas. No copia contenido: la misma viñeta sirve a varios.",
+        "ordenada de tus bullets. No copia contenido: el mismo bullet sirve a varios.",
         "en": "A track is a target role with an ordered selection of your bullets. It copies "
         "no content: the same bullet serves several tracks.",
     },
@@ -628,34 +840,34 @@ STRINGS: dict[str, dict[str, str]] = {
     },
     "tracks.skills_pool_empty": {
         "es": "Tu fondo de habilidades está vacío: importa un currículum o añade "
-        "habilidades a una viñeta.",
+        "habilidades a un bullet.",
         "en": "Your skills pool is empty: import a résumé or add skills to a bullet.",
     },
     "tracks.skills_none": {"es": "Sin habilidades seleccionadas.", "en": "No skills selected."},
     "tracks.summaries_present": {"es": "Con resumen en: {langs}", "en": "Summary in: {langs}"},
     "tracks.summaries_absent": {"es": "Sin resumen todavía.", "en": "No summary yet."},
-    "tracks.bullets": {"es": "viñetas", "en": "bullets"},
+    "tracks.bullets": {"es": "bullets", "en": "bullets"},
     "tracks.empty": {
         "es": "Todavía no hay puestos objetivo. Crea el primero.",
         "en": "No tracks yet. Create the first one.",
     },
-    "tracks.selection": {"es": "Viñetas seleccionadas", "en": "Selected bullets"},
+    "tracks.selection": {"es": "Bullets seleccionados", "en": "Selected bullets"},
     "tracks.selection_hint": {
-        "es": "En este orden. El análisis puntúa solo estas viñetas.",
+        "es": "En este orden. El análisis puntúa solo estos bullets.",
         "en": "In this order. An analysis scores only these bullets.",
     },
-    "tracks.no_bullets": {"es": "Sin viñetas seleccionadas.", "en": "No bullets selected yet."},
-    "tracks.pick": {"es": "Elegir viñetas", "en": "Pick bullets"},
-    "tracks.pick_title": {"es": "Viñetas de {name}", "en": "Bullets for {name}"},
+    "tracks.no_bullets": {"es": "Sin bullets seleccionados.", "en": "No bullets selected yet."},
+    "tracks.pick": {"es": "Elegir bullets", "en": "Pick bullets"},
+    "tracks.pick_title": {"es": "Bullets de {name}", "en": "Bullets for {name}"},
     "tracks.pick_hint": {
-        "es": "Marca las viñetas y ordénalas con el número. Las que no lleven número van al "
+        "es": "Marca los bullets y ordénalos con el número. Los que no lleven número van al "
         "final, en el orden en que aparecen.",
         "en": "Tick the bullets and order them with the number. Unnumbered ones go last, in "
         "the order they appear.",
     },
     "tracks.order": {"es": "Orden", "en": "Order"},
     "tracks.no_master_bullets": {
-        "es": "No hay viñetas activas en la base maestra.",
+        "es": "No hay bullets activos en la base maestra.",
         "en": "No active bullets in the master database.",
     },
     "tracks.clone": {"es": "Clonar", "en": "Clone"},
@@ -682,13 +894,13 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "From an uploaded résumé.",
     },
     # Bullets
-    "bullets.title": {"es": "Viñetas", "en": "Bullets"},
-    "bullets.new": {"es": "Nueva viñeta", "en": "New bullet"},
-    "bullets.edit": {"es": "Editar viñeta", "en": "Edit bullet"},
+    "bullets.title": {"es": "Bullets", "en": "Bullets"},
+    "bullets.new": {"es": "Nuevo bullet", "en": "New bullet"},
+    "bullets.edit": {"es": "Editar bullet", "en": "Edit bullet"},
     "bullets.text_es": {"es": "Texto (ES)", "en": "Text (ES)"},
     "bullets.text_en": {"es": "Texto (EN)", "en": "Text (EN)"},
     "bullets.need_text": {
-        "es": "Escribe la viñeta en al menos un idioma.",
+        "es": "Escribe el bullet en al menos un idioma.",
         "en": "Write the bullet in at least one language.",
     },
     "bullets.skills": {"es": "Habilidades", "en": "Skills"},
@@ -706,7 +918,7 @@ STRINGS: dict[str, dict[str, str]] = {
     },
     "bullets.metrics": {"es": "Métricas", "en": "Metrics"},
     "bullets.metrics_none": {"es": "sin números", "en": "no numbers"},
-    "bullets.empty": {"es": "Sin viñetas en este puesto.", "en": "No bullets in this role."},
+    "bullets.empty": {"es": "Sin bullets en este puesto.", "en": "No bullets in this role."},
     # Stories
     "stories.title": {"es": "Historias", "en": "Stories"},
     "stories.new": {"es": "Nueva historia", "en": "New story"},
@@ -720,16 +932,16 @@ STRINGS: dict[str, dict[str, str]] = {
     "stories.no_role": {"es": "sin puesto", "en": "no role"},
     "stories.tags": {"es": "Etiquetas", "en": "Tags"},
     "stories.lang": {"es": "Idioma", "en": "Language"},
-    "stories.related_bullets": {"es": "Viñetas relacionadas", "en": "Related bullets"},
+    "stories.related_bullets": {"es": "Bullets relacionados", "en": "Related bullets"},
     "stories.related_hint": {
-        "es": "Marca las viñetas que esta historia respalda.",
+        "es": "Marca los bullets que esta historia respalda.",
         "en": "Tick the bullets this story backs up.",
     },
     "stories.empty": {"es": "Todavía no hay historias.", "en": "No stories yet."},
-    "stories.linked": {"es": "{count} viñetas enlazadas", "en": "{count} linked bullets"},
+    "stories.linked": {"es": "{count} bullets enlazados", "en": "{count} linked bullets"},
     "stories.suggest": {"es": "Sugerir etiquetas", "en": "Suggest tags"},
     "stories.suggest_hint": {
-        "es": "El modelo propone puesto, viñetas y habilidades; tú confirmas antes de guardar.",
+        "es": "El modelo propone puesto, bullets y habilidades; tú confirmas antes de guardar.",
         "en": "The model proposes role, bullets and skills; you confirm before saving.",
     },
     "stories.suggest_no_model": {
@@ -931,7 +1143,7 @@ STRINGS: dict[str, dict[str, str]] = {
     },
     "import.track": {"es": "Puesto objetivo (opcional)", "en": "Target track (optional)"},
     "import.track_hint": {
-        "es": "La trayectoria con la que piensas usar este currículum. Si lo dejas "
+        "es": "La experiencia con la que piensas usar este currículum. Si lo dejas "
         "vacío, la importación crea un puesto objetivo con el nombre del archivo.",
         "en": "The track you intend this résumé for. Leave it empty and the import "
         "creates a track named after the file.",
@@ -1025,6 +1237,29 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "A Word file has no page geometry: without these checks, \u201cno "
         "findings\u201d does not mean the document is clean.",
     },
+    # F5.1.1: the location view — the page with the finding's boxes outlined, and, for
+    # the three checks where the characters are the only way to act, what each box says.
+    "import.show_where": {"es": "Mostrarme dónde", "en": "Show me where"},
+    "import.location_pdf_only": {
+        "es": "La vista de ubicación solo está disponible para PDF.",
+        "en": "The location view is only available for PDF.",
+    },
+    "import.location_title": {"es": "Dónde está", "en": "Where it is"},
+    "import.location_hint": {
+        "es": "Los recuadros marcan lo que el chequeo señaló. Se lee del archivo "
+        "original al abrir esta página; no se guarda en ningún sitio.",
+        "en": "The boxes mark what the check flagged. It is read from the original "
+        "file when this page opens; it is stored nowhere.",
+    },
+    "import.location_characters": {
+        "es": "Caracteres dentro de los recuadros",
+        "en": "Characters inside the boxes",
+    },
+    "import.location_box": {"es": "Recuadro", "en": "Box"},
+    "import.location_empty_box": {
+        "es": "— sin caracteres legibles —",
+        "en": "— no readable characters —",
+    },
     "import.review_title": {"es": "Revisar la extracción", "en": "Review the extraction"},
     "import.review_hint": {
         "es": "Nada de esto se ha guardado todavía: la base de datos cambia solo "
@@ -1037,12 +1272,12 @@ STRINGS: dict[str, dict[str, str]] = {
     "import.skills": {"es": "Habilidades", "en": "Skills"},
     "import.skills_hint": {
         "es": "Nombres canónicos del vocabulario, separados por comas. Solo son "
-        "anotación: la evidencia y la puntuación leen las viñetas.",
+        "anotación: la evidencia y la puntuación leen los bullets.",
         "en": "Canonical vocabulary names, comma-separated. Annotation only: evidence "
         "and scoring read the bullets.",
     },
     "import.roles": {"es": "Puestos", "en": "Roles"},
-    "import.bullets_of": {"es": "Viñetas", "en": "Bullets"},
+    "import.bullets_of": {"es": "Bullets", "en": "Bullets"},
     "import.employer": {"es": "Empleador", "en": "Employer"},
     "import.position": {"es": "Puesto", "en": "Job title"},
     "import.start": {"es": "Desde", "en": "From"},
@@ -1102,7 +1337,7 @@ STRINGS: dict[str, dict[str, str]] = {
     "import.change.credential": {"es": "credencial", "en": "credential"},
     "import.changes": {"es": "Cambia: {fields}", "en": "Changes: {fields}"},
     "import.role_children_hint": {
-        "es": "Las viñetas de un puesto nuevo solo entran si el puesto entra.",
+        "es": "Los bullets de un puesto nuevo solo entran si el puesto entra.",
         "en": "A new role's bullets come in only if the role does.",
     },
     "import.merge_candidates": {"es": "Candidatos comparados", "en": "Compared items"},
@@ -1132,11 +1367,11 @@ STRINGS: dict[str, dict[str, str]] = {
     "import.track_created": {"es": "Puesto objetivo creado: {name}", "en": "Track created: {name}"},
     "import.track_view": {"es": "Ver el puesto objetivo", "en": "View the track"},
     "import.track_join": {
-        "es": "Las viñetas de este documento se unirán a «{name}».",
+        "es": "Los bullets de este documento se unirán a «{name}».",
         "en": "The bullets from this document will join «{name}».",
     },
     "import.track_joined": {
-        "es": "Viñetas añadidas a «{name}»: {count}.",
+        "es": "Bullets añadidos a «{name}»: {count}.",
         "en": "Bullets added to «{name}»: {count}.",
     },
     "import.track_of_document": {
@@ -1144,7 +1379,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "This document's track: {name}",
     },
     "import.track_bullets_added": {
-        "es": "Viñetas unidas al puesto",
+        "es": "Bullets unidos al puesto",
         "en": "Bullets joined to the track",
     },
     "import.track_skills_added": {
@@ -1178,7 +1413,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "This CV looks like the other-language version of your track",
     },
     "import.translate_offer_hint": {
-        "es": "Importar como traducción rellena las columnas vacías de las viñetas y "
+        "es": "Importar como traducción rellena las columnas vacías de los bullets y "
         "el título que ya tienes en lugar de crear un currículum aparte.",
         "en": "Importing as a translation fills the empty columns of the bullets and "
         "the title you already have instead of creating a second résumé.",
@@ -1193,7 +1428,7 @@ STRINGS: dict[str, dict[str, str]] = {
     },
     "import.translate_intro": {
         "es": "El documento está en {document} y tu puesto objetivo está en {track}. "
-        "Empareja las viñetas que dicen lo mismo; lo que no empareje entra abajo como "
+        "Empareja los bullets que dicen lo mismo; lo que no empareje entra abajo como "
         "candidato nuevo.",
         "en": "The document is in {document} and your track is in {track}. Pair the "
         "bullets that say the same thing; whatever does not pair enters below as a new "
@@ -1205,9 +1440,9 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "Nothing existing is overwritten: a column that already holds text keeps "
         "it as it is.",
     },
-    "import.translate_pairs": {"es": "Viñetas emparejadas", "en": "Paired bullets"},
+    "import.translate_pairs": {"es": "Bullets emparejados", "en": "Paired bullets"},
     "import.translate_pairs_hint": {
-        "es": "Las dos columnas son la misma viñeta en cada idioma. Desmarca lo que no "
+        "es": "Las dos columnas son el mismo bullet en cada idioma. Desmarca lo que no "
         "quieras escribir.",
         "en": "The two columns are the same bullet in each language. Untick whatever "
         "you do not want written.",
@@ -1221,12 +1456,12 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "It already has the other language's text: it is kept, not overwritten.",
     },
     "import.translate_no_pairs": {
-        "es": "Ninguna viñeta dice lo mismo en los dos idiomas.",
+        "es": "Ningún bullet dice lo mismo en los dos idiomas.",
         "en": "No bullet says the same thing in both languages.",
     },
     "import.translate_new": {"es": "Entra como nuevo", "en": "Enters as new"},
     "import.translate_new_hint": {
-        "es": "Las viñetas sin pareja y los puestos que no coinciden siguen las reglas "
+        "es": "Los bullets sin pareja y los puestos que no coinciden siguen las reglas "
         "de F2.5.",
         "en": "Unpaired bullets and roles that do not match follow F2.5's rules.",
     },
@@ -1235,7 +1470,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "Apply the translation",
     },
     "import.translate_failed": {
-        "es": "No se pudo emparejar las viñetas: el modelo no devolvió una respuesta "
+        "es": "No se pudo emparejar los bullets: el modelo no devolvió una respuesta "
         "utilizable. Puedes importar el documento como una selección normal.",
         "en": "The bullets could not be paired: the model did not return a usable "
         "answer. You can import the document as an ordinary selection.",
@@ -1258,8 +1493,8 @@ STRINGS: dict[str, dict[str, str]] = {
     },
     "import.roles_created": {"es": "Puestos nuevos", "en": "Roles created"},
     "import.roles_updated": {"es": "Puestos actualizados", "en": "Roles updated"},
-    "import.bullets_created": {"es": "Viñetas nuevas", "en": "Bullets created"},
-    "import.bullets_updated": {"es": "Viñetas actualizadas", "en": "Bullets updated"},
+    "import.bullets_created": {"es": "Bullets nuevos", "en": "Bullets created"},
+    "import.bullets_updated": {"es": "Bullets actualizados", "en": "Bullets updated"},
     "import.educations_created": {"es": "Formación añadida", "en": "Education added"},
     "import.educations_updated": {"es": "Formación actualizada", "en": "Education updated"},
     "import.certifications_created": {
@@ -1279,7 +1514,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "(institution or name) is missing.",
     },
     "import.reviewed_content": {"es": "Lo que traía el documento", "en": "What the document held"},
-    "import.go_roles": {"es": "Ver mi trayectoria", "en": "See my experience"},
+    "import.go_roles": {"es": "Ver mi experiencia", "en": "See my experience"},
     "import.go_back": {"es": "Volver a importaciones", "en": "Back to uploads"},
     # Gate findings (F5.1) — labels and details. Findings never echo document text.
     "gate.severity.blocker": {"es": "Bloqueante", "en": "Blocker"},
@@ -1299,7 +1534,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "Unrecognised section headings",
     },
     "gate.check.mojibake": {"es": "Caracteres mal codificados", "en": "Mojibake"},
-    "gate.check.image_bullets": {"es": "Viñetas como imagen", "en": "Image-based bullets"},
+    "gate.check.image_bullets": {"es": "Bullets como imagen", "en": "Image-based bullets"},
     "gate.check.non_embedded_fonts": {
         "es": "Fuentes no incrustadas",
         "en": "Non-embedded fonts",
@@ -1395,7 +1630,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "{count} encoding marks ({markers}).",
     },
     "gate.detail.image_bullets": {
-        "es": "Página {page}: {count} viñetas como imagen.",
+        "es": "Página {page}: {count} bullets como imagen.",
         "en": "Page {page}: {count} bullets drawn as images.",
     },
     "gate.detail.non_embedded_fonts": {
