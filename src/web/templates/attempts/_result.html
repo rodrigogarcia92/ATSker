@@ -1,13 +1,8 @@
 {# F10.4's content order, steps 2-6 and 9. Steps 7 (readiness) and 8 (actions) arrive
    with C.2 and C.3. Everything here is read-only: no action on the analysis appears. #}
 <section class="mt-2 space-y-2 text-sm">
-  {# 2 — Job Match against the ceiling, and the delta against the analysis. #}
-  <p>
-    <span class="font-semibold">{{ view.job_match }}</span>
-    {% if view.ceiling_high is not none %}
-    <span class="text-text-2">— {{ t('report.ceiling', lang, value=view.ceiling_high) }}</span>
-    {% endif %}
-  </p>
+  {# 2 — The delta against the analysis. The Job Match and the ceiling are the
+     status header's one line, so they are not repeated here. #}
   {% if view.delta is not none %}
   <p class="text-text-2">
     {% if view.delta_reference %}
@@ -78,7 +73,7 @@
     {% endfor %}
   </ul>
   {% else %}
-  <p class="text-text-3">{{ t('attempt.flags.none', lang) }}</p>
+  <p class="text-text-3">{{ t('attempt.left.none', lang) }}</p>
   {% endif %}
 
   {# 7 — Readiness (F10.6, C.2). #}

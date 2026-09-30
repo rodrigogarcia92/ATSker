@@ -419,6 +419,12 @@ STRINGS: dict[str, dict[str, str]] = {
     # F10.1/F10.4 (Run C): the modal, the result's content order and its wording.
     "attempt.form.submit": {"es": "Probar", "en": "Test"},
     "attempt.form.file": {"es": "Archivo (.docx o .pdf)", "en": "File (.docx or .pdf)"},
+    "attempt.form.choose": {"es": "Elegir archivo", "en": "Choose file"},
+    "attempt.form.no_file": {"es": "Ningún archivo elegido", "en": "No file chosen"},
+    "attempt.form.working": {
+        "es": "Analizando tu documento… puede tardar hasta un minuto.",
+        "en": "Analysing your document… this can take up to a minute.",
+    },
     "attempt.form.confirm_close": {
         "es": "Hay un resultado sin guardar. ¿Cerrar igualmente?",
         "en": "There is an unsaved result. Close anyway?",
@@ -492,6 +498,10 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "This CV scores above what your material allows; check the new claims.",
     },
     "attempt.left.title": {"es": "Qué queda", "en": "What's left"},
+    "attempt.left.none": {
+        "es": "Nada pendiente: ya usaste lo que tu material ofrece para esta oferta.",
+        "en": "Nothing pending: you already used what your material offers for this posting.",
+    },
     "attempt.cost": {"es": "Coste {amount}", "en": "Cost {amount}"},
     "attempt.cost_reused": {
         "es": "sin costo (reutilizado)",

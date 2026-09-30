@@ -7,6 +7,9 @@ what is new, what is left, the cost and the full-report link); a `running` parti
 carries the URL the modal polls; and the attempt's own full report is read-only.
 """
 
+import re
+from pathlib import Path
+
 import pytest
 
 from src.extract import client as extract_client
@@ -94,3 +97,107 @@ def test_the_attempt_report_is_read_only(client, session, career, provider):
     assert "Carta de presentación" not in text
     assert 'id="attempt-open"' not in raw
     assert "<dialog" not in raw
+
+
+# --- C.5: what a real browser showed ------------------------------------------------
+
+CSS = (Path(__file__).resolve().parents[2] / "src" / "web" / "static" / "app.css").read_text(
+    encoding="utf-8"
+)
+
+
+def _script(client, application_id) -> str:
+    raw = client.get(f"/applications/{application_id}").text
+    return raw[raw.index("(function () {") : raw.index("</script>", raw.index("startPoll"))]
+
+
+def test_the_dialog_is_centred_and_a_full_screen_sheet_on_a_phone():
+    """Preflight zeroes the UA's `margin: auto`, and `dialog:modal` caps the width."""
+    desktop = re.search(r"\.attempt-modal\{[^}]*\}", CSS).group(0)
+    assert "margin:auto" in desktop
+
+    phone = re.search(r"@media \(max-width:640px\)\{\.attempt-modal\{[^}]*\}", CSS).group(0)
+    assert "max-width:none" in phone
+    assert "max-height:none" in phone
+    assert "inset:0" in phone
+
+
+def test_the_script_blocks_a_second_paid_attempt_while_one_is_in_flight(
+    client, session, career, provider
+):
+    login(client, career.first.email)
+    application, _analysis = analyzed_application(session, career, provider)
+
+    raw = client.get(f"/applications/{application.id}").text
+    script = _script(client, application.id)
+
+    assert 'id="attempt-submit"' in raw
+    assert "Analizando tu documento… puede tardar hasta un minuto." in raw
+    assert "submit.disabled = busy" in script
+    assert "file.disabled = busy" in script
+    # The body is read before the file input is disabled: a disabled input is not sent.
+    assert script.index("new FormData(form)") < script.index("setBusy(true)")
+    assert ".catch(" in script, "a network failure shows the error line"
+    assert script.index(".catch(") < script.index("setBusy(false)")
+
+
+def test_the_file_input_is_a_translated_button(client, session, career, provider):
+    login(client, career.first.email)
+    application, _analysis = analyzed_application(session, career, provider)
+
+    raw = client.get(f"/applications/{application.id}").text
+
+    assert 'class="attempt-file-input sr-only"' in raw
+    assert "Elegir archivo" in raw
+    assert 'for="attempt-file"' in raw
+
+
+def test_the_cancel_button_asks_before_losing_an_unsaved_result(
+    client, session, career, provider
+):
+    login(client, career.first.email)
+    application, _analysis = analyzed_application(session, career, provider)
+
+    script = _script(client, application.id)
+
+    assert 'getElementById("attempt-close").addEventListener("click", requestClose)' in script
+    body = script[script.index("function requestClose") :]
+    assert "unsaved && !window.confirm" in body.split("modal.close")[0]
+
+
+def test_opening_the_modal_polls_a_running_attempt(client, session, career, provider):
+    application, _analysis, attempt = _run(client, session, career, provider)
+    attempt.status = "running"
+    attempt.finished_at = None
+    session.commit()
+
+    raw = client.get(f"/applications/{application.id}").text
+    script = _script(client, application.id)
+
+    assert 'data-status="running"' in raw, "the list row says it is running"
+    assert f'data-attempt-url="/applications/{application.id}/attempts/{attempt.id}"' in raw
+    opener = script[script.index('getElementById("attempt-open")') :].split("});")[0]
+    assert "showModal" in opener
+    assert "[data-status=\"running\"]" in opener
+    assert "startPoll(running.dataset.attemptUrl)" in opener
+
+
+def test_the_result_does_not_repeat_the_header_numbers(client, session, career, provider):
+    application, _analysis, attempt = _run(client, session, career, provider)
+
+    text = plain(client.get(f"/applications/{application.id}/attempts/{attempt.id}").text)
+
+    assert text.count("Techo con tu material") == 0
+    assert "vs. análisis del puesto" in text, "the delta line stays"
+
+
+def test_nothing_left_has_its_own_wording(client, session, career, provider):
+    application, _analysis, attempt = _run(client, session, career, provider)
+    attempt.report = {**attempt.report, "advice": []}
+    session.commit()
+
+    text = plain(client.get(f"/applications/{application.id}/attempts/{attempt.id}").text)
+
+    left = text[text.index("Qué queda") :]
+    assert "Nada pendiente: ya usaste lo que tu material ofrece para esta oferta." in left
+    assert "Nada nuevo" not in left

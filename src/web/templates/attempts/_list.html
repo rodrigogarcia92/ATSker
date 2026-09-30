@@ -1,7 +1,8 @@
 {# F10.4 step 1: the attempts list — Intento N with its score, the sent one marked. #}
 <ul class="mt-2 space-y-1 text-sm">
   {% for row in attempts %}
-  <li class="flex flex-wrap items-center gap-2">
+  <li class="flex flex-wrap items-center gap-2" data-status="{{ row.status }}"
+      data-attempt-url="/applications/{{ application.id }}/attempts/{{ row.id }}">
     <span>{{ t('attempt.title', lang, n=row.attempt_no) }}</span>
     {% if row.job_match is not none %}
     <span class="text-text-2">{{ row.job_match }}</span>

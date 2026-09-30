@@ -519,12 +519,20 @@
     <form id="attempt-form" method="post" enctype="multipart/form-data"
           action="/applications/{{ application.id }}/attempts" class="mt-3 space-y-2">
       <label for="attempt-file" class="block text-sm">{{ t('attempt.form.file', lang) }}</label>
-      <input id="attempt-file" type="file" name="file" accept=".docx,.pdf" required
-             class="block w-full text-sm">
-      <button type="submit" class="rounded-control border border-border px-3 py-2 text-sm">
+      <div class="flex flex-wrap items-center gap-2">
+        <input id="attempt-file" type="file" name="file" accept=".docx,.pdf" required
+               class="attempt-file-input sr-only">
+        <label for="attempt-file" class="attempt-file-button rounded-control border border-border px-3 py-2 text-sm">
+          {{ t('attempt.form.choose', lang) }}
+        </label>
+        <span id="attempt-file-name" class="min-w-0 break-all text-sm text-text-2"
+              data-empty="{{ t('attempt.form.no_file', lang) }}">{{ t('attempt.form.no_file', lang) }}</span>
+      </div>
+      <button type="submit" id="attempt-submit" class="rounded-control border border-border px-3 py-2 text-sm">
         {{ t('attempt.form.submit', lang) }}
       </button>
     </form>
+    <p id="attempt-progress" role="status" class="mt-2 hidden text-sm text-text-2">{{ t('attempt.form.working', lang) }}</p>
     <p id="attempt-error" class="mt-2 hidden text-sm text-sev-blocker"></p>
     <div id="attempt-status" class="mt-3">
       <h3 class="text-sm font-semibold">{{ t('attempt.list', lang) }}</h3>
@@ -534,12 +542,17 @@
 </dialog>
 
 <script>
-  // F10.1: open/close, poll while running, confirm before closing an unsaved result.
+  // F10.1: open/close, poll while running, confirm before closing an unsaved result;
+  // C.5: an in-flight state that blocks a second paid attempt.
   (function () {
     const modal = document.getElementById("attempt-modal");
     const status = document.getElementById("attempt-status");
     const form = document.getElementById("attempt-form");
     const error = document.getElementById("attempt-error");
+    const progress = document.getElementById("attempt-progress");
+    const submit = document.getElementById("attempt-submit");
+    const file = document.getElementById("attempt-file");
+    const fileName = document.getElementById("attempt-file-name");
     let poll = null;
     let unsaved = false;
 
@@ -554,42 +567,64 @@
           .then(function (response) { return response.text(); })
           .then(function (html) {
             status.innerHTML = html;
-            const root = status.querySelector("[data-status]");
+            const root = status.querySelector("[data-attempt]");
             if (!root || root.dataset.status !== "running") { stopPoll(); unsaved = true; }
-          });
+          })
+          .catch(function () {});
       }, 2000);
+    }
+
+    function setBusy(busy) {
+      submit.disabled = busy;
+      file.disabled = busy;
+      progress.classList.toggle("hidden", !busy);
+    }
+
+    function showError(detail) {
+      error.textContent = modal.dataset.error.replace("{detail}", detail);
+      error.classList.remove("hidden");
+    }
+
+    function requestClose() {
+      if (unsaved && !window.confirm(modal.dataset.confirm)) { return; }
+      modal.close("cancel");
     }
 
     document.getElementById("attempt-open").addEventListener("click", function () {
       modal.showModal();
+      const running = status.querySelector('[data-status="running"]');
+      if (running && running.dataset.attemptUrl) { startPoll(running.dataset.attemptUrl); }
     });
-    document.getElementById("attempt-close").addEventListener("click", function () {
-      modal.close("cancel");
-    });
+    document.getElementById("attempt-close").addEventListener("click", requestClose);
     modal.addEventListener("cancel", function (event) {
       if (unsaved && !window.confirm(modal.dataset.confirm)) { event.preventDefault(); }
     });
     modal.addEventListener("close", function () { stopPoll(); if (unsaved) { window.location.reload(); } });
 
+    file.addEventListener("change", function () {
+      fileName.textContent = file.files.length ? file.files[0].name : fileName.dataset.empty;
+    });
+
     form.addEventListener("submit", function (event) {
       event.preventDefault();
       error.classList.add("hidden");
-      fetch(form.action, {method: "POST", body: new FormData(form)})
+      const body = new FormData(form);
+      setBusy(true);
+      fetch(form.action, {method: "POST", body: body})
         .then(function (response) {
           const type = response.headers.get("content-type") || "";
           if (type.indexOf("application/json") !== -1) {
-            return response.json().then(function (body) {
-              error.textContent = modal.dataset.error.replace("{detail}", body.detail || response.status);
-              error.classList.remove("hidden");
-            });
+            return response.json().then(function (data) { showError(data.detail || response.status); });
           }
           return response.text().then(function (html) {
             status.innerHTML = html;
-            const root = status.querySelector("[data-status]");
+            const root = status.querySelector("[data-attempt]");
             unsaved = true;
             if (root && root.dataset.status === "running") { startPoll(root.dataset.attemptUrl); }
           });
-        });
+        })
+        .catch(function (failure) { showError(failure && failure.message ? failure.message : String(failure)); })
+        .then(function () { setBusy(false); });
     });
   })();
 </script>
