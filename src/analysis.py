@@ -48,7 +48,7 @@ from src.extract.prompts import (
     JD_EXTRACTION_V3,
 )
 from src.jd import StructuredJD
-from src.models import Bullet, Profile, Track
+from src.models import Bullet, Profile, Role, Track
 from src.normalize.vocabulary import match_text
 from src.parse.gate import ParseReport
 from src.resumes import source_document_for_track
@@ -255,6 +255,7 @@ def score_track(
     document: Sequence[DocumentUnit] | None = None,
     interpret: bool = True,
     ceiling_document: Sequence[DocumentUnit] | None = None,
+    extra_roles: Sequence[Role] = (),
 ) -> Analysis:
     """One track's analysis of a prepared posting: document, grading, score, gaps.
 
@@ -265,7 +266,9 @@ def score_track(
     `bullets` and `document` override the evidence and the text read (F10's ephemeral
     track, A4): an attempt scores a file instead of a track, through this same path, so
     the two can never score differently. `interpret` is False for an attempt, which
-    detects gaps but does not pay for the prose about them.
+    detects gaps but does not pay for the prose about them. `extra_roles` are the file's
+    jobs that match no master role (a transient `Role`, never stored): their bullets'
+    citations count in Experience like any other role's. The analysis passes none.
     """
     profile = session.get(Profile, profile_id)
     if profile is None:
@@ -356,7 +359,7 @@ def score_track(
                         str(bullet.id) for bullet in bullets if bullet.role_id == role.id
                     ),
                 )
-                for role in roles
+                for role in [*roles, *extra_roles]
             ],
             [
                 CitedLevel(

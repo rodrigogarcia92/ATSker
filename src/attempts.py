@@ -243,8 +243,12 @@ def run_pipeline(
         ceiling_document=track_document(
             profile_id, session, track, prepared.jd.language
         ),
+        extra_roles=ephemeral.roles,
     )
     report = dict(analysis.report)
+    # How each of the file's roles met the master data (titles only): the reviewer's
+    # diagnostic for a score that moved because a role did not match (D5).
+    report["role_matching"] = list(ephemeral.role_matching)
     # A6: the draft lives in the report, so "Incorporar a mi material" can open the
     # F2.5 review from an attempt; "Descartar" blanks it and keeps everything else.
     report["draft"] = extracted.draft.model_dump(mode="json")

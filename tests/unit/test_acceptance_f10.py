@@ -213,3 +213,39 @@ def test_criterion_6_no_file_bytes_remain(client, session, career, provider):
     assert len(list_bullets(career.first_profile.id, session, active_only=False)) == 1, (
         "the merge did not run on its own"
     )
+
+
+def _dated_role(career, session) -> None:
+    """The master role gets a start date: the retitled-role match needs one (D5)."""
+    from datetime import date
+
+    career.first_role.start_date = date(2020, 3, 1)
+    session.commit()
+
+
+def _retitled(payload: str, title: str = "Data Analyst & RBF Specialist") -> str:
+    """The same résumé extraction with every role retitled and dated like the master."""
+    data = json.loads(payload)
+    for role in data["roles"]:
+        role["title"] = title
+        role["start_date"] = "2020-03"
+    return json.dumps(data)
+
+
+def test_criterion_1_holds_when_every_role_is_retitled(client, session, career, provider):
+    """A tailored CV retitles roles; the same job (employer + start month) is still the
+    same job, so the export scores exactly as the analysis and grades nothing (D5)."""
+    _dated_role(career, session)
+    login(client, career.first.email)
+    application, analysis = analyzed_application(session, career, provider)
+    before = len(provider.calls_for("EvidenceGrading"))
+    provider.answers["ResumeExtraction"] = _retitled(resume_payload(career.first_bullet.text_es))
+
+    upload(client, application.id, docx_bytes("Experiencia", career.first_bullet.text_es))
+
+    attempt = _attempt(session)
+    experience = attempt.report["score"]["sub_scores"]["experience"]
+    assert len(provider.calls_for("EvidenceGrading")) == before, "nothing was graded"
+    assert attempt.report["score"] == analysis.report["score"]
+    assert experience["detail"]["relevant_years"] > 0
+    assert [row["by"] for row in attempt.report["role_matching"]] == ["employer_start"]
