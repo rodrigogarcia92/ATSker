@@ -508,7 +508,8 @@
    panel polls the attempt's status while it runs and stops on done or failed. #}
 <dialog id="attempt-modal" class="attempt-modal"
         data-confirm="{{ t('attempt.form.confirm_close', lang) }}"
-        data-error="{{ t('attempt.form.error', lang) }}">
+        data-error="{{ t('attempt.form.error', lang) }}"
+        {% if open_attempt %}data-open-attempt="{{ open_attempt }}"{% endif %}>
   <div class="p-4">
     <div class="flex items-center justify-between gap-4">
       <h2 class="text-lg font-semibold">{{ t('report.try_new_cv', lang) }}</h2>
@@ -598,10 +599,32 @@
       modal.close("cancel");
     }
 
-    document.getElementById("attempt-open").addEventListener("click", function () {
+    const opener = document.getElementById("attempt-open");
+    opener.addEventListener("click", function () {
       modal.showModal();
       const running = status.querySelector('[data-status="running"]');
       if (running && running.dataset.attemptUrl) { startPoll(running.dataset.attemptUrl); }
+    });
+    // A no-JS action redirects back with `?attempt=<id>`: reopen the modal on load.
+    if (modal.dataset.openAttempt !== undefined) { opener.click(); }
+
+    // F10.7: "Marcar como enviada" and "Descartar" are posted in place. The partial is
+    // re-rendered, so the listener sits on `status`. The action is already stored: no
+    // `unsaved`, and a non-OK answer is an error line that leaves the result alone.
+    status.addEventListener("submit", function (event) {
+      const target = event.target;
+      if (!(target instanceof HTMLFormElement)) { return; }
+      const action = target.getAttribute("action") || "";
+      if (!/\/(sent|discard)$/.test(action)) { return; }
+      event.preventDefault();
+      error.classList.add("hidden");
+      fetch(target.action, {method: "POST", headers: {"X-Requested-With": "fetch"}})
+        .then(function (response) {
+          if (!response.ok) { showError(response.status); return null; }
+          return response.text();
+        })
+        .then(function (html) { if (html !== null) { status.innerHTML = html; } })
+        .catch(function (failure) { showError(failure && failure.message ? failure.message : String(failure)); });
     });
     document.getElementById("attempt-close").addEventListener("click", requestClose);
     modal.addEventListener("cancel", function (event) {

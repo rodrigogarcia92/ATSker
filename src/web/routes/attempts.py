@@ -108,6 +108,20 @@ def _status(request: Request, user, application, attempt, session):
     )
 
 
+def _modal_action_response(request: Request, user, application, attempt, session):
+    """What "Marcar como enviada" and "Descartar" answer with (F10.1, F10.7).
+
+    The modal's script posts with `X-Requested-With: fetch` and swaps the returned
+    partial in place. Without it (no JavaScript, or a direct POST) the browser would
+    navigate to a bare fragment, so it is sent back to the report with the modal open.
+    """
+    if request.headers.get("x-requested-with", "").lower() == "fetch":
+        return _status(request, user, application, attempt, session)
+    return RedirectResponse(
+        f"/applications/{application.id}?attempt={attempt.id}", status_code=303
+    )
+
+
 def _run_attempt(
     profile_id,
     session: Session,
@@ -284,7 +298,7 @@ def attempt_sent(
     attempt.is_sent = True
     application.sent_attempt_id = attempt.id
     session.commit()
-    return _status(request, user, application, attempt, session)
+    return _modal_action_response(request, user, application, attempt, session)
 
 
 @router.get("/applications/{application_id}/attempts/{attempt_id}/incorporate")
@@ -383,7 +397,7 @@ def attempt_discard(
         return render(request, "not_found.html", user=user, status_code=404)
     discard_attempt(attempt)
     session.commit()
-    return _status(request, user, application, attempt, session)
+    return _modal_action_response(request, user, application, attempt, session)
 
 
 @router.get("/applications/{application_id}/attempts/{attempt_id}/report")

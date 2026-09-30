@@ -36,6 +36,7 @@ def provider(monkeypatch, test_settings, career) -> AttemptProvider:
     return stub
 
 
+FETCH = {"X-Requested-With": "fetch"}
 INVENTED = "Entrené un modelo de machine learning en producción"
 
 
@@ -254,16 +255,168 @@ def test_only_one_attempt_can_be_the_sent_one(client, session, career):
     session.commit()
 
     assert client.post(
-        f"/applications/{application.id}/attempts/{first.id}/sent"
+        f"/applications/{application.id}/attempts/{first.id}/sent", headers=FETCH
     ).status_code == 200
     session.expire_all()
     assert first.is_sent is True
     assert session.get(Application, application.id).sent_attempt_id == first.id
 
     assert client.post(
-        f"/applications/{application.id}/attempts/{second.id}/sent"
+        f"/applications/{application.id}/attempts/{second.id}/sent", headers=FETCH
     ).status_code == 200
     session.expire_all()
     sent = [row for row in (first, second) if row.is_sent]
     assert len(sent) == 1 and sent[0].id == second.id
     assert session.get(Application, application.id).sent_attempt_id == second.id
+
+
+# --- D1: the modal's actions stay in the modal (F10.1, F10.7) ---
+
+
+def _done_attempt(session, career, application) -> ApplicationAttempt:
+    attempt = ApplicationAttempt(
+        application_id=application.id,
+        profile_id=career.first_profile.id,
+        attempt_no=1,
+        status="done",
+        file_sha256="c" * 64,
+        prompt_versions={},
+        report={"draft": {"language": "es"}, "flags": {}},
+    )
+    session.add(attempt)
+    session.commit()
+    return attempt
+
+
+def _plain_application(session, career):
+    return create_application(
+        career.first_profile.id,
+        session,
+        jd_text="Una oferta",
+        jd_hash=f"sha256:{uuid.uuid4().hex}",
+        report={},
+        weights_version="w4",
+        prompt_versions={},
+        token_cost_usd=Decimal("0"),
+        title="Puesto",
+    )
+
+
+def test_discard_without_the_header_redirects_back_to_the_modal(client, session, career):
+    login(client, career.first.email)
+    application = _plain_application(session, career)
+    attempt = _done_attempt(session, career, application)
+
+    response = client.post(
+        f"/applications/{application.id}/attempts/{attempt.id}/discard",
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    assert response.headers["location"] == f"/applications/{application.id}?attempt={attempt.id}"
+    session.expire_all()
+    assert attempt.report["draft"] is None, "the draft is blanked"
+    assert attempt.report["flags"] == {}, "and the report is kept"
+
+
+def test_discard_with_the_fetch_header_returns_the_partial(client, session, career):
+    login(client, career.first.email)
+    application = _plain_application(session, career)
+    attempt = _done_attempt(session, career, application)
+
+    response = client.post(
+        f"/applications/{application.id}/attempts/{attempt.id}/discard",
+        headers=FETCH,
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 200
+    assert "data-attempt" in response.text and "<html" not in response.text
+    session.expire_all()
+    assert attempt.report["draft"] is None
+
+
+@pytest.mark.parametrize("headers", [{}, FETCH], ids=["no-js", "fetch"])
+def test_sent_sets_the_flag_either_way(client, session, career, headers):
+    login(client, career.first.email)
+    application = _plain_application(session, career)
+    attempt = _done_attempt(session, career, application)
+
+    response = client.post(
+        f"/applications/{application.id}/attempts/{attempt.id}/sent",
+        headers=headers,
+        follow_redirects=False,
+    )
+
+    assert response.status_code == (200 if headers else 303)
+    if headers:
+        assert "data-attempt" in response.text and "<html" not in response.text
+    else:
+        assert response.headers["location"] == (
+            f"/applications/{application.id}?attempt={attempt.id}"
+        )
+    session.expire_all()
+    assert attempt.is_sent is True
+
+
+def test_the_report_opens_the_modal_only_for_an_attempt_of_this_application(
+    client, session, career, provider
+):
+    login(client, career.first.email)
+    application, _analysis = analyzed_application(session, career, provider)
+    attempt = _done_attempt(session, career, application)
+    other = _plain_application(session, career)
+    foreign = ApplicationAttempt(
+        application_id=other.id,
+        profile_id=career.first_profile.id,
+        attempt_no=1,
+        status="done",
+        file_sha256="d" * 64,
+        prompt_versions={},
+    )
+    theirs_application = create_application(
+        career.second_profile.id,
+        session,
+        jd_text="Otra oferta",
+        jd_hash=f"sha256:{uuid.uuid4().hex}",
+        report={},
+        weights_version="w4",
+        prompt_versions={},
+        token_cost_usd=Decimal("0"),
+        title="Otro",
+    )
+    theirs = ApplicationAttempt(
+        application_id=theirs_application.id,
+        profile_id=career.second_profile.id,
+        attempt_no=1,
+        status="done",
+        file_sha256="e" * 64,
+        prompt_versions={},
+    )
+    session.add_all([foreign, theirs])
+    session.commit()
+
+    opened = client.get(f"/applications/{application.id}?attempt={attempt.id}")
+    assert opened.status_code == 200
+    assert f'data-open-attempt="{attempt.id}"' in opened.text
+
+    for other_id in (theirs.id, foreign.id, uuid.uuid4()):
+        page = client.get(f"/applications/{application.id}?attempt={other_id}")
+        assert page.status_code == 200
+        assert "data-open-attempt" not in page.text
+
+
+def test_the_script_delegates_submit_for_sent_and_discard_and_checks_ok(
+    client, session, career, provider
+):
+    login(client, career.first.email)
+    application, _analysis = analyzed_application(session, career, provider)
+    page = client.get(f"/applications/{application.id}").text
+
+    script = page[page.index("F10.7: \"Marcar como enviada\""):]
+    script = script[: script.index('document.getElementById("attempt-close")')]
+    assert 'status.addEventListener("submit"' in script
+    assert "(sent|discard)" in script
+    assert '"X-Requested-With": "fetch"' in script
+    assert script.index("response.ok") < script.index("status.innerHTML = html")
+    assert "unsaved = true" not in script
