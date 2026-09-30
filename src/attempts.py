@@ -19,7 +19,7 @@ the limit, and a failure is never cached.
 
 import hashlib
 import uuid
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
@@ -286,25 +286,55 @@ def finish_run(
     attempt.error = None
 
 
+def previous_done_attempt(
+    attempts: Sequence[ApplicationAttempt], attempt: ApplicationAttempt
+) -> ApplicationAttempt | None:
+    """The attempt a new one is measured against (C.0 answer 4): the latest earlier one
+    that finished. A failed or running attempt has no score to compare with."""
+    earlier = [
+        row
+        for row in attempts
+        if row.attempt_no < attempt.attempt_no and row.status == "done"
+    ]
+    return max(earlier, key=lambda row: row.attempt_no) if earlier else None
+
+
+def _delta(current: int | None, reference: int | None) -> int | None:
+    return None if current is None or reference is None else current - reference
+
+
+def _score_rows(change: Mapping[str, object]) -> list[dict[str, object]]:
+    """The score changes `change_list` found, Job Match first, for "Qué cambió"."""
+    rows: list[dict[str, object]] = []
+    total = change.get("score")
+    if isinstance(total, Mapping):
+        rows.append({"name": "total", "before": total["before"], "after": total["after"]})
+    rows.extend(change.get("sub_scores") or [])
+    return rows
+
+
 def attempt_view(
-    attempt: ApplicationAttempt, *, analysis_score: int | None, previous: int | None = None
+    attempt: ApplicationAttempt,
+    *,
+    analysis_score: int | None,
+    previous: ApplicationAttempt | None = None,
 ) -> dict[str, object]:
     """What the modal and the status partial render (F10.4), from the stored report.
 
-    F10.4's order, minus the checklist and the actions (C.2 and C.3 own those). The
-    delta against the posting analysis reads "sin cambio significativo" inside
-    `STABILITY_BAND` (F10.4 step 2).
+    F10.4's order, minus the checklist and the actions (C.2 and C.3 own those). Two
+    deltas, each labelled with what it compares: `delta_analysis` against the posting
+    analysis and `delta_previous` against `previous`, the last finished attempt (None
+    for Intento 1). Each reads "sin cambio significativo" inside `STABILITY_BAND`
+    (F10.4 step 2).
     """
     report = attempt.report or {}
     ceiling = report.get("ceiling") or {}
     score = report.get("score") or {}
     sub_scores = score.get("sub_scores") or {}
     ceilings = ceiling.get("sub_scores") or {}
-    delta = (
-        None
-        if attempt.job_match is None or analysis_score is None
-        else attempt.job_match - analysis_score
-    )
+    delta_analysis = _delta(attempt.job_match, analysis_score)
+    delta_previous = _delta(attempt.job_match, previous.job_match if previous else None)
+    change = report.get("change") or {}
     cost = float(attempt.token_cost_usd or 0)
     return {
         "status": effective_status(attempt),
@@ -312,10 +342,17 @@ def attempt_view(
         "job_match": attempt.job_match,
         "ceiling_low": ceiling.get("low"),
         "ceiling_high": ceiling.get("high"),
-        "delta": delta,
-        "delta_text": f"{delta:+d}" if delta is not None else None,
-        "delta_reference": previous,
-        "delta_significant": delta is not None and abs(delta) >= STABILITY_BAND,
+        "previous_no": previous.attempt_no if previous else None,
+        "delta_analysis": delta_analysis,
+        "delta_analysis_text": f"{delta_analysis:+d}" if delta_analysis is not None else None,
+        "delta_analysis_significant": (
+            delta_analysis is not None and abs(delta_analysis) >= STABILITY_BAND
+        ),
+        "delta_previous": delta_previous,
+        "delta_previous_text": f"{delta_previous:+d}" if delta_previous is not None else None,
+        "delta_previous_significant": (
+            delta_previous is not None and abs(delta_previous) >= STABILITY_BAND
+        ),
         "sub_scores": [
             {
                 "name": name,
@@ -325,7 +362,8 @@ def attempt_view(
             }
             for name in ("skills", "experience", "title", "keywords")
         ],
-        "change": report.get("change") or {},
+        "change": change,
+        "change_scores": _score_rows(change),
         "flags": report.get("flags") or {},
         "unreachable": ceiling.get("unreachable") or {},
         "advice": report.get("advice") or [],

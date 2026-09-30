@@ -1,16 +1,21 @@
 {# F10.4's content order, steps 2-6 and 9. Steps 7 (readiness) and 8 (actions) arrive
    with C.2 and C.3. Everything here is read-only: no action on the analysis appears. #}
 <section class="mt-2 space-y-2 text-sm">
-  {# 2 — The delta against the analysis. The Job Match and the ceiling are the
+  {# 2 — The deltas, each saying what it compares: the previous attempt first, when
+     there is one, then the posting analysis. The Job Match and the ceiling are the
      status header's one line, so they are not repeated here. #}
-  {% if view.delta is not none %}
+  {% if view.delta_previous is not none %}
   <p class="text-text-2">
-    {% if view.delta_reference %}
-    {{ view.delta_text }} {{ t('attempt.vs_previous', lang, n=view.delta_reference) }}
-    {% else %}
-    {{ t('attempt.delta', lang, delta=view.delta_text) }}
+    {{ view.delta_previous_text }} {{ t('attempt.vs_previous', lang, n=view.previous_no) }}
+    {% if not view.delta_previous_significant %}
+    <span class="text-text-3">· {{ t('attempt.delta_flat', lang) }}</span>
     {% endif %}
-    {% if not view.delta_significant %}
+  </p>
+  {% endif %}
+  {% if view.delta_analysis is not none %}
+  <p class="text-text-2">
+    {{ t('attempt.delta', lang, delta=view.delta_analysis_text) }}
+    {% if not view.delta_analysis_significant %}
     <span class="text-text-3">· {{ t('attempt.delta_flat', lang) }}</span>
     {% endif %}
   </p>
@@ -34,18 +39,22 @@
   {# 4 — What changed against the previous attempt, or the analysis for the first. #}
   <h3 class="pt-1 font-semibold">{{ t('attempt.change.title', lang) }}</h3>
   {% set nonempty = [] %}
+  {% if view.change_scores %}{% set _ = nonempty.append('score') %}{% endif %}
   {% for key in ('searches_found', 'searches_lost', 'gaps_closed', 'gaps_opened', 'findings_fixed', 'findings_introduced') %}
     {% if view.change.get(key) %}{% set _ = nonempty.append(key) %}{% endif %}
   {% endfor %}
   {% if nonempty %}
   <ul class="space-y-1 text-text-2">
-    {% for key in nonempty %}
+    {% for row in view.change_scores %}
+    <li>{{ t('attempt.change.score', lang, name=t('report.total' if row.name == 'total' else 'report.sub.' ~ row.name, lang), before=row.before, after=row.after) }}</li>
+    {% endfor %}
+    {% for key in nonempty if key != 'score' %}
     <li>{{ t('attempt.change.' ~ key, lang, items=view.change[key] | join(', ')) }}</li>
     {% endfor %}
   </ul>
   {% else %}
   <p class="text-text-3">
-    {% if view.delta_reference %}{{ t('attempt.change.none_previous', lang) }}{% else %}{{ t('attempt.change.none_first', lang) }}{% endif %}
+    {% if view.previous_no %}{{ t('attempt.change.none_previous', lang) }}{% else %}{{ t('attempt.change.none_first', lang) }}{% endif %}
   </p>
   {% endif %}
 

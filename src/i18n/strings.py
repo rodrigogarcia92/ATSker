@@ -454,6 +454,10 @@ STRINGS: dict[str, dict[str, str]] = {
         "es": "Sin cambios respecto al intento anterior",
         "en": "No changes against the previous attempt",
     },
+    "attempt.change.score": {
+        "es": "{name} {before} → {after}",
+        "en": "{name} {before} → {after}",
+    },
     "attempt.change.searches_found": {
         "es": "Búsquedas que ahora te devuelven: {items}",
         "en": "Searches that now return you: {items}",

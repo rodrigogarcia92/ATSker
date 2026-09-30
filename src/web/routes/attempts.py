@@ -34,6 +34,7 @@ from src.attempts import (
     finish_run,
     get_attempt,
     list_attempts,
+    previous_done_attempt,
     run_pipeline,
 )
 from src.bullets import list_bullets
@@ -73,17 +74,6 @@ def _analysis_score(application) -> int | None:
     return score.get("capped")
 
 
-def _previous_number(session, application, attempt) -> int | None:
-    """The attempt the delta is measured against (C.0 answer 4): the previous one, or
-    None for Intento 1, which is measured against the posting analysis."""
-    rows = [
-        row
-        for row in list_attempts(application.profile_id, session, application.id)
-        if row.attempt_no < attempt.attempt_no and row.status == "done"
-    ]
-    return rows[-1].attempt_no if rows else None
-
-
 def _readiness(application, attempt):
     """F10.6's checklist for the attempt's report, or None while it has none."""
     if not attempt.report:
@@ -101,7 +91,9 @@ def _status(request: Request, user, application, attempt, session):
         view=attempt_view(
             attempt,
             analysis_score=_analysis_score(application),
-            previous=_previous_number(session, application, attempt),
+            previous=previous_done_attempt(
+                list_attempts(application.profile_id, session, application.id), attempt
+            ),
         ),
         readiness=_readiness(application, attempt),
         attempts=list_attempts(application.profile_id, session, application.id),

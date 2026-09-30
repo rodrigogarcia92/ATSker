@@ -113,9 +113,25 @@ def change_list(
 ) -> dict[str, object]:
     """What changed against the previous attempt (F10.4 step 4).
 
-    Searches that now return the user, gaps closed or opened, readability findings
-    fixed or introduced. Empty for the first attempt — there is nothing to compare.
+    Score changes first (`score` for the Job Match, `sub_scores` for each sub-score whose
+    integer value moved), then searches that now return the user, gaps closed or opened,
+    readability findings fixed or introduced. Empty for the first attempt — there is
+    nothing to compare.
     """
+
+    def total(report: Mapping[str, object]) -> int | None:
+        score = report.get("score")
+        value = score.get("capped") if isinstance(score, Mapping) else None
+        return int(value) if isinstance(value, int | float) else None
+
+    def sub_scores(report: Mapping[str, object]) -> dict[str, int]:
+        score = report.get("score")
+        block = score.get("sub_scores") if isinstance(score, Mapping) else None
+        return {
+            str(name): round(float(row["value"]) * 100)
+            for name, row in (block or {}).items()
+            if isinstance(row, Mapping) and isinstance(row.get("value"), int | float)
+        }
 
     def searches(report: Mapping[str, object]) -> dict[str, bool]:
         recall = report.get("recall") or {}
@@ -141,7 +157,21 @@ def change_list(
     if not previous:
         return {}
     was, now = searches(previous), searches(current)
+    before_total, after_total = total(previous), total(current)
+    before_subs, after_subs = sub_scores(previous), sub_scores(current)
     return {
+        "score": (
+            {"before": before_total, "after": after_total}
+            if before_total is not None
+            and after_total is not None
+            and before_total != after_total
+            else None
+        ),
+        "sub_scores": [
+            {"name": name, "before": before_subs[name], "after": after_subs[name]}
+            for name in ("skills", "experience", "title", "keywords")
+            if name in before_subs and name in after_subs and before_subs[name] != after_subs[name]
+        ],
         "searches_found": sorted(
             label for label, passed in now.items() if passed and not was.get(label)
         ),
