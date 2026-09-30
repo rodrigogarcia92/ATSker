@@ -8,10 +8,14 @@ attempt.
 
 import pytest
 
-from src.attempt_flags import discard_attempt
+from src.attempt_flags import discard_attempt, document_flags
 from src.bullets import create_bullet
+from src.certifications import create_certification
+from src.education import create_education
 from src.extract import client as extract_client
+from src.ingest.draft import DraftBullet, DraftRole, ResumeDraft
 from src.models import ApplicationAttempt
+from src.summaries import create_summary
 from tests.conftest import login
 from tests.unit.attempt_support import (
     AttemptProvider,
@@ -113,3 +117,84 @@ def test_the_change_list_names_the_search_the_document_now_passes(
     first, second = _attempts(session)
     assert first.report["change"] == {}, "there was nothing before the first attempt"
     assert second.report["change"]["searches_found"] == ["strict"]
+
+
+# --- D4: the flags read everything the user has stored (F10.5) ---
+
+
+def _claims(session, career, *texts: str) -> list[str]:
+    """The file's unsupported claims. Bullets start lower-case: the scan joins them with
+    spaces, so a capitalised first word would read as a mid-sentence name."""
+    draft = ResumeDraft(
+        roles=[
+            DraftRole(
+                employer="Acme",
+                title="Analista de datos",
+                bullets=[DraftBullet(text=text) for text in texts],
+            )
+        ],
+    )
+    return document_flags(career.first_profile.id, session, draft=draft)["claims"]
+
+
+def test_ten_plus_is_ten(session, career):
+    create_bullet(
+        career.first_profile.id,
+        session,
+        role_id=career.first_role.id,
+        text_es="Trabajé 10 years con datos de salud",
+        text_en=None,
+        chips=[],
+    )
+
+    assert _claims(session, career, "Más de 10+ years con datos de salud") == []
+    assert _claims(session, career, "Más de 12+ years con datos") == ["12+"]
+
+
+def test_a_word_of_a_pool_canonical_is_supported(session, career):
+    career.first_profile.skills = ["data science", "generative ai"]
+    session.flush()
+
+    claims = _claims(session, career, "apliqué Data Science y Generative AI en reportes")
+
+    assert claims == [], "Data, Science, Generative and AI are words of held canonicals"
+
+
+def test_a_stored_education_supports_its_words(session, career):
+    create_education(
+        career.first_profile.id, session, institution="Universidad Nacional Ejemplo"
+    )
+
+    assert _claims(session, career, "dicté un taller en la Universidad Nacional Ejemplo") == []
+
+
+def test_certifications_track_text_and_the_display_name_support_their_words(session, career):
+    create_certification(
+        career.first_profile.id, session, name="Google Analytics", issuer="Coursera"
+    )
+    summary = create_summary(
+        career.first_profile.id, session, text="Analista con foco en Salud Pública", lang="es"
+    )
+    track = career.first_track
+    track.headline_en = "Senior Analytics Engineer"
+    track.summary_es_id = summary.id
+    session.flush()
+    name = career.first_profile.display_name.split()[0]
+
+    claims = _claims(
+        session,
+        career,
+        f"certificado en Google Analytics por Coursera con {name}",
+        "trabajé en Salud Pública como Senior Analytics Engineer",
+    )
+
+    assert claims == []
+
+
+def test_a_name_stored_nowhere_is_still_flagged(session, career):
+    create_education(career.first_profile.id, session, institution="Universidad Nacional")
+
+    assert _claims(session, career, "migré los flujos a Informatica en 2024") == [
+        "Informatica",
+        "2024",
+    ]

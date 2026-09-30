@@ -147,13 +147,14 @@ def _grade_parts(grade: Any) -> tuple[int, str | None]:
 
 
 def _number_key(token: str) -> str:
-    """A number token's identity: `30%`, `30` and `30.` are the same claim.
+    """A number token's identity: `30%`, `30`, `30.` and `30+` are the same claim.
 
     Thousands separators and a trailing decimal point are formatting, not data; the
     percent sign is dropped so `30%` and `30` compare equal — a source that says `30`
-    supports an output that says `30%`.
+    supports an output that says `30%` — and a trailing `+` ("10+ years") is the number
+    it lower-bounds.
     """
-    return fold(token).replace("%", "").replace(",", "").rstrip(".")
+    return fold(token).replace("%", "").replace(",", "").rstrip(".+")
 
 
 @dataclass(frozen=True)

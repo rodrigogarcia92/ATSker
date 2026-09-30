@@ -14,6 +14,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from src.bullets import list_bullets
+from src.certifications import list_certifications
+from src.education import list_educations
 from src.generate.validators import unsupported_claims
 from src.ingest.draft import ResumeDraft
 from src.models import ApplicationAttempt, Profile
@@ -21,6 +23,8 @@ from src.normalize.text import fold
 from src.normalize.vocabulary import match_text
 from src.roles import list_roles
 from src.stories import list_stories
+from src.summaries import list_summaries
+from src.tracks import list_tracks
 from src.vocabulary import alias_map
 
 
@@ -30,12 +34,36 @@ def _profile_corpus(
     """Every stored word the file's claims are checked against, and the held titles.
 
     Bullets in both languages, story bodies, and each role's employer and titles — the
-    three tables F10.5 names. `fold`ed titles come back separately so a title the user
-    already holds is not flagged twice, and the canonicals the bullets hold come back
-    so a skill evidenced anywhere is not flagged as invented.
+    three tables F10.5 names — plus everything else the user stored in words: the pool's
+    canonicals and their aliases (so "Science" in "Data Science" is supported), educations,
+    certifications, every track's headlines and summaries, and the display name.
+    `fold`ed titles come back separately so a title the user already holds is not flagged
+    twice, and the canonicals the bullets hold come back so a skill evidenced anywhere is
+    not flagged as invented.
     """
     parts: list[str] = []
     held: set[str] = set()
+    profile = session.get(Profile, profile_id)
+    if profile is not None:
+        parts.append(profile.display_name or "")
+        pool = set(profile.skills or [])
+        parts.extend(pool)
+        parts.extend(alias for alias, canonical in aliases.items() if canonical in pool)
+    for education in list_educations(profile_id, session):
+        parts.extend(
+            part for part in (education.institution, education.degree, education.field) if part
+        )
+    for certification in list_certifications(profile_id, session):
+        parts.extend(part for part in (certification.name, certification.issuer) if part)
+    summaries = {
+        summary.id: summary.text
+        for summary in list_summaries(profile_id, session, active_only=False)
+    }
+    for track in list_tracks(profile_id, session, active_only=False):
+        parts.extend(part for part in (track.headline_es, track.headline_en) if part)
+        for summary_id in (track.summary_es_id, track.summary_en_id):
+            if summary_id in summaries:
+                parts.append(summaries[summary_id])
     for bullet in list_bullets(profile_id, session, active_only=True):
         held.update(bullet.skills)
         for text in (bullet.text_es, bullet.text_en):
