@@ -564,8 +564,16 @@
       stopPoll();
       poll = setInterval(function () {
         fetch(url, {headers: {"Accept": "text/html"}})
-          .then(function (response) { return response.text(); })
+          .then(function (response) {
+            if (!response.ok) {
+              stopPoll();
+              showError(response.status);
+              return null;
+            }
+            return response.text();
+          })
           .then(function (html) {
+            if (html === null) { return; }
             status.innerHTML = html;
             const root = status.querySelector("[data-attempt]");
             if (!root || root.dataset.status !== "running") { stopPoll(); unsaved = true; }
@@ -612,9 +620,13 @@
       setBusy(true);
       fetch(form.action, {method: "POST", body: body})
         .then(function (response) {
-          const type = response.headers.get("content-type") || "";
-          if (type.indexOf("application/json") !== -1) {
-            return response.json().then(function (data) { showError(data.detail || response.status); });
+          if (!response.ok) {
+            // A refusal or a gateway page is an error line, never a result (no `unsaved`).
+            const type = response.headers.get("content-type") || "";
+            if (type.indexOf("application/json") === -1) { showError(response.status); return null; }
+            return response.json()
+              .then(function (data) { showError(data.detail || response.status); })
+              .catch(function () { showError(response.status); });
           }
           return response.text().then(function (html) {
             status.innerHTML = html;

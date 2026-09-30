@@ -8,6 +8,7 @@ and rendering the page makes no model call.
 import pytest
 
 from src.extract import client as extract_client
+from src.i18n import t
 from src.models import Application
 from tests.conftest import login
 from tests.unit.test_analysis import POSTING, Provider, text_of
@@ -78,6 +79,34 @@ def test_the_try_new_cv_button_opens_the_attempt_modal(client, session, career, 
     assert 'id="attempt-open"' in raw
     assert "<dialog id=\"attempt-modal\"" in raw
     assert 'action="' in raw and "/attempts" in raw
+
+
+def test_the_live_try_new_cv_button_carries_no_coming_soon_note(client, session, career, provider):
+    """C.6: the button is enabled, so neither language says it is coming."""
+    url = _analyze(client, career)
+
+    page = client.get(url).text.lower()
+
+    assert "próximamente" not in page
+    assert "coming soon" not in page
+    assert t("report.try_new_cv_note", "es") == "(.docx)"
+    assert t("report.try_new_cv_note", "en") == "(.docx)"
+
+
+def test_the_modal_script_checks_response_ok_before_a_result(client, session, career, provider):
+    """C.6: a 404/500/502 HTML page is an error line, never a result or `unsaved`."""
+    url = _analyze(client, career)
+
+    page = client.get(url).text
+    marker = 'const modal = document.getElementById("attempt-modal")'
+    script = page.split(marker, 1)[1].split("</script>", 1)[0]
+    poll = script.split("function startPoll", 1)[1].split("function setBusy", 1)[0]
+    submit = script.split('form.addEventListener("submit"', 1)[1]
+
+    assert "response.ok" in poll, "a non-OK poll stops and shows the error"
+    assert "stopPoll()" in poll.split("response.ok", 1)[1].split("return", 1)[0]
+    assert "response.ok" in submit, "a non-OK submit never reaches #attempt-status"
+    assert submit.index("response.ok") < submit.index("status.innerHTML")
 
 
 def test_a_master_change_recomputes_the_ceiling_on_view(client, session, career, provider):

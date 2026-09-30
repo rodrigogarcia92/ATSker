@@ -326,14 +326,14 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "{points} from stronger evidence on requirements you already cover",
     },
     "report.ceiling.and": {"es": " y ", "en": " and "},
-    # F10.1: the way into the attempt modal. Disabled until Run C builds it.
+    # F10.1: the way into the attempt modal.
     "report.try_new_cv": {
         "es": "Probar nueva versión del CV",
         "en": "Try a new CV version",
     },
     "report.try_new_cv_note": {
-        "es": "(.docx) — próximamente",
-        "en": "(.docx) — coming soon",
+        "es": "(.docx)",
+        "en": "(.docx)",
     },
     # F10.3 (Run B): attempts — the upload limit, the status the modal polls, and the
     # list. `attempt.limit` is the stated reason the 11th upload is refused (409).
