@@ -987,6 +987,16 @@ STRINGS: dict[str, dict[str, str]] = {
         "es": "Nombra una habilidad que no está en tus datos o no está respaldada.",
         "en": "Names a skill that is not in your data or is not evidenced.",
     },
+    "generate.violation.closure_missing": {
+        "es": "Habilidades que no están en tus datos",
+        "en": "Skills that are not in your data",
+    },
+    "generate.violation.closure_unevidenced": {
+        "es": "Están en tus datos, pero no se muestran con nivel 2 o mejor en las viñetas "
+        "que cita este resumen",
+        "en": "In your data, but not shown at level 2 or better in the bullets this "
+        "summary cites",
+    },
     # Tier 3a: one bullet, rewritten for the posting it was cited for.
     "generate.rephrase": {"es": "Reformular para este aviso", "en": "Rephrase for this posting"},
     "generate.rephrase_title": {

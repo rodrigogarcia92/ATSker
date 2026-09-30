@@ -429,6 +429,23 @@ SUMMARY_SKILLS_V1 = Prompt(
 )
 
 
+# V2 states the skills-list rule outright, so the pool is not a suggestion. The version
+# string is new on purpose: it busts the cache, and V1 stays for reports that cite it.
+SUMMARY_SKILLS_V2 = Prompt(
+    version="summary_skills_v2",
+    system=(
+        SUMMARY_SKILLS_V1.system.replace(
+            "Return the summary text,",
+            "The skills list must contain only canonicals from the pool below, at most 15, "
+            "ordered for this posting; a posting requirement that is not in the pool goes "
+            "nowhere — never into the list.\n\n"
+            "Return the summary text,",
+        )
+    ),
+    template=SUMMARY_SKILLS_V1.template,
+)
+
+
 BULLET_REPHRASE_V1 = Prompt(
     version="bullet_rephrase_v1",
     system=(

@@ -24,7 +24,7 @@ from src.extract.prompts import (
     LETTER_BLOCKS_V1,
     LETTER_BRIDGE_V1,
     STORY_BULLETS_V1,
-    SUMMARY_SKILLS_V1,
+    SUMMARY_SKILLS_V2,
     summarize_rows,
 )
 from src.jd import StructuredJD
@@ -165,9 +165,9 @@ def generate_summary(
     completion = complete_json(
         session,
         purpose=GENERATE_SUMMARY,
-        prompt_version=SUMMARY_SKILLS_V1.version,
-        system=SUMMARY_SKILLS_V1.render_system(),
-        user=SUMMARY_SKILLS_V1.render(
+        prompt_version=SUMMARY_SKILLS_V2.version,
+        system=SUMMARY_SKILLS_V2.render_system(),
+        user=SUMMARY_SKILLS_V2.render(
             lang=language,
             jd=_jd_block(jd),
             bullets=bullet_rows,

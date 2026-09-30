@@ -6,18 +6,41 @@ database. A longer alias consumes its span, which is what stops a text mentionin
 phrase must not be counted twice when sub-scores weight evidence.
 """
 
+import json
 from collections.abc import Iterable, Mapping
+from functools import cache
+from pathlib import Path
 
 from src.normalize.text import fold, term_pattern
 
 
-def match_text(text: str, aliases: Mapping[str, str], *, limit: int | None = None) -> list[str]:
-    """Canonical skills whose alias appears as a whole, unconsumed term in `text`."""
+@cache
+def ambiguous_aliases() -> frozenset[str]:
+    """Aliases that are also ordinary words (`teams`, `word`, `go`), as data in the JSON."""
+    path = Path(__file__).with_name("ambiguous_aliases.json")
+    return frozenset(fold(alias) for alias in json.loads(path.read_text(encoding="utf-8")))
+
+
+def match_text(
+    text: str,
+    aliases: Mapping[str, str],
+    *,
+    limit: int | None = None,
+    skip_ambiguous: bool = False,
+) -> list[str]:
+    """Canonical skills whose alias appears as a whole, unconsumed term in `text`.
+
+    `skip_ambiguous` leaves out the aliases that are also plain words. Scoring keeps
+    them (the scorer is frozen); the generation validators and the F10.5 flags do not.
+    """
     haystack = fold(text)
     consumed: list[tuple[int, int]] = []
     found: list[str] = []
+    ambiguous = ambiguous_aliases() if skip_ambiguous else frozenset()
 
     for alias in sorted(aliases, key=len, reverse=True):
+        if alias in ambiguous:
+            continue
         canonical = aliases[alias]
         if canonical in found:
             continue

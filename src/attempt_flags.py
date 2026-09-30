@@ -85,11 +85,11 @@ def document_flags(
             *(bullet.text for role in draft.roles for bullet in role.bullets),
         ]
     )
-    named = set(match_text(scanned, aliases)) | set(draft.skills)
+    named = set(match_text(scanned, aliases, skip_ambiguous=True)) | set(draft.skills)
     title_words = {fold(role.title) for role in draft.roles if role.title}
     claims = [
         token
-        for token in unsupported_claims(scanned, corpus, aliases)
+        for token in unsupported_claims(scanned, corpus, aliases, skip_ambiguous=True)
         if fold(token) not in aliases and fold(token) not in title_words
     ]
     return {
