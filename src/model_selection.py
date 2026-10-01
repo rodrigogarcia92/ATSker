@@ -534,9 +534,15 @@ def verify_prices(
         supported = set(entry.get("supported_parameters") or [])
         missing = {"seed", "temperature"} - supported
         if missing:
-            notes.append(
-                f"{candidate.model}: provider no longer advertises {', '.join(sorted(missing))}"
-            )
+            note = f"{candidate.model}: provider no longer advertises {', '.join(sorted(missing))}"
+            if "temperature" in missing:
+                # The client always sends temperature 0; a model that refuses it is one
+                # line of data (src/extract/model_params.json), not a code change.
+                note += (
+                    f'; to stop sending it, add {json.dumps(candidate.model)}: ["temperature"] '
+                    "to src/extract/model_params.json"
+                )
+            notes.append(note)
         # What the runtime request is built from (PRD §7): a reasoning effort, a strict
         # JSON schema. A warning, not a stop: the probe is what settles whether a call works.
         absent = set(REQUIRED_PARAMETERS) - supported

@@ -18,6 +18,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from decimal import Decimal
 from functools import cache
+from pathlib import Path
 from typing import Any, TypeVar
 
 import httpx
@@ -30,11 +31,52 @@ from src.config import get_settings
 from src.models import LlmCall
 
 ENDPOINT = "https://openrouter.ai/api/v1/chat/completions"
+
+# Payload keys the client omits for a given model (PRD §7): data, not code, so a model
+# that refuses one — a reasoning model that rejects `temperature` with a 400 — is one
+# line here rather than a branch. It starts empty on purpose: nobody guesses which models
+# refuse what, and `model_selection.verify_prices` prints the entry to add.
+MODEL_PARAMS_PATH = Path(__file__).with_name("model_params.json")
+# The request is meaningless without these, so a model cannot be configured to lose them.
+_NEVER_OMITTED = frozenset({"model", "messages"})
 # The default `Settings.openrouter_timeout_seconds` starts from, kept importable so
 # `fixtures/golden/probe_model.py` can measure against the app's own budget.
 TIMEOUT_SECONDS = 60.0
 
 SchemaT = TypeVar("SchemaT", bound=BaseModel)
+
+
+class ModelParamsError(RuntimeError):
+    """`model_params.json` is unreadable or not a map of model id to payload keys."""
+
+
+def load_model_params(path: Path = MODEL_PARAMS_PATH) -> dict[str, frozenset[str]]:
+    """Read the per-model omissions, or fail naming the file and what is wrong with it."""
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise ModelParamsError(f"{path.name} cannot be read as JSON: {exc}") from exc
+    if not isinstance(raw, dict):
+        raise ModelParamsError(
+            f'{path.name} must be an object mapping a model id to a list of payload keys, e.g. '
+            '{"openai/gpt-6.1-sol": ["temperature"]}'
+        )
+    params: dict[str, frozenset[str]] = {}
+    for model, keys in raw.items():
+        if not isinstance(keys, list) or not all(isinstance(key, str) for key in keys):
+            raise ModelParamsError(f"{path.name}: {model!r} must map to a list of payload keys")
+        forbidden = sorted(_NEVER_OMITTED & set(keys))
+        if forbidden:
+            raise ModelParamsError(
+                f"{path.name}: {model!r} cannot omit {', '.join(forbidden)}; the request needs it"
+            )
+        params[model] = frozenset(keys)
+    return params
+
+
+# Read once, when the client is first imported: a malformed file stops the app at
+# startup with the file's name, never on the first paid call.
+OMIT_BY_MODEL: dict[str, frozenset[str]] = load_model_params()
 
 
 class NoModelConfigured(RuntimeError):
@@ -467,6 +509,8 @@ def complete_json(
         payload["seed"] = opts.seed
     if effort is not None:
         payload["reasoning"] = {"effort": effort}
+    for omitted in OMIT_BY_MODEL.get(chosen, ()):
+        payload.pop(omitted, None)
 
     attempt = 0
     while True:
