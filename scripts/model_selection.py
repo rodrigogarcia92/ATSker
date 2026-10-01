@@ -42,23 +42,35 @@ from src.model_selection import (  # noqa: E402
     verify_prices,
 )
 
+EXAMPLES = """\
+runs (the baseline, gemini-3.8-flash, goes first; the dev split is the default):
+  smoke (one pair, two repeats):
+    uv run python scripts/model_selection.py --models gemini-3.8-flash,gpt-6.1-sol --limit 1 --repeats 2
+  full (every dev pair, three repeats):
+    uv run python scripts/model_selection.py --models gemini-3.8-flash,gpt-6.1-sol
+"""  # noqa: E501 - the command lines are meant to be copied whole
+
 
 def candidate_selection(models: str) -> list[Candidate]:
     if not models:
-        return list(CANDIDATES)
+        return sorted(CANDIDATES, key=lambda item: not item.baseline)
     wanted = {value.strip() for value in models.split(",") if value.strip()}
     chosen = [item for item in CANDIDATES if item.model in wanted or item.label in wanted]
-    return chosen
+    return sorted(chosen, key=lambda item: not item.baseline)
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Model-selection experiment (PRD §9)")
+    parser = argparse.ArgumentParser(
+        description="Model-selection experiment (PRD §9)",
+        epilog=EXAMPLES,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument("--pairs", default="fixtures/golden", help="directory of golden *.toml")
     parser.add_argument("--out", default="fixtures/model_selection.json", help="JSON detail")
     parser.add_argument(
         "--models",
         default="",
-        help="comma-separated model ids or labels (a smoke subset: the comparison needs all three)",
+        help="comma-separated model ids or labels (default: all; the baseline runs first)",
     )
     parser.add_argument(
         "--split",

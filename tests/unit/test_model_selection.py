@@ -700,11 +700,15 @@ def test_the_candidate_list_matches_the_decided_set():
         "deepseek/deepseek-v4.1-flash",
         "google/gemini-3.8-flash",
         "z-ai/glm-5.3",
+        "openai/gpt-6.1-sol",
     ]
-    assert [candidate.reasoning_effort for candidate in CANDIDATES] == ["low"] * 3, (
-        "all three are pinned to the lowest effort their provider advertises: the run "
+    assert [candidate.reasoning_effort for candidate in CANDIDATES] == ["low"] * 4, (
+        "every candidate is pinned to the lowest effort its provider advertises: the run "
         "compares models, not effort levels"
     )
+    assert [candidate.model for candidate in CANDIDATES if candidate.baseline] == [
+        "google/gemini-3.8-flash"
+    ], "exactly one baseline: the production model"
     assert GLM_REFERENCE.reference and GLM_REFERENCE.reasoning_effort == "max"
     assert all(candidate.model in PRICES for candidate in CANDIDATES)
 
@@ -724,13 +728,16 @@ def test_building_the_same_pair_twice_produces_the_same_ids(pairs):
 # --------------------------------------------------------------------------- #
 
 
+ADVERTISED = ["seed", "temperature", "reasoning", "structured_outputs", "response_format"]
+
+
 def test_the_price_check_is_quiet_when_nothing_moved():
     payload = {
         "data": [
             {
                 "id": "deepseek/deepseek-v4.1-flash",
                 "pricing": {"prompt": "0.00000015", "completion": "0.0000006"},
-                "supported_parameters": ["seed", "temperature"],
+                "supported_parameters": ADVERTISED,
             }
         ]
     }
@@ -745,7 +752,7 @@ def test_the_price_check_flags_a_promotion_that_ended():
             {
                 "id": "google/gemini-3.8-flash",
                 "pricing": {"prompt": "0.00000075", "completion": "0.0000075"},
-                "supported_parameters": ["seed", "temperature"],
+                "supported_parameters": ADVERTISED,
             }
         ]
     }
@@ -781,6 +788,62 @@ def test_the_price_check_survives_no_network():
     assert "price check skipped" in notes[0]
 
 
+def sol_entry(**overrides) -> dict:
+    entry = {
+        "id": "openai/gpt-6.1-sol",
+        "pricing": {"prompt": "0.000002", "completion": "0.00001"},
+        "supported_parameters": ADVERTISED,
+        "supported_efforts": ["low", "medium", "high"],
+    }
+    entry.update(overrides)
+    return entry
+
+
+SOL = next(candidate for candidate in CANDIDATES if candidate.label == "gpt-6.1-sol")
+GEMINI = next(candidate for candidate in CANDIDATES if candidate.baseline)
+
+
+def test_the_price_check_is_quiet_for_sol_when_everything_is_advertised():
+    assert verify_prices([SOL], fetch=lambda: {"data": [sol_entry()]}) == []
+
+
+def test_the_price_check_warns_when_structured_outputs_is_missing():
+    advertised = [name for name in ADVERTISED if name != "structured_outputs"]
+
+    notes = verify_prices(
+        [SOL], fetch=lambda: {"data": [sol_entry(supported_parameters=advertised)]}
+    )
+
+    assert len(notes) == 1
+    assert "openai/gpt-6.1-sol" in notes[0] and "structured_outputs" in notes[0]
+
+
+def test_the_price_check_warns_when_temperature_is_missing():
+    advertised = [name for name in ADVERTISED if name != "temperature"]
+
+    notes = verify_prices(
+        [SOL], fetch=lambda: {"data": [sol_entry(supported_parameters=advertised)]}
+    )
+
+    assert any("no longer advertises temperature" in note for note in notes)
+
+
+def test_the_price_check_warns_when_the_effort_is_not_advertised():
+    notes = verify_prices(
+        [SOL], fetch=lambda: {"data": [sol_entry(supported_efforts=["medium", "high"])]}
+    )
+
+    assert len(notes) == 1
+    assert "'low'" in notes[0] and "medium, high" in notes[0]
+
+
+def test_the_effort_check_is_silent_when_the_api_advertises_no_list():
+    entry = sol_entry()
+    del entry["supported_efforts"]
+
+    assert verify_prices([SOL], fetch=lambda: {"data": [entry]}) == []
+
+
 def test_the_cli_runs_offline_against_the_synthetic_pairs(
     provider, monkeypatch, tmp_path, capsys
 ):
@@ -807,11 +870,13 @@ def test_the_cli_runs_offline_against_the_synthetic_pairs(
     payload = json.loads(out.read_text(encoding="utf-8"))
     assert payload["pairs"] == ["001-analista-riesgo-senior"]
     assert [entry["label"] for entry in payload["models"]] == [
-        "deepseek-v4.1-flash",
         "gemini-3.8-flash",
+        "deepseek-v4.1-flash",
         "glm-5.3",
-    ]
-    assert [entry["reasoning_effort"] for entry in payload["models"]] == ["low"] * 3
+        "gpt-6.1-sol",
+    ], "the baseline runs first"
+    assert [entry["reasoning_effort"] for entry in payload["models"]] == ["low"] * 4
+    assert [entry["baseline"] for entry in payload["models"]] == [True, False, False, False]
     assert payload["models"][0]["metrics"]["stability"] is not None
     assert payload["models"][0]["drift"] is not None
     assert payload["models"][0]["drift"]["repeats"] == 2
@@ -926,3 +991,143 @@ def test_pairs_with_no_split_stop_the_run_with_the_clear_message(
 
     assert exit_info.value.code == 2
     assert "selects no pair" in capsys.readouterr().err
+
+
+# --------------------------------------------------------------------------- #
+# GPT-6.1 Sol against the production model (PRD §7, §11)
+# --------------------------------------------------------------------------- #
+
+
+def test_the_models_flag_selects_exactly_the_named_models_with_the_baseline_first():
+    from scripts.model_selection import candidate_selection
+
+    for spelling in ("gemini-3.8-flash,gpt-6.1-sol", "gpt-6.1-sol, gemini-3.8-flash"):
+        chosen = candidate_selection(spelling)
+
+        assert [candidate.model for candidate in chosen] == [
+            "google/gemini-3.8-flash",
+            "openai/gpt-6.1-sol",
+        ]
+    assert candidate_selection("")[0].baseline, "the default run puts the baseline first too"
+
+
+def labelled_report(
+    candidate: Candidate,
+    *,
+    total: int,
+    cost: tuple[int, int],
+    latency: float,
+    repeat_totals: tuple[int, ...] = (50, 50, 50),
+) -> CandidateReport:
+    """Two pairs ordered like their buckets, so tau-b and rho are 1 for every model."""
+    prompt_tokens, completion_tokens = cost
+    return CandidateReport(
+        candidate=candidate,
+        probe=ProbeOutcome(model=candidate.model, ok=True, seed_accepted=True, fingerprint="fp"),
+        pairs=(
+            pair_result(
+                pair_id="a",
+                rank=2,
+                total=total,
+                repeat_totals=repeat_totals,
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                latency_s=latency,
+            ),
+            pair_result(
+                pair_id="b",
+                rank=0,
+                total=10,
+                repeat_totals=(10, 10, 10),
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                latency_s=latency,
+            ),
+        ),
+        seed=11,
+        repeats=3,
+    )
+
+
+def test_the_table_prints_the_baseline_first_and_the_deltas_against_it():
+    baseline = labelled_report(GEMINI, total=90, cost=(1000, 100), latency=2.0)
+    sol = labelled_report(
+        SOL, total=60, cost=(1000, 500), latency=5.5, repeat_totals=(40, 50, 60)
+    )
+
+    table = render_table([sol, baseline], pairs=2)
+
+    main = [line.split(" | ")[0] for line in table.splitlines() if line.startswith("| ")]
+    assert main[1:3] == ["| gemini-3.8-flash", "| gpt-6.1-sol"], "the baseline row comes first"
+    assert "Δ vs baseline (gemini-3.8-flash)" in table
+    delta_line = table.splitlines()[-1]
+    cells = [cell.strip() for cell in delta_line.strip("|").split("|")]
+    assert cells[0] == "gpt-6.1-sol"
+    # Both models order the two pairs like their buckets, so tau-b and rho do not move.
+    assert cells[1:3] == ["+0.00", "+0.00"]
+    assert cells[3] == "+20", "max score delta: 20 for sol against 0 for the baseline"
+    # Sol: $0.002 + $0.005 = $0.007. Gemini: $0.00075 + $0.00075 = $0.0015.
+    assert cells[4] == "+$0.005500"
+    assert cells[5] == "+3.5s"
+
+
+def test_no_baseline_in_the_run_says_so_instead_of_inventing_deltas():
+    sol = labelled_report(SOL, total=60, cost=(1000, 500), latency=5.5)
+
+    table = render_table([sol], pairs=2)
+
+    assert "No baseline model in this run" in table
+    assert "Δ tau-b" not in table
+
+
+def test_cost_per_analysis_at_list_prices_for_sol():
+    """(1,000 in, 500 out) at $2/$10 per M: $0.002 + $0.005."""
+    report = labelled_report(SOL, total=60, cost=(1000, 500), latency=1.0)
+
+    assert report.cost_list() == Decimal("0.007")
+    assert not report.cost_over_cap()
+    assert "$0.007000 |" in table_row(report) and "OVER" not in table_row(report)
+
+
+def test_the_single_track_cost_is_flagged_over_the_prd_cap():
+    over = labelled_report(SOL, total=60, cost=(1000, 1900), latency=1.0)  # $0.021
+    at_cap = labelled_report(SOL, total=60, cost=(1000, 1800), latency=1.0)  # $0.020
+
+    assert over.cost_list() == Decimal("0.021")
+    assert over.cost_over_cap() and "$0.021000 OVER" in table_row(over)
+    assert not at_cap.cost_over_cap() and "OVER" not in table_row(at_cap)
+    assert "over budget at list" in over.verdict()
+
+
+def test_the_cost_column_counts_the_first_analysis_only_not_the_repeats(provider, pairs):
+    """The repeats' grading calls are priced as stability cost, never as the analysis."""
+    report = run_experiment(pairs[:1], [SOL], seed=11, repeats=3)[0]
+
+    (pair,) = report.pairs
+    assert pair.stability_cost_usd > 0
+    assert pair.prompt_tokens == 4 * 2000, "extraction, grading, boolean queries, gap notes"
+    assert report.cost_list() == (
+        Decimal("2.0") * pair.prompt_tokens / 1_000_000
+        + Decimal("10.0") * pair.completion_tokens / 1_000_000
+    )
+
+
+def test_the_json_detail_marks_the_baseline_and_the_cap():
+    from src.model_selection import report_to_json
+
+    payload = report_to_json(labelled_report(GEMINI, total=90, cost=(1000, 100), latency=2.0))
+
+    assert payload["baseline"] is True
+    assert payload["metrics"]["cost_list_over_cap"] is False
+    assert payload["model"] == "google/gemini-3.8-flash"
+
+
+def test_sol_has_a_dated_list_price():
+    from src.model_selection import PRICES_READ_ON
+
+    price = PRICES["openai/gpt-6.1-sol"]
+
+    assert (price.input_list, price.output_list) == (2.0, 10.0)
+    assert (price.current_input, price.current_output) == (2.0, 10.0)
+    assert "2026-09-30" in price.note and "reasoning tokens bill as output" in price.note
+    assert PRICES_READ_ON == "2026-09-30"
