@@ -5,10 +5,12 @@ normalisation, or which the diff labels unchanged, reuses its master row — id 
 which is what makes an unchanged export reproduce the analysis's grading input exactly.
 A new or changed bullet gets a temporary id and a snapshot of its text.
 
-Role matching is the diff's (folded employer and title) plus one step of its own: a
-tailored CV retitles a role, but the job is the same one when the employer and the
-start month are the same. A role that still matches nothing is scored from the file,
-as a transient `Role` that is never added to the session (D5).
+Role matching is the diff's (employer and title on the punctuation-insensitive key)
+plus one step of its own: a tailored CV retitles a role, but the job is the same one
+when the employer and the start month are the same. A role that still matches nothing
+is scored from the file, as a transient `Role` that is never added to the session (D5).
+`match_roles` is that matching, in one place: scoring and the merge review both read it,
+so they cannot disagree about which master role a file role is.
 
 The document is built in the posting's language with the same shape
 `documents.track_document` produces, so the keyword scan, the recruiter search and the
@@ -17,7 +19,7 @@ grader all read the file as they read a track.
 
 import uuid
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date
 
 from sqlalchemy.orm import Session
@@ -30,9 +32,15 @@ from src.documents import (
     track_document,
 )
 from src.ingest.draft import DraftRole, ResumeDraft, parse_partial_date
-from src.ingest.merge import BulletCandidate, _bullet_candidates, diff_draft
+from src.ingest.merge import (
+    BulletCandidate,
+    MergePlan,
+    RoleCandidate,
+    _bullet_candidates,
+    diff_draft,
+)
 from src.models import Application, Bullet, Role
-from src.normalize.text import fold
+from src.normalize.text import match_key
 from src.roles import list_roles
 from src.tracks import get_track
 
@@ -111,22 +119,84 @@ def _role_by_start(
 ) -> Role | None:
     """The one master role with the file role's employer and start month, if any.
 
-    Two or more candidates are ambiguous and match nothing; a file role with no start
-    date matches nothing; a master role another file role already took is not offered
-    a second time.
+    Employers compare on `match_key`, so "Ministry of Education Empresa Demo" and
+    "Ministry of Education (Empresa Demo)" are one employer. Two or more candidates are
+    ambiguous and match nothing; a file role with no start date matches nothing; a
+    master role another file role already took is not offered a second time.
     """
     start = _start_month(parse_partial_date(raw.start_date))
-    employer = fold(raw.employer)
+    employer = match_key(raw.employer)
     if start is None or not employer:
         return None
     candidates = [
         role
         for role in masters
-        if fold(role.employer) == employer and _start_month(role.start_date) == start
+        if match_key(role.employer) == employer and _start_month(role.start_date) == start
     ]
     if len(candidates) != 1 or candidates[0].id in claimed:
         return None
     return candidates[0]
+
+
+@dataclass(frozen=True)
+class MatchedRole:
+    """One file role and the master role it is (or is not): `by` says how.
+
+    `plan` is the F2.5 candidate for it. `existing_id` is the master role for both kinds
+    of match, and `bullets` are labelled against that role's own bullets.
+    """
+
+    raw: DraftRole
+    plan: RoleCandidate
+    by: str  # "employer_title" | "employer_start" | "file_only"
+
+
+def match_roles(
+    profile_id: uuid.UUID, session: Session, draft: ResumeDraft
+) -> tuple[tuple[MatchedRole, ...], MergePlan]:
+    """Match every file role to a master role, the way scoring does (F10.3 step 3).
+
+    First the F2.5 diff's own key (employer and title), then employer and start month
+    among the active master roles, each master role taken at most once. A role that
+    matches by employer and start month is the same job under another title, so its
+    bullets are labelled against that role's bullets, not offered as a new role's.
+    Returns the matches in the draft's order and the whole plan with the roles replaced.
+    """
+    plan = diff_draft(profile_id, session, draft)
+    masters = list_roles(profile_id, session, active_only=True)
+    claimed = {role.existing_id for role in plan.roles if role.existing_id is not None}
+    master_bullets = list_bullets(profile_id, session, active_only=False)
+    matches: list[MatchedRole] = []
+    for raw, candidate in zip(draft.roles, plan.roles, strict=True):
+        if candidate.existing_id is not None:
+            matches.append(MatchedRole(raw, candidate, "employer_title"))
+            continue
+        matched = _role_by_start(raw, masters, claimed)
+        if matched is None:
+            matches.append(MatchedRole(raw, candidate, "file_only"))
+            continue
+        claimed.add(matched.id)
+        same_dates = (matched.start_date, matched.end_date) == (
+            candidate.start_date,
+            candidate.end_date,
+        )
+        matches.append(
+            MatchedRole(
+                raw,
+                replace(
+                    candidate,
+                    label="unchanged" if same_dates and matched.active else "changed",
+                    existing_id=matched.id,
+                    dates_changed=not same_dates,
+                    reactivates=not matched.active,
+                    bullets=_bullet_candidates(
+                        raw.bullets, [b for b in master_bullets if b.role_id == matched.id]
+                    ),
+                ),
+                "employer_start",
+            )
+        )
+    return tuple(matches), replace(plan, roles=tuple(m.plan for m in matches))
 
 
 def ephemeral_track(
@@ -153,43 +223,33 @@ def ephemeral_track(
     lang = str((jd_dict or {}).get("language") or draft.language or "es")
     column = "text_en" if (draft.language or "es") == "en" else "text_es"
 
-    plan = diff_draft(profile_id, session, draft)
+    matches, _plan = match_roles(profile_id, session, draft)
     master = {
         str(bullet.id): bullet for bullet in list_bullets(profile_id, session, active_only=False)
     }
-    masters = list_roles(profile_id, session, active_only=True)
-    claimed = {role.existing_id for role in plan.roles if role.existing_id is not None}
     bullets: list[Bullet] = []
     snapshots: list[BulletSnapshot] = []
     transient_roles: list[Role] = []
     role_matching: list[dict[str, object]] = []
-    for raw, role in zip(draft.roles, plan.roles, strict=True):
+    for matched in matches:
+        role, by = matched.plan, matched.by
         candidates: Sequence[BulletCandidate] = role.bullets
         if role.existing_id is not None:
-            role_id, by = role.existing_id, "employer_title"
+            role_id = role.existing_id
         else:
-            matched = _role_by_start(raw, masters, claimed)
-            if matched is not None:
-                # The same job under another title: its bullets meet the master role's.
-                claimed.add(matched.id)
-                role_id, by = matched.id, "employer_start"
-                candidates = _bullet_candidates(
-                    raw.bullets, [b for b in master.values() if b.role_id == matched.id]
-                )
-            else:
-                # Not master data, but its citations still count in Experience: a
-                # transient role with the file's own employer, title and dates.
-                fresh = Role(
-                    id=uuid.uuid4(),
-                    profile_id=profile_id,
-                    employer=role.employer,
-                    title=role.title,
-                    start_date=role.start_date,
-                    end_date=role.end_date,
-                    active=True,
-                )
-                transient_roles.append(fresh)
-                role_id, by = fresh.id, "file_only"
+            # Not master data, but its citations still count in Experience: a
+            # transient role with the file's own employer, title and dates.
+            fresh = Role(
+                id=uuid.uuid4(),
+                profile_id=profile_id,
+                employer=role.employer,
+                title=role.title,
+                start_date=role.start_date,
+                end_date=role.end_date,
+                active=True,
+            )
+            transient_roles.append(fresh)
+            role_id = fresh.id
         role_matching.append(
             {
                 "file_title": role.title,

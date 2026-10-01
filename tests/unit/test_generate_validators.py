@@ -16,6 +16,7 @@ from src.generate.validators import (
     LITERAL,
     PROVENANCE,
     Sources,
+    unsupported_claims,
     validate,
 )
 from src.normalize.text import fold
@@ -247,6 +248,49 @@ def test_prose_naming_a_pool_skill_without_a_level_two_citation_is_unevidenced()
     violations = validate_summary(output, grades=[{"level": 1, "evidence_id": "b1"}])
 
     assert [(v.rule, v.text) for v in violations] == [(CLOSURE_UNEVIDENCED, "python")]
+
+
+CITED_ONLY = Sources(
+    bullets={"b1": "Automaticé reportes de dirección", "b2": "Escribí scripts en Python"},
+    skills=frozenset({"python"}),
+    aliases=ALIASES,
+)
+
+
+def test_a_level_three_grade_on_a_cited_bullet_evidences_the_summary():
+    output = {"summary": {"text": "Reportes con python.", "cites": ["b2"]}, "skills": []}
+
+    violations = validate(
+        output,
+        sources=CITED_ONLY,
+        profile_id="p",
+        session=None,
+        kind="summary",
+        grades=[{"level": 3, "evidence_id": "b2"}],
+    )
+
+    assert violations == []
+
+
+def test_a_grade_on_a_bullet_the_summary_does_not_cite_does_not_evidence_it():
+    """F7.3: "in the selected bullets". b2 holds python at level 3, but b1 is what is cited."""
+    output = {"summary": {"text": "Reportes con python.", "cites": ["b1"]}, "skills": []}
+
+    violations = validate(
+        output,
+        sources=CITED_ONLY,
+        profile_id="p",
+        session=None,
+        kind="summary",
+        grades=[{"level": 3, "evidence_id": "b2"}],
+    )
+
+    assert [(v.rule, v.text) for v in violations] == [(CLOSURE_UNEVIDENCED, "python")]
+
+
+def test_a_line_break_ends_a_sentence_like_a_full_stop():
+    assert unsupported_claims("diseñé tableros\nApliqué reglas", "", {}) == []
+    assert unsupported_claims("diseñé tableros y Apliqué reglas", "", {}) == ["Apliqué"]
 
 
 def test_a_skill_missing_from_the_pool_is_reported_once_even_if_listed_and_named():

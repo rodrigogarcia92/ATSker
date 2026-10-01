@@ -126,8 +126,7 @@ def test_the_change_list_names_the_search_the_document_now_passes(
 
 
 def _claims(session, career, *texts: str) -> list[str]:
-    """The file's unsupported claims. Bullets start lower-case: the scan joins them with
-    spaces, so a capitalised first word would read as a mid-sentence name."""
+    """The file's unsupported claims."""
     draft = ResumeDraft(
         roles=[
             DraftRole(
@@ -192,6 +191,15 @@ def test_certifications_track_text_and_the_display_name_support_their_words(sess
     )
 
     assert claims == []
+
+
+def test_a_bullets_first_word_is_a_sentence_start_not_a_name(session, career):
+    """E3: the parts are joined with a newline, so the first word of each bullet — and of
+    the headline — begins a sentence. The same word in mid-sentence is still a name."""
+    assert _claims(session, career, "diseñé tableros mensuales", "Apliqué Python en reportes") == []
+    assert _claims(session, career, "diseñé tableros mensuales", "usé Python y Apliqué reglas") == [
+        "Apliqué"
+    ]
 
 
 def test_a_name_stored_nowhere_is_still_flagged(session, career):

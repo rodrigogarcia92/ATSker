@@ -236,8 +236,11 @@ def _protected_tokens(text: str, aliases: Mapping[str, str]) -> list[tuple[str, 
             continue
         if fold(word) in FUNCTION_WORDS:
             continue
-        before = text[: match.start()].rstrip()
-        if not before or before[-1] in _SENTENCE_END:
+        gap = text[: match.start()]
+        before = gap.rstrip()
+        # A line break ends a sentence as a full stop does: `rstrip` would otherwise
+        # swallow the "\n" that `_SENTENCE_END` lists.
+        if not before or before[-1] in _SENTENCE_END or "\n" in gap[len(before) :]:
             continue
         add(word, match.start(), match.end())
     for alias in sorted(aliases, key=len, reverse=True):
@@ -301,11 +304,14 @@ def validate(
     # its prose must also be evidenced at level 2 or better (F7.3). Other kinds have no
     # skills block, so every skill their text names must exist in the user's data.
     all_text = " ".join(text for _name, text, _cites in items)
+    # "Evidenced" is in the bullets the summary cites (F7.3: "in the selected bullets"),
+    # not in every bullet that was graded.
+    cited = {cite for _name, _text, cites in items for cite in cites}
     evidenced_bullets = {
         evidence_id
         for grade in (grades or [])
         for level, evidence_id in [_grade_parts(grade)]
-        if level >= 2 and evidence_id
+        if level >= 2 and evidence_id and (kind != "summary" or evidence_id in cited)
     }
     evidenced_canonicals: set[str] = set()
     for bullet_id, bullet_text in sources.bullets.items():

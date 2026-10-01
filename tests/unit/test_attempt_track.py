@@ -14,7 +14,8 @@ from decimal import Decimal
 import pytest
 
 from src.applications import create_application
-from src.attempt_track import ephemeral_track
+from src.attempt_merge import attempt_draft, merge_plan
+from src.attempt_track import ephemeral_track, match_roles
 from src.bullets import create_bullet
 from src.extract import client as extract_client
 from src.ingest.draft import DraftBullet, DraftRole, ResumeDraft
@@ -52,11 +53,13 @@ def _application(profile_id, session, track_id):
     return application
 
 
-def _master(career, session, *, start=date(2020, 3, 1), title="Especialista en datos"):
+def _master(
+    career, session, *, start=date(2020, 3, 1), title="Especialista en datos", employer="Empresa Demo"
+):
     role = create_role(
         career.first_profile.id,
         session,
-        employer="Empresa Demo",
+        employer=employer,
         title_es=title,
         title_en=None,
         start_date=start,
@@ -76,16 +79,22 @@ def _master(career, session, *, start=date(2020, 3, 1), title="Especialista en d
     return role, bullets
 
 
-def _draft(*, title="Data Analyst & RBF Specialist", start: str | None = "2020-03"):
+def _draft(
+    *,
+    title="Data Analyst & RBF Specialist",
+    start: str | None = "2020-03",
+    employer="Empresa Demo",
+    texts=TEXTS,
+):
     return ResumeDraft(
         language="es",
         headline="Analista de datos",
         roles=[
             DraftRole(
-                employer="Empresa Demo",
+                employer=employer,
                 title=title,
                 start_date=start,
-                bullets=[DraftBullet(text=text) for text in TEXTS],
+                bullets=[DraftBullet(text=text) for text in texts],
             )
         ],
     )
@@ -155,6 +164,87 @@ def test_two_master_roles_with_the_same_employer_and_month_are_ambiguous(session
 
     assert [row["by"] for row in result.role_matching] == ["file_only"]
     assert len(result.roles) == 1
+
+
+def test_employers_that_differ_only_in_punctuation_are_one_employer(session, career):
+    role, _bullets = _master(career, session, employer="Ministry of Education (Empresa Demo)")
+
+    result = _run(career, session, _draft(employer="Ministry of Education Empresa Demo"))
+
+    assert result.role_matching == (
+        {
+            "file_title": "Data Analyst & RBF Specialist",
+            "matched_role_id": str(role.id),
+            "by": "employer_start",
+        },
+    )
+    assert result.roles == ()
+
+
+# --- E3: the merge review matches roles the way scoring does ---
+
+CHANGED = TEXTS[0] + " de educación"
+BRAND_NEW = "Implementé un tablero de compras públicas para el ministerio"
+
+
+def _plan_from_attempt(career, session, draft):
+    """The merge plan "Incorporar a mi material" builds from an attempt on `draft`."""
+    result = _run(career, session, draft)
+    report = {
+        "draft": draft.model_dump(mode="json"),
+        "bullets": [snapshot.to_dict() for snapshot in result.snapshots],
+        "flags": {"skills": []},
+    }
+    return merge_plan(career.first_profile.id, session, attempt_draft(report))
+
+
+@pytest.mark.parametrize(
+    ("master_title", "file_title"),
+    [
+        ("Especialista en datos", "Data Analyst & RBF Specialist"),
+        ("Data Analyst & Results - Based Specialist", "Data Analyst & Results-Based Specialist"),
+    ],
+    ids=["retitled", "hyphen-only"],
+)
+def test_the_merge_plan_matches_a_retitled_role_to_the_master_role(
+    session, career, master_title, file_title
+):
+    role, bullets = _master(career, session, title=master_title)
+
+    plan = _plan_from_attempt(
+        career,
+        session,
+        _draft(title=file_title, texts=(TEXTS[1], CHANGED, BRAND_NEW)),
+    )
+
+    (planned,) = plan.roles
+    assert planned.existing_id == role.id, "the existing role, not a new one"
+    assert planned.label != "new"
+    assert [(b.label, b.existing_id) for b in planned.bullets] == [
+        ("changed", bullets[0].id),
+        ("new", None),
+    ], "labelled against that role's own bullets"
+
+
+def test_a_master_role_is_offered_to_one_file_role_only_in_the_merge_plan(session, career):
+    role, _bullets = _master(career, session)
+    draft = ResumeDraft(
+        language="es",
+        roles=[
+            DraftRole(
+                employer="Empresa Demo",
+                title=title,
+                start_date="2020-03",
+                bullets=[DraftBullet(text=BRAND_NEW + suffix)],
+            )
+            for title, suffix in (("Analista A", ""), ("Analista B", " nuevo"))
+        ],
+    )
+
+    matches, plan = match_roles(career.first_profile.id, session, draft)
+
+    assert [m.by for m in matches] == ["employer_start", "file_only"]
+    assert [r.existing_id for r in plan.roles] == [role.id, None]
 
 
 def test_role_matching_carries_titles_only(session, career):

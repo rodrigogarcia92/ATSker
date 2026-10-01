@@ -104,8 +104,9 @@ def document_flags(
         held.update(profile.skills)
 
     # What the file claims: its prose and its employers. Titles are handled separately
-    # so an invented role title is not reported twice.
-    scanned = " ".join(
+    # so an invented role title is not reported twice. The parts are joined with a newline:
+    # a bullet's first word begins a sentence, it is not a name in the middle of one.
+    scanned = "\n".join(
         [
             draft.headline or "",
             draft.summary or "",

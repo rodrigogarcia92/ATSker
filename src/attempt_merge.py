@@ -14,9 +14,10 @@ import uuid
 
 from sqlalchemy.orm import Session
 
+from src.attempt_track import match_roles
 from src.bullets import create_bullet, update_bullet
 from src.ingest.draft import ResumeDraft
-from src.ingest.merge import MergePlan, Selections, diff_draft
+from src.ingest.merge import MergePlan, Selections
 from src.models import Application, Profile
 from src.roles import create_role
 from src.tracks import create_track, set_track_bullets, track_bullets
@@ -59,8 +60,13 @@ def attempt_draft(report: dict) -> ResumeDraft:
 
 
 def merge_plan(profile_id: uuid.UUID, session: Session, draft: ResumeDraft) -> MergePlan:
-    """The F2.5 diff over the reduced draft: new, changed and unchanged, labelled."""
-    return diff_draft(profile_id, session, draft)
+    """The F2.5 diff over the reduced draft: new, changed and unchanged, labelled.
+
+    Roles match the way the attempt's scoring matched them (`match_roles`), so a role the
+    file retitled arrives as the existing role, not as a new one.
+    """
+    _matches, plan = match_roles(profile_id, session, draft)
+    return plan
 
 
 def _columns(language: str, text: str) -> tuple[str | None, str | None]:
