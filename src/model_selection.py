@@ -131,6 +131,9 @@ class GoldenPair(BaseModel):
     bucket: Literal["strong", "plausible", "stretch"]
     profile: Literal["primary", "second"]
     reason: str
+    # PRD F5.5.2/§9: the development split is what a model is chosen on; the test split
+    # is sealed and scored once. None is a pair file that does not say which it is.
+    split: Literal["dev", "test"] | None = None
     resume_sha256: str | None = None
     resume: ResumeFixture
     jd: JDFixture
@@ -160,19 +163,45 @@ def load_pairs(directory: Path) -> list[GoldenPair]:
     return pairs
 
 
+SPLITS = ("dev", "test", "all")
+
+
+def select_split(pairs: Sequence[GoldenPair], split: str) -> list[GoldenPair]:
+    """The pairs of one split (PRD §9: model selection runs on the dev split).
+
+    A request that selects nothing is an error, never a fallback to every pair: a
+    pair file with no `split` key cannot be told from a sealed test pair, so using it
+    would open the test split by accident.
+    """
+    if split not in SPLITS:
+        raise ValueError(f"unknown split {split!r}; one of {', '.join(SPLITS)}")
+    chosen = list(pairs) if split == "all" else [pair for pair in pairs if pair.split == split]
+    if not chosen:
+        labelled = sum(1 for pair in pairs if pair.split is not None)
+        raise ValueError(
+            f"the {split!r} split selects no pair: {len(pairs)} loaded, {labelled} carry a "
+            '`split` key. Add `split = "dev"` or `split = "test"` at the top level of each '
+            "pair file; the run never falls back to using every pair."
+        )
+    return chosen
+
+
 def vocabulary_entries() -> list[dict]:
     """The production vocabulary: decision 5 keeps it in the seed file, not in code."""
     path = Path(__file__).parent / "normalize" / "skills_seed.json"
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def composition_notes(pairs: Sequence[GoldenPair]) -> list[str]:
+def composition_notes(pairs: Sequence[GoldenPair], *, split: str | None = None) -> list[str]:
     """PRD §9's composition rules, reported rather than enforced.
 
     A thin set still produces a table — it just produces a table that cannot carry
-    the acceptance argument, and saying so is cheaper than discovering it later.
+    the acceptance argument, and saying so is cheaper than discovering it later. The
+    first note says which split the run is on and how many pairs it holds.
     """
     notes: list[str] = []
+    if split is not None:
+        notes.append(f"split {split}: {len(pairs)} pairs")
     spanish = sum(1 for pair in pairs if pair.language == "es")
     second = sum(1 for pair in pairs if pair.profile == "second")
     buckets = Counter(pair.bucket for pair in pairs)

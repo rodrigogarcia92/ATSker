@@ -45,6 +45,7 @@ from src.model_selection import (
     render_table,
     run_experiment,
     run_pair,
+    select_split,
     spearman_rho,
     surcharge_warnings,
     table_row,
@@ -814,3 +815,114 @@ def test_the_cli_runs_offline_against_the_synthetic_pairs(
     assert payload["models"][0]["metrics"]["stability"] is not None
     assert payload["models"][0]["drift"] is not None
     assert payload["models"][0]["drift"]["repeats"] == 2
+
+
+# --------------------------------------------------------------------------- #
+# The dev split only, by default (PRD F5.5.2, §9)
+# --------------------------------------------------------------------------- #
+
+
+def _offline(monkeypatch):
+    import src.model_selection as module
+
+    def offline():
+        raise httpx.ConnectError("offline")
+
+    monkeypatch.setattr(module, "_fetch_models", offline)
+
+
+def test_the_synthetic_pairs_carry_their_split(pairs):
+    assert [pair.split for pair in pairs] == ["dev", "dev", "test"]
+
+
+def test_select_split_keeps_only_the_requested_split(pairs):
+    assert [pair.split for pair in select_split(pairs, "dev")] == ["dev", "dev"]
+    assert [pair.split for pair in select_split(pairs, "test")] == ["test"]
+    assert len(select_split(pairs, "all")) == 3
+
+
+def test_a_split_that_selects_nothing_is_a_clear_error_never_a_fallback(pairs):
+    unlabelled = [pair.model_copy(update={"split": None}) for pair in pairs]
+
+    with pytest.raises(ValueError) as error:
+        select_split(unlabelled, "dev")
+
+    message = str(error.value)
+    assert "'dev' split selects no pair" in message
+    assert "3 loaded, 0 carry a `split` key" in message
+    assert 'split = "dev"' in message
+
+
+def test_the_composition_notes_say_the_split_and_its_count(pairs):
+    notes = composition_notes(select_split(pairs, "dev"), split="dev")
+
+    assert notes[0] == "split dev: 2 pairs"
+
+
+def test_the_default_run_loads_the_dev_pairs_only(provider, monkeypatch, tmp_path, capsys):
+    from scripts import model_selection as cli
+
+    _offline(monkeypatch)
+    out = tmp_path / "detail.json"
+
+    code = cli.main(
+        ["--pairs", str(SYNTHETIC), "--out", str(out), "--models", "gemini-3.8-flash",
+         "--repeats", "2"]
+    )
+
+    printed = capsys.readouterr().out
+    assert code == 0
+    assert json.loads(out.read_text(encoding="utf-8"))["pairs"] == [
+        "001-analista-riesgo-senior",
+        "002-data-engineer-pipelines",
+    ]
+    assert "2 pairs ·" in printed and "split dev: 2 pairs" in printed
+    assert "meant to be scored once" not in printed
+
+
+@pytest.mark.parametrize("split", ["test", "all"])
+def test_the_test_split_needs_unseal(provider, tmp_path, split, capsys):
+    from scripts import model_selection as cli
+
+    with pytest.raises(SystemExit) as exit_info:
+        cli.main(["--pairs", str(SYNTHETIC), "--out", str(tmp_path / "x.json"), "--split", split])
+
+    assert exit_info.value.code == 2
+    assert "--unseal" in capsys.readouterr().err
+    assert not (tmp_path / "x.json").exists()
+
+
+def test_unsealing_the_test_split_warns_that_it_is_scored_once(
+    provider, monkeypatch, tmp_path, capsys
+):
+    from scripts import model_selection as cli
+
+    _offline(monkeypatch)
+    out = tmp_path / "detail.json"
+
+    code = cli.main(
+        ["--pairs", str(SYNTHETIC), "--out", str(out), "--models", "gemini-3.8-flash",
+         "--repeats", "2", "--split", "test", "--unseal"]
+    )
+
+    assert code == 0
+    assert json.loads(out.read_text(encoding="utf-8"))["pairs"] == ["003-ml-platform-ingeniero"]
+    assert "meant to be scored once" in capsys.readouterr().out
+
+
+def test_pairs_with_no_split_stop_the_run_with_the_clear_message(
+    provider, tmp_path, capsys
+):
+    from scripts import model_selection as cli
+
+    pairs_dir = tmp_path / "pairs"
+    pairs_dir.mkdir()
+    for path in SYNTHETIC.glob("*.toml"):
+        text = re.sub(r'^split = .*\n', "", path.read_text(encoding="utf-8"), flags=re.M)
+        (pairs_dir / path.name).write_text(text, encoding="utf-8")
+
+    with pytest.raises(SystemExit) as exit_info:
+        cli.main(["--pairs", str(pairs_dir), "--out", str(tmp_path / "x.json")])
+
+    assert exit_info.value.code == 2
+    assert "selects no pair" in capsys.readouterr().err
