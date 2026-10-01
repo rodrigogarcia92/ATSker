@@ -28,6 +28,7 @@ from src.model_selection import (  # noqa: E402
     DEFAULT_REPEATS,
     DEFAULT_SEED,
     GLM_REFERENCE,
+    SPLITS,
     Candidate,
     composition_notes,
     drift_pairs,
@@ -36,27 +37,51 @@ from src.model_selection import (  # noqa: E402
     render_table,
     report_to_json,
     run_experiment,
+    select_split,
     surcharge_warnings,
     verify_prices,
 )
 
+EXAMPLES = """\
+runs (the baseline, gemini-3.8-flash, goes first; the dev split is the default):
+  smoke (one pair, two repeats):
+    uv run python scripts/model_selection.py --models gemini-3.8-flash,gpt-6.1-sol --limit 1 --repeats 2
+  full (every dev pair, three repeats):
+    uv run python scripts/model_selection.py --models gemini-3.8-flash,gpt-6.1-sol
+"""  # noqa: E501 - the command lines are meant to be copied whole
+
 
 def candidate_selection(models: str) -> list[Candidate]:
     if not models:
-        return list(CANDIDATES)
+        return sorted(CANDIDATES, key=lambda item: not item.baseline)
     wanted = {value.strip() for value in models.split(",") if value.strip()}
     chosen = [item for item in CANDIDATES if item.model in wanted or item.label in wanted]
-    return chosen
+    return sorted(chosen, key=lambda item: not item.baseline)
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Model-selection experiment (PRD §9)")
+    parser = argparse.ArgumentParser(
+        description="Model-selection experiment (PRD §9)",
+        epilog=EXAMPLES,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument("--pairs", default="fixtures/golden", help="directory of golden *.toml")
     parser.add_argument("--out", default="fixtures/model_selection.json", help="JSON detail")
     parser.add_argument(
         "--models",
         default="",
-        help="comma-separated model ids or labels (a smoke subset: the comparison needs all three)",
+        help="comma-separated model ids or labels (default: all; the baseline runs first)",
+    )
+    parser.add_argument(
+        "--split",
+        choices=SPLITS,
+        default="dev",
+        help="which pairs to run on (default dev; test and all need --unseal)",
+    )
+    parser.add_argument(
+        "--unseal",
+        action="store_true",
+        help="allow --split test|all: the test split is sealed and meant to be scored once",
     )
     parser.add_argument("--repeats", type=int, default=DEFAULT_REPEATS)
     parser.add_argument("--seed", type=int, default=DEFAULT_SEED)
@@ -66,13 +91,20 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
+    if args.split != "dev" and not args.unseal:
+        parser.error(f"--split {args.split} opens the sealed test split; pass --unseal to confirm")
     if get_settings().openrouter_api_key is None:
         parser.error("OPENROUTER_API_KEY is not set; the live run needs it (see .env.example)")
 
     try:
-        pairs = load_pairs(Path(args.pairs))
+        pairs = select_split(load_pairs(Path(args.pairs)), args.split)
     except ValueError as exc:
         parser.error(str(exc))
+    if args.split != "dev":
+        print(
+            f"  ! the test split is meant to be scored once, after the scorer is frozen "
+            f"(PRD §9); --split {args.split} reads it"
+        )
     if args.limit:
         pairs = pairs[: args.limit]
     candidates = candidate_selection(args.models)
@@ -87,7 +119,7 @@ def main(argv: list[str] | None = None) -> int:
         f"  extraction drift measured separately: {args.repeats} repeats of the "
         f"extraction call alone on {len(sample)} pairs ({', '.join(p.id for p in sample)})"
     )
-    for note in composition_notes(pairs):
+    for note in composition_notes(pairs, split=args.split):
         print(f"  ! {note}")
     for note in verify_prices(candidates):
         print(f"  ! {note}")

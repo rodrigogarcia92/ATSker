@@ -4,6 +4,7 @@ id = "001-analista-riesgo-senior"
 language = "es"
 bucket = "strong"
 profile = "primary"
+split = "dev"
 reason = "Cinco años de analista con Python, SQL y tableros usados por negocio: el encaje es directo y las viñetas lo demuestran."
 # resume_sha256 = ""   # provenance once M2b archives résumé files
 

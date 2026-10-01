@@ -429,6 +429,23 @@ SUMMARY_SKILLS_V1 = Prompt(
 )
 
 
+# V2 states the skills-list rule outright, so the pool is not a suggestion. The version
+# string is new on purpose: it busts the cache, and V1 stays for reports that cite it.
+SUMMARY_SKILLS_V2 = Prompt(
+    version="summary_skills_v2",
+    system=(
+        SUMMARY_SKILLS_V1.system.replace(
+            "Return the summary text,",
+            "The skills list must contain only canonicals from the pool below, at most 15, "
+            "ordered for this posting; a posting requirement that is not in the pool goes "
+            "nowhere — never into the list.\n\n"
+            "Return the summary text,",
+        )
+    ),
+    template=SUMMARY_SKILLS_V1.template,
+)
+
+
 BULLET_REPHRASE_V1 = Prompt(
     version="bullet_rephrase_v1",
     system=(
@@ -469,5 +486,72 @@ STORY_BULLETS_V1 = Prompt(
         "The person's roles (id and title) — choose the role each bullet belongs "
         "to:\n{roles}\n\n"
         "Return up to three bullets in {lang}, each citing the story id and a role id."
+    ),
+)
+
+
+# N8's cover letters. Two prompts: the fixed paragraphs of a template (N8.3) and the
+# bridge written for one application (N8.4).
+
+LETTER_BLOCKS_V1 = Prompt(
+    version="letter_blocks_v1",
+    system=(
+        "You write the two paragraphs that a person reuses at the top of a cover letter, "
+        "in the requested language: a **presentation** of who they are and what they do, "
+        "and an **achievements** paragraph saying what they have done.\n\n"
+        "You may use only the material you are given: the track's bullets, the roles, "
+        "the track's summary and the person's stories. Never add a number, a percentage, "
+        "a year, an employer, a client or a tool that is not written in the material you "
+        "cite. A number the material does not state stays unstated.\n\n"
+        "Every paragraph cites the ids it draws on — bullet ids, story ids or role ids — "
+        "and cites nothing else. A paragraph that cites nothing is not a paragraph.\n\n"
+        "The presentation is at most 70 words. The achievements paragraph is between 80 "
+        "and 160 words, one single paragraph, and leads with one flagship achievement "
+        "with the numbers the material already gives for it.\n\n"
+        "The voice notes say how it should read — register, formality, anything the "
+        "person always wants said. Follow them, and write in {lang}."
+    ),
+    template=(
+        "The track's bullets, in the order the track uses them:\n{bullets}\n\n"
+        "The person's roles:\n{roles}\n\n"
+        "The track's summary in {lang}:\n{summary}\n\n"
+        "The person's stories:\n{stories}\n\n"
+        "Voice notes from the person:\n{voice_notes}\n\n"
+        "Return the presentation text and the achievements text, each with the ids it "
+        "cites."
+    ),
+)
+
+
+LETTER_BRIDGE_V1 = Prompt(
+    version="letter_bridge_v1",
+    system=(
+        "You write the bridge paragraph of one cover letter — the one part written for "
+        "this application and no other: why this position, and why this person fits it. "
+        "You write in the posting's language.\n\n"
+        "Choose the template that fits this posting from the candidates given, say why "
+        "in one line, and name a runner-up only when it is genuinely close.\n\n"
+        "Return three variants of the bridge, each 2 to 4 sentences and at most 90 "
+        "words, each labelled with its angle in two or three words, and each taking a "
+        "genuinely different angle — not three phrasings of one. Only material you are "
+        "given may be used: the person's bullets, stories and roles, the posting, the "
+        "company and the title. Never invent a number, a date, an employer, a tool or a "
+        "company fact; a company fact is usable only with a verbatim quote from the "
+        "posting, and otherwise the variant says nothing about the company.\n\n"
+        "Every variant cites the ids it draws on. Do not repeat a number that appears "
+        "in the chosen template's achievements paragraph: the bridge is a different "
+        "achievement, not the same one twice.\n\n"
+        "Also return one line of risk — what may count against this application (a "
+        "sector change, a seniority gap against the title) and how to handle it — or "
+        "null when nothing does."
+    ),
+    template=(
+        "The posting:\n{posting}\n\n"
+        "Company: {company}\nPosting title, exactly as stored: {title}\n\n"
+        "Candidate templates (id, name, when to use it, achievements paragraph):\n"
+        "{templates}\n\n"
+        "The person's material, strongest evidence first:\n{material}\n\n"
+        "Voice notes from the person:\n{voice_notes}\n\n"
+        "Write in {lang}."
     ),
 )

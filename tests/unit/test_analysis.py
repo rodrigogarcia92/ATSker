@@ -1577,6 +1577,31 @@ def test_a_stored_recall_without_query_text_still_renders(client, session, caree
     assert "Copiar" not in page, "an old report has nothing to copy"
 
 
+def test_the_recall_rows_carry_their_verdict_colours(client, session, career, provider):
+    """N8.8: each query reads at a glance in the score palette — green for a pass, red
+    for a fail — the same pair the section's summary verdict already uses. The words
+    Pasa/Falla and the ✓/✗ glyphs stay, so colour is never the only signal."""
+    login(client, career.first.email)
+    posted = client.post("/analyze", data={"jd_text": POSTING}, follow_redirects=False)
+
+    page = client.get(posted.headers["location"]).text
+
+    # The row's label, then its verdict chip. Only the rows carry this exact shape;
+    # the summary verdict sits in its own `<p>` and the copy button keeps bg-surface-2.
+    rows = re.findall(
+        r'<span class="font-medium">(.*?)</span>\s*'
+        r'<span class="rounded-tag border px-2 py-0\.5 text-xs (.*?)">',
+        page,
+        re.S,
+    )
+    assert dict(rows) == {
+        "amplia": "border-score-strong text-score-strong",
+        "estricta": "border-score-weak text-score-weak",
+    }, "a pass row is green, a fail row red, with no fill"
+    assert 'class="text-score-strong">✓</span>' in page, "the met clause's mark is green"
+    assert 'class="text-score-weak">✗</span>' in page, "the missing clause's mark is red"
+
+
 # --- N6.3: the result page's order, its numbers and its missing words -------------
 
 

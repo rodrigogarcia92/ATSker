@@ -20,15 +20,17 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Literal
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from src.bullets import bullet_text, list_bullets
 from src.certifications import list_certifications
 from src.education import list_educations
-from src.models import Bullet, Profile, Summary, Track
+from src.models import Bullet, Profile, Skill, Summary, Track
 from src.roles import list_roles, role_title
+from src.score.ceiling import MasterBullet, MasterData, MasterRole
 from src.summaries import get_summary
-from src.tracks import track_bullets
+from src.tracks import list_tracks, track_bullets
 
 UnitKind = Literal[
     "headline",
@@ -87,12 +89,22 @@ def track_document(
     session: Session,
     track: Track | None,
     lang: str,
+    *,
+    bullets: Sequence[Bullet] | None = None,
+    headline: str | None = None,
+    summary_text: str | None = None,
+    skills: Sequence[str] | None = None,
 ) -> list[DocumentUnit]:
     """The track as one reader sees it, in reading order, in `lang` (PRD F4.1).
 
     Every item falls back to the other language and says so with `fallback: True`.
     The headline's last resort is the profile's own (F4.1's table); that text
     carries no language of its own and is not marked as a fallback.
+
+    The four keyword-only overrides exist for F10's ephemeral track (A4): an attempt
+    reads the *file's* text where it differs from the master and the master's where it
+    matches, so an unchanged export produces exactly the document the analysis scored.
+    They are None here, which is the analysis path unchanged.
     """
     own, other = _language(lang)
     profile = session.get(Profile, profile_id)
@@ -100,22 +112,27 @@ def track_document(
         raise RuntimeError("a document needs a profile that exists")
 
     units: list[DocumentUnit] = []
+    headline_given = headline is not None
 
-    headline, headline_fallback = None, False
+    headline_text, headline_fallback = None, False
     if track is not None:
-        headline = _clean(getattr(track, f"headline_{own}", None))
-        if headline is None:
-            headline = _clean(getattr(track, f"headline_{other}", None))
-            headline_fallback = headline is not None
-    if headline is None:
-        headline = _clean(profile.headline)
-    if headline:
-        units.append(DocumentUnit("headline", headline, fallback=headline_fallback))
+        headline_text = _clean(getattr(track, f"headline_{own}", None))
+        if headline_text is None:
+            headline_text = _clean(getattr(track, f"headline_{other}", None))
+            headline_fallback = headline_text is not None
+    if headline_text is None:
+        headline_text = _clean(profile.headline)
+    if headline_given:
+        headline_text, headline_fallback = _clean(headline), False
+    if headline_text:
+        units.append(DocumentUnit("headline", headline_text, fallback=headline_fallback))
 
     summary: Summary | None = None
-    summary_text: str | None = None
     summary_fallback = False
-    if track is not None:
+    summary_given = summary_text is not None
+    if summary_given:
+        summary_text = _clean(summary_text)
+    elif track is not None:
         slot = getattr(track, f"summary_{own}_id", None)
         summary = get_summary(profile_id, session, slot) if slot else None
         if summary is None:
@@ -136,10 +153,10 @@ def track_document(
             )
         )
 
-    bullets = document_bullets(profile_id, session, track)
+    bullets = list(bullets) if bullets is not None else document_bullets(profile_id, session, track)
     if track is not None:
         seen: set[str] = set()
-        for canonical in track.skills:
+        for canonical in skills if skills is not None else track.skills:
             name = _clean(canonical)
             if name and name not in seen:
                 seen.add(name)
@@ -200,3 +217,64 @@ def document_skills_list(document: Sequence[DocumentUnit]) -> str | None:
 def document_summary(document: Sequence[DocumentUnit]) -> str | None:
     """The summary item — the other source F5.4.1 shows the grader."""
     return next((unit.text for unit in document if unit.kind == "summary"), None)
+
+
+def master_data(
+    profile_id: uuid.UUID, session: Session, track: Track | None = None
+) -> MasterData:
+    """Everything the ceiling may read from the master database (F10.2, A2/A10).
+
+    Plain values, so `score.ceiling` stays a pure function: every active role with its
+    titles in both languages and its bullets, every active bullet with its tags and its
+    text, every stored headline, the skills pool, and the one-hop skill families. The
+    track — when the analysis had one — contributes its skills to the pool.
+    """
+    profile = session.get(Profile, profile_id)
+    if profile is None:
+        raise RuntimeError("master data needs a profile that exists")
+    roles = list_roles(profile_id, session, active_only=True)
+    bullets = document_bullets(profile_id, session, None)
+    by_role: dict[uuid.UUID, list[str]] = {}
+    for bullet in bullets:
+        by_role.setdefault(bullet.role_id, []).append(str(bullet.id))
+
+    headlines = [
+        headline
+        for entry in list_tracks(profile_id, session, active_only=True)
+        for headline in (entry.headline_es, entry.headline_en)
+        if headline
+    ]
+    if profile.headline:
+        headlines.append(profile.headline)
+
+    families = {
+        skill.canonical: skill.family
+        for skill in session.scalars(select(Skill))
+        if skill.family
+    }
+    return MasterData(
+        bullets=tuple(
+            MasterBullet(
+                id=str(bullet.id),
+                role_id=str(bullet.role_id),
+                text_es=bullet.text_es,
+                text_en=bullet.text_en,
+                skills=tuple(bullet.skills),
+            )
+            for bullet in bullets
+        ),
+        roles=tuple(
+            MasterRole(
+                id=str(role.id),
+                title_es=role.title_es,
+                title_en=role.title_en,
+                start_date=role.start_date,
+                end_date=role.end_date,
+                bullet_ids=tuple(by_role.get(role.id, ())),
+            )
+            for role in roles
+        ),
+        headlines=tuple(headlines),
+        pool=tuple([*profile.skills, *(track.skills if track is not None else [])]),
+        families=families,
+    )

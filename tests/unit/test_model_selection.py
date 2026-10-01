@@ -9,9 +9,11 @@ cache instead of the judge.
 import json
 import re
 import zlib
+from dataclasses import replace
 from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
+from types import SimpleNamespace
 
 import httpx
 import pytest
@@ -21,6 +23,7 @@ from src.bullets import list_bullets
 from src.extract import client
 from src.extract.client import CallOptions
 from src.model_selection import (
+    _WEIGHTS_BY_VERSION,
     CANDIDATES,
     GLM_REFERENCE,
     PRICES,
@@ -29,6 +32,7 @@ from src.model_selection import (
     ModelPrice,
     PairResult,
     ProbeOutcome,
+    _total_with_evidence,
     bootstrap_ci,
     build_session,
     composition_notes,
@@ -41,12 +45,16 @@ from src.model_selection import (
     render_table,
     run_experiment,
     run_pair,
+    select_split,
     spearman_rho,
     surcharge_warnings,
     table_row,
     verify_prices,
 )
 from src.models import LlmCall
+from src.score.aggregate import SubScore, aggregate
+from src.score.evidence import Level, evidence_coverage
+from src.score.weights import W3
 
 SYNTHETIC = Path(__file__).resolve().parents[1] / "golden_synthetic"
 
@@ -344,6 +352,82 @@ def test_moving_ordinals_show_up_in_the_score_delta(provider, pairs):
     assert len(result.repeat_totals) == 3
 
 
+def _first_levels(analysis) -> list[Level]:
+    return [
+        Level(grade["requirement"], grade["level"], grade["must_have"], grade["basis"])
+        for grade in analysis.report["grades"]
+    ]
+
+
+def _analysis(provider, pairs):
+    pair = pairs[0]
+    session, profile_id = build_session(pair)
+    return analyze(
+        profile_id,
+        session,
+        jd_text=pair.jd.text,
+        model=CANDIDATE.model,
+        options=CallOptions(seed=11, reasoning_effort=None),
+    )
+
+
+def test_a_repeat_equal_to_the_first_grading_reproduces_the_w4_total(provider, pairs):
+    analysis = _analysis(provider, pairs)
+
+    assert analysis.report["score"]["weights_version"] == "w4"
+    assert _total_with_evidence(analysis, _first_levels(analysis)) == (
+        analysis.report["score"]["uncapped"]
+    )
+
+
+def test_a_repeat_equal_to_the_first_grading_reproduces_a_w3_total(provider, pairs):
+    analysis = _analysis(provider, pairs)
+    report = json.loads(json.dumps(analysis.report))
+    report["score"]["weights_version"] = "w3"
+    report["score"]["uncapped"] = aggregate(
+        {
+            **{
+                name: SubScore(name=name, value=float(entry["value"]))
+                for name, entry in report["score"]["sub_scores"].items()
+                if name != "skills"
+            },
+            "skills": evidence_coverage(_first_levels(analysis), basis_credit=W3.basis_credit),
+        },
+        W3,
+    ).uncapped
+
+    assert _total_with_evidence(SimpleNamespace(report=report), _first_levels(analysis)) == (
+        report["score"]["uncapped"]
+    )
+
+
+def test_the_total_is_rebuilt_under_the_weight_set_the_report_names(
+    provider, pairs, monkeypatch
+):
+    """w3 and w4 carry the same numbers today, so make them differ to prove the lookup."""
+    analysis = _analysis(provider, pairs)
+    halved = replace(W3, basis_credit={"direct": 0.5, "equivalent": 0.4, "transferable": 0.3})
+    monkeypatch.setitem(_WEIGHTS_BY_VERSION, "w3", halved)
+    report = json.loads(json.dumps(analysis.report))
+    report["score"]["weights_version"] = "w3"
+    levels = _first_levels(analysis)
+
+    as_w3 = _total_with_evidence(SimpleNamespace(report=report), levels)
+    as_w4 = _total_with_evidence(analysis, levels)
+
+    assert as_w4 == analysis.report["score"]["uncapped"]
+    assert as_w3 < as_w4, "w3's smaller basis credits lower the Skills sub-score"
+
+
+def test_an_unknown_weights_version_raises(provider, pairs):
+    analysis = _analysis(provider, pairs)
+    report = json.loads(json.dumps(analysis.report))
+    report["score"]["weights_version"] = "w9"
+
+    with pytest.raises(ValueError, match="w9"):
+        _total_with_evidence(SimpleNamespace(report=report), _first_levels(analysis))
+
+
 # --------------------------------------------------------------------------- #
 # Extraction drift, which the judge's number must not absorb
 # --------------------------------------------------------------------------- #
@@ -616,11 +700,15 @@ def test_the_candidate_list_matches_the_decided_set():
         "deepseek/deepseek-v4.1-flash",
         "google/gemini-3.8-flash",
         "z-ai/glm-5.3",
+        "openai/gpt-6.1-sol",
     ]
-    assert [candidate.reasoning_effort for candidate in CANDIDATES] == ["low"] * 3, (
-        "all three are pinned to the lowest effort their provider advertises: the run "
+    assert [candidate.reasoning_effort for candidate in CANDIDATES] == ["low"] * 4, (
+        "every candidate is pinned to the lowest effort its provider advertises: the run "
         "compares models, not effort levels"
     )
+    assert [candidate.model for candidate in CANDIDATES if candidate.baseline] == [
+        "google/gemini-3.8-flash"
+    ], "exactly one baseline: the production model"
     assert GLM_REFERENCE.reference and GLM_REFERENCE.reasoning_effort == "max"
     assert all(candidate.model in PRICES for candidate in CANDIDATES)
 
@@ -640,13 +728,16 @@ def test_building_the_same_pair_twice_produces_the_same_ids(pairs):
 # --------------------------------------------------------------------------- #
 
 
+ADVERTISED = ["seed", "temperature", "reasoning", "structured_outputs", "response_format"]
+
+
 def test_the_price_check_is_quiet_when_nothing_moved():
     payload = {
         "data": [
             {
                 "id": "deepseek/deepseek-v4.1-flash",
                 "pricing": {"prompt": "0.00000015", "completion": "0.0000006"},
-                "supported_parameters": ["seed", "temperature"],
+                "supported_parameters": ADVERTISED,
             }
         ]
     }
@@ -661,7 +752,7 @@ def test_the_price_check_flags_a_promotion_that_ended():
             {
                 "id": "google/gemini-3.8-flash",
                 "pricing": {"prompt": "0.00000075", "completion": "0.0000075"},
-                "supported_parameters": ["seed", "temperature"],
+                "supported_parameters": ADVERTISED,
             }
         ]
     }
@@ -697,6 +788,64 @@ def test_the_price_check_survives_no_network():
     assert "price check skipped" in notes[0]
 
 
+def sol_entry(**overrides) -> dict:
+    entry = {
+        "id": "openai/gpt-6.1-sol",
+        "pricing": {"prompt": "0.000002", "completion": "0.00001"},
+        "supported_parameters": ADVERTISED,
+        "supported_efforts": ["low", "medium", "high"],
+    }
+    entry.update(overrides)
+    return entry
+
+
+SOL = next(candidate for candidate in CANDIDATES if candidate.label == "gpt-6.1-sol")
+GEMINI = next(candidate for candidate in CANDIDATES if candidate.baseline)
+
+
+def test_the_price_check_is_quiet_for_sol_when_everything_is_advertised():
+    assert verify_prices([SOL], fetch=lambda: {"data": [sol_entry()]}) == []
+
+
+def test_the_price_check_warns_when_structured_outputs_is_missing():
+    advertised = [name for name in ADVERTISED if name != "structured_outputs"]
+
+    notes = verify_prices(
+        [SOL], fetch=lambda: {"data": [sol_entry(supported_parameters=advertised)]}
+    )
+
+    assert len(notes) == 1
+    assert "openai/gpt-6.1-sol" in notes[0] and "structured_outputs" in notes[0]
+
+
+def test_the_price_check_warns_when_temperature_is_missing():
+    advertised = [name for name in ADVERTISED if name != "temperature"]
+
+    notes = verify_prices(
+        [SOL], fetch=lambda: {"data": [sol_entry(supported_parameters=advertised)]}
+    )
+
+    assert any("no longer advertises temperature" in note for note in notes)
+    assert '"openai/gpt-6.1-sol": ["temperature"]' in notes[0], "the exact entry to add"
+    assert "src/extract/model_params.json" in notes[0]
+
+
+def test_the_price_check_warns_when_the_effort_is_not_advertised():
+    notes = verify_prices(
+        [SOL], fetch=lambda: {"data": [sol_entry(supported_efforts=["medium", "high"])]}
+    )
+
+    assert len(notes) == 1
+    assert "'low'" in notes[0] and "medium, high" in notes[0]
+
+
+def test_the_effort_check_is_silent_when_the_api_advertises_no_list():
+    entry = sol_entry()
+    del entry["supported_efforts"]
+
+    assert verify_prices([SOL], fetch=lambda: {"data": [entry]}) == []
+
+
 def test_the_cli_runs_offline_against_the_synthetic_pairs(
     provider, monkeypatch, tmp_path, capsys
 ):
@@ -723,11 +872,264 @@ def test_the_cli_runs_offline_against_the_synthetic_pairs(
     payload = json.loads(out.read_text(encoding="utf-8"))
     assert payload["pairs"] == ["001-analista-riesgo-senior"]
     assert [entry["label"] for entry in payload["models"]] == [
-        "deepseek-v4.1-flash",
         "gemini-3.8-flash",
+        "deepseek-v4.1-flash",
         "glm-5.3",
-    ]
-    assert [entry["reasoning_effort"] for entry in payload["models"]] == ["low"] * 3
+        "gpt-6.1-sol",
+    ], "the baseline runs first"
+    assert [entry["reasoning_effort"] for entry in payload["models"]] == ["low"] * 4
+    assert [entry["baseline"] for entry in payload["models"]] == [True, False, False, False]
     assert payload["models"][0]["metrics"]["stability"] is not None
     assert payload["models"][0]["drift"] is not None
     assert payload["models"][0]["drift"]["repeats"] == 2
+
+
+# --------------------------------------------------------------------------- #
+# The dev split only, by default (PRD F5.5.2, §9)
+# --------------------------------------------------------------------------- #
+
+
+def _offline(monkeypatch):
+    import src.model_selection as module
+
+    def offline():
+        raise httpx.ConnectError("offline")
+
+    monkeypatch.setattr(module, "_fetch_models", offline)
+
+
+def test_the_synthetic_pairs_carry_their_split(pairs):
+    assert [pair.split for pair in pairs] == ["dev", "dev", "test"]
+
+
+def test_select_split_keeps_only_the_requested_split(pairs):
+    assert [pair.split for pair in select_split(pairs, "dev")] == ["dev", "dev"]
+    assert [pair.split for pair in select_split(pairs, "test")] == ["test"]
+    assert len(select_split(pairs, "all")) == 3
+
+
+def test_a_split_that_selects_nothing_is_a_clear_error_never_a_fallback(pairs):
+    unlabelled = [pair.model_copy(update={"split": None}) for pair in pairs]
+
+    with pytest.raises(ValueError) as error:
+        select_split(unlabelled, "dev")
+
+    message = str(error.value)
+    assert "'dev' split selects no pair" in message
+    assert "3 loaded, 0 carry a `split` key" in message
+    assert 'split = "dev"' in message
+
+
+def test_the_composition_notes_say_the_split_and_its_count(pairs):
+    notes = composition_notes(select_split(pairs, "dev"), split="dev")
+
+    assert notes[0] == "split dev: 2 pairs"
+
+
+def test_the_default_run_loads_the_dev_pairs_only(provider, monkeypatch, tmp_path, capsys):
+    from scripts import model_selection as cli
+
+    _offline(monkeypatch)
+    out = tmp_path / "detail.json"
+
+    code = cli.main(
+        ["--pairs", str(SYNTHETIC), "--out", str(out), "--models", "gemini-3.8-flash",
+         "--repeats", "2"]
+    )
+
+    printed = capsys.readouterr().out
+    assert code == 0
+    assert json.loads(out.read_text(encoding="utf-8"))["pairs"] == [
+        "001-analista-riesgo-senior",
+        "002-data-engineer-pipelines",
+    ]
+    assert "2 pairs ·" in printed and "split dev: 2 pairs" in printed
+    assert "meant to be scored once" not in printed
+
+
+@pytest.mark.parametrize("split", ["test", "all"])
+def test_the_test_split_needs_unseal(provider, tmp_path, split, capsys):
+    from scripts import model_selection as cli
+
+    with pytest.raises(SystemExit) as exit_info:
+        cli.main(["--pairs", str(SYNTHETIC), "--out", str(tmp_path / "x.json"), "--split", split])
+
+    assert exit_info.value.code == 2
+    assert "--unseal" in capsys.readouterr().err
+    assert not (tmp_path / "x.json").exists()
+
+
+def test_unsealing_the_test_split_warns_that_it_is_scored_once(
+    provider, monkeypatch, tmp_path, capsys
+):
+    from scripts import model_selection as cli
+
+    _offline(monkeypatch)
+    out = tmp_path / "detail.json"
+
+    code = cli.main(
+        ["--pairs", str(SYNTHETIC), "--out", str(out), "--models", "gemini-3.8-flash",
+         "--repeats", "2", "--split", "test", "--unseal"]
+    )
+
+    assert code == 0
+    assert json.loads(out.read_text(encoding="utf-8"))["pairs"] == ["003-ml-platform-ingeniero"]
+    assert "meant to be scored once" in capsys.readouterr().out
+
+
+def test_pairs_with_no_split_stop_the_run_with_the_clear_message(
+    provider, tmp_path, capsys
+):
+    from scripts import model_selection as cli
+
+    pairs_dir = tmp_path / "pairs"
+    pairs_dir.mkdir()
+    for path in SYNTHETIC.glob("*.toml"):
+        text = re.sub(r'^split = .*\n', "", path.read_text(encoding="utf-8"), flags=re.M)
+        (pairs_dir / path.name).write_text(text, encoding="utf-8")
+
+    with pytest.raises(SystemExit) as exit_info:
+        cli.main(["--pairs", str(pairs_dir), "--out", str(tmp_path / "x.json")])
+
+    assert exit_info.value.code == 2
+    assert "selects no pair" in capsys.readouterr().err
+
+
+# --------------------------------------------------------------------------- #
+# GPT-6.1 Sol against the production model (PRD §7, §11)
+# --------------------------------------------------------------------------- #
+
+
+def test_the_models_flag_selects_exactly_the_named_models_with_the_baseline_first():
+    from scripts.model_selection import candidate_selection
+
+    for spelling in ("gemini-3.8-flash,gpt-6.1-sol", "gpt-6.1-sol, gemini-3.8-flash"):
+        chosen = candidate_selection(spelling)
+
+        assert [candidate.model for candidate in chosen] == [
+            "google/gemini-3.8-flash",
+            "openai/gpt-6.1-sol",
+        ]
+    assert candidate_selection("")[0].baseline, "the default run puts the baseline first too"
+
+
+def labelled_report(
+    candidate: Candidate,
+    *,
+    total: int,
+    cost: tuple[int, int],
+    latency: float,
+    repeat_totals: tuple[int, ...] = (50, 50, 50),
+) -> CandidateReport:
+    """Two pairs ordered like their buckets, so tau-b and rho are 1 for every model."""
+    prompt_tokens, completion_tokens = cost
+    return CandidateReport(
+        candidate=candidate,
+        probe=ProbeOutcome(model=candidate.model, ok=True, seed_accepted=True, fingerprint="fp"),
+        pairs=(
+            pair_result(
+                pair_id="a",
+                rank=2,
+                total=total,
+                repeat_totals=repeat_totals,
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                latency_s=latency,
+            ),
+            pair_result(
+                pair_id="b",
+                rank=0,
+                total=10,
+                repeat_totals=(10, 10, 10),
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                latency_s=latency,
+            ),
+        ),
+        seed=11,
+        repeats=3,
+    )
+
+
+def test_the_table_prints_the_baseline_first_and_the_deltas_against_it():
+    baseline = labelled_report(GEMINI, total=90, cost=(1000, 100), latency=2.0)
+    sol = labelled_report(
+        SOL, total=60, cost=(1000, 500), latency=5.5, repeat_totals=(40, 50, 60)
+    )
+
+    table = render_table([sol, baseline], pairs=2)
+
+    main = [line.split(" | ")[0] for line in table.splitlines() if line.startswith("| ")]
+    assert main[1:3] == ["| gemini-3.8-flash", "| gpt-6.1-sol"], "the baseline row comes first"
+    assert "Δ vs baseline (gemini-3.8-flash)" in table
+    delta_line = table.splitlines()[-1]
+    cells = [cell.strip() for cell in delta_line.strip("|").split("|")]
+    assert cells[0] == "gpt-6.1-sol"
+    # Both models order the two pairs like their buckets, so tau-b and rho do not move.
+    assert cells[1:3] == ["+0.00", "+0.00"]
+    assert cells[3] == "+20", "max score delta: 20 for sol against 0 for the baseline"
+    # Sol: $0.002 + $0.005 = $0.007. Gemini: $0.00075 + $0.00075 = $0.0015.
+    assert cells[4] == "+$0.005500"
+    assert cells[5] == "+3.5s"
+
+
+def test_no_baseline_in_the_run_says_so_instead_of_inventing_deltas():
+    sol = labelled_report(SOL, total=60, cost=(1000, 500), latency=5.5)
+
+    table = render_table([sol], pairs=2)
+
+    assert "No baseline model in this run" in table
+    assert "Δ tau-b" not in table
+
+
+def test_cost_per_analysis_at_list_prices_for_sol():
+    """(1,000 in, 500 out) at $2/$10 per M: $0.002 + $0.005."""
+    report = labelled_report(SOL, total=60, cost=(1000, 500), latency=1.0)
+
+    assert report.cost_list() == Decimal("0.007")
+    assert not report.cost_over_cap()
+    assert "$0.007000 |" in table_row(report) and "OVER" not in table_row(report)
+
+
+def test_the_single_track_cost_is_flagged_over_the_prd_cap():
+    over = labelled_report(SOL, total=60, cost=(1000, 1900), latency=1.0)  # $0.021
+    at_cap = labelled_report(SOL, total=60, cost=(1000, 1800), latency=1.0)  # $0.020
+
+    assert over.cost_list() == Decimal("0.021")
+    assert over.cost_over_cap() and "$0.021000 OVER" in table_row(over)
+    assert not at_cap.cost_over_cap() and "OVER" not in table_row(at_cap)
+    assert "over budget at list" in over.verdict()
+
+
+def test_the_cost_column_counts_the_first_analysis_only_not_the_repeats(provider, pairs):
+    """The repeats' grading calls are priced as stability cost, never as the analysis."""
+    report = run_experiment(pairs[:1], [SOL], seed=11, repeats=3)[0]
+
+    (pair,) = report.pairs
+    assert pair.stability_cost_usd > 0
+    assert pair.prompt_tokens == 4 * 2000, "extraction, grading, boolean queries, gap notes"
+    assert report.cost_list() == (
+        Decimal("2.0") * pair.prompt_tokens / 1_000_000
+        + Decimal("10.0") * pair.completion_tokens / 1_000_000
+    )
+
+
+def test_the_json_detail_marks_the_baseline_and_the_cap():
+    from src.model_selection import report_to_json
+
+    payload = report_to_json(labelled_report(GEMINI, total=90, cost=(1000, 100), latency=2.0))
+
+    assert payload["baseline"] is True
+    assert payload["metrics"]["cost_list_over_cap"] is False
+    assert payload["model"] == "google/gemini-3.8-flash"
+
+
+def test_sol_has_a_dated_list_price():
+    from src.model_selection import PRICES_READ_ON
+
+    price = PRICES["openai/gpt-6.1-sol"]
+
+    assert (price.input_list, price.output_list) == (2.0, 10.0)
+    assert (price.current_input, price.current_output) == (2.0, 10.0)
+    assert "2026-09-30" in price.note and "reasoning tokens bill as output" in price.note
+    assert PRICES_READ_ON == "2026-09-30"

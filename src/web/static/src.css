@@ -369,3 +369,54 @@ body.rail-open .rail-body {
     padding: 2rem;
   }
 }
+
+/* N8.4: the letter's variant blocks. The inline script shows one at a time; the rule
+   exists so the class is a real one, not a bare hook. */
+.letter-option {
+  display: block;
+}
+
+/* F10.1 (C.1): the attempt modal. A native `<dialog>` — focus trapping, Escape and the
+   backdrop are the platform's — sized for a desktop panel and a full-screen sheet on a
+   phone (≤ 640 px, the width the design review uses). */
+.attempt-modal {
+  /* Preflight zeroes every margin, which drops the UA's `margin: auto` centring. */
+  margin: auto;
+  width: min(42rem, 92vw);
+  max-height: 88vh;
+  overflow-y: auto;
+  border: 1px solid var(--color-card-border);
+  border-radius: var(--radius-card);
+  background: var(--color-surface-1);
+  color: var(--color-text);
+}
+.attempt-modal::backdrop {
+  background: rgb(0 0 0 / 0.6);
+}
+
+/* The visible "Elegir archivo" button for the visually hidden native file input. */
+.attempt-file-button {
+  cursor: pointer;
+}
+.attempt-file-input:focus-visible + .attempt-file-button {
+  outline: 2px solid var(--color-link);
+  outline-offset: 2px;
+}
+.attempt-file-input:disabled + .attempt-file-button {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+@media (max-width: 640px) {
+  /* The UA's `dialog:modal` max-width/max-height still apply here, and a modal dialog is
+     `position: fixed`, so `inset: 0` is what makes the sheet cover the viewport. */
+  .attempt-modal {
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    max-height: none;
+    inset: 0;
+    margin: 0;
+    border-radius: 0;
+  }
+}

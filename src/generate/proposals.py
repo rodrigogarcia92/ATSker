@@ -20,7 +20,7 @@ from sqlalchemy.orm import Session
 from src.bullets import bullet_text, create_bullet, get_bullet, list_bullets, update_bullet
 from src.generate.validators import Sources, Violation, validate
 from src.models import Application, Bullet, BulletRevision, Profile, Story, Summary, Track
-from src.roles import get_role
+from src.roles import get_role, list_roles
 from src.stories import get_story
 from src.summaries import create_summary
 from src.tracks import set_track_skills, set_track_summary, track_bullets
@@ -64,11 +64,21 @@ def grades_of(application: Application) -> list[dict[str, Any]]:
 def summary_sources(
     profile_id: uuid.UUID, session: Session, track: Track, language: str
 ) -> Sources:
-    """The track's bullets, in the posting's language, and the profile's skills."""
+    """The track's bullets, in the posting's language, and the profile's skills.
+
+    The summary may name a title the user holds (F7.3), so the track's headlines in both
+    languages and every stored role title travel as `titles`: they support proper nouns.
+    """
     bullets = track_bullets(profile_id, session, track.id)
     texts = {str(bullet.id): bullet_text(bullet, language) for bullet in bullets}
+    titles = [track.headline_es, track.headline_en]
+    for role in list_roles(profile_id, session):
+        titles.extend((role.title, role.title_es, role.title_en))
     return Sources(
-        bullets=texts, skills=pool_skills(profile_id, session), aliases=alias_map(session)
+        bullets=texts,
+        skills=pool_skills(profile_id, session),
+        aliases=alias_map(session),
+        titles=tuple(title for title in titles if title),
     )
 
 

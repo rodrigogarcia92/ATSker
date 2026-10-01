@@ -21,8 +21,10 @@ from src.extract import redaction
 from src.extract.client import CallOptions, Completion, complete_json
 from src.extract.prompts import (
     BULLET_REPHRASE_V1,
+    LETTER_BLOCKS_V1,
+    LETTER_BRIDGE_V1,
     STORY_BULLETS_V1,
-    SUMMARY_SKILLS_V1,
+    SUMMARY_SKILLS_V2,
     summarize_rows,
 )
 from src.jd import StructuredJD
@@ -30,6 +32,8 @@ from src.jd import StructuredJD
 GENERATE_SUMMARY = "generate_summary"
 GENERATE_BULLET = "generate_bullet"
 STORY_BULLETS = "story_bullets"
+LETTER_BLOCKS = "letter_blocks"
+LETTER_BRIDGE = "letter_bridge"
 
 
 class SummarySkills(BaseModel):
@@ -57,6 +61,46 @@ class StoryBullets(BaseModel):
     """Tier 3b's answer: up to three bullets a story supports."""
 
     bullets: list[StoryBulletDraft] = Field(default_factory=list)
+
+
+class LetterParagraph(BaseModel):
+    """One reusable letter paragraph, with the ids it draws on (N8.3)."""
+
+    text: str = Field(description="the paragraph, in the requested language")
+    sources: list[str] = Field(description="the bullet, story or role ids it cites")
+
+
+class LetterBlocks(BaseModel):
+    """Tier 1's letter answer: presentation and achievements, each cited."""
+
+    presentation: LetterParagraph
+    achievements: LetterParagraph
+
+
+class CompanyFact(BaseModel):
+    """A company detail, with the posting line that says it (F8.4)."""
+
+    text: str = Field(description="the fact, as the letter states it")
+    jd_quote: str = Field(description="the verbatim posting line it comes from")
+
+
+class BridgeVariant(BaseModel):
+    """One bridge, its angle, its sources, and any attributed company fact."""
+
+    angle: str = Field(description="two or three words naming the angle")
+    text: str = Field(description="2-4 sentences, at most 90 words")
+    sources: list[str] = Field(description="the ids it draws on")
+    company_fact: CompanyFact | None = None
+
+
+class LetterBridge(BaseModel):
+    """N8.4's answer: the chosen template, three bridges, and the risk line."""
+
+    template_id: str
+    reason: str
+    runner_up_id: str | None = None
+    variants: list[BridgeVariant] = Field(default_factory=list)
+    risk: str | None = None
 
 
 @dataclass(frozen=True)
@@ -121,9 +165,9 @@ def generate_summary(
     completion = complete_json(
         session,
         purpose=GENERATE_SUMMARY,
-        prompt_version=SUMMARY_SKILLS_V1.version,
-        system=SUMMARY_SKILLS_V1.render_system(),
-        user=SUMMARY_SKILLS_V1.render(
+        prompt_version=SUMMARY_SKILLS_V2.version,
+        system=SUMMARY_SKILLS_V2.render_system(),
+        user=SUMMARY_SKILLS_V2.render(
             lang=language,
             jd=_jd_block(jd),
             bullets=bullet_rows,
@@ -219,6 +263,142 @@ def generate_story_bullets(
                 {"text": draft.text.strip(), "story_id": draft.story_id, "role_id": draft.role_id}
                 for draft in answer.bullets
             ]
+        },
+        completion=completion,
+    )
+
+
+def generate_letter_blocks(
+    session: Session,
+    *,
+    bullets: Sequence[tuple[str, str]],
+    roles: Sequence[tuple[str, str]],
+    summary: str | None,
+    stories: Sequence[tuple[str, str]],
+    voice_notes: str,
+    language: str,
+    known_names: Sequence[str] | None = None,
+    model: str | None = None,
+    options: CallOptions | None = None,
+) -> Proposal:
+    """One call: a template's presentation and achievements (PRD F8, N8.3).
+
+    The material is the track's own: its bullets in order, its roles, its summary in
+    the template's language, and the profile's stories. Nothing else may be cited.
+    """
+    completion = complete_json(
+        session,
+        purpose=LETTER_BLOCKS,
+        prompt_version=LETTER_BLOCKS_V1.version,
+        system=LETTER_BLOCKS_V1.render_system(),
+        user=LETTER_BLOCKS_V1.render(
+            lang=language,
+            bullets=summarize_rows(
+                [f"{bullet_id}\t{_redacted(text, known_names)}" for bullet_id, text in bullets]
+            ),
+            roles=summarize_rows([f"{role_id}\t{title}" for role_id, title in roles]),
+            summary=summarize_rows([_redacted(summary, known_names)] if summary else []),
+            stories=summarize_rows(
+                [
+                    f"{story_id}\t{_redacted(text, known_names)}"
+                    for story_id, text in stories
+                ]
+            ),
+            voice_notes=voice_notes.strip() or "(none)",
+        ),
+        schema=LetterBlocks,
+        model=model,
+        options=options,
+    )
+    answer = LetterBlocks.model_validate(completion.data)
+    return Proposal(
+        kind="letter_blocks",
+        output={
+            "presentation": {
+                "text": answer.presentation.text.strip(),
+                "sources": list(answer.presentation.sources),
+            },
+            "achievements": {
+                "text": answer.achievements.text.strip(),
+                "sources": list(answer.achievements.sources),
+            },
+        },
+        completion=completion,
+    )
+
+
+def generate_letter_bridge(
+    session: Session,
+    *,
+    jd_text: str,
+    company: str | None,
+    title: str | None,
+    templates: Sequence[Mapping[str, Any]],
+    material: str,
+    voice_notes: str,
+    language: str,
+    known_names: Sequence[str] | None = None,
+    repair: str | None = None,
+    model: str | None = None,
+    options: CallOptions | None = None,
+) -> Proposal:
+    """One call: the bridge for one application, with its template choice (F8, N8.4).
+
+    `templates` are `{id, name, applies_when, achievements}` and `material` is the
+    person's own evidence, already ordered strongest-first by the caller. `repair`
+    turns the same call into the single retry: a fresh call whose user message says
+    what was unusable about the previous answer.
+    """
+    rows = [
+        f"{template['id']}\t{template['name']}\t{template.get('applies_when') or ''}\t"
+        f"{template.get('achievements') or ''}"
+        for template in templates
+    ]
+    body = LETTER_BRIDGE_V1.render(
+        posting=_redacted(jd_text, known_names),
+        company=company or "(none)",
+        title=title or "(none)",
+        templates=summarize_rows(rows),
+        material=material,
+        voice_notes=voice_notes.strip() or "(none)",
+        lang=language,
+    )
+    if repair:
+        body = f"{body}\n\nYour previous answer was unusable: {repair}"
+    completion = complete_json(
+        session,
+        purpose=LETTER_BRIDGE,
+        prompt_version=LETTER_BRIDGE_V1.version,
+        system=LETTER_BRIDGE_V1.render_system(),
+        user=body,
+        schema=LetterBridge,
+        model=model,
+        options=options,
+    )
+    answer = LetterBridge.model_validate(completion.data)
+    return Proposal(
+        kind="letter_bridge",
+        output={
+            "template_id": answer.template_id,
+            "reason": answer.reason.strip(),
+            "runner_up_id": answer.runner_up_id,
+            "variants": [
+                {
+                    "angle": variant.angle.strip(),
+                    "text": variant.text.strip(),
+                    "sources": list(variant.sources),
+                    "company_fact": (
+                        {
+                            "text": variant.company_fact.text.strip(),
+                            "jd_quote": variant.company_fact.jd_quote,
+                        }
+                        if variant.company_fact is not None
+                        else None
+                    ),
+                }
+                for variant in answer.variants
+            ],
+            "risk": (answer.risk or "").strip() or None,
         },
         completion=completion,
     )

@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}{{ t('attempt.incorporate.title', lang) }} — {{ t('app.name', lang) }}{% endblock %}
+{% block width %}max-w-3xl{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-semibold tracking-tight">{{ t('attempt.incorporate.title', lang) }}</h1>
+<p class="mt-2 text-sm text-text-2">{{ t('attempt.incorporate.intro', lang) }}</p>
+
+{% set new_bullets = [] %}
+{% set changed_bullets = [] %}
+{% for role in plan.roles %}
+  {% for bullet in role.bullets %}
+    {% if bullet.label == 'new' %}{% set _ = new_bullets.append(bullet) %}{% endif %}
+    {% if bullet.label == 'changed' %}{% set _ = changed_bullets.append(bullet) %}{% endif %}
+  {% endfor %}
+{% endfor %}
+
+{% if new_bullets or changed_bullets or plan.skills %}
+<section class="mt-4 space-y-3">
+  {% if new_bullets %}
+  <div>
+    <h2 class="text-sm font-semibold">{{ t('attempt.incorporate.bullets', lang) }}</h2>
+    <ul class="mt-1 space-y-1 text-sm text-text-2">
+      {% for bullet in new_bullets %}<li>• {{ bullet.text }}</li>{% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+  {% if changed_bullets %}
+  <div>
+    <h2 class="text-sm font-semibold">{{ t('attempt.incorporate.changed', lang) }}</h2>
+    <ul class="mt-1 space-y-1 text-sm text-text-2">
+      {% for bullet in changed_bullets %}
+      <li>
+        {% if bullet.old_text %}<span class="text-text-3">{{ bullet.old_text }}</span><br>{% endif %}
+        {{ bullet.text }}
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+  {% if plan.skills %}
+  <div>
+    <h2 class="text-sm font-semibold">{{ t('attempt.incorporate.skills', lang) }}</h2>
+    <p class="mt-1 text-sm text-text-2">
+      {% for skill in plan.skills %}{{ skill.canonical }}{% if not loop.last %}, {% endif %}{% endfor %}
+    </p>
+  </div>
+  {% endif %}
+</section>
+
+{# The confirmation is this page's POST; nothing above has been written. #}
+<form method="post" action="/applications/{{ application.id }}/attempts/{{ attempt.id }}/incorporate"
+      class="mt-5 space-y-3 rounded-card border border-card-border bg-surface-1 p-4">
+  <fieldset>
+    <legend class="text-sm font-semibold">{{ t('attempt.incorporate.destination', lang) }}</legend>
+    <label class="mt-2 flex items-center gap-2 text-sm">
+      <input type="radio" name="destination" value="solo" checked>
+      {{ t('attempt.incorporate.solo', lang) }}
+    </label>
+    {% if application.track_id %}
+    <label class="mt-1 flex items-center gap-2 text-sm">
+      <input type="radio" name="destination" value="este">
+      {{ t('attempt.incorporate.este', lang) }}
+    </label>
+    {% endif %}
+    <label class="mt-1 flex items-center gap-2 text-sm">
+      <input type="radio" name="destination" value="otro">
+      {{ t('attempt.incorporate.otro', lang) }}
+    </label>
+    <select name="track_id" class="ml-6 rounded-control border border-border px-2 py-1 text-sm">
+      <option value=""></option>
+      {% for track in tracks %}<option value="{{ track.id }}">{{ track.name }}</option>{% endfor %}
+    </select>
+    <label class="mt-1 flex items-center gap-2 text-sm">
+      <input type="radio" name="destination" value="nuevo">
+      {{ t('attempt.incorporate.nuevo', lang) }}
+    </label>
+    <input type="text" name="new_name" placeholder="{{ t('attempt.incorporate.new_name', lang) }}"
+           class="ml-6 rounded-control border border-border px-2 py-1 text-sm">
+  </fieldset>
+  <div class="flex items-center gap-3">
+    <button type="submit" class="rounded-control border border-border px-3 py-2 text-sm">
+      {{ t('attempt.incorporate.confirm', lang) }}
+    </button>
+    <a class="text-sm underline" href="/applications/{{ application.id }}/attempts/{{ attempt.id }}/report">
+      {{ t('attempt.incorporate.cancel', lang) }}
+    </a>
+  </div>
+</form>
+{% else %}
+<p class="mt-4 text-sm text-text-2">{{ t('attempt.incorporate.none', lang) }}</p>
+{% endif %}
+{% endblock %}

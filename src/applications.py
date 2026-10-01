@@ -10,9 +10,11 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from src.models import Application, Track
+from src.letters import get_letter
+from src.models import Application, ApplicationAttempt, Track
 from src.normalize.text import fold
 from src.scoping import owned_row, owned_rows
 from src.score import SUB_SCORES
@@ -149,6 +151,13 @@ def list_applications(
     key = sort if sort in HISTORY_SORTS else "date"
     reverse = direction != "asc"
     rows: list[dict[str, object]] = []
+    # F10.7/C.3: the history shows how many attempts each analysis has and which one was
+    # sent. One read for the whole table, not one per row.
+    attempts: dict[uuid.UUID, list[ApplicationAttempt]] = {}
+    for attempt in session.scalars(
+        select(ApplicationAttempt).where(ApplicationAttempt.profile_id == profile_id)
+    ):
+        attempts.setdefault(attempt.application_id, []).append(attempt)
     for application in owned_rows(Application, session, profile_id):
         report = application.report or {}
         score = report.get("score") or {}
@@ -175,6 +184,18 @@ def list_applications(
                 "boolean": _boolean_scan(application.scan_boolean),
                 "prompt_versions": dict(application.prompt_versions or {}),
                 "token_cost_usd": application.token_cost_usd,
+                # F8/N8.5: the history marks the applications with a saved letter.
+                "has_letter": bool((application.letter_text or "").strip()),
+                # F10.7/C.3: the attempts this analysis has, and the one marked sent.
+                "attempt_count": len(attempts.get(application.id, [])),
+                "sent_attempt_no": next(
+                    (
+                        row.attempt_no
+                        for row in attempts.get(application.id, [])
+                        if row.is_sent
+                    ),
+                    None,
+                ),
             }
         )
 
@@ -232,3 +253,37 @@ def stale_application_count(
         if created is None or created < cutoff:
             count += 1
     return count
+
+
+def _owned_letter_template_id(
+    profile_id: uuid.UUID, session: Session, template_id: str | uuid.UUID | None
+) -> uuid.UUID | None:
+    """The template link only if this profile owns the template (F1)."""
+    if template_id is None or str(template_id).strip() == "":
+        return None
+    template = get_letter(profile_id, session, template_id)
+    return template.id if template is not None else None
+
+
+def save_application_letter(
+    profile_id: uuid.UUID,
+    session: Session,
+    application_id: str | uuid.UUID,
+    *,
+    text: str,
+    template_id: str | uuid.UUID | None,
+) -> Application | None:
+    """Store the letter that was sent (PRD F8, N8.4).
+
+    The text is a snapshot: deleting the template it was built from cannot change it,
+    and `letter_template_id` records which one it was (NULL when that template is not
+    this profile's).
+    """
+    application = get_application(profile_id, session, application_id)
+    if application is None:
+        return None
+    owned_template = _owned_letter_template_id(profile_id, session, template_id)
+    application.letter_text = text.strip() or None
+    application.letter_template_id = owned_template
+    session.flush()
+    return application

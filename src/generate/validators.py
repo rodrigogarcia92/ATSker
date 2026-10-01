@@ -3,8 +3,8 @@
 Generated text is the one place ATSker writes new words, so the rules that keep the
 words true are enforced by code, never trusted to the prompt: every item cites a
 stored source, every number and proper noun in the item exists in that source, and
-every skill it names exists in the user's own data — and, for a summary, is
-evidenced at level 2 or better on the track's bullets.
+every skill it names exists in the user's own data — and a summary's prose, unlike
+its skills block, names only skills evidenced at level 2 or better on the track's bullets.
 
 Pure: the vocabulary and the sources are handed in, so the rules are testable
 without a provider or a database. `session` and `profile_id` are accepted because
@@ -18,11 +18,16 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from src.normalize.text import fold, term_pattern
-from src.normalize.vocabulary import match_text
+from src.normalize.vocabulary import ambiguous_aliases, match_text
 
 PROVENANCE = "provenance"
 LITERAL = "literal"
+# Rule 3 reports two different failures, and the proposal page tells them apart.
+# `CLOSURE` stays as the name of the group.
 CLOSURE = "closure"
+CLOSURE_MISSING = "closure_missing"
+CLOSURE_UNEVIDENCED = "closure_unevidenced"
+CLOSURE_RULES = (CLOSURE_MISSING, CLOSURE_UNEVIDENCED)
 
 # A short function-word list, both languages: words that begin a sentence or a title
 # without being a proper noun. Everything else capitalised mid-sentence is treated as
@@ -80,6 +85,9 @@ class Sources:
     roles: Mapping[str, str] = field(default_factory=dict)
     skills: frozenset[str] = frozenset()
     aliases: Mapping[str, str] = field(default_factory=dict)
+    # Titles the user holds (track headlines, role titles). A summary may name them;
+    # they support proper nouns only, never a number.
+    titles: tuple[str, ...] = ()
 
     @property
     def ids(self) -> set[str]:
@@ -111,20 +119,21 @@ def _text_and_cites(output: Mapping[str, Any], kind: str) -> list[tuple[str, str
             ]
             items.append((f"bullet {index + 1}", str(bullet.get("text") or ""), cites))
         return items
+    if kind == "letter_blocks":
+        # F8's reusable paragraphs: a presentation and an achievements paragraph, each
+        # citing the bullet, story or role ids it draws on (N8.3).
+        items = []
+        for name in ("presentation", "achievements"):
+            paragraph = output.get(name) or {}
+            items.append(
+                (
+                    name,
+                    str(paragraph.get("text") or ""),
+                    [str(value) for value in paragraph.get("sources") or []],
+                )
+            )
+        return items
     raise ValueError(f"unknown generation kind {kind!r}")
-
-
-def _named_skills(
-    output: Mapping[str, Any], kind: str, text: str, aliases: Mapping[str, str]
-) -> list[str]:
-    """Every canonical the output names, from its prose and from its skills list."""
-    named = list(match_text(text, aliases)) if aliases else []
-    if kind == "summary":
-        for canonical in output.get("skills") or []:
-            name = str(canonical)
-            if name and name not in named:
-                named.append(name)
-    return named
 
 
 def _grade_parts(grade: Any) -> tuple[int, str | None]:
@@ -138,13 +147,14 @@ def _grade_parts(grade: Any) -> tuple[int, str | None]:
 
 
 def _number_key(token: str) -> str:
-    """A number token's identity: `30%`, `30` and `30.` are the same claim.
+    """A number token's identity: `30%`, `30`, `30.` and `30+` are the same claim.
 
     Thousands separators and a trailing decimal point are formatting, not data; the
     percent sign is dropped so `30%` and `30` compare equal — a source that says `30`
-    supports an output that says `30%`.
+    supports an output that says `30%` — and a trailing `+` ("10+ years") is the number
+    it lower-bounds.
     """
-    return fold(token).replace("%", "").replace(",", "").rstrip(".")
+    return fold(token).replace("%", "").replace(",", "").rstrip(".+")
 
 
 @dataclass(frozen=True)
@@ -176,6 +186,27 @@ def _token_found(token: str, source: _SourceTokens) -> bool:
     return bool(words) and all(word in source.words for word in words)
 
 
+def unsupported_claims(
+    text: str, corpus: str, aliases: Mapping[str, str], *, skip_ambiguous: bool = False
+) -> list[str]:
+    """Tokens in `text` that `corpus` does not support (F10.5's flags).
+
+    F7.3's literal-preservation extractor, reused: numbers, mid-sentence proper nouns
+    and vocabulary aliases in the file that appear nowhere in the user's stored
+    bullets, stories or roles. Pure — the caller supplies the corpus (A5: nothing is
+    read from a network here).
+    """
+    source = _source_tokens(corpus)
+    found: list[str] = []
+    if skip_ambiguous:
+        ambiguous = ambiguous_aliases()
+        aliases = {alias: name for alias, name in aliases.items() if alias not in ambiguous}
+    for token, _start, _end in _protected_tokens(text, aliases):
+        if token not in found and not _token_found(token, source):
+            found.append(token)
+    return found
+
+
 def _protected_tokens(text: str, aliases: Mapping[str, str]) -> list[tuple[str, int, int]]:
     """(token, start, end) for numbers, proper nouns and vocabulary aliases.
 
@@ -205,8 +236,11 @@ def _protected_tokens(text: str, aliases: Mapping[str, str]) -> list[tuple[str, 
             continue
         if fold(word) in FUNCTION_WORDS:
             continue
-        before = text[: match.start()].rstrip()
-        if not before or before[-1] in _SENTENCE_END:
+        gap = text[: match.start()]
+        before = gap.rstrip()
+        # A line break ends a sentence as a full stop does: `rstrip` would otherwise
+        # swallow the "\n" that `_SENTENCE_END` lists.
+        if not before or before[-1] in _SENTENCE_END or "\n" in gap[len(before) :]:
             continue
         add(word, match.start(), match.end())
     for alias in sorted(aliases, key=len, reverse=True):
@@ -246,10 +280,15 @@ def validate(
                     Violation(PROVENANCE, name, cite, f"{cite} was not a supplied source")
                 )
 
-    # 2 — Literal preservation.
+    # 2 — Literal preservation: numbers and mid-sentence proper nouns. A vocabulary
+    # alias is a skill, and rule 3 owns skills. A summary may also name a title the
+    # user holds (a track headline, a role title), so those words support its names.
+    titled = _source_tokens(" ".join(sources.titles)) if kind == "summary" else None
     for name, text, cites in items:
         source = _source_tokens(" ".join(sources.text_of(cite) for cite in cites))
-        for token, start, end in _protected_tokens(text, sources.aliases):
+        if titled is not None:
+            source = _SourceTokens(words=source.words | titled.words, numbers=source.numbers)
+        for token, start, end in _protected_tokens(text, {}):
             if not _token_found(token, source):
                 violations.append(
                     Violation(
@@ -261,35 +300,57 @@ def validate(
                     )
                 )
 
-    # 3 — Skill closure.
+    # 3 — Skill closure. A summary's skills block only has to exist in the user's data;
+    # its prose must also be evidenced at level 2 or better (F7.3). Other kinds have no
+    # skills block, so every skill their text names must exist in the user's data.
     all_text = " ".join(text for _name, text, _cites in items)
+    # "Evidenced" is in the bullets the summary cites (F7.3: "in the selected bullets"),
+    # not in every bullet that was graded.
+    cited = {cite for _name, _text, cites in items for cite in cites}
     evidenced_bullets = {
         evidence_id
         for grade in (grades or [])
         for level, evidence_id in [_grade_parts(grade)]
-        if level >= 2 and evidence_id
+        if level >= 2 and evidence_id and (kind != "summary" or evidence_id in cited)
     }
     evidenced_canonicals: set[str] = set()
     for bullet_id, bullet_text in sources.bullets.items():
         if bullet_id in evidenced_bullets:
-            evidenced_canonicals.update(match_text(bullet_text, sources.aliases))
-
-    seen: set[str] = set()
-    for canonical in _named_skills(output, kind, all_text, sources.aliases):
-        if canonical in seen:
-            continue
-        seen.add(canonical)
-        if canonical not in sources.skills:
-            violations.append(
-                Violation(CLOSURE, kind, canonical, f"{canonical!r} is not in this profile's data")
+            evidenced_canonicals.update(
+                match_text(bullet_text, sources.aliases, skip_ambiguous=True)
             )
-        elif kind == "summary" and canonical not in evidenced_canonicals:
+
+    named_in_text = (
+        match_text(all_text, sources.aliases, skip_ambiguous=True) if sources.aliases else []
+    )
+    listed = [str(name) for name in output.get("skills") or [] if name] if kind == "summary" else []
+    reported: set[str] = set()
+    for canonical in [*listed, *named_in_text]:
+        if canonical not in sources.skills and canonical not in reported:
+            reported.add(canonical)
             violations.append(
                 Violation(
-                    CLOSURE,
+                    CLOSURE_MISSING,
                     kind,
                     canonical,
-                    f"{canonical!r} is not evidenced at level 2 or better in the cited bullets",
+                    f"{canonical!r} is not in this profile's data",
                 )
             )
+    if kind == "summary":
+        for canonical in named_in_text:
+            if (
+                canonical in sources.skills
+                and canonical not in evidenced_canonicals
+                and canonical not in reported
+            ):
+                reported.add(canonical)
+                violations.append(
+                    Violation(
+                        CLOSURE_UNEVIDENCED,
+                        kind,
+                        canonical,
+                        f"{canonical!r} is not evidenced at level 2 or better in the "
+                        "bullets this summary cites",
+                    )
+                )
     return violations

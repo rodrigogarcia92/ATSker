@@ -258,7 +258,7 @@ def test_track_summary_story_letter_and_application_numbers_match_the_post(clien
     assert summary_numbers == {"summaries": 1, "tracks": 1}
     assert story_numbers == {"stories": 1, "links": links}
     assert letter_numbers == {"letter_templates": 1}
-    assert application_numbers == {"applications": 1}
+    assert application_numbers == {"applications": 1, "application_attempts": 0}
     assert not _exists(session, Track, track_id)
     assert not _exists(session, Summary, summary_id)
     assert not _exists(session, Story, story_id)

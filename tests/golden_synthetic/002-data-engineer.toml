@@ -3,6 +3,7 @@ id = "002-data-engineer-pipelines"
 language = "en"
 bucket = "plausible"
 profile = "primary"
+split = "dev"
 reason = "Strong on SQL, ETL and dbt, but the posting is built around Spark, which the profile never shows."
 
 [resume]

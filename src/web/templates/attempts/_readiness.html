@@ -1,0 +1,53 @@
+{# F10.6 (C.2): the deterministic checklist, the message when it all holds, and the
+   personal target (stored on the application, capped at the ceiling's high end). #}
+<section class="mt-3 rounded-control border border-card-border bg-surface-1 p-3 text-sm">
+  <h3 class="font-semibold">{{ t('attempt.ready.title', lang) }}</h3>
+  {% if readiness.ready %}
+  <p class="mt-1 text-score-strong">
+    {% if readiness.unreachable %}
+    {{ t('attempt.ready.message', lang, gaps=readiness.unreachable | map(attribute='requirement') | join(', ')) }}
+    {% else %}
+    {{ t('attempt.ready.message_plain', lang) }}
+    {% endif %}
+  </p>
+  {% else %}
+  <p class="mt-1 text-text-2">{{ t('attempt.ready.checklist', lang) }}</p>
+  <ul class="mt-1 space-y-1 text-text-2">
+    {% for check in readiness.checks if not check.ok %}
+      {% if check.key == 'match' %}
+        {% if check.target is not none %}
+        <li>{{ t('attempt.ready.match_target', lang, job_match=check.job_match, target=check.target) }}</li>
+        {% else %}
+        <li>{{ t('attempt.ready.match_band', lang, job_match=check.job_match,
+                 ceiling_low=check.ceiling_low, band=check.band) }}</li>
+        {% endif %}
+      {% elif check.key == 'readability' %}
+      <li>{{ t('attempt.ready.readability', lang, items=check.blockers | join(', ')) }}</li>
+      {% elif check.key == 'search' %}
+      <li>{{ t('attempt.ready.search', lang, items=check.failing | join(', ')) }}</li>
+      {% elif check.key == 'advice' %}
+      <li>{{ t('attempt.ready.advice', lang, items=check.open | join(', ')) }}</li>
+      {% elif check.key == 'language' %}
+      <li>{{ t('attempt.ready.language', lang) }}</li>
+      {% endif %}
+    {% endfor %}
+  </ul>
+  {% endif %}
+
+  {# The personal target: one number, capped at what the material allows (F10.6). #}
+  <form method="post" action="/applications/{{ application.id }}/target" class="mt-2 flex flex-wrap items-end gap-2">
+    {% if attempt is defined and attempt %}
+    <input type="hidden" name="attempt" value="{{ attempt.id }}">
+    {% endif %}
+    <label class="text-xs text-text-3">
+      {{ t('attempt.ready.target_label', lang, ceiling_high=readiness.ceiling_high) }}
+      <input type="number" name="target" min="0" max="{{ readiness.ceiling_high or 100 }}"
+             value="{{ readiness.target if readiness.target is not none else '' }}"
+             class="ml-1 w-16 rounded-control border border-border px-2 py-1 text-sm">
+    </label>
+    <button type="submit" class="rounded-control border border-border px-2 py-1 text-sm">
+      {{ t('attempt.ready.target_save', lang) }}
+    </button>
+    <span class="text-xs text-text-3">{{ t('attempt.ready.target_hint', lang) }}</span>
+  </form>
+</section>

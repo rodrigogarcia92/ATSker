@@ -3,6 +3,7 @@ id = "003-ml-platform-ingeniero"
 language = "es"
 bucket = "stretch"
 profile = "second"
+split = "test"
 reason = "El puesto pide construir plataforma de ML; el perfil solo muestra tableros y SQL, sin modelos en producción."
 
 [resume]

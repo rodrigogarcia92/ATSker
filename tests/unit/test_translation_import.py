@@ -398,6 +398,26 @@ def test_role_matching_reads_employer_and_overlapping_dates(session, career):
     assert matched_roles(profile_id, session, track=career.first_track, draft=elsewhere) == ()
 
 
+def test_an_employer_differing_only_in_punctuation_pairs_with_the_stored_role(session, career):
+    """E3: the employer compares on `match_key`, as the import and the attempt do."""
+    role, _ = second_role(session, career)
+    draft = ResumeDraft(
+        language="en",
+        roles=[
+            DraftRole(
+                employer="ONG. Andina",
+                title="Coordinator",
+                start_date="2019-04",
+                bullets=[DraftBullet(text="Anything")],
+            )
+        ],
+    )
+
+    matches = matched_roles(career.first_profile.id, session, track=career.first_track, draft=draft)
+
+    assert [found.id for found, _ in matches] == [role.id]
+
+
 def test_each_existing_role_is_matched_once(session, career):
     """Two spellings of one job pair the first and leave the second to F2.5."""
     profile_id = career.first_profile.id

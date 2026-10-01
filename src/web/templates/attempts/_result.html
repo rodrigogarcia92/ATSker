@@ -1,0 +1,124 @@
+{# F10.4's content order, steps 2-6 and 9. Steps 7 (readiness) and 8 (actions) arrive
+   with C.2 and C.3. Everything here is read-only: no action on the analysis appears. #}
+<section class="mt-2 space-y-2 text-sm">
+  {# 2 — The deltas, each saying what it compares: the previous attempt first, when
+     there is one, then the posting analysis. The Job Match and the ceiling are the
+     status header's one line, so they are not repeated here. #}
+  {% if view.delta_previous is not none %}
+  <p class="text-text-2">
+    {{ view.delta_previous_text }} {{ t('attempt.vs_previous', lang, n=view.previous_no) }}
+    {% if not view.delta_previous_significant %}
+    <span class="text-text-3">· {{ t('attempt.delta_flat', lang) }}</span>
+    {% endif %}
+  </p>
+  {% endif %}
+  {% if view.delta_analysis is not none %}
+  <p class="text-text-2">
+    {{ t('attempt.delta', lang, delta=view.delta_analysis_text) }}
+    {% if not view.delta_analysis_significant %}
+    <span class="text-text-3">· {{ t('attempt.delta_flat', lang) }}</span>
+    {% endif %}
+  </p>
+  {% endif %}
+
+  {# 3 — The four sub-scores, each with its own ceiling. #}
+  <ul class="grid grid-cols-2 gap-2">
+    {% for sub in view.sub_scores %}
+    <li class="rounded-control border border-card-border bg-surface-1 px-2 py-1">
+      <span>{{ t('report.sub.' ~ sub.name, lang) }}</span>
+      <span class="text-text-2">
+        {{ (sub.value * 100) | round | int if sub.value is not none else '—' }}{% if sub.ceiling is not none %} / {{ (sub.ceiling * 100) | round | int }}{% endif %}
+      </span>
+      {% if sub.confidence == 'estimate' %}
+      <span class="text-xs text-text-3">· {{ t('report.ceiling_estimate', lang) }}</span>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+
+  {# 4 — What changed against the previous attempt, or the analysis for the first. #}
+  <h3 class="pt-1 font-semibold">{{ t('attempt.change.title', lang) }}</h3>
+  {% set nonempty = [] %}
+  {% if view.change_scores %}{% set _ = nonempty.append('score') %}{% endif %}
+  {% for key in ('searches_found', 'searches_lost', 'gaps_closed', 'gaps_opened', 'findings_fixed', 'findings_introduced') %}
+    {% if view.change.get(key) %}{% set _ = nonempty.append(key) %}{% endif %}
+  {% endfor %}
+  {% if nonempty %}
+  <ul class="space-y-1 text-text-2">
+    {% for row in view.change_scores %}
+    <li>{{ t('attempt.change.score', lang, name=t('report.total' if row.name == 'total' else 'report.sub.' ~ row.name, lang), before=row.before, after=row.after) }}</li>
+    {% endfor %}
+    {% for key in nonempty if key != 'score' %}
+    <li>{{ t('attempt.change.' ~ key, lang, items=view.change[key] | join(', ')) }}</li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="text-text-3">
+    {% if view.previous_no %}{{ t('attempt.change.none_previous', lang) }}{% else %}{{ t('attempt.change.none_first', lang) }}{% endif %}
+  </p>
+  {% endif %}
+
+  {# 5 — New in this document (F10.5), with the above-ceiling note. #}
+  <h3 class="pt-1 font-semibold">{{ t('attempt.flags.title', lang) }}</h3>
+  {% if view.flags.skills or view.flags.claims or view.flags.titles %}
+  <ul class="space-y-1 text-text-2">
+    {% if view.flags.skills %}<li>{{ t('attempt.flags.skills', lang, items=view.flags.skills | join(', ')) }}</li>{% endif %}
+    {% if view.flags.claims %}<li>{{ t('attempt.flags.claims', lang, items=view.flags.claims | join(', ')) }}</li>{% endif %}
+    {% if view.flags.titles %}<li>{{ t('attempt.flags.titles', lang, items=view.flags.titles | join(', ')) }}</li>{% endif %}
+  </ul>
+  {% else %}
+  <p class="text-text-3">{{ t('attempt.flags.none', lang) }}</p>
+  {% endif %}
+  {% if view.flags.above_ceiling %}
+  <p class="text-sev-warning">{{ t('attempt.flags.above_ceiling', lang) }}</p>
+  {% endif %}
+
+  {# 6 — What's left: the open F7.2 advice, worded for the document. #}
+  <h3 class="pt-1 font-semibold">{{ t('attempt.left.title', lang) }}</h3>
+  {% if view.advice %}
+  <ul class="space-y-1 text-text-2">
+    {% for item in view.advice %}
+    <li>{{ advice_line(item, lang, for_file=True) }}</li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="text-text-3">{{ t('attempt.left.none', lang) }}</p>
+  {% endif %}
+
+  {# 7 — Readiness (F10.6, C.2). #}
+  {% if readiness is defined and readiness %}{% include "attempts/_readiness.html" %}{% endif %}
+
+  {# 8 — Actions (F10.7, C.3). "Descartar" keeps the report; the merge review opens on
+     its own page and writes only when confirmed. #}
+  <div class="flex flex-wrap items-center gap-2 pt-1">
+    <form method="post" action="/applications/{{ application.id }}/attempts/{{ attempt.id }}/sent">
+      <button type="submit" class="rounded-control border border-border px-2 py-1 text-sm">
+        {{ t('attempt.actions.sent', lang) }}
+      </button>
+    </form>
+    <a class="rounded-control border border-border px-2 py-1 text-sm"
+       href="/applications/{{ application.id }}/attempts/{{ attempt.id }}/incorporate">
+      {{ t('attempt.actions.incorporate', lang) }}
+    </a>
+    <form method="post" action="/applications/{{ application.id }}/attempts/{{ attempt.id }}/discard">
+      <button type="submit" class="rounded-control border border-border px-2 py-1 text-sm">
+        {{ t('attempt.actions.discard', lang) }}
+      </button>
+    </form>
+    <a class="text-sm text-link underline" href="/applications/{{ application.id }}/letter">
+      {{ t('attempt.actions.letter', lang) }}
+    </a>
+  </div>
+  {% if view.is_sent %}
+  <p class="text-xs text-score-strong">{{ t('attempt.sent_done', lang) }}</p>
+  {% endif %}
+
+  {# Cost (C.0 answer 6) and 9 — the full report. #}
+  <p class="text-xs text-text-3">
+    {% if view.cost_reused %}{{ t('attempt.cost_reused', lang) }}{% else %}{{ t('attempt.cost', lang, amount='$%.6f'|format(view.cost_usd)) }}{% endif %}
+  </p>
+  <p>
+    <a class="text-link underline"
+       href="/applications/{{ application.id }}/attempts/{{ attempt.id }}/report">{{ t('attempt.view_report', lang) }}</a>
+  </p>
+</section>

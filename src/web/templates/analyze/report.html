@@ -13,11 +13,18 @@
 {% set cap = report.score.cap %}
 {% set binding = cap is not none and report.score.capped < report.score.uncapped %}
 {% set match_band = 'strong' if report.score.capped >= 75 else ('adequate' if report.score.capped >= 50 else 'weak') %}
+{# F10.3: the same report template renders an attempt, whose advice is worded for the
+   document the user is editing. The analysis page passes nothing, so advice reads for
+   the track. #}
+{% set advice_for_file = advice_for_file if advice_for_file is defined else false %}
+{# F10 (C.0 answer 2): an attempt's report is read-only — every action that would act
+   on the analysis is hidden, and the header says which attempt this is. #}
+{% set attempt_view = attempt_view if attempt_view is defined else false %}
 
 {# 1 — Header: what was posted, the track used, and the run's metadata. #}
 <header>
   <h1 class="text-2xl font-semibold tracking-tight">
-    {{ application.title or t('report.title', lang) }}
+    {% if attempt_view %}{{ t('attempt.done_heading', lang, n=attempt_no) }}{% else %}{{ application.title or t('report.title', lang) }}{% endif %}
   </h1>
   {% if application.company %}<p class="mt-1 text-text-2">{{ application.company }}</p>{% endif %}
   <p class="mt-2 text-sm">
@@ -40,7 +47,11 @@
       <dd>{{ report.jd.language or t('common.none', lang) }}</dd></div>
   </dl>
   <p class="mt-3 text-sm">
+    {% if attempt_view %}
+    <a href="/applications/{{ application.id }}" class="text-link underline">{{ t('attempt.back', lang) }}</a>
+    {% else %}
     <a href="/analyze?application={{ application.id }}" class="text-link underline">{{ t('report.analyse_another', lang) }}</a>
+    {% endif %}
   </p>
 </header>
 
@@ -54,6 +65,21 @@
     <span class="match-fill" style="width: {{ report.score.capped }}%"></span>
     {% if cap is not none %}<span class="match-tick" style="left: {{ cap }}%"></span>{% endif %}
   </div>
+  {# F10.2: the ceiling from the user's own material, beside the number it bounds.
+     A10: it is recomputed on view only when the master data has moved, and the page
+     says when that happened. #}
+  {% if ceiling %}
+  <p class="mt-2 flex flex-wrap items-center gap-2 text-sm">
+    <span class="rounded-tag border border-link px-2 py-0.5 text-xs text-link">{{ t('report.ceiling', lang, value=ceiling.high) }}</span>
+    {# A5: when the gate cap applies to the Job Match above, say the ceiling ignores it,
+       so a higher ceiling beside a capped score does not read as a contradiction. #}
+    {% if binding %}<span class="text-xs text-text-3">{{ t('report.ceiling_no_cap', lang) }}</span>{% endif %}
+    {% if ceiling_recomputed %}<span class="text-xs text-text-3">{{ t('report.ceiling_recalculated', lang) }}</span>{% endif %}
+  </p>
+  {% if ceiling_remainder %}
+  <p class="mt-1 text-xs text-text-3">{{ ceiling_remainder }}</p>
+  {% endif %}
+  {% endif %}
   {% if binding %}
   <p class="mt-2 text-sm text-text-2">
     {{ t('report.capped', lang, cap=cap, uncapped=report.score.uncapped,
@@ -85,6 +111,12 @@
   {% for name, sub in report.score.sub_scores.items() %}
   <div class="min-w-0 rounded-card border border-card-border bg-surface-1 p-4">
     {{ ui.score(sub.value, t('report.sub.' + name, lang), t('report.sub_caption.' + name, lang)) }}
+    {# F10.2: each sub-score shows its own ceiling; an estimate says so (F10.2 wording). #}
+    {% if ceiling and ceiling.sub_scores.get(name) %}
+    <p class="mt-1 text-xs text-text-3">
+      {{ t('report.ceiling_sub', lang, value=(ceiling.sub_scores[name].ceiling * 100) | round | int) }}{% if ceiling.sub_scores[name].confidence == 'estimate' %} · {{ t('report.ceiling_estimate', lang) }}{% endif %}
+    </p>
+    {% endif %}
     {% if sub.detail is defined and sub.detail.direct is defined %}
     {# F5.5.2: the Skills split, both parts as integers out of 100. #}
     {% set direct = (sub.detail.direct * 100) | round | int %}
@@ -186,7 +218,7 @@
     {% endif %}
     {% if grade.bullet_text %}
     <p class="mt-1 text-sm text-text-2">{{ grade.bullet_text }}</p>
-    {% if grade.bullet_id and grade.bullet_id in live_bullets %}
+    {% if grade.bullet_id and grade.bullet_id in live_bullets and not attempt_view %}
     {# F7.3 Tier 3a: one call, on demand, to restate this bullet for this posting. #}
     <p class="mt-1 text-xs">
       <a href="/applications/{{ application.id }}/bullets/{{ grade.bullet_id }}/rephrase"
@@ -444,7 +476,7 @@
       {% for item in report.advice %}
       <li class="rounded-control border border-card-border bg-surface-1 px-3 py-2 text-sm">
         <span class="rounded-tag border border-link px-2 py-0.5 text-xs text-link">{{ t('report.advice.tag.' ~ item.kind, lang) }}</span>
-        <span class="mt-1 block">{{ advice_line(item, lang) }}</span>
+        <span class="mt-1 block">{{ advice_line(item, lang, for_file=advice_for_file) }}</span>
         {% if item.evidence %}
         <span class="mt-1 block text-xs text-text-3">{{ t('report.advice.evidence', lang) }}: {{ item.evidence }}</span>
         {% endif %}
@@ -454,12 +486,195 @@
     {% endif %}
   </div>
 </div>
-{% if application.track_id %}
+{% if application.track_id and not attempt_view %}
 <p class="mt-3 text-sm">
   <a href="/applications/{{ application.id }}/summary" class="text-link underline">{{ t('generate.propose_summary', lang) }}</a>
 </p>
 {% endif %}
 {% endif %}
+
+{# F10.1: the entry point into the attempt modal, below Recomendaciones (§12.1). #}
+{% if not attempt_view %}
+<p class="mt-3">
+  <button type="button" id="attempt-open"
+          class="rounded-control border border-border px-3 py-2 text-sm">
+    {{ t('report.try_new_cv', lang) }}
+  </button>
+  <span class="mt-1 block text-xs text-text-3">{{ t('report.try_new_cv_note', lang) }}</span>
+</p>
+
+{# F10.1/F10.4: the modal. A native `<dialog>` — focus is trapped and Escape closes it
+   by the platform — holding the upload and the result's content order (F10.4). The
+   panel polls the attempt's status while it runs and stops on done or failed. #}
+<dialog id="attempt-modal" class="attempt-modal"
+        data-confirm="{{ t('attempt.form.confirm_close', lang) }}"
+        data-error="{{ t('attempt.form.error', lang) }}"
+        {% if open_attempt %}data-open-attempt="{{ open_attempt }}"{% endif %}>
+  <div class="p-4">
+    <div class="flex items-center justify-between gap-4">
+      <h2 class="text-lg font-semibold">{{ t('report.try_new_cv', lang) }}</h2>
+      <button type="button" id="attempt-close" class="rounded-control border border-border px-2 py-1 text-sm">
+        {{ t('common.cancel', lang) }}
+      </button>
+    </div>
+    <form id="attempt-form" method="post" enctype="multipart/form-data"
+          action="/applications/{{ application.id }}/attempts" class="mt-3 space-y-2">
+      <label for="attempt-file" class="block text-sm">{{ t('attempt.form.file', lang) }}</label>
+      <div class="flex flex-wrap items-center gap-2">
+        <input id="attempt-file" type="file" name="file" accept=".docx,.pdf" required
+               class="attempt-file-input sr-only">
+        <label for="attempt-file" class="attempt-file-button rounded-control border border-border px-3 py-2 text-sm">
+          {{ t('attempt.form.choose', lang) }}
+        </label>
+        <span id="attempt-file-name" class="min-w-0 break-all text-sm text-text-2"
+              data-empty="{{ t('attempt.form.no_file', lang) }}">{{ t('attempt.form.no_file', lang) }}</span>
+      </div>
+      <button type="submit" id="attempt-submit" class="rounded-control border border-border px-3 py-2 text-sm">
+        {{ t('attempt.form.submit', lang) }}
+      </button>
+    </form>
+    <p id="attempt-progress" role="status" class="mt-2 hidden text-sm text-text-2">{{ t('attempt.form.working', lang) }}</p>
+    <p id="attempt-error" class="mt-2 hidden text-sm text-sev-blocker"></p>
+    <div id="attempt-status" class="mt-3">
+      <h3 class="text-sm font-semibold">{{ t('attempt.list', lang) }}</h3>
+      {% include "attempts/_list.html" %}
+    </div>
+  </div>
+</dialog>
+
+<script>
+  // F10.1: open/close, poll while running, confirm before closing an unsaved result;
+  // C.5: an in-flight state that blocks a second paid attempt.
+  (function () {
+    const modal = document.getElementById("attempt-modal");
+    const status = document.getElementById("attempt-status");
+    const form = document.getElementById("attempt-form");
+    const error = document.getElementById("attempt-error");
+    const progress = document.getElementById("attempt-progress");
+    const submit = document.getElementById("attempt-submit");
+    const file = document.getElementById("attempt-file");
+    const fileName = document.getElementById("attempt-file-name");
+    let poll = null;
+    let unsaved = false;
+
+    function stopPoll() {
+      if (poll !== null) { clearInterval(poll); poll = null; }
+    }
+
+    function startPoll(url) {
+      stopPoll();
+      poll = setInterval(function () {
+        fetch(url, {headers: {"Accept": "text/html"}})
+          .then(function (response) {
+            if (!response.ok) {
+              stopPoll();
+              showError(response.status);
+              return null;
+            }
+            return response.text();
+          })
+          .then(function (html) {
+            if (html === null) { return; }
+            status.innerHTML = html;
+            const root = status.querySelector("[data-attempt]");
+            if (!root || root.dataset.status !== "running") { stopPoll(); unsaved = true; }
+          })
+          .catch(function () {});
+      }, 2000);
+    }
+
+    function setBusy(busy) {
+      submit.disabled = busy;
+      file.disabled = busy;
+      progress.classList.toggle("hidden", !busy);
+    }
+
+    function showError(detail) {
+      error.textContent = modal.dataset.error.replace("{detail}", detail);
+      error.classList.remove("hidden");
+    }
+
+    function requestClose() {
+      if (unsaved && !window.confirm(modal.dataset.confirm)) { return; }
+      modal.close("cancel");
+    }
+
+    const opener = document.getElementById("attempt-open");
+    opener.addEventListener("click", function () {
+      modal.showModal();
+      const running = status.querySelector('[data-status="running"]');
+      if (running && running.dataset.attemptUrl) { startPoll(running.dataset.attemptUrl); }
+    });
+    // A no-JS action redirects back with `?attempt=<id>`: reopen the modal on load.
+    if (modal.dataset.openAttempt !== undefined) { opener.click(); }
+
+    // F10.7: "Marcar como enviada" and "Descartar" are posted in place. The partial is
+    // re-rendered, so the listener sits on `status`. The action is already stored: no
+    // `unsaved`, and a non-OK answer is an error line that leaves the result alone.
+    status.addEventListener("submit", function (event) {
+      const target = event.target;
+      if (!(target instanceof HTMLFormElement)) { return; }
+      const action = target.getAttribute("action") || "";
+      if (!/\/(sent|discard)$/.test(action)) { return; }
+      event.preventDefault();
+      error.classList.add("hidden");
+      fetch(target.action, {method: "POST", headers: {"X-Requested-With": "fetch"}})
+        .then(function (response) {
+          if (!response.ok) { showError(response.status); return null; }
+          return response.text();
+        })
+        .then(function (html) { if (html !== null) { status.innerHTML = html; } })
+        .catch(function (failure) { showError(failure && failure.message ? failure.message : String(failure)); });
+    });
+    document.getElementById("attempt-close").addEventListener("click", requestClose);
+    modal.addEventListener("cancel", function (event) {
+      if (unsaved && !window.confirm(modal.dataset.confirm)) { event.preventDefault(); }
+    });
+    modal.addEventListener("close", function () { stopPoll(); if (unsaved) { window.location.reload(); } });
+
+    file.addEventListener("change", function () {
+      fileName.textContent = file.files.length ? file.files[0].name : fileName.dataset.empty;
+    });
+
+    form.addEventListener("submit", function (event) {
+      event.preventDefault();
+      error.classList.add("hidden");
+      const body = new FormData(form);
+      setBusy(true);
+      fetch(form.action, {method: "POST", body: body})
+        .then(function (response) {
+          if (!response.ok) {
+            // A refusal or a gateway page is an error line, never a result (no `unsaved`).
+            const type = response.headers.get("content-type") || "";
+            if (type.indexOf("application/json") === -1) { showError(response.status); return null; }
+            return response.json()
+              .then(function (data) { showError(data.detail || response.status); })
+              .catch(function () { showError(response.status); });
+          }
+          return response.text().then(function (html) {
+            status.innerHTML = html;
+            const root = status.querySelector("[data-attempt]");
+            unsaved = true;
+            if (root && root.dataset.status === "running") { startPoll(root.dataset.attemptUrl); }
+          });
+        })
+        .catch(function (failure) { showError(failure && failure.message ? failure.message : String(failure)); })
+        .then(function () { setBusy(false); });
+    });
+  })();
+</script>
+{% endif %}
+
+{% if not attempt_view %}
+{# F8 (N8.4): the cover letter written for this application. #}
+<h2 class="mt-8 text-lg font-semibold">{{ t('report.letter', lang) }}</h2>
+<p class="mt-1 text-sm">
+  <a href="/applications/{{ application.id }}/letter" class="text-link underline">{{ t('report.letter_link', lang) }}</a>
+</p>
+{% endif %}
+
+{# F10.6 (C.2): the readiness checklist, when the caller has one (an attempt). #}
+{% if readiness is defined and readiness %}{% include "attempts/_readiness.html" %}{% endif %}
 
 {# 9 — Traceability: the run's versions, its cache state, its cost, and the fields the
    extraction read, collapsed. #}

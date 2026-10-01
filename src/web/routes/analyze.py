@@ -11,8 +11,10 @@ from typing import Annotated
 from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
 
-from src.analysis import analyze
+from src.analysis import analyze, shown_ceiling
 from src.applications import create_application, get_application
+from src.attempts import application_attempts_report
+from src.attempts import list_attempts as list_attempt_rows
 from src.bullets import list_bullets
 from src.extract.client import (
     CallOptions,
@@ -27,6 +29,7 @@ from src.parse.gate import checks_not_run
 from src.recommend import recommend
 from src.resumes import source_document_for_track
 from src.tracks import get_track, list_tracks
+from src.web.alerts import ceiling_remainder
 from src.web.deps import DbSession, OwnProfile, SignedInUser
 from src.web.findings import document_kind, finding_rows
 from src.web.forms import is_checked
@@ -205,16 +208,32 @@ def application_report(
     user: SignedInUser,
     session: DbSession,
     profile: OwnProfile,
+    attempt: str | None = None,
 ):
     application = get_application(profile.id, session, application_id)
     if application is None:
         return render(request, "not_found.html", user=user, status_code=404)
+    attempt_rows = list_attempt_rows(profile.id, session, application.id)
+    # F10.1/F10.7: `?attempt=<id>` reopens the modal on that attempt after a no-JS
+    # action. An id that is not one of this application's attempts is ignored.
+    open_attempt = attempt if any(str(row.id) == attempt for row in attempt_rows) else None
     # The readability panel names the checks the file's format could not answer, so it
     # needs the source document's kind — the résumé the track was built from.
     source = (
         source_document_for_track(profile.id, session, application.track_id)
         if application.track_id
         else None
+    )
+    # F10.2/A10: show the ceiling the analysis stored, and recompute it only when the
+    # master data it reads has moved since — the recomputation is offline, and a stored
+    # ceiling whose fingerprint still matches is shown as it was, not re-derived.
+    track = (
+        get_track(profile.id, session, application.track_id)
+        if application.track_id
+        else None
+    )
+    ceiling, ceiling_recomputed = shown_ceiling(
+        profile.id, session, report=application.report, track=track
     )
     return render(
         request,
@@ -223,6 +242,12 @@ def application_report(
         profile=profile,
         application=application,
         report=application.report,
+        ceiling=ceiling,
+        ceiling_recomputed=ceiling_recomputed,
+        ceiling_remainder=ceiling_remainder(ceiling, user.ui_lang) if ceiling else None,
+        # F10.1: the modal lists the attempts this analysis already has.
+        attempts=application_attempts_report(attempt_rows),
+        open_attempt=open_attempt,
         findings=finding_rows(application.scan_readability or {}, user.ui_lang),
         # F7.3 Tier 3a: the rephrase control links only to a bullet that still exists
         # and is active — a stored report renders a deleted citation from its snapshot,

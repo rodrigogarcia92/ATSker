@@ -42,7 +42,7 @@ from src.models import (
     Track,
     TrackBullet,
 )
-from src.normalize.text import fold
+from src.normalize.text import fold, match_key
 from src.resumes import get_resume, mark_merged
 from src.roles import create_role, get_role, list_roles, update_role
 from src.summaries import create_summary, list_summaries
@@ -242,7 +242,7 @@ def _role_titles(role: Role) -> set[str]:
     other language names the same job only through `title_es`/`title_en`. A row
     from before the split carries `title` alone and is indexed by it.
     """
-    return {fold(title) for title in (role.title, role.title_es, role.title_en) if title}
+    return {match_key(title) for title in (role.title, role.title_es, role.title_en) if title}
 
 
 def _role_index(roles: list[Role]) -> dict[str, Role]:
@@ -254,7 +254,7 @@ def _role_index(roles: list[Role]) -> dict[str, Role]:
     """
     index: dict[str, Role] = {}
     for role in roles:
-        employer = fold(role.employer)
+        employer = match_key(role.employer)
         for title in _role_titles(role):
             key = f"{employer}\x00{title}"
             current = index.get(key)
@@ -309,7 +309,8 @@ def _bullet_candidates(draft_bullets, existing: list[Bullet]) -> tuple[BulletCan
     for draft_bullet in draft_bullets:
         text = draft_bullet.text
         identical = next(
-            (bullet for bullet in unused if fold(bullet_text(bullet)) == fold(text)), None
+            (bullet for bullet in unused if match_key(bullet_text(bullet)) == match_key(text)),
+            None,
         )
         if identical is not None:
             unused.remove(identical)
@@ -359,7 +360,7 @@ def _role_candidates(
     for raw in draft.roles:
         start_date = parse_partial_date(raw.start_date)
         end_date = parse_partial_date(raw.end_date)
-        existing = index.get(f"{fold(raw.employer)}\x00{fold(raw.title)}")
+        existing = index.get(f"{match_key(raw.employer)}\x00{match_key(raw.title)}")
         if existing is None:
             candidates.append(
                 RoleCandidate(

@@ -514,3 +514,41 @@ def test_the_generate_posts_refuse_another_profiles_ids(client, session, career,
         ).status_code
         == 404
     )
+
+
+def test_the_proposal_page_groups_violations_and_names_both_closure_failures(
+    client, session, career, provider
+):
+    """`python` is in the pool but ungraded (unevidenced); `kubernetes` is not (missing)."""
+    provider.answers["SummarySkills"] = {
+        "summary": "Automaticé el reporte con Python.",
+        "cites": [str(career.first_bullet.id)],
+        "skills": ["python", "kubernetes"],
+    }
+    application = stored_application(session, career, grades=[])
+    login(client, career.first.email)
+
+    page = client.post(f"/applications/{application.id}/summary/generate").text
+
+    assert "Habilidades que no están en tus datos (1)" in page
+    assert "no se muestran con nivel 2 o mejor" in page
+    assert "«kubernetes»" in page and "«python»" in page
+
+
+def test_the_summary_prompt_is_versioned_and_states_the_pool_rule():
+    from src.extract.prompts import SUMMARY_SKILLS_V1, SUMMARY_SKILLS_V2
+
+    assert SUMMARY_SKILLS_V1.version == "summary_skills_v1", "old reports keep citing V1"
+    assert SUMMARY_SKILLS_V2.version == "summary_skills_v2"
+    assert "at most 15" in SUMMARY_SKILLS_V2.system
+    assert "at most 15" not in SUMMARY_SKILLS_V1.system
+    assert SUMMARY_SKILLS_V2.template == SUMMARY_SKILLS_V1.template
+
+
+def test_generating_uses_the_v2_prompt(client, session, career, provider):
+    application = stored_application(session, career)
+    login(client, career.first.email)
+
+    client.post(f"/applications/{application.id}/summary/generate")
+
+    assert "at most 15" in json.dumps(provider.calls[-1])

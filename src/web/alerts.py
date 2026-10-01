@@ -10,7 +10,7 @@ functions and not template blocks.
 from collections.abc import Mapping
 
 from src.i18n import t
-from src.i18n.strings import join_list
+from src.i18n.strings import STRINGS, join_list
 
 
 def language_alert(alert: Mapping[str, object], lang: str) -> str:
@@ -52,15 +52,85 @@ def language_alert(alert: Mapping[str, object], lang: str) -> str:
     )
 
 
-def advice_line(item: Mapping[str, object], lang: str) -> str:
+def _points(value: object) -> str:
+    """A remainder figure with at most one decimal and no trailing `.0`."""
+    return f"{round(float(value or 0), 1):g}"
+
+
+def _join_clauses(parts: list[str], lang: str) -> str:
+    if len(parts) == 1:
+        return parts[0]
+    return ", ".join(parts[:-1]) + t("report.ceiling.and", lang) + parts[-1]
+
+
+def ceiling_remainder(ceiling: Mapping[str, object], lang: str) -> str | None:
+    """The ceiling's remainder as a sentence (PRD F10.2, A5).
+
+    Built from `unreachable.by_source`, so each part names what actually holds those
+    points out. Only non-zero parts are shown, and the "requieren experiencia" clause
+    appears only when a requirement has no evidence at all.
+    """
+    source = ceiling.get("unreachable") or {}
+    if not isinstance(source, Mapping):
+        return None
+    by = source.get("by_source") or {}
+    requirements = source.get("requirements") or []
+    by = by if isinstance(by, Mapping) else {}
+    clauses: list[str] = []
+    if by.get("no_evidence") and requirements:
+        names = ", ".join(
+            str(row.get("requirement") or "") for row in requirements if isinstance(row, Mapping)
+        )
+        clauses.append(
+            t(
+                "report.ceiling.no_evidence",
+                lang,
+                points=_points(by["no_evidence"]),
+                requirements=names,
+            )
+        )
+    tail = [
+        t(key, lang, points=_points(by[field]))
+        for field, key in (
+            ("experience", "report.ceiling.experience"),
+            ("title", "report.ceiling.title"),
+            ("keywords", "report.ceiling.keywords"),
+        )
+        if by.get(field)
+    ]
+    if tail:
+        clauses.append(_join_clauses(tail, lang))
+    if by.get("stronger_evidence"):
+        clauses.append(
+            t(
+                "report.ceiling.stronger_evidence",
+                lang,
+                points=_points(by["stronger_evidence"]),
+            )
+        )
+    if not clauses:
+        return None
+    intro = t("report.ceiling.remaining", lang, points=_points(source.get("points")))
+    return f"{intro} {'; '.join(clauses)}."
+
+
+def advice_line(item: Mapping[str, object], lang: str, *, for_file: bool = False) -> str:
     """One F7.2 item as a sentence (PRD F7.2).
 
     The stored item names a language by its code — a report written under one
     interface language must read in the other — so the code is resolved here, with
     the words a reader knows ("inglés", "English"), never the ISO string.
+
+    `for_file` picks the F10.3 wording for a document ("en tu documento") where the
+    rule's sentence would otherwise speak of a track. A kind without a variant reads
+    the base sentence, so the two cannot drift apart in silence.
     """
     values = dict(item.get("values") or {})
     code = values.get("language")
     if isinstance(code, str):
         values["language"] = t(f"lang.{code}", lang)
-    return t(f"report.advice.{item.get('kind')}", lang, **values)
+    kind = item.get("kind")
+    key = f"report.advice.{kind}"
+    if for_file and f"report.advice.file.{kind}" in STRINGS:
+        key = f"report.advice.file.{kind}"
+    return t(key, lang, **values)

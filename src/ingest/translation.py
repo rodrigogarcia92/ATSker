@@ -28,7 +28,7 @@ from src.extract.pairing import pair_bullets
 from src.ingest.draft import DraftBullet, DraftRole, ResumeDraft, parse_partial_date
 from src.ingest.merge import MergePlan, MergeResult, Selections, apply_merge, diff_draft
 from src.models import Bullet, Role, Track
-from src.normalize.text import fold
+from src.normalize.text import match_key
 from src.roles import list_roles, mirror_title, role_language
 from src.tracks import track_bullets
 
@@ -96,7 +96,7 @@ def matched_roles(
 ) -> tuple[tuple[Role, DraftRole], ...]:
     """The role each draft role is the same job as (F4.2), in the draft's order.
 
-    Deterministic: folded employer equality and overlapping dates, nothing else. Each
+    Deterministic: employer equality on `match_key` and overlapping dates, nothing else. Each
     existing role is consumed by at most one draft role, so a document with two
     spellings of one job pairs the first and leaves the second to F2.5 as a new
     candidate rather than filling the same columns twice.
@@ -105,12 +105,12 @@ def matched_roles(
     remaining = track_roles(profile_id, session, track)
     matches: list[tuple[Role, DraftRole]] = []
     for draft_role in draft.roles:
-        employer = fold(draft_role.employer)
+        employer = match_key(draft_role.employer)
         if not employer:
             continue
         span = (parse_partial_date(draft_role.start_date), parse_partial_date(draft_role.end_date))
         for role in remaining:
-            if fold(role.employer) != employer:
+            if match_key(role.employer) != employer:
                 continue
             if not _overlaps((role.start_date, role.end_date), span, today=day):
                 continue

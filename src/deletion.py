@@ -33,14 +33,22 @@ from sqlalchemy import delete, func, select, update
 from sqlalchemy.orm import Session
 
 from src.extract.gaps import PURPOSE as GAP_INTERPRET
-from src.extract.generation import GENERATE_BULLET, GENERATE_SUMMARY, STORY_BULLETS
+from src.extract.generation import (
+    GENERATE_BULLET,
+    GENERATE_SUMMARY,
+    LETTER_BLOCKS,
+    LETTER_BRIDGE,
+    STORY_BULLETS,
+)
 from src.extract.grading import PURPOSE as EVIDENCE_GRADE
 from src.extract.resume import PURPOSE as RESUME_EXTRACT
 from src.extract.stories import PURPOSE as STORY_SUGGEST
 from src.models import (
     Application,
+    ApplicationAttempt,
     Bullet,
     BulletRevision,
+    LetterSettings,
     LetterTemplate,
     LlmCall,
     Profile,
@@ -57,8 +65,15 @@ from src.scoping import owned_row, owned_rows
 
 # F2.8's personal-content purposes, as the ledger records them. `jd_extract` and
 # `boolean_queries` are deliberately absent: those answers are not personal and are
-# kept whole. F7.3's three added theirs: a generated summary or bullet is the user's
-# own material, so "Eliminar todo" blanks it like the résumé it came from.
+# kept whole. F7.3's three added theirs, and F8's two letter calls: generated prose is
+# the user's own material, so "Eliminar todo" blanks it like the résumé it came from.
+# F10's attempt calls (A9): the file a user tests is theirs, so "Eliminar todo" blanks
+# these answers like the résumé extraction they mirror. The pipeline that writes them
+# arrives in Run B; the names are ledger strings, so the redaction is correct the day
+# the first call is made.
+ATTEMPT_EXTRACT = "attempt_extract"
+ATTEMPT_GRADE = "attempt_grade"
+
 PERSONAL_PURPOSES = (
     RESUME_EXTRACT,
     EVIDENCE_GRADE,
@@ -67,6 +82,10 @@ PERSONAL_PURPOSES = (
     GENERATE_SUMMARY,
     GENERATE_BULLET,
     STORY_BULLETS,
+    LETTER_BLOCKS,
+    LETTER_BRIDGE,
+    ATTEMPT_EXTRACT,
+    ATTEMPT_GRADE,
 )
 
 # What `delete_everything` totals: one key per entity of the §F2.8 table, plus the
@@ -80,7 +99,9 @@ EVERYTHING_KEYS = (
     "tracks",
     "stories",
     "letter_templates",
+    "letter_settings",
     "applications",
+    "application_attempts",
     "skills",
     "ledger_redacted",
 )
@@ -491,10 +512,23 @@ def impact_story(
 def delete_letter_template(
     profile_id: uuid.UUID, session: Session, letter_id: str | uuid.UUID
 ) -> dict[str, int] | None:
-    """§F2.8's letter-template half: the row and its links — it has none."""
+    """§F2.8's letter-template half: the row and its links.
+
+    Applications that used it keep their letter: `letter_template_id` is nulled (the
+    FK is SET NULL too, but doing it here keeps one session's flush consistent) and
+    `letter_text` is a snapshot, so what was sent is unchanged.
+    """
     letter = owned_row(LetterTemplate, session, profile_id, letter_id)
     if letter is None:
         return None
+    session.execute(
+        update(Application)
+        .where(
+            Application.profile_id == profile_id,
+            Application.letter_template_id == letter.id,
+        )
+        .values(letter_template_id=None)
+    )
     session.delete(letter)
     session.flush()
     return {"letter_templates": 1}
@@ -515,14 +549,23 @@ def impact_letter_template(
 def delete_application(
     profile_id: uuid.UUID, session: Session, application_id: str | uuid.UUID
 ) -> dict[str, int] | None:
-    """§F2.8's Analysis row: the stored application. Golden-set files live outside
-    the database and are nobody's to delete here."""
+    """§F2.8's Analysis row: the stored application and its attempts (F10). Golden-set
+    files live outside the database and are nobody's to delete here."""
     application = owned_row(Application, session, profile_id, application_id)
     if application is None:
         return None
+    attempts = list(
+        session.scalars(
+            select(ApplicationAttempt).where(
+                ApplicationAttempt.application_id == application.id
+            )
+        )
+    )
+    for attempt in attempts:
+        session.delete(attempt)
     session.delete(application)
     session.flush()
-    return {"applications": 1}
+    return {"applications": 1, "application_attempts": len(attempts)}
 
 
 def impact_application(
@@ -531,7 +574,15 @@ def impact_application(
     application = owned_row(Application, session, profile_id, application_id)
     if application is None:
         return None
-    return {"applications": 1}
+    return {
+        "applications": 1,
+        "application_attempts": _count(
+            session,
+            select(ApplicationAttempt.id).where(
+                ApplicationAttempt.application_id == application.id
+            ),
+        ),
+    }
 
 
 # --- Everything --------------------------------------------------------------
@@ -551,8 +602,10 @@ def delete_everything(profile_id: uuid.UUID, session: Session) -> dict[str, int]
     """
     totals = dict.fromkeys(EVERYTHING_KEYS, 0)
     for application in owned_rows(Application, session, profile_id):
-        if delete_application(profile_id, session, application.id):
+        removed = delete_application(profile_id, session, application.id)
+        if removed:
             totals["applications"] += 1
+            totals["application_attempts"] += removed["application_attempts"]
     totals["bullets"] = _delete_bullets(
         profile_id, session, _bullet_ids(profile_id, session)
     )["bullets"]
@@ -574,6 +627,9 @@ def delete_everything(profile_id: uuid.UUID, session: Session) -> dict[str, int]
     for letter in owned_rows(LetterTemplate, session, profile_id):
         if delete_letter_template(profile_id, session, letter.id):
             totals["letter_templates"] += 1
+    for settings in owned_rows(LetterSettings, session, profile_id):
+        session.delete(settings)
+        totals["letter_settings"] += 1
     profile = session.get(Profile, profile_id)
     if profile is not None:
         for skill in list(profile.skills):
@@ -615,8 +671,17 @@ def impact_everything(profile_id: uuid.UUID, session: Session) -> dict[str, int]
         "letter_templates": _count(
             session, select(LetterTemplate.id).where(LetterTemplate.profile_id == profile_id)
         ),
+        "letter_settings": _count(
+            session, select(LetterSettings.id).where(LetterSettings.profile_id == profile_id)
+        ),
         "applications": _count(
             session, select(Application.id).where(Application.profile_id == profile_id)
+        ),
+        "application_attempts": _count(
+            session,
+            select(ApplicationAttempt.id).where(
+                ApplicationAttempt.profile_id == profile_id
+            ),
         ),
         "skills": len(profile.skills) if profile is not None else 0,
         "ledger_redacted": _count(

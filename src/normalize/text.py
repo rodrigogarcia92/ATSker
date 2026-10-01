@@ -4,6 +4,7 @@ import re
 import unicodedata
 
 _WHITESPACE = re.compile(r"\s+")
+_PUNCTUATION = re.compile(r"(?:[^\w&+#]|_)+")
 
 
 def fold(text: str) -> str:
@@ -11,6 +12,15 @@ def fold(text: str) -> str:
     decomposed = unicodedata.normalize("NFKD", text)
     without_marks = "".join(ch for ch in decomposed if not unicodedata.combining(ch))
     return _WHITESPACE.sub(" ", without_marks).strip().lower()
+
+
+def match_key(text: str) -> str:
+    """`fold`, then punctuation runs become one space: the key roles and bullets match on.
+
+    `Results - Based`, `Results-Based` and `Results–Based` collide; `c++`, `c#` and `&`
+    survive. Kept apart from `fold` so scoring, keywords and the vocabulary hash do not move.
+    """
+    return _PUNCTUATION.sub(" ", fold(text)).strip()
 
 
 def term_pattern(folded_term: str) -> re.Pattern[str]:

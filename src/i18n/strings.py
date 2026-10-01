@@ -286,6 +286,293 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "Missing {missing}: the total is renormalised over {available} of {total} "
         "components.",
     },
+    # F10.2: the ceiling beside Job Match. A1 makes the high end wait for F7.4, so the
+    # label is one number and "(estimado)" applies to the whole ceiling.
+    "report.ceiling": {
+        "es": "Techo con tu material: {value} (estimado)",
+        "en": "Ceiling with your material: {value} (estimated)",
+    },
+    "report.ceiling_recalculated": {
+        "es": "recalculado con tu material actual",
+        "en": "recalculated with your current material",
+    },
+    "report.ceiling_no_cap": {
+        "es": "(sin el límite de formato)",
+        "en": "(without the format cap)",
+    },
+    "report.ceiling_sub": {"es": "techo {value}", "en": "ceiling {value}"},
+    "report.ceiling_estimate": {"es": "estimado", "en": "estimated"},
+    # A5: the remainder decomposed by source, so the sentence names what actually
+    # holds each point out. Only the non-zero parts are shown.
+    "report.ceiling.remaining": {
+        "es": "Los {points} puntos restantes:",
+        "en": "The remaining {points} points:",
+    },
+    "report.ceiling.no_evidence": {
+        "es": "{points} requieren experiencia que ATSker no tiene registrada ({requirements})",
+        "en": "{points} require experience ATSker has no record of ({requirements})",
+    },
+    "report.ceiling.experience": {
+        "es": "{points} dependen de años de experiencia",
+        "en": "{points} come from years of experience",
+    },
+    "report.ceiling.title": {"es": "{points} del título", "en": "{points} from the title"},
+    "report.ceiling.keywords": {
+        "es": "{points} de palabras clave que no figuran en tu material",
+        "en": "{points} from keywords that are not in your material",
+    },
+    "report.ceiling.stronger_evidence": {
+        "es": "{points} de evidencia más fuerte en requisitos que ya cubres",
+        "en": "{points} from stronger evidence on requirements you already cover",
+    },
+    "report.ceiling.and": {"es": " y ", "en": " and "},
+    # F10.1: the way into the attempt modal.
+    "report.try_new_cv": {
+        "es": "Probar nueva versión del CV",
+        "en": "Try a new CV version",
+    },
+    "report.try_new_cv_note": {
+        "es": "(.docx)",
+        "en": "(.docx)",
+    },
+    # F10.3 (Run B): attempts — the upload limit, the status the modal polls, and the
+    # list. `attempt.limit` is the stated reason the 11th upload is refused (409).
+    "attempt.limit": {
+        "es": "Este análisis ya tiene {max} intentos, que es el máximo.",
+        "en": "This analysis already has {max} attempts, which is the maximum.",
+    },
+    "attempt.title": {"es": "Intento {n}", "en": "Attempt {n}"},
+    "attempt.status.running": {"es": "En curso", "en": "Running"},
+    "attempt.status.done": {"es": "Listo", "en": "Done"},
+    "attempt.status.failed": {"es": "Fallido", "en": "Failed"},
+    "attempt.score": {
+        "es": "Encaje {score} · techo {ceiling}",
+        "en": "Match {score} · ceiling {ceiling}",
+    },
+    "attempt.view_report": {
+        "es": "Ver el informe completo",
+        "en": "View the full report",
+    },
+    # F10.7 (C.3): the actions, the F9 history columns, and the merge hand-off.
+    "applications.attempts": {"es": "{count} intentos", "en": "{count} attempts"},
+    "applications.sent_attempt": {"es": "enviada: intento {n}", "en": "sent: attempt {n}"},
+    "attempt.actions.sent": {"es": "Marcar como enviada", "en": "Mark as sent"},
+    "attempt.actions.incorporate": {
+        "es": "Incorporar a mi material…",
+        "en": "Add to my material…",
+    },
+    "attempt.actions.discard": {"es": "Descartar", "en": "Discard"},
+    "attempt.actions.letter": {
+        "es": "Carta de presentación →",
+        "en": "Cover letter →",
+    },
+    "attempt.sent_done": {"es": "Marcada como enviada", "en": "Marked as sent"},
+    "attempt.incorporate.title": {
+        "es": "Incorporar a mi material",
+        "en": "Add to my material",
+    },
+    "attempt.incorporate.intro": {
+        "es": "Esto es lo que el documento trae y tu base de datos no tiene. Nada se "
+        "escribe hasta que confirmes, y ningún puesto se toca salvo que elijas uno.",
+        "en": "This is what the document brings that your database does not have. "
+        "Nothing is written until you confirm, and no track is touched unless you "
+        "choose one.",
+    },
+    "attempt.incorporate.none": {
+        "es": "No hay nada nuevo que incorporar.",
+        "en": "There is nothing new to add.",
+    },
+    "attempt.incorporate.bullets": {"es": "Bullets nuevos", "en": "New bullets"},
+    "attempt.incorporate.changed": {"es": "Bullets cambiados", "en": "Changed bullets"},
+    "attempt.incorporate.skills": {"es": "Habilidades nuevas", "en": "New skills"},
+    "attempt.incorporate.destination": {"es": "Destino", "en": "Destination"},
+    "attempt.incorporate.solo": {
+        "es": "Solo mi material (ningún puesto)",
+        "en": "Only my material (no track)",
+    },
+    "attempt.incorporate.este": {"es": "Este puesto", "en": "This track"},
+    "attempt.incorporate.otro": {"es": "Otro puesto", "en": "Another track"},
+    "attempt.incorporate.nuevo": {"es": "Nuevo puesto", "en": "A new track"},
+    "attempt.incorporate.new_name": {
+        "es": "Nombre del nuevo puesto",
+        "en": "New track name",
+    },
+    "attempt.incorporate.confirm": {"es": "Incorporar", "en": "Add"},
+    "attempt.incorporate.cancel": {"es": "Cancelar", "en": "Cancel"},
+    "attempt.incorporated.title": {
+        "es": "Incorporado a tu material",
+        "en": "Added to your material",
+    },
+    "attempt.incorporated.counts": {
+        "es": "Se crearon {bullets} bullets y se añadieron {skills} habilidades.",
+        "en": "Created {bullets} bullets and added {skills} skills.",
+    },
+    "attempt.incorporated.nothing": {
+        "es": "No había nada nuevo que escribir.",
+        "en": "There was nothing new to write.",
+    },
+    "attempt.list": {"es": "Intentos", "en": "Attempts"},
+    "attempt.none": {
+        "es": "Todavía no hay intentos.",
+        "en": "No attempts yet.",
+    },
+    # F10.1/F10.4 (Run C): the modal, the result's content order and its wording.
+    "attempt.form.submit": {"es": "Probar", "en": "Test"},
+    "attempt.form.file": {"es": "Archivo (.docx o .pdf)", "en": "File (.docx or .pdf)"},
+    "attempt.form.choose": {"es": "Elegir archivo", "en": "Choose file"},
+    "attempt.form.no_file": {"es": "Ningún archivo elegido", "en": "No file chosen"},
+    "attempt.form.working": {
+        "es": "Analizando tu documento… puede tardar hasta un minuto.",
+        "en": "Analysing your document… this can take up to a minute.",
+    },
+    "attempt.form.confirm_close": {
+        "es": "Hay un resultado sin guardar. ¿Cerrar igualmente?",
+        "en": "There is an unsaved result. Close anyway?",
+    },
+    "attempt.form.error": {
+        "es": "No se pudo subir el archivo: {detail}",
+        "en": "The file could not be uploaded: {detail}",
+    },
+    "attempt.delta": {
+        "es": "{delta} vs. análisis del puesto",
+        "en": "{delta} vs. the posting analysis",
+    },
+    "attempt.delta_flat": {
+        "es": "sin cambio significativo",
+        "en": "no significant change",
+    },
+    "attempt.vs_previous": {
+        "es": "vs. intento {n}",
+        "en": "vs. attempt {n}",
+    },
+    "attempt.change.title": {"es": "Qué cambió", "en": "What changed"},
+    "attempt.change.none_first": {
+        "es": "Sin cambios respecto al análisis del puesto",
+        "en": "No changes against the posting analysis",
+    },
+    "attempt.change.none_previous": {
+        "es": "Sin cambios respecto al intento anterior",
+        "en": "No changes against the previous attempt",
+    },
+    "attempt.change.score": {
+        "es": "{name} {before} → {after}",
+        "en": "{name} {before} → {after}",
+    },
+    "attempt.change.searches_found": {
+        "es": "Búsquedas que ahora te devuelven: {items}",
+        "en": "Searches that now return you: {items}",
+    },
+    "attempt.change.searches_lost": {
+        "es": "Búsquedas que ya no te devuelven: {items}",
+        "en": "Searches that no longer return you: {items}",
+    },
+    "attempt.change.gaps_closed": {"es": "Huecos cerrados: {items}", "en": "Gaps closed: {items}"},
+    "attempt.change.gaps_opened": {"es": "Huecos abiertos: {items}", "en": "Gaps opened: {items}"},
+    "attempt.change.findings_fixed": {
+        "es": "Hallazgos de formato corregidos: {items}",
+        "en": "Format findings fixed: {items}",
+    },
+    "attempt.change.findings_introduced": {
+        "es": "Hallazgos de formato introducidos: {items}",
+        "en": "Format findings introduced: {items}",
+    },
+    "attempt.flags.title": {
+        "es": "Nuevo en este documento",
+        "en": "New in this document",
+    },
+    "attempt.flags.none": {
+        "es": "Nada nuevo: el documento dice lo que dice tu material.",
+        "en": "Nothing new: the document says what your material says.",
+    },
+    "attempt.flags.skills": {
+        "es": "Habilidades que tu material no tiene: {items}",
+        "en": "Skills your material does not have: {items}",
+    },
+    "attempt.flags.claims": {
+        "es": "Cifras, fechas o nombres sin respaldo: {items}",
+        "en": "Figures, dates or names with no support: {items}",
+    },
+    "attempt.flags.titles": {
+        "es": "Puestos que no están en tu material: {items}",
+        "en": "Roles your material does not carry: {items}",
+    },
+    "attempt.flags.above_ceiling": {
+        "es": "Este CV puntúa por encima de lo que tu material permite; revisa las "
+        "afirmaciones nuevas.",
+        "en": "This CV scores above what your material allows; check the new claims.",
+    },
+    "attempt.left.title": {"es": "Qué queda", "en": "What's left"},
+    "attempt.left.none": {
+        "es": "Nada pendiente: ya usaste lo que tu material ofrece para esta oferta.",
+        "en": "Nothing pending: you already used what your material offers for this posting.",
+    },
+    "attempt.cost": {"es": "Coste {amount}", "en": "Cost {amount}"},
+    "attempt.cost_reused": {
+        "es": "sin costo (reutilizado)",
+        "en": "no cost (reused)",
+    },
+    "attempt.sent": {"es": "Enviada", "en": "Sent"},
+    # F10.6 (C.2): the readiness checklist, its message, and the personal target.
+    "attempt.ready.title": {"es": "Listo para enviar", "en": "Ready to send"},
+    "attempt.ready.message": {
+        "es": "CV optimizado — lo que falta es experiencia que ATSker no tiene "
+        "registrada: {gaps}.",
+        "en": "Optimised CV — what is missing is experience ATSker has no record of: "
+        "{gaps}.",
+    },
+    "attempt.ready.message_plain": {
+        "es": "CV optimizado — nada más que ATSker pueda añadir con tu material.",
+        "en": "Optimised CV — nothing more ATSker can add from your material.",
+    },
+    "attempt.ready.checklist": {"es": "Falta:", "en": "Missing:"},
+    "attempt.ready.match_band": {
+        "es": "El encaje ({job_match}) no llega al techo ({ceiling_low}) dentro del "
+        "margen de {band}.",
+        "en": "The match ({job_match}) does not reach the ceiling ({ceiling_low}) "
+        "within the {band}-point band.",
+    },
+    "attempt.ready.match_target": {
+        "es": "El encaje ({job_match}) no llega a tu objetivo ({target}).",
+        "en": "The match ({job_match}) does not reach your target ({target}).",
+    },
+    "attempt.ready.readability": {
+        "es": "El documento tiene bloqueantes de formato: {items}.",
+        "en": "The document has format blockers: {items}.",
+    },
+    "attempt.ready.search": {
+        "es": "Búsquedas que no te devuelven: {items}.",
+        "en": "Searches that do not return you: {items}.",
+    },
+    "attempt.ready.advice": {
+        "es": "Recomendaciones pendientes: {items}.",
+        "en": "Advice still open: {items}.",
+    },
+    "attempt.ready.language": {
+        "es": "El documento no está en el idioma de la oferta.",
+        "en": "The document is not in the posting's language.",
+    },
+    "attempt.ready.target_label": {
+        "es": "Tu objetivo (máximo {ceiling_high})",
+        "en": "Your target (max {ceiling_high})",
+    },
+    "attempt.ready.target_save": {"es": "Guardar objetivo", "en": "Save target"},
+    "attempt.ready.target_hint": {
+        "es": "Se guarda en este análisis, no en el intento.",
+        "en": "Saved on this analysis, not on the attempt.",
+    },
+    "attempt.ready.target_name": {"es": "Objetivo", "en": "Target"},
+    "attempt.done_heading": {
+        "es": "Intento {n} — informe completo",
+        "en": "Attempt {n} — full report",
+    },
+    "attempt.back": {
+        "es": "Volver al análisis",
+        "en": "Back to the analysis",
+    },
+    "attempt.running": {
+        "es": "Leyendo y puntuando el documento…",
+        "en": "Reading and scoring the document…",
+    },
     "report.cost_label": {"es": "Coste del análisis", "en": "Analysis cost"},
     "report.readability_capped": {
         "es": "El documento limita la puntuación: {check}.",
@@ -584,6 +871,39 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "Write {bullets} of your {total_bullets} bullets and {titles} of your "
         "titles in {language}.",
     },
+    # F10.3 step 6: the same items worded for a document, not for a track. Only the
+    # kinds whose sentence mentions the track have a variant; the rest fall back.
+    "report.advice.file.promote_bullet": {
+        "es": "Mueve este bullet a las tres primeras de tu documento: demuestra "
+        "{requirement} y está en la posición {position}, con material más débil por "
+        "encima.",
+        "en": "Move this bullet into your document's first three: it demonstrates "
+        "{requirement} and it sits at position {position}, with weaker material above.",
+    },
+    "report.advice.file.add_bullet": {
+        "es": "Añade este bullet a tu documento: demuestra {canonical}, que la oferta "
+        "pide y el documento no muestra.",
+        "en": "Add this bullet to your document: it demonstrates {canonical}, which the "
+        "posting asks for and the document does not show.",
+    },
+    "report.advice.file.surface_skill": {
+        "es": "Añade {canonical} a las habilidades de tu documento: la oferta lo pide y "
+        "tú lo tienes demostrado.",
+        "en": "Add {canonical} to your document's skills list: the posting asks for it "
+        "and you have it evidenced.",
+    },
+    "report.advice.file.fix_query": {
+        "es": "La búsqueda «{query}» no te devolvería, y tienes un bullet que dice "
+        "{canonical}: inclúyela en tu documento o usa sus palabras.",
+        "en": "The search “{query}” would not return you, and you have a bullet that "
+        "says {canonical}: include it in your document, or use its words.",
+    },
+    "report.advice.file.language": {
+        "es": "Escribe en {language} {bullets} de los {total_bullets} bullets de tu "
+        "documento y {titles} de tus cargos.",
+        "en": "Write {bullets} of your document's {total_bullets} bullets and {titles} "
+        "of your titles in {language}.",
+    },
     "report.advice.evidence": {"es": "Evidencia", "en": "Evidence"},
     # The source tag on every advice item: which of F7.2's rules produced it, in a word.
     "report.advice.tag.promote_bullet": {"es": "Promover", "en": "Promote"},
@@ -666,6 +986,16 @@ STRINGS: dict[str, dict[str, str]] = {
     "generate.violation.closure": {
         "es": "Nombra una habilidad que no está en tus datos o no está respaldada.",
         "en": "Names a skill that is not in your data or is not evidenced.",
+    },
+    "generate.violation.closure_missing": {
+        "es": "Habilidades que no están en tus datos",
+        "en": "Skills that are not in your data",
+    },
+    "generate.violation.closure_unevidenced": {
+        "es": "Están en tus datos, pero no se muestran con nivel 2 o mejor en las viñetas "
+        "que cita este resumen",
+        "en": "In your data, but not shown at level 2 or better in the bullets this "
+        "summary cites",
     },
     # Tier 3a: one bullet, rewritten for the posting it was cited for.
     "generate.rephrase": {"es": "Reformular para este aviso", "en": "Rephrase for this posting"},
@@ -969,6 +1299,124 @@ STRINGS: dict[str, dict[str, str]] = {
     "letters.presentation": {"es": "Párrafo de presentación", "en": "Presentation paragraph"},
     "letters.achievements": {"es": "Párrafo de logros", "en": "Achievements paragraph"},
     "letters.empty": {"es": "Todavía no hay plantillas.", "en": "No templates yet."},
+    # N8.2: the blocks every letter shares, and the template's optional track link.
+    "letters.settings_title": {"es": "Bloques comunes", "en": "Common blocks"},
+    "letters.settings_hint": {
+        "es": "Lo que no cambia entre candidaturas: se escribe una vez por idioma y lo "
+        "usan todas las cartas de ese idioma.",
+        "en": "What does not change between applications: written once per language, "
+        "used by every letter in that language.",
+    },
+    "letters.blocks_header": {
+        "es": "Encabezado (nombre, contacto)",
+        "en": "Header (name, contact)",
+    },
+    "letters.blocks_greeting": {"es": "Saludo", "en": "Greeting"},
+    "letters.blocks_closing": {"es": "Cierre", "en": "Closing"},
+    "letters.blocks_sign_off": {"es": "Firma", "en": "Sign-off"},
+    "letters.blocks_voice": {"es": "Notas de voz", "en": "Voice notes"},
+    "letters.blocks_voice_hint": {
+        "es": "Registro, tuteo, lo que quieras que diga cada generación. Es dato, no "
+        "código.",
+        "en": "Register, formality, anything every generation should say. It is data, "
+        "not code.",
+    },
+    "letters.save_blocks": {"es": "Guardar bloques", "en": "Save blocks"},
+    "letters.templates_title": {"es": "Plantillas", "en": "Templates"},
+    "letters.group_unlinked": {"es": "Sin puesto objetivo", "en": "No track"},
+    "letters.track_link": {"es": "Puesto objetivo (opcional)", "en": "Track (optional)"},
+    "letters.track_none": {"es": "— sin puesto —", "en": "— no track —"},
+    # N8.3: the two reusable paragraphs, proposed from the track's own material.
+    "letters.propose": {
+        "es": "Proponer presentación y logros",
+        "en": "Propose presentation and achievements",
+    },
+    "letters.propose_title": {
+        "es": "Presentación y logros propuestos",
+        "en": "Proposed presentation and achievements",
+    },
+    "letters.propose_intro": {
+        "es": "Dos párrafos escritos a partir del material del puesto objetivo. Nada se "
+        "guarda hasta que aceptes, y al aceptar se vuelve a validar.",
+        "en": "Two paragraphs written from the track's own material. Nothing is stored "
+        "until you accept, and accepting validates them again.",
+    },
+    "letters.propose_no_track": {
+        "es": "Esta plantilla no está ligada a un puesto objetivo: sin uno no hay "
+        "material del que escribir.",
+        "en": "This template is not linked to a track: without one there is no material "
+        "to write from.",
+    },
+    "generate.violation.length": {
+        "es": "El párrafo no tiene la extensión pedida.",
+        "en": "The paragraph is not the requested length.",
+    },
+    "generate.violation.shape": {
+        "es": "El párrafo de logros debe ser uno solo.",
+        "en": "The achievements block must be one paragraph.",
+    },
+    # N8.4: the letter written for one application.
+    "letters.letter_title": {"es": "Carta de presentación", "en": "Cover letter"},
+    "letters.letter_intro": {
+        "es": "Una llamada para elegir plantilla y escribir tres puentes; el montaje es "
+        "determinista y cambiar de plantilla o variante no vuelve a llamar al modelo.",
+        "en": "One call to choose a template and write three bridges; assembly is "
+        "deterministic, and switching template or variant does not call the model again.",
+    },
+    "letters.letter_no_candidates": {
+        "es": "No hay plantillas en el idioma del aviso: créalas en Cartas.",
+        "en": "No templates in the posting's language: create them in Letters.",
+    },
+    "letters.letter_no_settings": {
+        "es": "Faltan los bloques comunes de ese idioma: escríbelos en Cartas.",
+        "en": "The common blocks for that language are missing: write them in Letters.",
+    },
+    "letters.letter_reason": {"es": "Elegida porque", "en": "Chosen because"},
+    "letters.letter_runner_up": {"es": "Alternativa", "en": "Runner-up"},
+    "letters.letter_risk": {"es": "Riesgo", "en": "Risk"},
+    "letters.letter_template": {"es": "Plantilla", "en": "Template"},
+    "letters.letter_variant": {"es": "Variante", "en": "Variant"},
+    "letters.letter_repeat_warning": {
+        "es": "Repite un número del párrafo de logros de esta plantilla.",
+        "en": "Repeats a number from this template's achievements paragraph.",
+    },
+    "letters.letter_save": {"es": "Guardar carta", "en": "Save letter"},
+    # F8.5: the checklist, deterministic and beside the letter.
+    "letters.check.placeholders": {
+        "es": "Sin marcadores pendientes",
+        "en": "No placeholders left",
+    },
+    "letters.check.title": {
+        "es": "Aparece el título exacto del aviso",
+        "en": "The posting's exact title appears",
+    },
+    "letters.check.company": {"es": "Se nombra la empresa", "en": "The company is named"},
+    "letters.check.length": {"es": "Una página (≤ 420 palabras)", "en": "One page (≤ 420 words)"},
+    "letters.check.facts": {
+        "es": "Cada dato de la empresa está atribuido",
+        "en": "Every company fact is attributed",
+    },
+    "letters.check.language": {
+        "es": "El idioma de la carta es el del aviso",
+        "en": "The letter's language is the posting's",
+    },
+    "applications.letter_mark": {"es": "carta", "en": "letter"},
+    "letters.letter_saved": {"es": "Carta guardada", "en": "Saved letter"},
+    "letters.letter_missing_candidates_note": {
+        "es": "Solo sobrevivieron {count} variantes; no se rellenan hasta tres.",
+        "en": "Only {count} variants survived; three are never padded.",
+    },
+    "report.letter": {"es": "Carta de presentación", "en": "Cover letter"},
+    "report.letter_link": {"es": "Escribir la carta", "en": "Write the letter"},
+    "letters.placeholders": {"es": "Marcadores", "en": "Placeholders"},
+    "letters.placeholders_hint": {
+        "es": "Se rellenan al montar la carta, en cualquiera de los dos idiomas: {list}.",
+        "en": "Filled in when the letter is assembled, in either language: {list}.",
+    },
+    "letters.placeholder.role": {"es": "[PUESTO] / [ROLE]", "en": "[PUESTO] / [ROLE]"},
+    "letters.placeholder.company": {"es": "[EMPRESA] / [COMPANY]", "en": "[EMPRESA] / [COMPANY]"},
+    "letters.placeholder.area": {"es": "[ÁREA] / [AREA]", "en": "[ÁREA] / [AREA]"},
+    "letters.placeholder.date": {"es": "[FECHA] / [DATE]", "en": "[FECHA] / [DATE]"},
     # F2.8: Eliminar is permanent. Every delete goes through a confirmation screen
     # that states its consequences in numbers before anything happens.
     "delete.title": {"es": "¿Eliminar para siempre?", "en": "Delete permanently?"},
@@ -1037,25 +1485,29 @@ STRINGS: dict[str, dict[str, str]] = {
     },
     "delete.impact.application": {
         "es": (
-            "Se eliminará el análisis almacenado. Los ficheros del golden set viven fuera de "
-            "la base de datos."
+            "Se eliminará el análisis almacenado y sus {application_attempts} intentos. "
+            "Los ficheros del golden set viven fuera de la base de datos."
         ),
-        "en": "The stored analysis will be deleted. Golden-set files live outside the database.",
+        "en": (
+            "The stored analysis and its {application_attempts} attempts will be deleted. "
+            "Golden-set files live outside the database."
+        ),
     },
     "delete.impact.everything": {
         "es": (
             "Se eliminará todo lo del perfil: {resumes} CV, {roles} puestos, {bullets} balas, "
             "{summaries} resúmenes, {tracks} pistas, {stories} historias, {letter_templates} "
-            "plantillas, {applications} análisis y {skills} habilidades del pool. Se vaciarán "
-            "{ledger_redacted} respuestas personales del registro de modelos, conservando "
-            "tokens y coste. Tu cuenta y tu fila de perfil se quedan, vacías."
+            "plantillas, {applications} análisis, {application_attempts} intentos y {skills} "
+            "habilidades del pool. Se vaciarán {ledger_redacted} respuestas personales del "
+            "registro de modelos, conservando tokens y coste. Tu cuenta y tu fila de perfil se "
+            "quedan, vacías."
         ),
         "en": (
             "Everything in the profile goes: {resumes} CVs, {roles} roles, {bullets} bullets, "
             "{summaries} summaries, {tracks} tracks, {stories} stories, {letter_templates} "
-            "templates, {applications} analyses and {skills} pool skills. {ledger_redacted} "
-            "personal answers in the model-call ledger are blanked, keeping tokens and cost. "
-            "Your login and your profile row stay, blanked."
+            "templates, {applications} analyses, {application_attempts} attempts and {skills} "
+            "pool skills. {ledger_redacted} personal answers in the model-call ledger are "
+            "blanked, keeping tokens and cost. Your login and your profile row stay, blanked."
         ),
     },
     "delete.unattributable": {

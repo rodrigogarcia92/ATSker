@@ -1,6 +1,6 @@
 """The model-selection experiment (PRD §9, §7).
 
-Three candidates are run over the labelled golden pairs and compared on rank
+The candidates are run over the labelled golden pairs and compared on rank
 agreement, judge stability, latency and cost. Two things about this module are
 deliberate and easy to get wrong:
 
@@ -63,7 +63,7 @@ from src.normalize.metrics import extract_metrics
 from src.normalize.text import fold
 from src.score.aggregate import SubScore, aggregate
 from src.score.evidence import Level, evidence_coverage
-from src.score.weights import W3, W4
+from src.score.weights import W3, W4, WeightsV3
 from src.vocabulary import resolve_bullet_terms, seed_vocabulary
 
 # Deterministic ids, so a rerun of the same fixture produces the same citation
@@ -131,6 +131,9 @@ class GoldenPair(BaseModel):
     bucket: Literal["strong", "plausible", "stretch"]
     profile: Literal["primary", "second"]
     reason: str
+    # PRD F5.5.2/§9: the development split is what a model is chosen on; the test split
+    # is sealed and scored once. None is a pair file that does not say which it is.
+    split: Literal["dev", "test"] | None = None
     resume_sha256: str | None = None
     resume: ResumeFixture
     jd: JDFixture
@@ -160,19 +163,45 @@ def load_pairs(directory: Path) -> list[GoldenPair]:
     return pairs
 
 
+SPLITS = ("dev", "test", "all")
+
+
+def select_split(pairs: Sequence[GoldenPair], split: str) -> list[GoldenPair]:
+    """The pairs of one split (PRD §9: model selection runs on the dev split).
+
+    A request that selects nothing is an error, never a fallback to every pair: a
+    pair file with no `split` key cannot be told from a sealed test pair, so using it
+    would open the test split by accident.
+    """
+    if split not in SPLITS:
+        raise ValueError(f"unknown split {split!r}; one of {', '.join(SPLITS)}")
+    chosen = list(pairs) if split == "all" else [pair for pair in pairs if pair.split == split]
+    if not chosen:
+        labelled = sum(1 for pair in pairs if pair.split is not None)
+        raise ValueError(
+            f"the {split!r} split selects no pair: {len(pairs)} loaded, {labelled} carry a "
+            '`split` key. Add `split = "dev"` or `split = "test"` at the top level of each '
+            "pair file; the run never falls back to using every pair."
+        )
+    return chosen
+
+
 def vocabulary_entries() -> list[dict]:
     """The production vocabulary: decision 5 keeps it in the seed file, not in code."""
     path = Path(__file__).parent / "normalize" / "skills_seed.json"
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def composition_notes(pairs: Sequence[GoldenPair]) -> list[str]:
+def composition_notes(pairs: Sequence[GoldenPair], *, split: str | None = None) -> list[str]:
     """PRD §9's composition rules, reported rather than enforced.
 
     A thin set still produces a table — it just produces a table that cannot carry
-    the acceptance argument, and saying so is cheaper than discovering it later.
+    the acceptance argument, and saying so is cheaper than discovering it later. The
+    first note says which split the run is on and how many pairs it holds.
     """
     notes: list[str] = []
+    if split is not None:
+        notes.append(f"split {split}: {len(pairs)} pairs")
     spanish = sum(1 for pair in pairs if pair.language == "es")
     second = sum(1 for pair in pairs if pair.profile == "second")
     buckets = Counter(pair.bucket for pair in pairs)
@@ -258,6 +287,9 @@ class Candidate:
     reasoning_effort: str | None = None
     reference: bool = False
     note: str = ""
+    # The model production runs on: the table prints it first and every other model's
+    # deltas are measured against it (PRD §7, §11).
+    baseline: bool = False
 
 
 @dataclass(frozen=True)
@@ -345,8 +377,9 @@ class ModelPrice:
 # Source: https://openrouter.ai/api/v1/models, read 2026-09-19. The "current"
 # columns are what the price list showed that day; "list" is the rate to judge the
 # budget by. A rate that is currently below the list rate is treated as
-# promotional: a model is not selected on a discount that can end.
-PRICES_READ_ON = "2026-09-19"
+# promotional: a model is not selected on a discount that can end. The three
+# older rows were read on 2026-09-19 (GPT-6.1 Sol on 2026-09-30); their notes say so.
+PRICES_READ_ON = "2026-09-30"
 MODELS_URL = "https://openrouter.ai/api/v1/models"
 
 # What the API shows for DeepSeek: base $0.15/$0.60 per M, doubled on weekdays
@@ -395,6 +428,13 @@ PRICES: dict[str, ModelPrice] = {
             "settles what was actually billed"
         ),
     ),
+    "openai/gpt-6.1-sol": ModelPrice(
+        input_list=2.00,
+        output_list=10.00,
+        current_input=2.00,
+        current_output=10.00,
+        note="OpenRouter list $2/$10 per M, read 2026-09-30; reasoning tokens bill as output",
+    ),
 }
 
 CANDIDATES: tuple[Candidate, ...] = (
@@ -411,10 +451,8 @@ CANDIDATES: tuple[Candidate, ...] = (
         "google/gemini-3.8-flash",
         "gemini-3.8-flash",
         reasoning_effort="low",
-        note=(
-            "mid tier; reasoning is mandatory here, and low is the lowest effort the "
-            "API advertises (default medium, also offers high)"
-        ),
+        note="production model since 2026-09-25",
+        baseline=True,
     ),
     Candidate(
         "z-ai/glm-5.3",
@@ -425,6 +463,12 @@ CANDIDATES: tuple[Candidate, ...] = (
             "advertises (default max, also offers high)"
         ),
     ),
+    Candidate(
+        "openai/gpt-6.1-sol",
+        "gpt-6.1-sol",
+        reasoning_effort="low",
+        note="OpenAI, released 2026-09-29; operator's trial",
+    ),
 )
 
 GLM_REFERENCE = Candidate(
@@ -434,6 +478,12 @@ GLM_REFERENCE = Candidate(
     reference=True,
     note="quality ceiling, not a candidate",
 )
+
+
+# The request parameters the runtime sends beyond `seed` and `temperature` (PRD §7): a
+# reasoning effort and a strict JSON schema response. `verify_prices` warns when the
+# provider's model list stops advertising one.
+REQUIRED_PARAMETERS = ("reasoning", "structured_outputs", "response_format")
 
 
 class ProbeAnswer(BaseModel):
@@ -484,8 +534,33 @@ def verify_prices(
         supported = set(entry.get("supported_parameters") or [])
         missing = {"seed", "temperature"} - supported
         if missing:
+            note = f"{candidate.model}: provider no longer advertises {', '.join(sorted(missing))}"
+            if "temperature" in missing:
+                # The client always sends temperature 0; a model that refuses it is one
+                # line of data (src/extract/model_params.json), not a code change.
+                note += (
+                    f'; to stop sending it, add {json.dumps(candidate.model)}: ["temperature"] '
+                    "to src/extract/model_params.json"
+                )
+            notes.append(note)
+        # What the runtime request is built from (PRD §7): a reasoning effort, a strict
+        # JSON schema. A warning, not a stop: the probe is what settles whether a call works.
+        absent = set(REQUIRED_PARAMETERS) - supported
+        if absent:
             notes.append(
-                f"{candidate.model}: provider no longer advertises {', '.join(sorted(missing))}"
+                f"{candidate.model}: provider does not advertise {', '.join(sorted(absent))}; "
+                "the request depends on it"
+            )
+        efforts = entry.get("supported_efforts")
+        if (
+            candidate.reasoning_effort
+            and isinstance(efforts, list)
+            and efforts
+            and candidate.reasoning_effort not in efforts
+        ):
+            notes.append(
+                f"{candidate.model}: reasoning effort {candidate.reasoning_effort!r} is not one "
+                f"the API advertises ({', '.join(str(effort) for effort in efforts)})"
             )
     return notes
 
@@ -734,16 +809,34 @@ class PairResult:
         return moves / checks if checks else 0.0
 
 
+# The weight sets a harness total can be rebuilt under, by the version a report records
+# (PRD §9). The src.score registry only knows w4 (the ceiling's), so the two sets the
+# harness has ever scored with are named here.
+_WEIGHTS_BY_VERSION: dict[str, WeightsV3] = {W3.version: W3, W4.version: W4}
+
+
 def _total_with_evidence(analysis: Analysis, levels: Sequence[Level]) -> int:
-    """The pair's total with a repeat's grading substituted, everything else fixed."""
-    recorded = analysis.report["score"]["sub_scores"]
+    """The pair's total with a repeat's grading substituted, everything else fixed.
+
+    Rebuilt under the weight set the analysis itself was scored with, so a repeat whose
+    levels equal the first grading reproduces `report["score"]["uncapped"]` exactly: the
+    number a repeat moves is the number the app would show.
+    """
+    score = analysis.report["score"]
+    version = score["weights_version"]
+    weights = _WEIGHTS_BY_VERSION.get(version)
+    if weights is None:
+        raise ValueError(
+            f"cannot rebuild a total under weights version {version!r}; "
+            f"known: {', '.join(sorted(_WEIGHTS_BY_VERSION))}"
+        )
     sub_scores = {
         name: SubScore(name=name, value=float(entry["value"]))
-        for name, entry in recorded.items()
+        for name, entry in score["sub_scores"].items()
         if name != "skills"
     }
-    sub_scores["skills"] = evidence_coverage(levels, basis_credit=W3.basis_credit)
-    return aggregate(sub_scores, W3).uncapped
+    sub_scores["skills"] = evidence_coverage(levels, basis_credit=weights.basis_credit)
+    return aggregate(sub_scores, weights).uncapped
 
 
 def _in_surcharge(
@@ -1071,8 +1164,16 @@ class CandidateReport:
         )
         return costs[0], median, costs[-1]
 
+    def cost_over_cap(self) -> bool:
+        """Whether a single-track analysis at list prices is above the PRD §11 cap."""
+        return self.cost_list() > COST_CEILING_USD
+
     def cost_list(self) -> Decimal:
-        """What the run would cost at list prices, from the tokens it actually used."""
+        """A single-track analysis at list prices, from the tokens it actually used.
+
+        The mean over the pairs of the first analysis only — extraction, grading, the
+        boolean queries and the gap interpretation — without the stability repeats.
+        """
         if not self.pairs:
             return Decimal("0")
         price = PRICES[self.candidate.model]
@@ -1101,7 +1202,7 @@ class CandidateReport:
         rho = self.rho()
         if rho is None or rho < RHO_GATE:
             flags.append(f"below gate (rho {rho if rho is None else round(rho, 2)} < {RHO_GATE})")
-        if self.cost_list() > COST_CEILING_USD:
+        if self.cost_over_cap():
             flags.append(f"over budget at list (${self.cost_list():.6f} > ${COST_CEILING_USD})")
         if self.changed_ordinals() > INSTABILITY_FLAG:
             flags.append(f"unstable ({self.changed_ordinals():.0%} of ordinals moved)")
@@ -1155,7 +1256,7 @@ def run_experiment(
 
 TABLE_HEADER = (
     "| model | reasoning | tau-b [95% CI] | rho [95% CI] | stability | max score delta | "
-    "cost/analysis (effective) | cost/analysis (list) | median latency | verdict |"
+    "cost/analysis (effective) | cost/analysis, single track (list) | median latency | verdict |"
 )
 TABLE_RULE = "|---|---|---|---|---|---|---|---|---|---|"
 
@@ -1218,11 +1319,67 @@ def table_row(report: CandidateReport) -> str:
         "n/a" if stability is None else f"{stability:.2f}",
         str(report.max_score_delta()),
         f"${report.cost_effective():.6f}",
-        f"${report.cost_list():.6f}",
+        f"${report.cost_list():.6f}" + (" OVER" if report.cost_over_cap() else ""),
         f"{report.latency_median():.1f}s",
         report.verdict(),
     ]
     return "| " + " | ".join(cells) + " |"
+
+
+def baseline_first(reports: Sequence[CandidateReport]) -> list[CandidateReport]:
+    """The baseline model first, the others in the order they ran."""
+    return sorted(reports, key=lambda report: not report.candidate.baseline)
+
+
+DELTA_HEADER = (
+    "| model | Δ tau-b | Δ rho | Δ judge stability (max score delta) | "
+    "Δ cost/analysis (list) | Δ median latency |"
+)
+DELTA_RULE = "|---|---|---|---|---|---|"
+
+
+def _ran(report: CandidateReport) -> bool:
+    return report.probe.ok and bool(report.pairs)
+
+
+def _difference(value: float | None, base: float | None, *, digits: int = 2) -> str:
+    if value is None or base is None:
+        return "n/a"
+    return f"{value - base:+.{digits}f}"
+
+
+def delta_row(report: CandidateReport, baseline: CandidateReport) -> str:
+    """One model against the baseline: positive means higher than the baseline."""
+    if not (_ran(report) and _ran(baseline)):
+        cells = ["n/a"] * 5
+    else:
+        cost = report.cost_list() - baseline.cost_list()
+        cells = [
+            _difference(report.tau_b(), baseline.tau_b()),
+            _difference(report.rho(), baseline.rho()),
+            f"{report.max_score_delta() - baseline.max_score_delta():+d}",
+            f"{'+' if cost >= 0 else '-'}${abs(cost):.6f}",
+            _difference(report.latency_median(), baseline.latency_median(), digits=1) + "s",
+        ]
+    return "| " + " | ".join([report.candidate.label, *cells]) + " |"
+
+
+def delta_table(reports: Sequence[CandidateReport]) -> list[str]:
+    """The Δ vs baseline table, or one line saying there is no baseline to compare to."""
+    baselines = [report for report in reports if report.candidate.baseline]
+    others = [report for report in reports if not report.candidate.baseline]
+    if not others:
+        return []
+    if not baselines:
+        return ["No baseline model in this run, so no Δ vs baseline."]
+    baseline = baselines[0]
+    return [
+        f"Δ vs baseline ({baseline.candidate.label}); positive is higher than the baseline.",
+        "",
+        DELTA_HEADER,
+        DELTA_RULE,
+        *(delta_row(report, baseline) for report in others),
+    ]
 
 
 def render_table(reports: Sequence[CandidateReport], *, pairs: int) -> str:
@@ -1237,11 +1394,15 @@ def render_table(reports: Sequence[CandidateReport], *, pairs: int) -> str:
         "measured separately and reported in the notes.",
         "",
     ]
+    reports = baseline_first(reports)
     window = window_line(reports)
     if window:
         lines.extend([window, ""])
     lines.extend([TABLE_HEADER, TABLE_RULE])
     lines.extend(table_row(report) for report in reports)
+    deltas = delta_table(reports)
+    if deltas:
+        lines.extend(["", *deltas])
     return "\n".join(lines)
 
 
@@ -1296,7 +1457,7 @@ def _surcharge_line(report: CandidateReport) -> str:
 
 def render_notes(reports: Sequence[CandidateReport]) -> str:
     lines: list[str] = []
-    for report in reports:
+    for report in baseline_first(reports):
         price = PRICES[report.candidate.model]
         low, middle, high = report.cost_effective_spread()
         lines.append(f"## {report.candidate.label}")
@@ -1348,6 +1509,7 @@ def report_to_json(report: CandidateReport) -> dict:
         "label": report.candidate.label,
         "reasoning_effort": report.candidate.reasoning_effort,
         "reference": report.candidate.reference,
+        "baseline": report.candidate.baseline,
         "seed": report.seed,
         "repeats": report.repeats,
         "started_at": _iso(report.started_at),
@@ -1389,6 +1551,7 @@ def report_to_json(report: CandidateReport) -> dict:
             "cost_effective_median": str(report.cost_effective_spread()[1]),
             "cost_effective_max": str(report.cost_effective_spread()[2]),
             "cost_list": str(report.cost_list()),
+            "cost_list_over_cap": report.cost_over_cap(),
             "latency_median_s": report.latency_median(),
             "total_spend": str(report.total_spend()),
             "disqualifiers": report.disqualifiers(),

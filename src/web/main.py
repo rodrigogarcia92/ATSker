@@ -18,8 +18,10 @@ from src.web.deps import DbSession
 from src.web.middleware import renew_session
 from src.web.routes import analyze as analyze_routes
 from src.web.routes import applications as application_routes
+from src.web.routes import attempts as attempt_routes
 from src.web.routes import auth as auth_routes
 from src.web.routes import bullets as bullet_routes
+from src.web.routes import cover_letter as cover_letter_routes
 from src.web.routes import generate as generate_routes
 from src.web.routes import ingest as ingest_routes
 from src.web.routes import letters as letter_routes
@@ -53,6 +55,7 @@ def create_app() -> FastAPI:
     app.include_router(page_routes.router)
     app.include_router(analyze_routes.router)
     app.include_router(application_routes.router)
+    app.include_router(attempt_routes.router)
     app.include_router(role_routes.router)
     app.include_router(track_routes.router)
     app.include_router(bullet_routes.router)
@@ -61,6 +64,7 @@ def create_app() -> FastAPI:
     app.include_router(summary_routes.router)
     app.include_router(ingest_routes.router)
     app.include_router(generate_routes.router)
+    app.include_router(cover_letter_routes.router)
 
     @app.get("/health")
     def health() -> dict[str, object]:

@@ -17,7 +17,7 @@ evaluator in `src.search` says which of them this track's text would be returned
 """
 
 import uuid
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
@@ -32,6 +32,7 @@ from src.documents import (
     document_headline,
     document_skills_list,
     document_summary,
+    master_data,
     track_document,
 )
 from src.education import list_educations
@@ -47,12 +48,13 @@ from src.extract.prompts import (
     JD_EXTRACTION_V3,
 )
 from src.jd import StructuredJD
-from src.models import Bullet, Profile, Track
+from src.models import Bullet, Profile, Role, Track
 from src.normalize.vocabulary import match_text
 from src.parse.gate import ParseReport
 from src.resumes import source_document_for_track
 from src.roles import list_roles, role_title
 from src.score.aggregate import SubScore, aggregate
+from src.score.ceiling import compute_ceiling
 from src.score.evidence import Level, evidence_coverage
 from src.score.experience import CitedLevel, RoleSpan, relevant_experience_score
 from src.score.gaps import Graded, detect_gaps, disqualifier_verdicts, location_requirements
@@ -128,6 +130,10 @@ def _recall_payload(recall: RecallReport, queries: Sequence[BooleanQuery]) -> di
     # can legitimately be the shorter side here.
     for entry, query in zip(entries, queries, strict=False):
         entry["query_text"] = query.query_text
+        # F10.3: the tree itself, so an attempt re-evaluates the same queries against
+        # the file at no cost — re-deriving them would be a second model call.
+        entry["all_of"] = [list(group) for group in query.all_of]
+        entry["none_of"] = list(query.none_of)
     return payload
 
 
@@ -245,12 +251,23 @@ def score_track(
     options: CallOptions | None = None,
     track: Track | None = None,
     queries: BooleanQuerySet | None = None,
+    bullets: Sequence[Bullet] | None = None,
+    document: Sequence[DocumentUnit] | None = None,
+    interpret: bool = True,
+    extra_roles: Sequence[Role] = (),
 ) -> Analysis:
     """One track's analysis of a prepared posting: document, grading, score, gaps.
 
     `queries` is the recruiter's derivation when somebody else already made it — F7.1
     derives it once and hands the same answer to every candidate track. Without one,
     this derives it here, exactly where a single analysis always has.
+
+    `bullets` and `document` override the evidence and the text read (F10's ephemeral
+    track, A4): an attempt scores a file instead of a track, through this same path, so
+    the two can never score differently. `interpret` is False for an attempt, which
+    detects gaps but does not pay for the prose about them. `extra_roles` are the file's
+    jobs that match no master role (a transient `Role`, never stored): their bullets'
+    citations count in Experience like any other role's. The analysis passes none.
     """
     profile = session.get(Profile, profile_id)
     if profile is None:
@@ -261,7 +278,8 @@ def score_track(
     # The evidence and the document are one decision (F5.5.1): the same bullets,
     # read through the same rule — active, under an active role, the track's
     # selection or every one of them.
-    bullets = document_bullets(profile_id, session, track)
+    if bullets is None:
+        bullets = document_bullets(profile_id, session, track)
     if track is not None:
         # F5.1: a track built from an upload is capped by the document that produced
         # it. No source document — or no track — means no gate and no cap, which is
@@ -277,7 +295,8 @@ def score_track(
     # The document as one reader sees it, in the posting's language (F4.1): what the
     # keyword scan runs over, what the title sub-score reads its headline from, and
     # where a citation's snapshot comes from. The reads end before the next call.
-    document = track_document(profile_id, session, track, jd.language)
+    if document is None:
+        document = track_document(profile_id, session, track, jd.language)
     session.commit()
     grading = grade_evidence(
         session,
@@ -339,7 +358,7 @@ def score_track(
                         str(bullet.id) for bullet in bullets if bullet.role_id == role.id
                     ),
                 )
-                for role in roles
+                for role in [*roles, *extra_roles]
             ],
             [
                 CitedLevel(
@@ -483,25 +502,31 @@ def score_track(
     stories = list_stories(profile_id, session)
     # The reads above end before the provider call starts, like every other call here.
     session.commit()
-    reading = interpret_gaps(
-        session,
-        [
-            GapInput(gap.requirement, gap.level, gap.must_have, gap.bullet_text) for gap in gaps
-        ],
-        jd,
-        standing_risks=profile.standing_risks,
-        stories=stories,
-        language=jd.language,
-        known_names=[profile.display_name] if profile.display_name else None,
-        model=model,
-        options=options,
-    )
+    # F10.3: an attempt detects its gaps but does not pay for the prose about them —
+    # `interpret` is False there, and the report carries the bands with empty wording.
+    reading = None
+    if interpret:
+        reading = interpret_gaps(
+            session,
+            [
+                GapInput(gap.requirement, gap.level, gap.must_have, gap.bullet_text)
+                for gap in gaps
+            ],
+            jd,
+            standing_risks=profile.standing_risks,
+            stories=stories,
+            language=jd.language,
+            known_names=[profile.display_name] if profile.display_name else None,
+            model=model,
+            options=options,
+        )
+    notes: list[object] = list(reading.notes) if reading is not None else [None] * len(gaps)
 
     calls = (
         prepared.extraction,
         *grading.calls,
         *([recall_call] if recall_call is not None else []),
-        *reading.calls,
+        *([*reading.calls] if reading is not None else []),
     )
     cost = sum((call.cost_usd for call in calls), Decimal("0"))
 
@@ -533,10 +558,10 @@ def score_track(
                     "must_have": gap.must_have,
                     "bullet_id": gap.bullet_id,
                     "bullet_text": gap.bullet_text,
-                    "blocking": note.blocking,
-                    "interpretation": note.interpretation,
+                    "blocking": bool(getattr(note, "blocking", False)),
+                    "interpretation": str(getattr(note, "interpretation", "")),
                 }
-                for gap, note in zip(gaps, reading.notes, strict=True)
+                for gap, note in zip(gaps, notes, strict=True)
             ],
             "covered_by_transfer": [
                 {
@@ -550,11 +575,11 @@ def score_track(
                 for gap in covered
             ],
             "warning": {
-                "text": reading.warning.text,
-                "handling": reading.warning.handling,
+                "text": reading.warning.text if reading is not None else "",
+                "handling": reading.warning.handling if reading is not None else "",
             },
             "alerts": alerts,
-            "not_found": reading.not_found,
+            "not_found": reading.not_found if reading is not None else "",
             "stories_used": len(stories),
         },
         # F6.1's disqualifiers, beside the score and never inside it (F5.5). The
@@ -581,6 +606,22 @@ def score_track(
         # Snapshotted like a citation: renaming the track must not rewrite what a
         # stored report says it was scored against.
         report["track"] = {"id": str(track.id), "name": track.name}
+    # F10.2/A10: the ceiling from the user's own material, computed here so the report
+    # carries it. The page recomputes it only when the fingerprint below has moved. An
+    # attempt replaces this with the analysis's own ceiling (F10.3, `run_pipeline`).
+    report["ceiling"] = compute_ceiling(
+        jd,
+        report=report,
+        document_texts=[unit.text for unit in document],
+        master=master_data(profile_id, session, track),
+        aliases=aliases,
+        track_bullet_ids=[
+            unit.source_id
+            for unit in document
+            if unit.kind == "bullet" and unit.source_id is not None
+        ],
+        today=today,
+    )
 
     return Analysis(
         report=report,
@@ -602,3 +643,108 @@ def score_track(
         calls=calls,
         queries=queries,
     )
+
+
+def preparation_from_report(
+    report: Mapping[str, object],
+    session: Session,
+    *,
+    extraction,
+) -> Preparation:
+    """Reuse a stored report's posting, without extracting it again (F10.3).
+
+    `extraction` is the call that *did* happen — an attempt's own résumé extraction —
+    so the report's ledger names what was paid for.
+    """
+    jd = StructuredJD(**report["jd"])  # type: ignore[arg-type]
+    return Preparation(
+        jd=jd,
+        extraction=extraction,
+        aliases=alias_map(session),
+        vocabulary_hash=vocabulary_hash(session),
+        today=date.today(),
+    )
+
+
+def queries_from_report(report: Mapping[str, object]) -> BooleanQuerySet | None:
+    """The recruiter's queries a stored report carries, or None when it predates them.
+
+    F10.3 reuses the analysis's queries at no cost; a report stored before the trees
+    were recorded returns None, and the caller derives them (a call) as before.
+    """
+    recall = report.get("recall") or {}
+    rows = recall.get("queries") if isinstance(recall, Mapping) else None
+    if not rows:
+        return None
+    queries: list[BooleanQuery] = []
+    for row in rows:
+        if not isinstance(row, Mapping) or "all_of" not in row:
+            return None
+        queries.append(
+            BooleanQuery(
+                label=str(row.get("label") or ""),
+                all_of=[list(group) for group in row["all_of"]],
+                none_of=[str(term) for term in (row.get("none_of") or [])],
+            )
+        )
+    return BooleanQuerySet(queries=queries)
+
+
+def ceiling_for_report(
+    profile_id: uuid.UUID,
+    session: Session,
+    *,
+    report: dict[str, object],
+    track: Track | None,
+    today: date | None = None,
+) -> dict[str, object] | None:
+    """Recompute a stored report's ceiling from the current master data (A10).
+
+    None when the report predates the four `w4` sub-scores, so the page renders no
+    ceiling rather than a wrong one. Deterministic and offline: it reads the database
+    and calls no provider.
+    """
+    score = report.get("score")
+    sub_scores = (score or {}).get("sub_scores") if isinstance(score, Mapping) else None
+    jd_dict = report.get("jd")
+    if not isinstance(sub_scores, Mapping) or not isinstance(jd_dict, Mapping):
+        return None
+    if not {"skills", "experience", "title", "keywords"} <= set(sub_scores):
+        return None
+    jd = StructuredJD(**jd_dict)
+    document = track_document(profile_id, session, track, jd.language)
+    return compute_ceiling(
+        jd,
+        report=report,
+        document_texts=[unit.text for unit in document],
+        master=master_data(profile_id, session, track),
+        aliases=alias_map(session),
+        track_bullet_ids=[
+            unit.source_id
+            for unit in document
+            if unit.kind == "bullet" and unit.source_id is not None
+        ],
+        today=today or date.today(),
+    )
+
+
+def shown_ceiling(
+    profile_id: uuid.UUID,
+    session: Session,
+    *,
+    report: dict[str, object],
+    track: Track | None,
+) -> tuple[dict[str, object] | None, bool]:
+    """The analysis's ceiling as its page shows it, and whether it was recomputed (A10).
+
+    The stored ceiling stands while its fingerprint matches the master data now; once
+    that moved, the current one replaces it. An attempt reads this too (F10.2/F10.3): the
+    ceiling is the analysis's, never one derived from the file's own grades.
+    """
+    stored = report.get("ceiling")
+    current = ceiling_for_report(profile_id, session, report=report, track=track)
+    if isinstance(stored, dict) and current and stored.get("fingerprint") == current.get(
+        "fingerprint"
+    ):
+        return stored, False
+    return current, current is not None
