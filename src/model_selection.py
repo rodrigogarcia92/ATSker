@@ -63,7 +63,7 @@ from src.normalize.metrics import extract_metrics
 from src.normalize.text import fold
 from src.score.aggregate import SubScore, aggregate
 from src.score.evidence import Level, evidence_coverage
-from src.score.weights import W3, W4
+from src.score.weights import W3, W4, WeightsV3
 from src.vocabulary import resolve_bullet_terms, seed_vocabulary
 
 # Deterministic ids, so a rerun of the same fixture produces the same citation
@@ -734,16 +734,34 @@ class PairResult:
         return moves / checks if checks else 0.0
 
 
+# The weight sets a harness total can be rebuilt under, by the version a report records
+# (PRD §9). The src.score registry only knows w4 (the ceiling's), so the two sets the
+# harness has ever scored with are named here.
+_WEIGHTS_BY_VERSION: dict[str, WeightsV3] = {W3.version: W3, W4.version: W4}
+
+
 def _total_with_evidence(analysis: Analysis, levels: Sequence[Level]) -> int:
-    """The pair's total with a repeat's grading substituted, everything else fixed."""
-    recorded = analysis.report["score"]["sub_scores"]
+    """The pair's total with a repeat's grading substituted, everything else fixed.
+
+    Rebuilt under the weight set the analysis itself was scored with, so a repeat whose
+    levels equal the first grading reproduces `report["score"]["uncapped"]` exactly: the
+    number a repeat moves is the number the app would show.
+    """
+    score = analysis.report["score"]
+    version = score["weights_version"]
+    weights = _WEIGHTS_BY_VERSION.get(version)
+    if weights is None:
+        raise ValueError(
+            f"cannot rebuild a total under weights version {version!r}; "
+            f"known: {', '.join(sorted(_WEIGHTS_BY_VERSION))}"
+        )
     sub_scores = {
         name: SubScore(name=name, value=float(entry["value"]))
-        for name, entry in recorded.items()
+        for name, entry in score["sub_scores"].items()
         if name != "skills"
     }
-    sub_scores["skills"] = evidence_coverage(levels, basis_credit=W3.basis_credit)
-    return aggregate(sub_scores, W3).uncapped
+    sub_scores["skills"] = evidence_coverage(levels, basis_credit=weights.basis_credit)
+    return aggregate(sub_scores, weights).uncapped
 
 
 def _in_surcharge(

@@ -9,9 +9,11 @@ cache instead of the judge.
 import json
 import re
 import zlib
+from dataclasses import replace
 from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
+from types import SimpleNamespace
 
 import httpx
 import pytest
@@ -21,6 +23,7 @@ from src.bullets import list_bullets
 from src.extract import client
 from src.extract.client import CallOptions
 from src.model_selection import (
+    _WEIGHTS_BY_VERSION,
     CANDIDATES,
     GLM_REFERENCE,
     PRICES,
@@ -29,6 +32,7 @@ from src.model_selection import (
     ModelPrice,
     PairResult,
     ProbeOutcome,
+    _total_with_evidence,
     bootstrap_ci,
     build_session,
     composition_notes,
@@ -47,6 +51,9 @@ from src.model_selection import (
     verify_prices,
 )
 from src.models import LlmCall
+from src.score.aggregate import SubScore, aggregate
+from src.score.evidence import Level, evidence_coverage
+from src.score.weights import W3
 
 SYNTHETIC = Path(__file__).resolve().parents[1] / "golden_synthetic"
 
@@ -342,6 +349,82 @@ def test_moving_ordinals_show_up_in_the_score_delta(provider, pairs):
     assert result.changed_ordinals > 0
     assert result.max_score_delta >= 1
     assert len(result.repeat_totals) == 3
+
+
+def _first_levels(analysis) -> list[Level]:
+    return [
+        Level(grade["requirement"], grade["level"], grade["must_have"], grade["basis"])
+        for grade in analysis.report["grades"]
+    ]
+
+
+def _analysis(provider, pairs):
+    pair = pairs[0]
+    session, profile_id = build_session(pair)
+    return analyze(
+        profile_id,
+        session,
+        jd_text=pair.jd.text,
+        model=CANDIDATE.model,
+        options=CallOptions(seed=11, reasoning_effort=None),
+    )
+
+
+def test_a_repeat_equal_to_the_first_grading_reproduces_the_w4_total(provider, pairs):
+    analysis = _analysis(provider, pairs)
+
+    assert analysis.report["score"]["weights_version"] == "w4"
+    assert _total_with_evidence(analysis, _first_levels(analysis)) == (
+        analysis.report["score"]["uncapped"]
+    )
+
+
+def test_a_repeat_equal_to_the_first_grading_reproduces_a_w3_total(provider, pairs):
+    analysis = _analysis(provider, pairs)
+    report = json.loads(json.dumps(analysis.report))
+    report["score"]["weights_version"] = "w3"
+    report["score"]["uncapped"] = aggregate(
+        {
+            **{
+                name: SubScore(name=name, value=float(entry["value"]))
+                for name, entry in report["score"]["sub_scores"].items()
+                if name != "skills"
+            },
+            "skills": evidence_coverage(_first_levels(analysis), basis_credit=W3.basis_credit),
+        },
+        W3,
+    ).uncapped
+
+    assert _total_with_evidence(SimpleNamespace(report=report), _first_levels(analysis)) == (
+        report["score"]["uncapped"]
+    )
+
+
+def test_the_total_is_rebuilt_under_the_weight_set_the_report_names(
+    provider, pairs, monkeypatch
+):
+    """w3 and w4 carry the same numbers today, so make them differ to prove the lookup."""
+    analysis = _analysis(provider, pairs)
+    halved = replace(W3, basis_credit={"direct": 0.5, "equivalent": 0.4, "transferable": 0.3})
+    monkeypatch.setitem(_WEIGHTS_BY_VERSION, "w3", halved)
+    report = json.loads(json.dumps(analysis.report))
+    report["score"]["weights_version"] = "w3"
+    levels = _first_levels(analysis)
+
+    as_w3 = _total_with_evidence(SimpleNamespace(report=report), levels)
+    as_w4 = _total_with_evidence(analysis, levels)
+
+    assert as_w4 == analysis.report["score"]["uncapped"]
+    assert as_w3 < as_w4, "w3's smaller basis credits lower the Skills sub-score"
+
+
+def test_an_unknown_weights_version_raises(provider, pairs):
+    analysis = _analysis(provider, pairs)
+    report = json.loads(json.dumps(analysis.report))
+    report["score"]["weights_version"] = "w9"
+
+    with pytest.raises(ValueError, match="w9"):
+        _total_with_evidence(SimpleNamespace(report=report), _first_levels(analysis))
 
 
 # --------------------------------------------------------------------------- #
