@@ -19,7 +19,7 @@ from src.education import list_educations
 from src.generate.validators import unsupported_claims
 from src.ingest.draft import ResumeDraft
 from src.models import ApplicationAttempt, Profile
-from src.normalize.text import fold
+from src.normalize.text import fold, match_key
 from src.normalize.vocabulary import match_text
 from src.roles import list_roles
 from src.stories import list_stories
@@ -80,7 +80,7 @@ def _profile_corpus(
         for title in (role.title, role.title_es, role.title_en):
             if title:
                 parts.append(title)
-                titles.add(fold(title))
+                titles.add(match_key(title))
     return " ".join(parts), titles, held
 
 
@@ -129,7 +129,7 @@ def document_flags(
             {
                 role.title
                 for role in draft.roles
-                if role.title and fold(role.title) not in stored_titles
+                if role.title and match_key(role.title) not in stored_titles
             }
         ),
         "above_ceiling": above_ceiling,
