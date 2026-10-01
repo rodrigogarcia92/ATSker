@@ -26,10 +26,14 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
 
-from src.analysis import preparation_from_report, queries_from_report, score_track
+from src.analysis import (
+    preparation_from_report,
+    queries_from_report,
+    score_track,
+    shown_ceiling,
+)
 from src.attempt_flags import change_list, document_flags, previous_attempt_report
 from src.attempt_track import ephemeral_track
-from src.documents import track_document
 from src.extract.client import CallOptions, Completion
 from src.extract.resume import ResumeExtraction, extract_resume
 from src.ingest.documents import LoadedDocument, load_document
@@ -239,13 +243,15 @@ def run_pipeline(
         document=list(ephemeral.document),
         options=CallOptions(profile_id=profile_id),
         interpret=False,
-        # The ceiling reads the master document, not the file (F10.10 criterion 2).
-        ceiling_document=track_document(
-            profile_id, session, track, prepared.jd.language
-        ),
         extra_roles=ephemeral.roles,
     )
     report = dict(analysis.report)
+    # F10.2/F10.3: the ceiling is the analysis's, recomputed on the master data only when
+    # its fingerprint moved (A10) — never derived from the file's own grades, which would
+    # let a worse file lower it. Everything that reads an attempt's ceiling reads this.
+    report["ceiling"], _recomputed = shown_ceiling(
+        profile_id, session, report=application.report, track=track
+    )
     # How each of the file's roles met the master data (titles only): the reviewer's
     # diagnostic for a score that moved because a role did not match (D5).
     report["role_matching"] = list(ephemeral.role_matching)

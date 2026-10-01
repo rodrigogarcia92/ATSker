@@ -11,7 +11,7 @@ from typing import Annotated
 from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
 
-from src.analysis import analyze, ceiling_for_report
+from src.analysis import analyze, shown_ceiling
 from src.applications import create_application, get_application
 from src.attempts import application_attempts_report
 from src.attempts import list_attempts as list_attempt_rows
@@ -232,16 +232,9 @@ def application_report(
         if application.track_id
         else None
     )
-    stored_ceiling = application.report.get("ceiling")
-    current_ceiling = ceiling_for_report(
+    ceiling, ceiling_recomputed = shown_ceiling(
         profile.id, session, report=application.report, track=track
     )
-    same = bool(
-        stored_ceiling
-        and current_ceiling
-        and stored_ceiling.get("fingerprint") == current_ceiling.get("fingerprint")
-    )
-    ceiling = stored_ceiling if same else current_ceiling
     return render(
         request,
         "analyze/report.html",
@@ -250,7 +243,7 @@ def application_report(
         application=application,
         report=application.report,
         ceiling=ceiling,
-        ceiling_recomputed=ceiling is not None and not same,
+        ceiling_recomputed=ceiling_recomputed,
         ceiling_remainder=ceiling_remainder(ceiling, user.ui_lang) if ceiling else None,
         # F10.1: the modal lists the attempts this analysis already has.
         attempts=application_attempts_report(attempt_rows),

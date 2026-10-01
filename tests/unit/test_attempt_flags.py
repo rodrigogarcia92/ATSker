@@ -65,7 +65,10 @@ def test_a_skill_the_pool_does_not_hold_is_flagged_and_survives_discard(
 
     attempt = _attempts(session)[0]
     assert "machine learning" in attempt.report["flags"]["skills"]
-    assert attempt.report["flags"]["above_ceiling"] is False
+    # The unheld skill lifts Keywords past the analysis's ceiling (E2): the F10.5 signal that
+    # the file claims more than the material holds.
+    assert attempt.job_match > attempt.ceiling_high
+    assert attempt.report["flags"]["above_ceiling"] is True
 
     discard_attempt(attempt)
     session.commit()

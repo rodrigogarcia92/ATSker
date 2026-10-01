@@ -254,7 +254,6 @@ def score_track(
     bullets: Sequence[Bullet] | None = None,
     document: Sequence[DocumentUnit] | None = None,
     interpret: bool = True,
-    ceiling_document: Sequence[DocumentUnit] | None = None,
     extra_roles: Sequence[Role] = (),
 ) -> Analysis:
     """One track's analysis of a prepared posting: document, grading, score, gaps.
@@ -608,22 +607,17 @@ def score_track(
         # stored report says it was scored against.
         report["track"] = {"id": str(track.id), "name": track.name}
     # F10.2/A10: the ceiling from the user's own material, computed here so the report
-    # carries it. The page recomputes it only when the fingerprint below has moved.
-    # F10.10 criterion 2: the ceiling is what the *user's material* allows, so an
-    # attempt computes it from the master document it was scored against, never from
-    # the file's own claims — an unheld keyword in the file must not raise it.
-    ceiling_units = ceiling_document if ceiling_document is not None else document
+    # carries it. The page recomputes it only when the fingerprint below has moved. An
+    # attempt replaces this with the analysis's own ceiling (F10.3, `run_pipeline`).
     report["ceiling"] = compute_ceiling(
         jd,
         report=report,
-        document_texts=[unit.text for unit in ceiling_units],
+        document_texts=[unit.text for unit in document],
         master=master_data(profile_id, session, track),
         aliases=aliases,
-        # The fingerprint is over the material the ceiling read, so an attempt's
-        # temporary ids cannot make a current ceiling look stale (A10).
         track_bullet_ids=[
             unit.source_id
-            for unit in ceiling_units
+            for unit in document
             if unit.kind == "bullet" and unit.source_id is not None
         ],
         today=today,
@@ -732,3 +726,25 @@ def ceiling_for_report(
         ],
         today=today or date.today(),
     )
+
+
+def shown_ceiling(
+    profile_id: uuid.UUID,
+    session: Session,
+    *,
+    report: dict[str, object],
+    track: Track | None,
+) -> tuple[dict[str, object] | None, bool]:
+    """The analysis's ceiling as its page shows it, and whether it was recomputed (A10).
+
+    The stored ceiling stands while its fingerprint matches the master data now; once
+    that moved, the current one replaces it. An attempt reads this too (F10.2/F10.3): the
+    ceiling is the analysis's, never one derived from the file's own grades.
+    """
+    stored = report.get("ceiling")
+    current = ceiling_for_report(profile_id, session, report=report, track=track)
+    if isinstance(stored, dict) and current and stored.get("fingerprint") == current.get(
+        "fingerprint"
+    ):
+        return stored, False
+    return current, current is not None

@@ -14,7 +14,7 @@ from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
-from src.analysis import ceiling_for_report
+from src.analysis import shown_ceiling
 from src.applications import get_application
 from src.attempt_flags import discard_attempt
 from src.attempt_merge import (
@@ -411,14 +411,11 @@ def attempt_report(
         if application.track_id
         else None
     )
-    stored_ceiling = report.get("ceiling")
-    current_ceiling = ceiling_for_report(profile.id, session, report=report, track=track)
-    same = bool(
-        stored_ceiling
-        and current_ceiling
-        and stored_ceiling.get("fingerprint") == current_ceiling.get("fingerprint")
+    # The analysis's ceiling, as its own page shows it (F10.2/F10.3): an attempt has none
+    # of its own.
+    ceiling, ceiling_recomputed = shown_ceiling(
+        profile.id, session, report=application.report, track=track
     )
-    ceiling = stored_ceiling if same else current_ceiling
     kind = attempt.file_format or ""
     return render(
         request,
@@ -441,7 +438,7 @@ def attempt_report(
         ),
         report=report,
         ceiling=ceiling,
-        ceiling_recomputed=ceiling is not None and not same,
+        ceiling_recomputed=ceiling_recomputed,
         ceiling_remainder=ceiling_remainder(ceiling, user.ui_lang) if ceiling else None,
         # C.0 answer 2: an attempt's full report is read-only.
         attempt_view=True,
