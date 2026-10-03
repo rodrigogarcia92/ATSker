@@ -536,8 +536,8 @@ def test_the_report_page_renders_the_gap_summary_and_the_detail(client, session,
 
     # The summary view: the interpretation line, with the blocking flag when set.
     assert "Machine learning está mencionado sin una historia que lo demuestre." in page
-    # The detailed list behind it: level, weight class, requirement text.
-    assert "Ver el detalle (1)" in page
+    # The detailed list behind the "Brechas" toggle: level, weight class, requirement text.
+    assert "Brechas · 1" in page
     assert "machine learning" in page
     assert "Deseable · Nivel 0" in page
     assert "Salto hacia banca privada" in page, "the single warning, with its handling"
@@ -1550,7 +1550,7 @@ def test_the_report_page_shows_the_recall_panel(client, session, career, provide
     assert "Falla en «machine learning»" in page
     assert "no aparece ningún alias de este término" in page
     assert "No entra en el Encaje total" in page, "the panel says it is not part of the score"
-    assert "Pasan 1 de 2 consultas" in page
+    assert "Apareces en 1 de 2 búsquedas" in page
     # A.9.2: the recruiter's line, to paste, and the control that copies it.
     assert '"analista de datos" AND python' in html.unescape(page)
     assert "Copiar" in page
@@ -1614,8 +1614,8 @@ def assert_in_order(page: str, headings: list[str]) -> None:
 def test_the_report_sections_follow_the_approved_order_with_a_readability_scan(
     client, session, career, provider
 ):
-    """§12.1's list, top to bottom: the score, its components, the two scans, the
-    requirements, what to do before applying, and the traceability footer."""
+    """§12.1's list, top to bottom: the score, its components, the requirements, the
+    readability scan, what to do before applying, and the traceability footer."""
     application = store_flagged(
         session, career.first_profile.id, capped=40, uncapped=62, cap=40, severity="blocker"
     )
@@ -1628,8 +1628,8 @@ def test_the_report_sections_follow_the_approved_order_with_a_readability_scan(
         [
             "Encaje total",
             "Componentes",
-            "¿El ATS lee bien tu CV?",
             "Requisitos y evidencia",
+            "¿El ATS lee bien tu CV?",
             "Antes de postular",
             "Trazabilidad",
         ],
@@ -1656,8 +1656,8 @@ def test_the_report_sections_follow_the_approved_order_with_a_recall_scan(
         ],
     )
     if "Recomendaciones" in page:
-        assert page.index("Antes de postular") < page.index("Recomendaciones")
-        assert page.index("Recomendaciones") < page.index("Trazabilidad")
+        assert page.index("Requisitos y evidencia") < page.index("Recomendaciones")
+        assert page.index("Recomendaciones") < page.index("Antes de postular")
 
 
 def test_no_weight_word_appears_on_the_report_page(client, session, career, provider):
@@ -1711,7 +1711,7 @@ def test_unbroken_strings_on_the_report_page_can_wrap(client, session, career, p
 
     assert 'class="break-all font-mono"' in page, "the posting hash wraps"
     assert 'class="break-all"' in page, "the prompt versions and calculation hash wrap"
-    assert "break-all select-all font-mono" in page, "the copyable query line wraps"
+    assert 'class="break-all font-mono text-xs text-text-2"' in page, "the query line wraps"
 
 
 def test_the_readability_question_is_always_on_the_report_page(client, session, career, provider):

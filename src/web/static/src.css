@@ -420,3 +420,38 @@ body.rail-open .rail-body {
     border-radius: 0;
   }
 }
+
+/* §12.1's disclosures: a native <details> whose <summary> is a 44px target with a
+   chevron that turns when it is open. No script, nothing remembered — the page opens in
+   its defaults and a blocker opens its own section. */
+.disclosure > summary {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  min-height: 2.75rem;
+  cursor: pointer;
+  list-style: none;
+}
+.disclosure > summary::-webkit-details-marker {
+  display: none;
+}
+.disclosure > summary::before {
+  content: "";
+  flex: none;
+  width: 0.4375rem;
+  height: 0.4375rem;
+  margin: 0 0.25rem;
+  border-right: 1.6px solid currentColor;
+  border-bottom: 1.6px solid currentColor;
+  color: var(--color-text-2);
+  transform: rotate(-45deg);
+  transition: transform 0.15s;
+}
+.disclosure[open] > summary::before {
+  transform: rotate(45deg);
+}
+.disclosure > summary:focus-visible {
+  outline: 2px solid var(--color-link);
+  outline-offset: 2px;
+  border-radius: var(--radius-control);
+}

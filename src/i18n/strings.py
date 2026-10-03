@@ -2089,6 +2089,58 @@ STRINGS: dict[str, dict[str, str]] = {
         "es": "Fuentes sin incrustar: {fonts}.",
         "en": "Fonts without embedding: {fonts}.",
     },
+    # §12.1's report layout (queue U3): the fit definition, the disclosure summaries and
+    # the counts each one carries. Singular forms are `_one`; the template picks.
+    "report.fit_definition": {
+        "es": "Qué tan bien este CV cubre lo que pide la oferta; no es la probabilidad "
+        "de ser contratado.",
+        "en": "How well this CV fits what this posting asks for; not the probability of "
+        "being hired.",
+    },
+    "report.see_detail": {"es": "Ver detalle", "en": "See detail"},
+    "report.ceiling_exact": {"es": "exacto", "en": "exact"},
+    "report.experience_required": {
+        "es": "Requeridos: {required} años · relevantes: {relevant} · totales: {held}",
+        "en": "Required: {required} years · relevant: {relevant} · total: {held}",
+    },
+    "report.experience_tasks": {
+        "es": "Tareas de la oferta cubiertas: {covered} de {total}",
+        "en": "Posting tasks covered: {covered} of {total}",
+    },
+    "recall.appear_summary": {
+        "es": "Apareces en {passed} de {total} búsquedas",
+        "en": "You appear in {passed} of {total} searches",
+    },
+    "report.ats.none": {"es": "Sin bloqueos", "en": "No blockers"},
+    "report.ats.blockers_one": {"es": "1 bloqueo", "en": "1 blocker"},
+    "report.ats.blockers": {"es": "{n} bloqueos", "en": "{n} blockers"},
+    "report.ats.count_warning": {"es": "Avisos {n}", "en": "Warnings {n}"},
+    "report.ats.count_info": {"es": "Informativos {n}", "en": "Info {n}"},
+    "report.ats.count_not_run": {"es": "Sin ejecutar {n}", "en": "Not run {n}"},
+    "report.ats.count_none": {"es": "Sin hallazgos", "en": "No findings"},
+    "report.before.gaps_one": {"es": "{n} brecha decisiva", "en": "{n} decisive gap"},
+    "report.before.gaps": {"es": "{n} brechas decisivas", "en": "{n} decisive gaps"},
+    "report.before.warnings_one": {"es": "{n} advertencia", "en": "{n} warning"},
+    "report.before.warnings": {"es": "{n} advertencias", "en": "{n} warnings"},
+    "report.before.transfer_one": {
+        "es": "{n} requisito cubierto por transferencia",
+        "en": "{n} requirement covered by transfer",
+    },
+    "report.before.transfer": {
+        "es": "{n} requisitos cubiertos por transferencia",
+        "en": "{n} requirements covered by transfer",
+    },
+    "report.before.gaps_toggle": {"es": "Brechas", "en": "Gaps"},
+    "report.before.gaps_order": {
+        "es": "la más decisiva primero",
+        "en": "most decisive first",
+    },
+    "report.before.warning_toggle": {"es": "Advertencia", "en": "Warning"},
+    "report.before.no_warning": {"es": "Sin advertencias.", "en": "No warnings."},
+    "report.before.no_transfer": {
+        "es": "Ningún requisito se cubre por transferencia.",
+        "en": "No requirement is covered by transfer.",
+    },
     # §12.3 — the line under a paid form's button while the provider works. Honest
     # ranges and a live counter; no invented steps.
     "progress.analyze": {

@@ -2,7 +2,11 @@
    The report page passes its own question as `findings_heading`; the import screens
    keep the default title. #}
 {% import "_ui.html" as ui with context %}
+{# The report page wraps this panel in its own <details>, with its own heading outside:
+   it passes `findings_embedded`. The import screens keep the heading. #}
+{% if not findings_embedded %}
 <h2 class="mt-8 text-lg font-semibold">{{ findings_heading or t('import.findings', lang) }}</h2>
+{% endif %}
 <p class="mt-1 text-xs text-text-3">{{ t('import.findings_hint', lang) }}</p>
 
 {% if findings %}

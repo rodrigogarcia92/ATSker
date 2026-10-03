@@ -55,11 +55,14 @@
   </p>
 </header>
 
+
 {# 2 — Job Match: one number, its band, the capped/uncapped bar, and what it means.
    No weights are shown anywhere on this page, so nothing here reads as the employer's
    priorities. #}
-<section class="mt-6 rounded-card border border-card-border bg-surface-1 p-5">
-  {{ ui.score(report.score.capped / 100, t('report.total', lang), t('report.job_match_caption', lang), true) }}
+<section id="fit" class="mt-6 rounded-card border border-card-border bg-surface-1 p-5">
+  {# The definition is the caption: what the number is, and that it is not a chance of
+     being hired. #}
+  {{ ui.score(report.score.capped / 100, t('report.total', lang), t('report.fit_definition', lang), true) }}
   <div class="match" data-band="{{ match_band }}">
     <span class="match-uncapped" style="width: {{ report.score.uncapped }}%"></span>
     <span class="match-fill" style="width: {{ report.score.capped }}%"></span>
@@ -105,16 +108,21 @@
   {% endif %}
 </section>
 
-{# 3 — The four sub-score cards, each with a one-line caption. #}
-<h2 class="mt-8 text-lg font-semibold">{{ t('report.sub_scores', lang) }}</h2>
+{# 3 — The four sub-score cards: number, band, one-line caption, its own ceiling with
+   its confidence. Experience adds the years line and a closed "Ver detalle". #}
+<section id="components" class="mt-8">
+<h2 class="text-lg font-semibold">{{ t('report.sub_scores', lang) }}</h2>
 <div class="mt-3 grid grid-cols-2 gap-3">
   {% for name, sub in report.score.sub_scores.items() %}
+  {% set has_experience = sub.detail is defined and sub.detail.relevant_years is defined %}
   <div class="min-w-0 rounded-card border border-card-border bg-surface-1 p-4">
     {{ ui.score(sub.value, t('report.sub.' + name, lang), t('report.sub_caption.' + name, lang)) }}
-    {# F10.2: each sub-score shows its own ceiling; an estimate says so (F10.2 wording). #}
+    {# F10.2: each sub-score shows its own ceiling and says whether it is exact or an
+       estimate. A ceiling stored without a confidence says neither. #}
     {% if ceiling and ceiling.sub_scores.get(name) %}
+    {% set confidence = ceiling.sub_scores[name].confidence %}
     <p class="mt-1 text-xs text-text-3">
-      {{ t('report.ceiling_sub', lang, value=(ceiling.sub_scores[name].ceiling * 100) | round | int) }}{% if ceiling.sub_scores[name].confidence == 'estimate' %} · {{ t('report.ceiling_estimate', lang) }}{% endif %}
+      {{ t('report.ceiling_sub', lang, value=(ceiling.sub_scores[name].ceiling * 100) | round | int) }}{% if confidence == 'estimate' %} · {{ t('report.ceiling_estimate', lang) }}{% elif confidence == 'exact' %} · {{ t('report.ceiling_exact', lang) }}{% endif %}
     </p>
     {% endif %}
     {% if sub.detail is defined and sub.detail.direct is defined %}
@@ -130,31 +138,40 @@
       {{ t('report.skills_split_total', lang, total=total, direct=direct, transfer=transfer) }}
     </p>
     {% endif %}
-    {# F5.5.2: Experience shows what it counted — relevant years against total years
-       held, the roles that made them relevant, and the posting's tasks with their
-       level. Rows scored before w4 carry none of these fields. #}
-    {% if sub.detail is defined and sub.detail.relevant_years is defined %}
-    {# N6.6: the tag is the relevant years in the interface's language ("3 años" /
-       "3 years"), and the line is relevant-of-held with at most one decimal and no
-       trailing ".0" — the reader does not need "0.00 de 0.00". #}
-    <p class="mt-2 flex flex-wrap items-center gap-2 text-sm text-text-2">
-      <span class="tag">{{ t('report.experience_years_tag', lang, years=sub.detail.relevant_years | years) }}</span>
-      <span>{{ t('report.experience_years', lang,
+    {# F5.5.2: Experience shows what it counted. N6.6: relevant years in the interface's
+       language, then relevant-of-held with at most one decimal and no trailing ".0".
+       Rows scored before w4 carry none of these fields and get the card without the
+       toggle. #}
+    {% if has_experience %}
+    <p class="mt-2 text-sm text-text-2">
+      <span class="font-medium text-text">{{ t('report.experience_years_tag', lang, years=sub.detail.relevant_years | years) }}</span>
+      · <span>{{ t('report.experience_years', lang,
             relevant=sub.detail.relevant_years | years, held=sub.detail.held_years | years) }}</span>
     </p>
-    {% if sub.detail.relevant_roles %}
-    <p class="mt-1 text-sm text-text-2">
-      {{ t('report.experience_roles', lang) }}:
-      {% for role in sub.detail.relevant_roles %}{{ role.title }} ({{ role.weight }}){% if not loop.last %}, {% endif %}{% endfor %}
-    </p>
-    {% endif %}
-    {% if sub.detail.tasks %}
-    <ul class="mt-1 space-y-1 text-sm text-text-2">
-      {% for task in sub.detail.tasks %}
-      <li>{{ task.text }} — {{ t('report.level_label', lang) }} {{ task.level }}</li>
-      {% endfor %}
-    </ul>
-    {% endif %}
+    <details class="disclosure mt-1 text-sm">
+      <summary class="text-link">{{ t('report.see_detail', lang) }}</summary>
+      <div class="space-y-1 pb-1 pl-6 text-text-2">
+        {% if sub.detail.required_years %}
+        <p>{{ t('report.experience_required', lang, required=sub.detail.required_years | years,
+              relevant=sub.detail.relevant_years | years, held=sub.detail.held_years | years) }}</p>
+        {% endif %}
+        {% if sub.detail.relevant_roles %}
+        <p>
+          {{ t('report.experience_roles', lang) }}:
+          {% for role in sub.detail.relevant_roles %}{{ role.title }} ({{ role.weight }}){% if not loop.last %}, {% endif %}{% endfor %}
+        </p>
+        {% endif %}
+        {% if sub.detail.tasks %}
+        {% set covered = sub.detail.tasks | selectattr('level', 'ge', 2) | list | length %}
+        <p>{{ t('report.experience_tasks', lang, covered=covered, total=sub.detail.tasks | length) }}</p>
+        <ul class="space-y-1">
+          {% for task in sub.detail.tasks %}
+          <li>{{ task.text }} — {{ t('report.level_label', lang) }} {{ task.level }}</li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+      </div>
+    </details>
     {% endif %}
     <div class="mt-2 flex flex-wrap gap-2">
       {% for term in sub.matched %}
@@ -167,22 +184,15 @@
   </div>
   {% endfor %}
 </div>
+</section>
 
-{# 4 — The two scans, as the two questions a person actually asks. The readability
-   panel is always present: an analysis with no source document says so rather than
-   dropping the question (N6.6). #}
-{% if application.scan_readability %}
-  {% set findings_heading = t('report.scan_readability_question', lang) %}
-  {% include "_findings.html" %}
-{% else %}
-<h2 class="mt-8 text-lg font-semibold">{{ t('report.scan_readability_question', lang) }}</h2>
-<p class="mt-1 text-sm text-text-2">{{ t('report.scan_no_document', lang) }}</p>
-{% endif %}
+{# 4 — Recruiter search (F5.2): the question, the count, one closed row per search. #}
 {% if application.scan_boolean %}
   {% include "_recall.html" %}
 {% endif %}
 
 {# 5 — Requirements and evidence. #}
+<section id="requirements">
 <h2 class="mt-8 text-lg font-semibold">{{ t('report.requirements', lang) }}</h2>
 <p class="mt-1 text-xs text-text-3">{{ t('report.grades_hint', lang) }}</p>
 <ul class="mt-3 space-y-2">
@@ -236,155 +246,14 @@
 {% if report.grading_note %}
 <p class="mt-2 text-sm text-text-2">{{ report.grading_note }}</p>
 {% endif %}
-
-{# 6 — Before applying: the one warning, its alerts and disqualifiers, then gaps beside
-   the claims that are only transferable. #}
-<h2 class="mt-8 text-lg font-semibold" id="before-applying">{{ t('report.before_applying', lang) }}</h2>
-
-{% if report.disqualifiers %}
-<p class="mt-3 text-sm font-semibold">{{ t('report.disqualifiers', lang) }}</p>
-<p class="mt-1 text-xs text-text-3">{{ t('report.disqualifiers_hint', lang) }}</p>
-{# F6.1: three-way verdicts, beside the score and never inside it. `unverified` is
-   the honest default and is never rendered as `met`. #}
-<ul class="mt-2 space-y-2">
-  {% for item in report.disqualifiers %}
-  <li class="flex flex-wrap items-center justify-between gap-2 rounded-control border border-sev-warning px-3 py-2 text-sm">
-    <span>{{ item.requirement }}</span>
-    <span class="rounded-tag bg-surface-2 px-2 py-0.5 text-xs">{{ t('report.verdict.' ~ item.verdict, lang) }}</span>
-  </li>
-  {% endfor %}
-</ul>
-{% if report.disqualifiers | selectattr('verdict', 'equalto', 'unverified') | list %}
-<p class="mt-2 text-xs text-text-3">{{ t('report.disqualifiers_unverified_hint', lang) }}</p>
-{% endif %}
-{% elif report.jd.hard_requirements %}
-<ul class="mt-3 space-y-2">
-  {% for item in report.jd.hard_requirements %}
-  <li class="rounded-control border border-sev-warning px-3 py-2 text-sm">{{ item }}</li>
-  {% endfor %}
-</ul>
-{% endif %}
-
-{% if report.gaps and report.gaps.warning.text %}
-<div class="mt-4 rounded-control border border-sev-warning px-3 py-2 text-sm">
-  <p>{{ t('report.gap_warning', lang) }} {{ report.gaps.warning.text }}</p>
-  {% if report.gaps.warning.handling %}
-  <p class="mt-1">{{ t('report.gap_handling', lang) }} {{ report.gaps.warning.handling }}</p>
-  {% endif %}
-</div>
-{% endif %}
-
-{% if report.gaps and report.gaps.alerts %}
-{# F6.1's alerts beside the single warning, never inside the gap list and never in
-   the score: seniority in either direction (F5.5.2) and location. #}
-<p class="mt-4 text-sm font-semibold">{{ t('report.alerts', lang) }}</p>
-<ul class="mt-2 space-y-2">
-  {% for alert in report.gaps.alerts %}
-  <li class="rounded-control border border-sev-warning px-3 py-2 text-sm">
-    {% if alert.kind == 'over_seniority' %}
-    {{ t('report.alert.over_seniority', lang) }}
-    {% elif alert.kind == 'under_seniority' %}
-    {{ t('report.alert.under_seniority', lang, jd_rung=alert.jd_rung) }}
-    {% elif alert.kind == 'language_mismatch' %}
-    {# F4.2 (A.9.3): the posting's language and the counts, in words a reader knows —
-       the stored report keeps the ISO codes, and the list of what fell back is
-       joined by the language's own conjunction. #}
-    {{ language_alert(alert, lang) }}
-    {% else %}
-    {{ t('report.alert.location', lang, requirement=alert.requirement) }}
-    <span class="rounded-tag bg-surface-2 px-2 py-0.5 text-xs">{{ t('report.verdict.' ~ alert.verdict, lang) }}</span>
-    {% endif %}
-  </li>
-  {% endfor %}
-</ul>
-{% endif %}
-
-{% if report.gaps %}
-{% set gap_rows = report.gaps.gaps %}
-<div class="mt-5 grid grid-cols-1 gap-6 sm:grid-cols-2">
-  <div>
-    <p class="text-sm font-semibold">{{ t('report.gaps', lang) }}</p>
-    {% if gap_rows %}
-    {# F6's summary view: the headline problems first, which is F6.1's band order. #}
-    <ul class="mt-2 space-y-1 text-sm text-text-2">
-      {% for gap in gap_rows[:5] %}
-      <li>
-        {% if gap.blocking %}<span class="rounded-tag border border-sev-warning px-2 py-0.5 text-xs text-sev-warning">{{ t('report.gap_blocking', lang) }}</span> {% endif %}{{ gap.interpretation or gap.requirement }}
-      </li>
-      {% endfor %}
-    </ul>
-    {# The detailed list: every gap, its level, the requirement text, whether a bullet
-       came close, and the blocking flag. #}
-    <details class="mt-3">
-      <summary class="cursor-pointer text-sm text-text-2">{{ t('report.gaps_all', lang, count=gap_rows|length) }}</summary>
-      <ul class="mt-2 space-y-2">
-        {% for gap in gap_rows %}
-        <li class="rounded-control border border-card-border bg-surface-1 p-3">
-          <div class="flex flex-wrap items-center justify-between gap-2">
-            <span class="text-sm font-medium">{{ gap.requirement }}</span>
-            <span class="flex flex-wrap items-center gap-2 text-xs text-text-3">
-              {{ t('report.must_have', lang) if gap.must_have else t('report.nice_to_have', lang) }}
-              · {{ t('report.level_label', lang) }} {{ gap.level }}
-              {% if gap.blocking %}<span class="rounded-tag border border-sev-warning px-2 py-0.5 text-sev-warning">{{ t('report.gap_blocking', lang) }}</span>{% endif %}
-            </span>
-          </div>
-          {% if gap.bullet_text %}
-          <p class="mt-1 text-sm text-text-2">{{ t('report.came_close', lang) }}: {{ gap.bullet_text }}</p>
-          {% endif %}
-          {% if gap.interpretation %}
-          <p class="mt-1 text-sm text-text-2">{{ gap.interpretation }}</p>
-          {% endif %}
-        </li>
-        {% endfor %}
-      </ul>
-    </details>
-    {% else %}
-    <p class="mt-2 text-sm text-text-2">{{ t('report.no_gaps', lang) }}</p>
-    {% endif %}
-  </div>
-  <div>
-    {% if report.gaps.covered_by_transfer %}
-    {# F6.1's fifth band: not a gap in the score's sense — the claim most likely to be
-       questioned, listed so the user can prepare the argument. #}
-    <p class="text-sm font-semibold">{{ t('report.transfer_band', lang) }}</p>
-    <p class="mt-1 text-xs text-text-3">{{ t('report.transfer_band_hint', lang) }}</p>
-    <ul class="mt-2 space-y-2">
-      {% for gap in report.gaps.covered_by_transfer %}
-      <li class="rounded-control border border-card-border bg-surface-1 p-3">
-        <div class="flex flex-wrap items-center justify-between gap-2">
-          <span class="text-sm font-medium">{{ gap.requirement }}</span>
-          <span class="flex flex-wrap items-center gap-2 text-xs text-text-3">
-            {{ t('report.must_have', lang) if gap.must_have else t('report.nice_to_have', lang) }}
-            · {{ t('report.level_label', lang) }} {{ gap.level }}
-          </span>
-        </div>
-        {% if gap.transfer_reason %}
-        <p class="mt-1 text-sm text-text-2">{{ t('report.transfer_reason', lang) }} {{ gap.transfer_reason }}</p>
-        {% endif %}
-        {% if gap.bullet_text %}
-        <p class="mt-1 text-sm text-text-2">{{ gap.bullet_text }}</p>
-        {% endif %}
-      </li>
-      {% endfor %}
-    </ul>
-    {% endif %}
-  </div>
-</div>
-{% if not report.gaps.stories_used %}
-{# Said by the pipeline, not by the model: when the table was empty the output
-   names that, rather than implying none of the stories were relevant. #}
-<p class="mt-2 text-sm text-text-2">{{ t('report.no_stories_available', lang) }}</p>
-{% endif %}
-{% if report.gaps.not_found %}
-<p class="mt-2 text-sm text-text-2">{{ report.gaps.not_found }}</p>
-{% endif %}
-{% endif %}
+</section>
 
 {# 7 — Potencial (F7.4) is not built yet: nothing is rendered, and no placeholder. #}
 
 {# 8 — Recommendations: the track table and the edit advice, side by side. Tier 1's
    "Proponer resumen y habilidades" lives here too, when the analysis used a track. #}
 {% if report.recommendation or report.advice or application.track_id %}
+<section id="recommendations">
 <h2 class="mt-8 text-lg font-semibold">{{ t('report.advice', lang) }}</h2>
 <div class="mt-3 grid grid-cols-1 gap-6 sm:grid-cols-2">
   <div>
@@ -491,6 +360,7 @@
   <a href="/applications/{{ application.id }}/summary" class="text-link underline">{{ t('generate.propose_summary', lang) }}</a>
 </p>
 {% endif %}
+</section>
 {% endif %}
 
 {# F10.1: the entry point into the attempt modal, below Recomendaciones (§12.1). #}
@@ -673,12 +543,217 @@
 </p>
 {% endif %}
 
+{# 7 — Does the ATS read the CV? The question is always present: an analysis with no
+   source document says so rather than dropping it (N6.6). With a scan, one <details>:
+   its summary is the verdict tag and the counts, the findings sit inside, and it opens
+   by itself only when the document holds a blocker. #}
+<section id="ats">
+<h2 class="mt-8 text-lg font-semibold">{{ t('report.scan_readability_question', lang) }}</h2>
+{% if application.scan_readability %}
+{% set blockers = findings | selectattr('severity', 'equalto', 'blocker') | list | length %}
+{% set warnings = findings | selectattr('severity', 'equalto', 'warning') | list | length %}
+{% set infos = findings | selectattr('severity', 'equalto', 'info') | list | length %}
+{% set skipped = not_run | length if not_run else 0 %}
+{% set parts = [] %}
+{% if warnings %}{% set parts = parts + [t('report.ats.count_warning', lang, n=warnings)] %}{% endif %}
+{% if infos %}{% set parts = parts + [t('report.ats.count_info', lang, n=infos)] %}{% endif %}
+{% if skipped %}{% set parts = parts + [t('report.ats.count_not_run', lang, n=skipped)] %}{% endif %}
+<details class="disclosure mt-3 rounded-card border border-card-border bg-surface-1 px-4"{% if blockers %} open{% endif %}>
+  <summary class="flex-wrap gap-y-1">
+    {% if blockers %}
+    {{ ui.severity('blocker', t('report.ats.blockers_one' if blockers == 1 else 'report.ats.blockers', lang, n=blockers)) }}
+    {% else %}
+    {{ ui.severity('info', t('report.ats.none', lang)) }}
+    {% endif %}
+    <span class="text-sm text-text-2">{{ parts | join(' · ') or t('report.ats.count_none', lang) }}</span>
+  </summary>
+  <div class="pb-4 pl-6">
+    {% set findings_embedded = true %}
+    {% include "_findings.html" %}
+  </div>
+</details>
+{% else %}
+<p class="mt-1 text-sm text-text-2">{{ t('report.scan_no_document', lang) }}</p>
+{% endif %}
+</section>
+
+{# 8 — Before applying: the knock-out requirements stay visible, then one summary line
+   and three closed toggles — the gaps in band order, the single warning with its alerts,
+   and the claims that are only transferable. An empty group keeps its toggle. #}
+{% set gap_data = report.gaps or {} %}
+{% set gap_rows = gap_data.gaps or [] %}
+{% set transfer_rows = gap_data.covered_by_transfer or [] %}
+{% set warning = gap_data.warning or {} %}
+{% set alert_rows = gap_data.alerts or [] %}
+{% set warning_count = (1 if warning.text else 0) + (alert_rows | length) %}
+<section id="before" class="mt-8">
+<h2 class="text-lg font-semibold">{{ t('report.before_applying', lang) }}</h2>
+
+{% if report.disqualifiers %}
+<p class="mt-3 text-sm font-semibold">{{ t('report.disqualifiers', lang) }}</p>
+<p class="mt-1 text-xs text-text-3">{{ t('report.disqualifiers_hint', lang) }}</p>
+{# F6.1: three-way verdicts, beside the score and never inside it. `unverified` is
+   the honest default and is never rendered as `met`. #}
+<ul class="mt-2 space-y-2">
+  {% for item in report.disqualifiers %}
+  <li class="flex flex-wrap items-center justify-between gap-2 rounded-control border border-sev-warning px-3 py-2 text-sm">
+    <span>{{ item.requirement }}</span>
+    <span class="rounded-tag bg-surface-2 px-2 py-0.5 text-xs">{{ t('report.verdict.' ~ item.verdict, lang) }}</span>
+  </li>
+  {% endfor %}
+</ul>
+{% if report.disqualifiers | selectattr('verdict', 'equalto', 'unverified') | list %}
+<p class="mt-2 text-xs text-text-3">{{ t('report.disqualifiers_unverified_hint', lang) }}</p>
+{% endif %}
+{% elif report.jd.hard_requirements %}
+<ul class="mt-3 space-y-2">
+  {% for item in report.jd.hard_requirements %}
+  <li class="rounded-control border border-sev-warning px-3 py-2 text-sm">{{ item }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+
+{% if report.gaps %}
+<p class="mt-3 text-sm text-text-2">
+  {{ t('report.before.gaps_one' if gap_rows | length == 1 else 'report.before.gaps', lang, n=gap_rows | length) }}
+  · {{ t('report.before.warnings_one' if warning_count == 1 else 'report.before.warnings', lang, n=warning_count) }}
+  · {{ t('report.before.transfer_one' if transfer_rows | length == 1 else 'report.before.transfer', lang, n=transfer_rows | length) }}
+</p>
+
+<div class="mt-3 space-y-2">
+  <details class="disclosure rounded-card border border-card-border bg-surface-1 px-4">
+    <summary>
+      <span class="font-semibold">{{ t('report.before.gaps_toggle', lang) }}</span>
+      <span class="text-sm text-text-3">· {{ gap_rows | length }}{% if gap_rows | length > 1 %}, {{ t('report.before.gaps_order', lang) }}{% endif %}</span>
+    </summary>
+    <div class="pb-3 pl-6">
+      {% if gap_rows %}
+      {# F6's detailed list, in F6.1's band order: the level, the requirement text, whether a
+         bullet came close, and the blocking flag. #}
+      <ul class="space-y-2">
+        {% for gap in gap_rows %}
+        <li class="rounded-control border border-card-border bg-bg p-3">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <span class="text-sm font-medium">{{ gap.requirement }}</span>
+            <span class="flex flex-wrap items-center gap-2 text-xs text-text-3">
+              {{ t('report.must_have', lang) if gap.must_have else t('report.nice_to_have', lang) }}
+              · {{ t('report.level_label', lang) }} {{ gap.level }}
+              {% if gap.blocking %}<span class="rounded-tag border border-sev-warning px-2 py-0.5 text-sev-warning">{{ t('report.gap_blocking', lang) }}</span>{% endif %}
+            </span>
+          </div>
+          {% if gap.bullet_text %}
+          <p class="mt-1 text-sm text-text-2">{{ t('report.came_close', lang) }}: {{ gap.bullet_text }}</p>
+          {% endif %}
+          {% if gap.interpretation %}
+          <p class="mt-1 text-sm text-text-2">{{ gap.interpretation }}</p>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="text-sm text-text-2">{{ t('report.no_gaps', lang) }}</p>
+      {% endif %}
+    </div>
+  </details>
+
+  <details class="disclosure rounded-card border border-card-border bg-surface-1 px-4">
+    <summary>
+      <span class="font-semibold">{{ t('report.before.warning_toggle', lang) }}</span>
+      <span class="text-sm text-text-3">· {{ warning_count }}</span>
+    </summary>
+    <div class="space-y-2 pb-3 pl-6">
+      {% if warning.text %}
+      <div class="rounded-control border border-sev-warning px-3 py-2 text-sm">
+        <p>{{ t('report.gap_warning', lang) }} {{ warning.text }}</p>
+        {% if warning.handling %}
+        <p class="mt-1">{{ t('report.gap_handling', lang) }} {{ warning.handling }}</p>
+        {% endif %}
+      </div>
+      {% endif %}
+      {% if alert_rows %}
+      {# F6.1's alerts beside the single warning, never inside the gap list and never in
+         the score: seniority in either direction (F5.5.2) and location. #}
+      <p class="text-sm font-semibold">{{ t('report.alerts', lang) }}</p>
+      <ul class="space-y-2">
+        {% for alert in alert_rows %}
+        <li class="rounded-control border border-sev-warning px-3 py-2 text-sm">
+          {% if alert.kind == 'over_seniority' %}
+          {{ t('report.alert.over_seniority', lang) }}
+          {% elif alert.kind == 'under_seniority' %}
+          {{ t('report.alert.under_seniority', lang, jd_rung=alert.jd_rung) }}
+          {% elif alert.kind == 'language_mismatch' %}
+          {# F4.2 (A.9.3): the posting's language and the counts, in words a reader knows —
+             the stored report keeps the ISO codes, and the list of what fell back is
+             joined by the language's own conjunction. #}
+          {{ language_alert(alert, lang) }}
+          {% else %}
+          {{ t('report.alert.location', lang, requirement=alert.requirement) }}
+          <span class="rounded-tag bg-surface-2 px-2 py-0.5 text-xs">{{ t('report.verdict.' ~ alert.verdict, lang) }}</span>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+      {% if not warning_count %}
+      <p class="text-sm text-text-2">{{ t('report.before.no_warning', lang) }}</p>
+      {% endif %}
+    </div>
+  </details>
+
+  <details class="disclosure rounded-card border border-card-border bg-surface-1 px-4">
+    <summary>
+      <span class="font-semibold">{{ t('report.transfer_band', lang) }}</span>
+      <span class="text-sm text-text-3">· {{ transfer_rows | length }}</span>
+    </summary>
+    <div class="pb-3 pl-6">
+      {% if transfer_rows %}
+      {# F6.1's fifth band: not a gap in the score's sense — the claim most likely to be
+         questioned, listed so the user can prepare the argument. #}
+      <p class="text-xs text-text-3">{{ t('report.transfer_band_hint', lang) }}</p>
+      <ul class="mt-2 space-y-2">
+        {% for gap in transfer_rows %}
+        <li class="rounded-control border border-card-border bg-bg p-3">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <span class="text-sm font-medium">{{ gap.requirement }}</span>
+            <span class="flex flex-wrap items-center gap-2 text-xs text-text-3">
+              {{ t('report.must_have', lang) if gap.must_have else t('report.nice_to_have', lang) }}
+              · {{ t('report.level_label', lang) }} {{ gap.level }}
+            </span>
+          </div>
+          {% if gap.transfer_reason %}
+          <p class="mt-1 text-sm text-text-2">{{ t('report.transfer_reason', lang) }} {{ gap.transfer_reason }}</p>
+          {% endif %}
+          {% if gap.bullet_text %}
+          <p class="mt-1 text-sm text-text-2">{{ gap.bullet_text }}</p>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="text-sm text-text-2">{{ t('report.before.no_transfer', lang) }}</p>
+      {% endif %}
+    </div>
+  </details>
+</div>
+{% if not gap_data.stories_used %}
+{# Said by the pipeline, not by the model: when the table was empty the output
+   names that, rather than implying none of the stories were relevant. #}
+<p class="mt-2 text-sm text-text-2">{{ t('report.no_stories_available', lang) }}</p>
+{% endif %}
+{% if gap_data.not_found %}
+<p class="mt-2 text-sm text-text-2">{{ gap_data.not_found }}</p>
+{% endif %}
+{% endif %}
+</section>
+
 {# F10.6 (C.2): the readiness checklist, when the caller has one (an attempt). #}
 {% if readiness is defined and readiness %}{% include "attempts/_readiness.html" %}{% endif %}
 
 {# 9 — Traceability: the run's versions, its cache state, its cost, and the fields the
-   extraction read, collapsed. #}
-<h2 class="mt-8 text-lg font-semibold">{{ t('report.audit', lang) }}</h2>
+   extraction read, closed, and last. #}
+<section id="trace" class="mt-8">
+<details class="disclosure border-t border-card-border pt-2">
+<summary class="text-sm text-text-2">{{ t('report.audit', lang) }}</summary>
 <div class="mt-3 rounded-card border border-card-border bg-surface-1 p-5">
   <dl class="space-y-2 text-xs text-text-2">
     <div class="flex flex-wrap justify-between gap-2">
@@ -745,6 +820,8 @@
     </p>
   </details>
 </div>
+</details>
+</section>
 
 <p class="mt-6 text-sm">
   <a href="/analyze" class="text-link underline">{{ t('report.again', lang) }}</a>

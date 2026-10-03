@@ -1,63 +1,70 @@
 {# Scan B — boolean search recall (PRD F5.2). Reported beside the score, never in it.
-   Phrased as the question it answers: would a recruiter's search return this track? #}
+   Phrased as the question it answers: would a recruiter's search return this track?
+   §12.1 item 4: one closed <details> per search; its summary carries the label, the
+   Apareces / No apareces tag and the whole query, and the excluding term and the clauses
+   sit inside. #}
 {% import "_ui.html" as ui with context %}
+<section id="recruiter">
 <h2 class="mt-8 text-lg font-semibold">{{ t('recall.title', lang) }}</h2>
 <p class="mt-1 text-xs text-text-3">{{ t('recall.intro', lang) }}</p>
 
 {% if recall.rows %}
-{% set all_pass = recall.rows | selectattr('passed') | list | length == recall.rows | length %}
-<p class="mt-2 flex flex-wrap items-center gap-2 text-sm">
-  {# A verdict, not a severity: a missed boolean search is not a broken document. #}
-  <span class="rounded-tag border px-2 py-0.5 text-xs font-medium {% if all_pass %}border-score-strong text-score-strong{% else %}border-score-weak text-score-weak{% endif %}">
-    {{ t('recall.appears', lang) if all_pass else t('recall.not_appears', lang) }}
-  </span>
-  <span class="text-text-2">
-    {{ t('recall.summary', lang, passed=recall.rows | selectattr('passed') | list | length,
-          total=recall.rows | length) }}
-  </span>
+<p class="mt-2 text-sm text-text-2">
+  {{ t('recall.appear_summary', lang, passed=recall.rows | selectattr('passed') | list | length,
+        total=recall.rows | length) }}
 </p>
 <ul class="mt-3 space-y-2">
   {% for query in recall.rows %}
-  <li class="rounded-control border border-card-border bg-surface-1 px-3 py-2 text-sm">
-    <div class="flex flex-wrap items-center gap-2">
-      <span class="font-medium">{{ query.label or t('recall.unlabelled', lang) }}</span>
-      {# N8.8: the same score palette the section's verdict uses, so both read as one
-         system. The words Pasa/Falla and the clause glyphs stay: colour is never the
-         only signal. #}
-      <span class="rounded-tag border px-2 py-0.5 text-xs {% if query.passed %}border-score-strong text-score-strong{% else %}border-score-weak text-score-weak{% endif %}">
-        {{ t('recall.pass', lang) if query.passed else t('recall.fails', lang) }}
-      </span>
-    </div>
-    {# A.9.2: the recruiter's own line, to paste into the ATS. The button reads the
-       text from the code element rather than from a JS literal, because the query
-       carries quotes and the browser already decoded the escaping for us. #}
-    {% if query.query_text %}
-    <span class="mt-1 flex items-center gap-2">
-      <code class="break-all select-all font-mono text-xs text-text-2">{{ query.query_text }}</code>
-      <button type="button"
-              class="shrink-0 rounded-tag border border-border px-1.5 py-0.5 text-xs text-text-2 hover:bg-surface-2"
-              onclick="navigator.clipboard.writeText(this.previousElementSibling.textContent.trim())">
-        {{ t('recall.copy', lang) }}
-      </button>
-    </span>
-    {% endif %}
-    {% if query.failing %}
-    <span class="mt-1 block text-xs text-text-2">{{ query.failing }}</span>
-    {% endif %}
-    {% if query.clauses %}
-    <ul class="mt-2 space-y-1">
-      {% for clause in query.clauses %}
-      <li class="text-xs {% if clause.matched %}text-text-2{% else %}text-text-3{% endif %}">
-        {% if clause.matched %}
-        <span aria-hidden="true" class="text-score-strong">✓</span> {{ t('recall.clause_met', lang, term=clause.term, unit=clause.unit) }}
-        {% if clause.text %}<span class="block text-text-3">{{ clause.text }}</span>{% endif %}
-        {% else %}
-        <span aria-hidden="true" class="text-score-weak">✗</span> {{ t('recall.clause_missing', lang, term=clause.term) }}
+  <li>
+    <details class="disclosure rounded-control border border-card-border bg-surface-1 px-3 text-sm">
+      <summary>
+        <span class="flex min-w-0 flex-1 flex-col gap-1 py-2">
+          <span class="flex flex-wrap items-center gap-2">
+            <span class="font-medium">{{ query.label or t('recall.unlabelled', lang) }}</span>
+            {# N8.8: the same score palette the section's verdict used, so both read as one
+               system. The words and the clause glyphs stay: colour is never the only
+               signal. #}
+            <span class="rounded-tag border px-2 py-0.5 text-xs {% if query.passed %}border-score-strong text-score-strong{% else %}border-score-weak text-score-weak{% endif %}">
+              {{ t('recall.appears', lang) if query.passed else t('recall.not_appears', lang) }}
+            </span>
+          </span>
+          {# A.9.2: the recruiter's own line, to paste into the ATS. #}
+          {% if query.query_text %}
+          <code class="break-all font-mono text-xs text-text-2">{{ query.query_text }}</code>
+          {% endif %}
+        </span>
+      </summary>
+      <div class="space-y-2 pb-3 pl-6">
+        {% if query.failing %}
+        <p class="text-xs text-text-2">{{ query.failing }}</p>
         {% endif %}
-      </li>
-      {% endfor %}
-    </ul>
-    {% endif %}
+        {% if query.clauses %}
+        <ul class="space-y-1">
+          {% for clause in query.clauses %}
+          <li class="text-xs {% if clause.matched %}text-text-2{% else %}text-text-3{% endif %}">
+            {% if clause.matched %}
+            <span aria-hidden="true" class="text-score-strong">✓</span> {{ t('recall.clause_met', lang, term=clause.term, unit=clause.unit) }}
+            {% if clause.text %}<span class="block text-text-3">{{ clause.text }}</span>{% endif %}
+            {% else %}
+            <span aria-hidden="true" class="text-score-weak">✗</span> {{ t('recall.clause_missing', lang, term=clause.term) }}
+            {% endif %}
+          </li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+        {# The button reads the text from the summary's code element rather than from a JS
+           literal, because the query carries quotes and the browser already decoded the
+           escaping for us. It sits in the body, not the summary: a button inside a summary
+           is not a separate control. #}
+        {% if query.query_text %}
+        <button type="button"
+                class="min-h-11 rounded-control border border-border px-3 text-xs text-text-2 hover:bg-surface-2"
+                onclick="navigator.clipboard.writeText(this.closest('details').querySelector('summary code').textContent.trim())">
+          {{ t('recall.copy', lang) }}
+        </button>
+        {% endif %}
+      </div>
+    </details>
   </li>
   {% endfor %}
 </ul>
@@ -66,3 +73,4 @@
   {{ t('recall.empty', lang) }}
 </p>
 {% endif %}
+</section>

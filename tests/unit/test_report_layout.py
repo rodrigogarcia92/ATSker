@@ -1,0 +1,283 @@
+"""§12.1's result page: the order of its sections and what opens by itself (queue U3).
+
+The page is a reading order with disclosures. The tests read the HTML the way the rules
+state it — section ids in sequence, closed `<details>` by default, one open only for a
+blocker — and build their reports through the same fake provider the analysis tests use,
+or store one by hand where a report needs a shape the pipeline would not produce today.
+"""
+
+import html
+import re
+
+import pytest
+
+from src.extract import client as extract_client
+from src.i18n import t
+from tests.conftest import login
+from tests.unit.test_analysis import POSTING, Provider, store_flagged, text_of
+
+SECTION_IDS = (
+    "fit",
+    "components",
+    "recruiter",
+    "requirements",
+    "recommendations",
+    "ats",
+    "before",
+    "trace",
+)
+
+DETAILS_TAG = re.compile(r"<details\b[^>]*>")
+
+
+@pytest.fixture
+def provider(monkeypatch, test_settings, career) -> Provider:
+    stub = Provider(str(career.first_bullet.id))
+    monkeypatch.setattr(extract_client, "_post", stub)
+    return stub
+
+
+def analysed_page(client, career) -> str:
+    """A full analysis through the fake provider, with a track so every section shows."""
+    login(client, career.first.email)
+    posted = client.post(
+        "/analyze",
+        data={"jd_text": POSTING, "track_id": str(career.first_track.id)},
+        follow_redirects=False,
+    )
+    assert posted.status_code == 303
+    return client.get(posted.headers["location"]).text
+
+
+def section(page: str, name: str) -> str:
+    match = re.search(rf'<section id="{name}"[^>]*>.*?</section>', page, re.S)
+    assert match, f"the page has a {name} section"
+    return match.group(0)
+
+
+def stored(session, career, *, severity="blocker", **changes):
+    """A report stored by hand, so it carries exactly the keys a test names."""
+    application = store_flagged(
+        session, career.first_profile.id, capped=40, uncapped=62, cap=40, severity=severity
+    )
+    application.report = {**application.report, **changes}
+    session.commit()
+    return application
+
+
+def test_the_sections_appear_in_the_approved_order(client, career, provider):
+    page = analysed_page(client, career)
+
+    positions = [page.index(f'id="{name}"') for name in SECTION_IDS]
+
+    assert positions == sorted(positions), "§12.1's list, top to bottom"
+    assert len(set(positions)) == len(SECTION_IDS)
+
+
+def test_the_fit_definition_renders_in_both_languages(client, session, career, provider):
+    login(client, career.first.email)
+    posted = client.post("/analyze", data={"jd_text": POSTING}, follow_redirects=False)
+    url = posted.headers["location"]
+
+    spanish = text_of(client.get(url).text)
+    assert t("report.fit_definition", "es") in spanish
+    assert "no es la probabilidad de ser contratado" in spanish
+
+    career.first.ui_lang = "en"
+    session.commit()
+    english = text_of(client.get(url).text)
+    assert t("report.fit_definition", "en") in english
+    assert "not the probability of being hired" in english
+
+
+EXPERIENCE = {
+    "name": "experience",
+    "value": 0.8,
+    "matched": ["3.00 years"],
+    "missing": [],
+    "detail": {
+        "held_years": 5.0,
+        "relevant_years": 3.0,
+        "required_years": 3.0,
+        "relevant_roles": [{"id": "r1", "title": "Analista de riesgo", "weight": 1.0}],
+        "tasks": [
+            {"text": "Armar reportes mensuales", "level": 2, "bullet_id": None},
+            {"text": "Desplegar modelos", "level": 0, "bullet_id": None},
+        ],
+    },
+}
+
+
+def test_the_experience_card_has_its_years_line_and_a_closed_detail(client, session, career):
+    report = stored(session, career).report
+    application = stored(
+        session, career, score={**report["score"], "sub_scores": {"experience": EXPERIENCE}}
+    )
+    login(client, career.first.email)
+
+    page = client.get(f"/applications/{application.id}").text
+    components = section(page, "components")
+
+    assert "3 años · 3 de 5" in text_of(components), "relevant years, then relevant of held"
+    toggles = DETAILS_TAG.findall(components)
+    assert len(toggles) == 1 and " open" not in toggles[0], "Ver detalle starts closed"
+    detail = components[components.index("<details") :]
+    assert "Ver detalle" in detail
+    assert "Analista de riesgo (1.0)" in text_of(detail), "the relevant roles, with their weight"
+    assert "Requeridos: 3 años" in text_of(detail)
+    assert "Tareas de la oferta cubiertas: 1 de 2" in text_of(detail)
+
+
+def test_a_report_without_experience_detail_gets_the_card_without_the_toggle(
+    client, session, career
+):
+    report = stored(session, career).report
+    old = {
+        "name": "experience",
+        "value": 0.5,
+        "matched": [],
+        "missing": ["1.50 years"],
+        "detail": {"held_years": 1.5, "required_years": 3, "deficit_years": 1.5},
+    }
+    application = stored(
+        session, career, score={**report["score"], "sub_scores": {"experience": old}}
+    )
+    login(client, career.first.email)
+
+    page = client.get(f"/applications/{application.id}").text
+
+    components = section(page, "components")
+    assert DETAILS_TAG.findall(components) == [], "no detail, no toggle"
+    assert "Ver detalle" not in components
+
+
+def test_each_recruiter_search_is_one_closed_details_with_its_query_and_verdict(
+    client, career, provider
+):
+    page = analysed_page(client, career)
+    recruiter = section(page, "recruiter")
+
+    toggles = DETAILS_TAG.findall(recruiter)
+    summaries = re.findall(r"<summary>(.*?)</summary>", recruiter, re.S)
+
+    assert len(toggles) == 2 == len(summaries), "one toggle per derived query"
+    assert all(" open" not in tag for tag in toggles), "none starts open"
+    words = [text_of(summary) for summary in summaries]
+    assert '"analista de datos" AND python' in html.unescape(text_of(summaries[0]))
+    assert any("No apareces" in text for text in words), "the failing search says so"
+    assert any("Apareces" in text and "No apareces" not in text for text in words)
+    assert "Apareces en 1 de 2 búsquedas" in text_of(recruiter)
+
+
+def blocker_page(client, session, career, severity):
+    application = stored(session, career, severity=severity)
+    login(client, career.first.email)
+    return client.get(f"/applications/{application.id}").text
+
+
+def test_the_ats_details_is_open_exactly_when_the_report_has_a_blocker(client, session, career):
+    with_blocker = section(blocker_page(client, session, career, "blocker"), "ats")
+    first_toggle = DETAILS_TAG.search(with_blocker).group(0)
+    assert " open" in first_toggle, "a blocker opens its own section"
+    assert "1 bloqueo" in text_of(with_blocker)
+
+    without = section(blocker_page(client, session, career, "warning"), "ats")
+    second_toggle = DETAILS_TAG.search(without).group(0)
+    assert " open" not in second_toggle, "no blocker, so closed"
+    assert "Sin bloqueos" in text_of(without)
+    assert "Avisos 1" in text_of(without), "the warning is counted in the summary"
+
+
+GAPS = {
+    "gaps": [
+        {
+            "requirement": "dbt",
+            "must_have": False,
+            "level": 0,
+            "blocking": False,
+            "interpretation": "Ningún bullet lo menciona.",
+        },
+        {
+            "requirement": "airflow",
+            "must_have": False,
+            "level": 0,
+            "blocking": False,
+            "interpretation": "Ningún bullet lo menciona.",
+        },
+    ],
+    "warning": {"text": "Salto desde el sector público", "handling": "Abre con un resultado."},
+    "alerts": [],
+    "covered_by_transfer": [
+        {
+            "requirement": "snowflake",
+            "must_have": True,
+            "level": 2,
+            "transfer_reason": "Usas BigQuery.",
+            "bullet_text": "Modelé datos en BigQuery.",
+        }
+    ],
+    "stories_used": [],
+    "not_found": "",
+}
+
+
+def test_before_applying_has_one_summary_line_and_three_closed_toggles(client, session, career):
+    application = stored(session, career, gaps=GAPS)
+    login(client, career.first.email)
+
+    page = client.get(f"/applications/{application.id}").text
+    before = section(page, "before")
+
+    toggles = DETAILS_TAG.findall(before)
+    assert len(toggles) == 3 and all(" open" not in tag for tag in toggles)
+    text = text_of(before)
+    assert "2 brechas decisivas · 1 advertencia · 1 requisito cubierto por transferencia" in text
+    for label, count in (("Brechas", 2), ("Advertencia", 1), ("Cubierto por transferencia", 1)):
+        assert f"{label} · {count}" in text, f"{label} shows how many it holds"
+    assert "Usas BigQuery." in text and "Abre con un resultado." in text
+
+
+def test_an_empty_group_still_renders_its_toggle_with_zero_and_a_line(client, session, career):
+    empty = {**GAPS, "gaps": [], "warning": {"text": "", "handling": ""}, "covered_by_transfer": []}
+    application = stored(session, career, gaps=empty)
+    login(client, career.first.email)
+
+    before = section(client.get(f"/applications/{application.id}").text, "before")
+
+    assert len(DETAILS_TAG.findall(before)) == 3, "the toggles stay"
+    text = text_of(before)
+    assert "0 brechas decisivas · 0 advertencias · 0 requisitos cubiertos por transferencia" in text
+    for label in ("Brechas", "Advertencia", "Cubierto por transferencia"):
+        assert f"{label} · 0" in text
+    assert t("report.no_gaps", "es") in text
+    assert t("report.before.no_warning", "es") in text
+    assert t("report.before.no_transfer", "es") in text
+
+
+def test_traceability_is_last_and_closed(client, career, provider):
+    page = analysed_page(client, career)
+
+    trace = section(page, "trace")
+
+    assert " open" not in DETAILS_TAG.search(trace).group(0)
+    assert page.index('id="trace"') > page.index('id="before"')
+    assert "Trazabilidad" in text_of(trace)
+
+
+def test_an_old_stored_report_still_renders(client, session, career):
+    """A report from before F10 has no `ceiling`, no experience detail and no gaps."""
+    application = stored(session, career, severity="warning")
+    login(client, career.first.email)
+
+    response = client.get(f"/applications/{application.id}")
+
+    assert response.status_code == 200
+    for name in ("fit", "components", "requirements", "ats", "before", "trace"):
+        assert f'id="{name}"' in response.text
+
+
+def test_the_page_stores_nothing_about_what_was_opened(client, career, provider):
+    page = analysed_page(client, career)
+
+    assert "localStorage" not in page and "sessionStorage" not in page
+    assert "document.cookie" not in page
