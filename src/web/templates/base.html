@@ -112,5 +112,52 @@
     })();
   </script>
   {% endif %}
+  <script>
+    // §12.3: a form that calls the provider carries data-progress. On submit it locks its
+    // buttons and shows its status line with a live counter; there are no invented steps.
+    // The back/forward cache restores the page as it was left, so `pageshow` with
+    // `persisted` puts every such form back. Nothing is stored.
+    (function () {
+      var forms = document.querySelectorAll('form[data-progress]');
+      if (!forms.length) return;
+      var timers = new WeakMap();
+      function submitters(form) {
+        return form.querySelectorAll('button[type="submit"], button:not([type]), input[type="submit"]');
+      }
+      function stop(form) {
+        var id = timers.get(form);
+        if (id) { clearInterval(id); timers.delete(form); }
+      }
+      function reset(form) {
+        stop(form);
+        submitters(form).forEach(function (button) { button.disabled = false; });
+        var status = form.querySelector('[data-progress-status]');
+        if (status) status.hidden = true;
+        var timer = form.querySelector('[data-progress-timer]');
+        if (timer) timer.textContent = '';
+      }
+      forms.forEach(function (form) {
+        form.addEventListener('submit', function (event) {
+          if (timers.has(form)) { event.preventDefault(); return; }
+          // Disabled after the submit event, so a submitter's own value still goes out.
+          setTimeout(function () {
+            submitters(form).forEach(function (button) { button.disabled = true; });
+          }, 0);
+          var status = form.querySelector('[data-progress-status]');
+          var timer = form.querySelector('[data-progress-timer]');
+          var started = Date.now();
+          function tick() {
+            if (timer) timer.textContent = '· ' + Math.floor((Date.now() - started) / 1000) + ' s';
+          }
+          tick();
+          if (status) status.hidden = false;
+          timers.set(form, setInterval(tick, 1000));
+        });
+      });
+      window.addEventListener('pageshow', function (event) {
+        if (event.persisted) forms.forEach(reset);
+      });
+    })();
+  </script>
 </body>
 </html>

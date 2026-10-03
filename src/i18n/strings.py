@@ -2089,6 +2089,24 @@ STRINGS: dict[str, dict[str, str]] = {
         "es": "Fuentes sin incrustar: {fonts}.",
         "en": "Fonts without embedding: {fonts}.",
     },
+    # §12.3 — the line under a paid form's button while the provider works. Honest
+    # ranges and a live counter; no invented steps.
+    "progress.analyze": {
+        "es": "Analizando la oferta… suele tardar 20–40 s",
+        "en": "Analysing the posting… usually takes 20–40 s",
+    },
+    "progress.import": {
+        "es": "Leyendo tu CV… suele tardar 20–40 s",
+        "en": "Reading your CV… usually takes 20–40 s",
+    },
+    "progress.generate": {
+        "es": "Generando la propuesta… suele tardar 10–30 s",
+        "en": "Writing the proposal… usually takes 10–30 s",
+    },
+    "progress.letter": {
+        "es": "Escribiendo la carta… suele tardar 10–30 s",
+        "en": "Writing the letter… usually takes 10–30 s",
+    },
 }
 
 

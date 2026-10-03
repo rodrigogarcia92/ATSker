@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_ui.html" as ui with context %}
 {% block title %}{{ t('import.title', lang) }} — {{ t('app.name', lang) }}{% endblock %}
 {% block content %}
 <h1 class="text-2xl font-semibold tracking-tight">{{ t('import.title', lang) }}</h1>
@@ -13,7 +14,7 @@
 </p>
 {% endif %}
 
-<form method="post" action="/import" enctype="multipart/form-data"
+<form method="post" action="/import" enctype="multipart/form-data" data-progress="import"
       class="mt-6 space-y-4 rounded-card border border-card-border bg-surface-1 p-5">
   <div>
     <label for="file" class="mb-1 block text-sm font-medium">{{ t('import.file', lang) }}</label>
@@ -36,6 +37,7 @@
   <button type="submit" class="rounded-control bg-link px-3 py-2 text-sm font-medium text-bg hover:opacity-90">
     {{ t('import.submit', lang) }}
   </button>
+  {{ ui.progress('import') }}
 </form>
 
 <h2 class="mt-10 text-lg font-semibold">{{ t('import.uploads', lang) }}</h2>

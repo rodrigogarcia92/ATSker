@@ -53,3 +53,12 @@
   <span class="level-number">{{ level }}</span>
 </span>
 {%- endmacro %}
+
+{# §12.3: the status line a paid form shows once submitted. It sits directly under the
+   submit button and stays hidden until the shared script in base.html reveals it; the
+   counter is aria-hidden so a screen reader hears the sentence once, not every second. #}
+{% macro progress(key) -%}
+<p role="status" hidden data-progress-status class="mt-2 text-sm text-text-2">
+  {{ t('progress.' ~ key, lang) }} <span data-progress-timer class="tabular-nums" aria-hidden="true"></span>
+</p>
+{%- endmacro %}

@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_ui.html" as ui with context %}
 {% block title %}{{ t('import.review_title', lang) }} — {{ t('app.name', lang) }}{% endblock %}
 {% block content %}
 <a href="/import" class="text-sm text-text-2 underline">{{ t('import.go_back', lang) }}</a>
@@ -18,10 +19,11 @@
 {% if can_retry %}
 {# F2.3.1: the file and its findings are archived, so a failed extraction is retried
    from the stored bytes instead of asking for the upload again. #}
-<form method="post" action="/import/{{ resume.id }}/retry" class="mt-4">
+<form method="post" action="/import/{{ resume.id }}/retry" data-progress="import" class="mt-4">
   <button type="submit" class="rounded-control bg-link px-3 py-2 text-sm font-medium text-bg hover:opacity-90">
     {{ t('import.retry', lang) }}
   </button>
+  {{ ui.progress('import') }}
 </form>
 {% endif %}
 
