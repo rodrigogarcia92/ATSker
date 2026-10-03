@@ -21,6 +21,19 @@
    on the analysis is hidden, and the header says which attempt this is. #}
 {% set attempt_view = attempt_view if attempt_view is defined else false %}
 
+{# F10.7: "Descartar" says what it did here, above the page, once the modal is closed. The
+   script fills and un-hides it; a no-JS discard arrives as `?discarded=N` with it already
+   visible and no dismiss button, which needs script. #}
+{% if not attempt_view %}
+{% set notice_no = discarded_no if discarded_no is defined else none %}
+<p id="attempt-notice" role="status" class="mb-4 rounded-card border border-card-border bg-surface-1 px-4 py-3 text-sm text-text-2"
+   {% if notice_no is none %}hidden{% endif %}>
+  <span id="attempt-notice-text">{% if notice_no is not none %}{{ t('attempt.discarded', lang, n=notice_no) }}{% endif %}</span>
+  <button type="button" id="attempt-notice-dismiss" hidden
+          class="ml-2 min-h-11 px-2 text-link underline">{{ t('attempt.notice_dismiss', lang) }}</button>
+</p>
+{% endif %}
+
 {# §12.1 item 10: on a desktop a reading column of at most 760px beside a sticky rail of
    actions; below `lg` the rail is gone and a fixed bar at the bottom takes its two buttons.
    An attempt's report is read-only and shows neither. #}
@@ -849,6 +862,7 @@
 <dialog id="attempt-modal" class="attempt-modal"
         data-confirm="{{ t('attempt.form.confirm_close', lang) }}"
         data-error="{{ t('attempt.form.error', lang) }}"
+        data-discarded="{{ t('attempt.discarded', lang, n='{n}') }}"
         {% if open_attempt %}data-open-attempt="{{ open_attempt }}"{% endif %}>
   <div class="p-4">
     <div class="flex items-center justify-between gap-4">
@@ -958,6 +972,14 @@
     // F10.7: "Marcar como enviada" and "Descartar" are posted in place. The partial is
     // re-rendered, so the listener sits on `status`. The action is already stored: no
     // `unsaved`, and a non-OK answer is an error line that leaves the result alone.
+    // A discard also closes the modal, with no confirmation, and says so in the notice.
+    const notice = document.getElementById("attempt-notice");
+    const noticeText = document.getElementById("attempt-notice-text");
+    const noticeDismiss = document.getElementById("attempt-notice-dismiss");
+    if (noticeDismiss) {
+      noticeDismiss.hidden = false;
+      noticeDismiss.addEventListener("click", function () { notice.hidden = true; });
+    }
     status.addEventListener("submit", function (event) {
       const target = event.target;
       if (!(target instanceof HTMLFormElement)) { return; }
@@ -965,12 +987,25 @@
       if (!/\/(sent|discard)$/.test(action)) { return; }
       event.preventDefault();
       error.classList.add("hidden");
+      const discarding = /\/discard$/.test(action);
+      const root = target.closest("[data-attempt]");
+      const number = root ? root.dataset.attempt : "";
       fetch(target.action, {method: "POST", headers: {"X-Requested-With": "fetch"}})
         .then(function (response) {
           if (!response.ok) { showError(response.status); return null; }
           return response.text();
         })
-        .then(function (html) { if (html !== null) { status.innerHTML = html; } })
+        .then(function (html) {
+          if (html === null) { return; }
+          status.innerHTML = html;
+          if (!discarding) { return; }
+          unsaved = false;
+          if (notice && noticeText) {
+            noticeText.textContent = modal.dataset.discarded.replace("{n}", number);
+            notice.hidden = false;
+          }
+          modal.close();
+        })
         .catch(function (failure) { showError(failure && failure.message ? failure.message : String(failure)); });
     });
     document.getElementById("attempt-close").addEventListener("click", requestClose);

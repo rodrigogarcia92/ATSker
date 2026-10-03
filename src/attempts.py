@@ -384,7 +384,18 @@ def attempt_view(
         "file_format": attempt.file_format,
         "created_at": attempt.created_at,
         "is_sent": attempt.is_sent,
+        "discarded": is_discarded(attempt),
     }
+
+
+def is_discarded(attempt: ApplicationAttempt) -> bool:
+    """A finished attempt whose draft "Descartar" blanked (F10.7).
+
+    The pipeline always stores `report["draft"]`, so only an explicit `None` is a discard:
+    an attempt with no report at all is not one.
+    """
+    report = attempt.report or {}
+    return effective_status(attempt) == "done" and "draft" in report and report["draft"] is None
 
 
 def application_attempts_report(attempts: Sequence[ApplicationAttempt]) -> list[dict]:
@@ -398,6 +409,7 @@ def application_attempts_report(attempts: Sequence[ApplicationAttempt]) -> list[
             "ceiling_low": attempt.ceiling_low,
             "ceiling_high": attempt.ceiling_high,
             "is_sent": attempt.is_sent,
+            "discarded": is_discarded(attempt),
             "error": attempt.error,
         }
         for attempt in attempts

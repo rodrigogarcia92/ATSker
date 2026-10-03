@@ -209,11 +209,23 @@ def application_report(
     session: DbSession,
     profile: OwnProfile,
     attempt: str | None = None,
+    discarded: str | None = None,
 ):
     application = get_application(profile.id, session, application_id)
     if application is None:
         return render(request, "not_found.html", user=user, status_code=404)
     attempt_rows = list_attempt_rows(profile.id, session, application.id)
+    # F10.7: a no-JS "Descartar" lands on `?discarded=<attempt_no>` and the page says so
+    # without opening the modal. A number that is not one of this application's attempts
+    # says nothing.
+    discarded_no = (
+        int(discarded)
+        if discarded is not None
+        and discarded.isascii()
+        and discarded.isdigit()
+        and any(row.attempt_no == int(discarded) for row in attempt_rows)
+        else None
+    )
     # F10.1/F10.7: `?attempt=<id>` reopens the modal on that attempt after a no-JS
     # action. An id that is not one of this application's attempts is ignored.
     open_attempt = attempt if any(str(row.id) == attempt for row in attempt_rows) else None
@@ -248,6 +260,7 @@ def application_report(
         # F10.1: the modal lists the attempts this analysis already has.
         attempts=application_attempts_report(attempt_rows),
         open_attempt=open_attempt,
+        discarded_no=discarded_no,
         findings=finding_rows(application.scan_readability or {}, user.ui_lang),
         # F7.3 Tier 3a: the rephrase control links only to a bullet that still exists
         # and is active — a stored report renders a deleted citation from its snapshot,

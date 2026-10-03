@@ -26,6 +26,7 @@ from src.attempt_merge import (
 from src.attempt_readiness import cap_target, readiness
 from src.attempts import (
     MAX_ATTEMPTS,
+    application_attempts_report,
     attempt_view,
     counted_attempts,
     create_attempt,
@@ -96,22 +97,29 @@ def _status(request: Request, user, application, attempt, session):
             ),
         ),
         readiness=_readiness(application, attempt),
-        attempts=list_attempts(application.profile_id, session, application.id),
+        attempts=application_attempts_report(
+            list_attempts(application.profile_id, session, application.id)
+        ),
     )
 
 
-def _modal_action_response(request: Request, user, application, attempt, session):
+def _modal_action_response(
+    request: Request, user, application, attempt, session, *, discarded: bool = False
+):
     """What "Marcar como enviada" and "Descartar" answer with (F10.1, F10.7).
 
     The modal's script posts with `X-Requested-With: fetch` and swaps the returned
     partial in place. Without it (no JavaScript, or a direct POST) the browser would
-    navigate to a bare fragment, so it is sent back to the report with the modal open.
+    navigate to a bare fragment, so it is sent back to the report. "Marcar como enviada"
+    lands with the modal open; "Descartar" lands with the page's notice and no modal,
+    because a discard closes it (F10.7).
     """
     if request.headers.get("x-requested-with", "").lower() == "fetch":
         return _status(request, user, application, attempt, session)
-    return RedirectResponse(
-        f"/applications/{application.id}?attempt={attempt.id}", status_code=303
+    target = (
+        f"?discarded={attempt.attempt_no}" if discarded else f"?attempt={attempt.id}"
     )
+    return RedirectResponse(f"/applications/{application.id}{target}", status_code=303)
 
 
 def _run_attempt(
@@ -389,7 +397,7 @@ def attempt_discard(
         return render(request, "not_found.html", user=user, status_code=404)
     discard_attempt(attempt)
     session.commit()
-    return _modal_action_response(request, user, application, attempt, session)
+    return _modal_action_response(request, user, application, attempt, session, discarded=True)
 
 
 @router.get("/applications/{application_id}/attempts/{attempt_id}/report")

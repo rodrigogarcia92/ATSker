@@ -96,10 +96,13 @@
         {{ t('attempt.actions.sent', lang) }}
       </button>
     </form>
+    {# A discarded attempt has no draft left to merge (F10.7). #}
+    {% if not view.discarded %}
     <a class="rounded-control border border-border px-2 py-1 text-sm"
        href="/applications/{{ application.id }}/attempts/{{ attempt.id }}/incorporate">
       {{ t('attempt.actions.incorporate', lang) }}
     </a>
+    {% endif %}
     <form method="post" action="/applications/{{ application.id }}/attempts/{{ attempt.id }}/discard">
       <button type="submit" class="rounded-control border border-border px-2 py-1 text-sm">
         {{ t('attempt.actions.discard', lang) }}

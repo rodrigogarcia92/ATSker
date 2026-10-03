@@ -302,7 +302,7 @@ def _plain_application(session, career):
     )
 
 
-def test_discard_without_the_header_redirects_back_to_the_modal(client, session, career):
+def test_discard_without_the_header_redirects_back_to_the_report(client, session, career):
     login(client, career.first.email)
     application = _plain_application(session, career)
     attempt = _done_attempt(session, career, application)
@@ -313,7 +313,8 @@ def test_discard_without_the_header_redirects_back_to_the_modal(client, session,
     )
 
     assert response.status_code == 303
-    assert response.headers["location"] == f"/applications/{application.id}?attempt={attempt.id}"
+    # V1: a discard closes the modal, so the redirect carries the notice, not the modal.
+    assert response.headers["location"] == f"/applications/{application.id}?discarded=1"
     session.expire_all()
     assert attempt.report["draft"] is None, "the draft is blanked"
     assert attempt.report["flags"] == {}, "and the report is kept"
@@ -420,3 +421,123 @@ def test_the_script_delegates_submit_for_sent_and_discard_and_checks_ok(
     assert '"X-Requested-With": "fetch"' in script
     assert script.index("response.ok") < script.index("status.innerHTML = html")
     assert "unsaved = true" not in script
+
+
+# --- V1: "Descartar" closes the modal and says so (F10.7) ---
+
+
+def _second_attempt(session, career, application) -> ApplicationAttempt:
+    attempt = ApplicationAttempt(
+        application_id=application.id,
+        profile_id=career.first_profile.id,
+        attempt_no=2,
+        status="done",
+        file_sha256="f" * 64,
+        prompt_versions={},
+        report={"draft": {"language": "es"}, "flags": {}},
+    )
+    session.add(attempt)
+    session.commit()
+    return attempt
+
+
+def test_no_js_discard_lands_on_the_notice_without_opening_the_modal(
+    client, session, career, provider
+):
+    login(client, career.first.email)
+    application, _analysis = analyzed_application(session, career, provider)
+    attempt = _done_attempt(session, career, application)
+
+    response = client.post(
+        f"/applications/{application.id}/attempts/{attempt.id}/discard",
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    assert response.headers["location"] == f"/applications/{application.id}?discarded=1"
+    page = client.get(response.headers["location"])
+    assert page.status_code == 200
+    notice = page.text[page.text.index('id="attempt-notice"'):]
+    notice = notice[: notice.index("</p>")]
+    assert "hidden" not in notice.split(">")[0], "the notice is visible"
+    assert "Intento 1 descartado; su informe queda en el historial." in plain(notice)
+    assert "data-open-attempt" not in page.text
+
+
+def test_a_discarded_number_that_is_not_an_attempt_says_nothing(
+    client, session, career, provider
+):
+    login(client, career.first.email)
+    application, _analysis = analyzed_application(session, career, provider)
+    _done_attempt(session, career, application)
+
+    for value in ("7", "abc", "-1", "²"):
+        page = client.get(f"/applications/{application.id}?discarded={value}")
+        assert page.status_code == 200
+        notice = page.text[page.text.index('id="attempt-notice"'):].split(">")[0]
+        assert "hidden" in notice, value
+
+
+def test_the_fetch_discard_still_returns_200_and_blanks_the_draft(client, session, career):
+    login(client, career.first.email)
+    application = _plain_application(session, career)
+    attempt = _done_attempt(session, career, application)
+
+    response = client.post(
+        f"/applications/{application.id}/attempts/{attempt.id}/discard", headers=FETCH
+    )
+
+    assert response.status_code == 200
+    session.expire_all()
+    assert attempt.report["draft"] is None
+
+
+def test_the_script_closes_the_modal_resets_unsaved_and_shows_the_notice(
+    client, session, career, provider
+):
+    login(client, career.first.email)
+    application, _analysis = analyzed_application(session, career, provider)
+    page = client.get(f"/applications/{application.id}").text
+
+    script = page[page.index("F10.7: \"Marcar como enviada\""):]
+    script = script[: script.index('document.getElementById("attempt-close")')]
+    assert "/discard$/.test(action)" in script
+    assert script.index("response.ok") < script.index("modal.close()")
+    assert "unsaved = false" in script and "modal.close()" in script
+    assert "notice.hidden = false" in script
+    assert 'id="attempt-notice"' in page and 'role="status"' in page
+    # A discard must not reload the page through the close handler.
+    close_handler = page[page.index('modal.addEventListener("close"'):]
+    assert "if (unsaved) { window.location.reload(); }" in close_handler
+
+
+def test_the_list_marks_a_discarded_attempt_and_only_that_one(client, session, career):
+    login(client, career.first.email)
+    application = _plain_application(session, career)
+    first = _done_attempt(session, career, application)
+    second = _second_attempt(session, career, application)
+    client.post(
+        f"/applications/{application.id}/attempts/{first.id}/discard", headers=FETCH
+    )
+
+    kept = client.get(f"/applications/{application.id}/attempts/{second.id}").text
+    listed = kept[kept.index('<ul class="mt-2 space-y-1'):]
+    rows = [row for row in listed.split("<li") if "data-status" in row]
+    assert len(rows) == 2
+    assert "descartado" in plain(rows[0]) and "descartado" not in plain(rows[1])
+
+
+def test_a_discarded_attempts_result_does_not_offer_incorporate(client, session, career):
+    login(client, career.first.email)
+    application = _plain_application(session, career)
+    first = _done_attempt(session, career, application)
+    second = _second_attempt(session, career, application)
+    client.post(
+        f"/applications/{application.id}/attempts/{first.id}/discard", headers=FETCH
+    )
+
+    discarded = client.get(f"/applications/{application.id}/attempts/{first.id}").text
+    other = client.get(f"/applications/{application.id}/attempts/{second.id}").text
+
+    assert "/incorporate" not in discarded
+    assert f"/attempts/{second.id}/incorporate" in other

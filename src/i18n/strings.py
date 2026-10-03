@@ -367,6 +367,13 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "Cover letter →",
     },
     "attempt.sent_done": {"es": "Marcada como enviada", "en": "Marked as sent"},
+    # F10.7 (V1): "Descartar" closes the modal and the report page says so.
+    "attempt.discarded": {
+        "es": "Intento {n} descartado; su informe queda en el historial.",
+        "en": "Attempt {n} discarded; its report stays in the history.",
+    },
+    "attempt.discarded_tag": {"es": "descartado", "en": "discarded"},
+    "attempt.notice_dismiss": {"es": "Cerrar aviso", "en": "Dismiss"},
     "attempt.incorporate.title": {
         "es": "Incorporar a mi material",
         "en": "Add to my material",
