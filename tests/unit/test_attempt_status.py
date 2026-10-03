@@ -140,6 +140,6 @@ def test_the_report_route_renders_the_full_report(client, session, career, provi
         client.get(f"/applications/{application.id}/attempts/{attempt.id}/report").text
     )
 
-    assert "Encaje total" in page
+    assert "Ajuste general" in page
     assert "Techo con tu material" in page
     assert "Componentes" in page

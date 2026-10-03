@@ -126,7 +126,7 @@ def test_the_desktop_layout_is_a_760_column_beside_a_sticky_rail(client, career,
     assert "lg:flex" in page
     for needed in ("hidden", "lg:sticky", "lg:top-6", "lg:block"):
         assert needed in rail.split(), f"the rail is {needed}"
-    assert "Encaje total" in part(page, "aside", "aria-label"), "the compact Job Match"
+    assert "Ajuste general" in part(page, "aside", "aria-label"), "the compact Job Match"
     assert "techo " in part(page, "aside", "aria-label"), "and its ceiling"
 
 

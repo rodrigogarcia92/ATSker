@@ -217,8 +217,8 @@ STRINGS: dict[str, dict[str, str]] = {
     "recall.label.core": {"es": "núcleo", "en": "core"},
     "recall.intro": {
         "es": "Las consultas que un reclutador escribiría en un ATS o en un portal, y "
-        "si tu puesto objetivo aparecería en sus resultados. No entra en el Encaje "
-        "total: una consulta es una puerta, no un porcentaje.",
+        "si tu puesto objetivo aparecería en sus resultados. No entra en el Ajuste "
+        "general: una consulta es una puerta, no un porcentaje.",
         "en": "The queries a recruiter would type in an ATS or a job board, and whether "
         "your track would come back in the results. It does not enter the Job Match "
         "number: a query is a gate, not a percentage.",
@@ -257,7 +257,7 @@ STRINGS: dict[str, dict[str, str]] = {
     # Report
     "report.title": {"es": "Informe", "en": "Report"},
     "report.analysed_on": {"es": "Analizado el", "en": "Analysed on"},
-    "report.total": {"es": "Encaje total", "en": "Overall fit"},
+    "report.total": {"es": "Ajuste general", "en": "Overall fit"},
     "report.capped": {
         "es": "Limitado a {cap} por la comprobación de formato ({check}); sin límite "
         "sería {uncapped}.",

@@ -281,3 +281,58 @@ def test_the_page_stores_nothing_about_what_was_opened(client, career, provider)
 
     assert "localStorage" not in page and "sessionStorage" not in page
     assert "document.cookie" not in page
+
+
+# --- V5: "Ajuste general" and the warning count (§12.1) ---
+
+
+def test_the_score_is_called_ajuste_general_in_the_section_the_rail_and_the_nav(
+    client, career, provider
+):
+    page = analysed_page(client, career)
+
+    assert "Encaje total" not in text_of(page)
+    assert "Ajuste general" in text_of(section(page, "fit"))
+    rail = re.search(r'<aside\b[^>]*aria-label="Acciones".*?</aside>', page, re.S).group(0)
+    assert "Ajuste general" in text_of(rail), "the compact Job Match in the rail"
+    nav = re.search(r"<nav\b[^>]*aria-label=\"En esta página\".*?</nav>", rail, re.S).group(0)
+    assert re.search(r'href="#fit"[^>]*>\s*Ajuste general\s*<', nav), "and its jump link"
+    assert t("report.total", "en") == "Overall fit", "the key keeps its name; English is unchanged"
+
+
+def test_one_warning_and_two_alerts_count_as_one_warning(client, session, career):
+    alerts = [
+        {"kind": "over_seniority"},
+        {"kind": "location", "requirement": "Presencial en Lima", "verdict": "unverified"},
+    ]
+    gaps = {**GAPS, "alerts": alerts}
+    application = stored(session, career, gaps=gaps)
+    login(client, career.first.email)
+
+    before = section(client.get(f"/applications/{application.id}").text, "before")
+
+    text = text_of(before)
+    assert "Advertencia · 1" in text
+    assert "1 advertencia" in text and "3 advertencias" not in text
+    assert "Advertencia · 3" not in text
+    # The alerts are still inside the toggle.
+    toggle = [block for block in before.split("<details") if "Advertencia" in block][0]
+    assert "Salto desde el sector público" in text_of(toggle)
+    assert text_of(toggle).count("Presencial en Lima") == 1
+
+
+def test_alerts_without_a_warning_count_zero_and_say_there_is_no_warning(
+    client, session, career
+):
+    gaps = {
+        **GAPS,
+        "warning": {"text": "", "handling": ""},
+        "alerts": [{"kind": "over_seniority"}],
+    }
+    application = stored(session, career, gaps=gaps)
+    login(client, career.first.email)
+
+    text = text_of(section(client.get(f"/applications/{application.id}").text, "before"))
+
+    assert "Advertencia · 0" in text
+    assert t("report.before.no_warning", "es") in text

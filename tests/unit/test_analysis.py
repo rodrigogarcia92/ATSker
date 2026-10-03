@@ -1550,7 +1550,7 @@ def test_the_report_page_shows_the_recall_panel(client, session, career, provide
     assert "¿Te encuentra el reclutador?" in page
     assert "Falla en «machine learning»" in page
     assert "no aparece ningún alias de este término" in page
-    assert "No entra en el Encaje total" in page, "the panel says it is not part of the score"
+    assert "No entra en el Ajuste general" in page, "the panel says it is not part of the score"
     assert "Apareces en 1 de 2 búsquedas" in page
     # A.9.2: the recruiter's line, to paste, and the control that copies it.
     assert '"analista de datos" AND python' in html.unescape(page)
@@ -1627,7 +1627,7 @@ def test_the_report_sections_follow_the_approved_order_with_a_readability_scan(
     assert_in_order(
         page,
         [
-            "Encaje total",
+            "Ajuste general",
             "Componentes",
             "Requisitos y evidencia",
             "¿El ATS lee bien tu CV?",
@@ -1648,7 +1648,7 @@ def test_the_report_sections_follow_the_approved_order_with_a_recall_scan(
     assert_in_order(
         page,
         [
-            "Encaje total",
+            "Ajuste general",
             "Componentes",
             "¿Te encuentra el reclutador?",
             "Requisitos y evidencia",

@@ -135,8 +135,8 @@ def test_a_score_change_is_listed_and_is_not_no_change(client, session, career):
     assert change["score"] == {"before": 63, "after": 59}
     page = _status(client, application, second)
     assert "Experiencia 91 → 42" in page
-    assert "Encaje total 63 → 59" in page
-    assert page.index("Encaje total 63") < page.index("Experiencia 91")
+    assert "Ajuste general 63 → 59" in page
+    assert page.index("Ajuste general 63") < page.index("Experiencia 91")
     assert "Sin cambios respecto al intento anterior" not in page
 
 

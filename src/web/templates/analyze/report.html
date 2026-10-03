@@ -555,7 +555,9 @@
 {% set transfer_rows = gap_data.covered_by_transfer or [] %}
 {% set warning = gap_data.warning or {} %}
 {% set alert_rows = gap_data.alerts or [] %}
-{% set warning_count = (1 if warning.text else 0) + (alert_rows | length) %}
+{# The count is the warning itself — 0 or 1. The alerts sit inside the toggle but are not
+   counted in it or in the summary line (§12.1 item 8: "the single warning and its alerts"). #}
+{% set warning_count = 1 if warning.text else 0 %}
 <section id="before" class="mt-8">
 <h2 class="text-lg font-semibold">{{ t('report.before_applying', lang) }}</h2>
 
@@ -639,6 +641,8 @@
         <p class="mt-1">{{ t('report.gap_handling', lang) }} {{ warning.handling }}</p>
         {% endif %}
       </div>
+      {% else %}
+      <p class="text-sm text-text-2">{{ t('report.before.no_warning', lang) }}</p>
       {% endif %}
       {% if alert_rows %}
       {# F6.1's alerts beside the single warning, never inside the gap list and never in
@@ -663,9 +667,6 @@
         </li>
         {% endfor %}
       </ul>
-      {% endif %}
-      {% if not warning_count %}
-      <p class="text-sm text-text-2">{{ t('report.before.no_warning', lang) }}</p>
       {% endif %}
     </div>
   </details>
