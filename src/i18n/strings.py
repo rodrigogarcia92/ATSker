@@ -2180,6 +2180,19 @@ STRINGS: dict[str, dict[str, str]] = {
     "report.advice.chip_position": {"es": "{position} → top 3", "en": "{position} → top 3"},
     "report.advice.see_more": {"es": "Ver más", "en": "See more"},
     "report.advice.see_all": {"es": "Ver todas ({n})", "en": "See all ({n})"},
+    # §12.1 item 10 (queue U6): the desktop action rail and the phone's bottom bar.
+    "report.actions.label": {"es": "Acciones", "en": "Actions"},
+    "report.actions.try_cv": {
+        "es": "Probar nueva versión del CV",
+        "en": "Try a new CV version",
+    },
+    "report.actions.try_cv_short": {"es": "Probar nuevo CV", "en": "Try a new CV"},
+    "report.actions.letter": {
+        "es": "Escribir carta de presentación",
+        "en": "Write a cover letter",
+    },
+    "report.actions.letter_short": {"es": "Escribir carta", "en": "Write letter"},
+    "report.on_this_page": {"es": "En esta página", "en": "On this page"},
     # §12.3 — the line under a paid form's button while the provider works. Honest
     # ranges and a live counter; no invented steps.
     "progress.analyze": {

@@ -1698,7 +1698,7 @@ def test_the_report_page_uses_the_wider_column_and_a_two_by_two_grid(
 
     page = client.get(posted.headers["location"]).text
 
-    assert "max-w-5xl" in page
+    assert "max-w-6xl" in page
     assert "grid grid-cols-2 gap-3" in page, "the four sub-score cards are a 2 × 2 grid"
     assert "grid-cols-1 gap-3 sm:grid-cols-2" not in page, "never one column on the phone"
 
