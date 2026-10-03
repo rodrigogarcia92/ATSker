@@ -871,22 +871,27 @@
         {{ t('common.cancel', lang) }}
       </button>
     </div>
+    {# F10.4: the upload area is shown while the analysis has no attempts. Once there is a
+       result (or an attempt running) it is hidden, and "Nuevo intento" at the end of the
+       result brings it back, cleared. #}
+    <div id="attempt-upload"{% if attempts %} hidden{% endif %}>
     <form id="attempt-form" method="post" enctype="multipart/form-data"
           action="/applications/{{ application.id }}/attempts" class="mt-3 space-y-2">
       <label for="attempt-file" class="block text-sm">{{ t('attempt.form.file', lang) }}</label>
       <div class="flex flex-wrap items-center gap-2">
         <input id="attempt-file" type="file" name="file" accept=".docx,.pdf" required
                class="attempt-file-input sr-only">
-        <label for="attempt-file" class="attempt-file-button rounded-control border border-border px-3 py-2 text-sm">
+        <label for="attempt-file" class="attempt-file-button inline-flex min-h-11 items-center rounded-control border border-border px-3 text-sm">
           {{ t('attempt.form.choose', lang) }}
         </label>
         <span id="attempt-file-name" class="min-w-0 break-all text-sm text-text-2"
               data-empty="{{ t('attempt.form.no_file', lang) }}">{{ t('attempt.form.no_file', lang) }}</span>
       </div>
-      <button type="submit" id="attempt-submit" class="rounded-control border border-border px-3 py-2 text-sm">
+      <button type="submit" id="attempt-submit" class="min-h-11 rounded-control border border-border px-3 text-sm">
         {{ t('attempt.form.submit', lang) }}
       </button>
     </form>
+    </div>
     <p id="attempt-progress" role="status" class="mt-2 hidden text-sm text-text-2">{{ t('attempt.form.working', lang) }}</p>
     <p id="attempt-error" class="mt-2 hidden text-sm text-sev-blocker"></p>
     <div id="attempt-status" class="mt-3">
@@ -908,6 +913,7 @@
     const submit = document.getElementById("attempt-submit");
     const file = document.getElementById("attempt-file");
     const fileName = document.getElementById("attempt-file-name");
+    const upload = document.getElementById("attempt-upload");
     let poll = null;
     let unsaved = false;
 
@@ -937,10 +943,15 @@
       }, 2000);
     }
 
+    // C5's in-flight state; F10.4 adds that while an attempt runs neither the upload area
+    // nor "Nuevo intento" is offered (the result under it is the previous one).
     function setBusy(busy) {
       submit.disabled = busy;
       file.disabled = busy;
       progress.classList.toggle("hidden", !busy);
+      upload.hidden = busy;
+      const again = document.getElementById("attempt-new");
+      if (again) { again.hidden = busy; }
     }
 
     function showError(detail) {
@@ -962,7 +973,42 @@
       if (bar) { bar.classList.add("hidden"); }
       const running = status.querySelector('[data-status="running"]');
       if (running && running.dataset.attemptUrl) { startPoll(running.dataset.attemptUrl); }
+      showLatest();
     }
+
+    // F10.4: with earlier attempts the upload area is hidden, so the modal opens on a
+    // result — the attempt a no-JS action returned to, else the latest one. A GET: it
+    // never calls the provider. If it cannot be loaded the upload area comes back rather
+    // than leaving the modal with neither.
+    function showLatest() {
+      if (status.querySelector("[data-attempt]")) { return; }
+      const rows = Array.from(status.querySelectorAll("[data-attempt-url]"));
+      if (!rows.length) { return; }
+      const wanted = modal.dataset.openAttempt;
+      const row = rows.find(function (item) {
+        return wanted && item.dataset.attemptUrl.endsWith("/" + wanted);
+      }) || rows[rows.length - 1];
+      fetch(row.dataset.attemptUrl, {headers: {"Accept": "text/html"}})
+        .then(function (response) { return response.ok ? response.text() : null; })
+        .then(function (html) {
+          if (html === null) { upload.hidden = false; return; }
+          status.innerHTML = html;
+        })
+        .catch(function () { upload.hidden = false; });
+    }
+
+    // F10.4: "Nuevo intento" reopens the upload area, cleared, in view and focused. The
+    // button sits in the re-rendered result, so the listener is on `status`.
+    status.addEventListener("click", function (event) {
+      const button = event.target.closest("#attempt-new");
+      if (!button || button.disabled) { return; }
+      error.classList.add("hidden");
+      upload.hidden = false;
+      file.value = "";
+      fileName.textContent = fileName.dataset.empty;
+      upload.scrollIntoView({block: "start"});
+      file.focus();
+    });
     [opener, document.getElementById("attempt-open-bar")].forEach(function (button) {
       if (button) { button.addEventListener("click", openModal); }
     });
@@ -1026,6 +1072,7 @@
       event.preventDefault();
       error.classList.add("hidden");
       const body = new FormData(form);
+      let resultShown = false;
       setBusy(true);
       fetch(form.action, {method: "POST", body: body})
         .then(function (response) {
@@ -1039,13 +1086,18 @@
           }
           return response.text().then(function (html) {
             status.innerHTML = html;
+            resultShown = true;
             const root = status.querySelector("[data-attempt]");
             unsaved = true;
             if (root && root.dataset.status === "running") { startPoll(root.dataset.attemptUrl); }
           });
         })
         .catch(function (failure) { showError(failure && failure.message ? failure.message : String(failure)); })
-        .then(function () { setBusy(false); });
+        .then(function () {
+          setBusy(false);
+          // A returned result collapses the upload area; a refusal leaves it for a retry.
+          upload.hidden = resultShown;
+        });
     });
   })();
 </script>

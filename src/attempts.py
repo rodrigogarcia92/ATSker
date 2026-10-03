@@ -115,6 +115,20 @@ def _next_number(
     return int(session.scalar(stmt) or 0) + 1
 
 
+def next_attempt_state(
+    profile_id: uuid.UUID, session: Session, application_id: uuid.UUID
+) -> tuple[int, bool]:
+    """The number the next attempt will get, and whether the limit already forbids it.
+
+    The number counts every row, failed ones included, like the row it will become; the
+    limit counts only the attempts that consume one of the ten (A5/A6).
+    """
+    return (
+        _next_number(profile_id, session, application_id),
+        counted_attempts(profile_id, session, application_id) >= MAX_ATTEMPTS,
+    )
+
+
 def create_attempt(
     profile_id: uuid.UUID,
     session: Session,

@@ -424,7 +424,13 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "No attempts yet.",
     },
     # F10.1/F10.4 (Run C): the modal, the result's content order and its wording.
-    "attempt.form.submit": {"es": "Probar", "en": "Test"},
+    "attempt.form.submit": {"es": "Probar este archivo", "en": "Test this file"},
+    # F10.4: the button at the end of a result that reopens the upload area. At the limit
+    # it states `attempt.limit`, which already says the maximum is reached.
+    "attempt.new": {
+        "es": "Nuevo intento ({n} de {max})",
+        "en": "New attempt ({n} of {max})",
+    },
     "attempt.form.file": {"es": "Archivo (.docx o .pdf)", "en": "File (.docx or .pdf)"},
     "attempt.form.choose": {"es": "Elegir archivo", "en": "Choose file"},
     "attempt.form.no_file": {"es": "Ningún archivo elegido", "en": "No file chosen"},

@@ -35,6 +35,7 @@ from src.attempts import (
     finish_run,
     get_attempt,
     list_attempts,
+    next_attempt_state,
     previous_done_attempt,
     run_pipeline,
 )
@@ -83,6 +84,7 @@ def _readiness(application, attempt):
 
 
 def _status(request: Request, user, application, attempt, session):
+    next_no, at_limit = next_attempt_state(application.profile_id, session, application.id)
     return render(
         request,
         "attempts/status.html",
@@ -97,6 +99,10 @@ def _status(request: Request, user, application, attempt, session):
             ),
         ),
         readiness=_readiness(application, attempt),
+        # F10.4: "Nuevo intento (N de 10)" at the end of a result.
+        next_no=next_no,
+        at_limit=at_limit,
+        max_attempts=MAX_ATTEMPTS,
         attempts=application_attempts_report(
             list_attempts(application.profile_id, session, application.id)
         ),

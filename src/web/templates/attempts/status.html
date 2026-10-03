@@ -16,6 +16,9 @@
   <p class="mt-1 text-xs text-text-3">{{ t('attempt.running', lang) }}</p>
   {% elif view.status == 'failed' %}
   <p class="mt-1 text-xs text-sev-blocker">{{ view.error }}</p>
+  {# A failure is not counted, and the upload area is hidden once there is a result, so
+     it needs the same way back as a finished attempt (F10.4). #}
+  {% include "attempts/_new.html" %}
   {% elif view.has_report %}
   {% include "attempts/_result.html" %}
   {% endif %}
