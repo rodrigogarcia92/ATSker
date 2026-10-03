@@ -11,7 +11,7 @@ from src.config import get_settings
 from src.i18n import DEFAULT_LANG, t
 from src.models import User
 from src.normalize.text import fold
-from src.web.alerts import advice_line, language_alert
+from src.web.alerts import advice_layout, advice_line, language_alert
 
 _TEMPLATES = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 _TEMPLATES.env.globals["t"] = t
@@ -21,6 +21,8 @@ _TEMPLATES.env.globals["app_name"] = t("app.name", DEFAULT_LANG)
 _TEMPLATES.env.globals["language_alert"] = language_alert
 # F7.2's advice lines: the stored item is ids and numbers, the sentence is the page's.
 _TEMPLATES.env.globals["advice_line"] = advice_line
+# U5: the same items, grouped and split at the first three.
+_TEMPLATES.env.globals["advice_layout"] = advice_layout
 # `fold` (lowercase, unaccented) is how the data compares terms, so a template that
 # matches a typed chip against a stored term must fold both sides the same way
 # (F2.9's pending terms, which the user may have typed with capitals or accents).

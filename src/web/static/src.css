@@ -497,3 +497,9 @@ body.rail-open .rail-body {
 .req-weak {
   --req-color: var(--color-score-weak);
 }
+
+/* §12.1 item 6: an advice item's evidence is clamped to two lines, and "Ver más" opens
+   the full text in its place — the clamped copy hides while its <details> is open. */
+.advice-evidence:has(details[open]) > .advice-clamp {
+  display: none;
+}

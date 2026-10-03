@@ -7,7 +7,8 @@ list of one, two and three items and of each advice rule — which is why these 
 functions and not template blocks.
 """
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
+from typing import Any
 
 from src.i18n import t
 from src.i18n.strings import STRINGS, join_list
@@ -134,3 +135,52 @@ def advice_line(item: Mapping[str, object], lang: str, *, for_file: bool = False
     if for_file and f"report.advice.file.{kind}" in STRINGS:
         key = f"report.advice.file.{kind}"
     return t(key, lang, **values)
+
+
+# §12.1 item 6 (queue U5): the F7.2 items are shown in these groups, in this order.
+# Each group is a heading with a count; a kind that is in none of them (a future rule)
+# is shown under `other` rather than dropped.
+ADVICE_GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("promote", ("promote_bullet",)),
+    ("add", ("add_bullet",)),
+    ("skills", ("surface_skill",)),
+    ("search", ("fix_query", "title_language", "title_headline")),
+    ("language", ("language",)),
+)
+ADVICE_SHOWN = 3
+
+
+def advice_layout(
+    items: Sequence[Mapping[str, object]] | None, shown: int = ADVICE_SHOWN
+) -> dict[str, Any]:
+    """The stored advice, grouped, with the first `shown` items kept above the fold.
+
+    Groups come in the fixed order above and keep their items in stored order, so the
+    first three overall are the first items of the first groups. The skills group is one
+    card, never split: if any of its items is inside the first three, the whole card is.
+    What does not fit goes to `rest`, grouped the same way, for the "Ver todas" toggle.
+    `total` is every item, which is the number that toggle names.
+    """
+    source = [item for item in items or [] if isinstance(item, Mapping)]
+    known = {kind for _key, kinds in ADVICE_GROUPS for kind in kinds}
+    groups = [
+        (key, [item for item in source if item.get("kind") in kinds])
+        for key, kinds in ADVICE_GROUPS
+    ]
+    groups.append(("other", [item for item in source if item.get("kind") not in known]))
+    visible: list[dict[str, Any]] = []
+    rest: list[dict[str, Any]] = []
+    budget = shown
+    for key, members in groups:
+        if not members:
+            continue
+        if key == "skills":
+            take = len(members) if budget > 0 else 0
+        else:
+            take = min(max(budget, 0), len(members))
+        budget -= take
+        if take:
+            visible.append({"key": key, "items": members[:take]})
+        if take < len(members):
+            rest.append({"key": key, "items": members[take:]})
+    return {"shown": visible, "rest": rest, "total": len(source)}

@@ -335,109 +335,159 @@
 {% if report.recommendation or report.advice or application.track_id %}
 <section id="recommendations">
 <h2 class="mt-8 text-lg font-semibold">{{ t('report.advice', lang) }}</h2>
-<div class="mt-3 grid grid-cols-1 gap-6 sm:grid-cols-2">
-  <div>
-    {% if report.recommendation %}
-    {# F7.1: the posting scored against every candidate track, above the components of
-       the chosen one. A report stored before the recommendation existed has none. #}
-    <p class="text-sm font-semibold">{{ t('report.recommendation', lang) }}</p>
-    <p class="mt-1 text-xs text-text-3">{{ t('report.recommendation.intro', lang) }}</p>
-    {% if report.recommendation.candidates %}
-    <div class="mt-2 max-w-full overflow-x-auto rounded-control border border-card-border bg-surface-1">
-      <table class="w-full text-sm">
-        <thead>
-          <tr class="border-b border-card-border text-xs uppercase tracking-wide text-text-3">
-            <th class="px-3 py-2 text-left">{{ t('report.recommendation.track', lang) }}</th>
-            <th class="px-3 py-2 text-right">{{ t('report.total', lang) }}</th>
-            {% for name in ['skills', 'experience', 'title', 'keywords'] %}
-            <th class="px-3 py-2 text-right">{{ t('report.sub.' ~ name, lang) }}</th>
-            {% endfor %}
-          </tr>
-        </thead>
-        <tbody>
-          {% for candidate in report.recommendation.candidates %}
-          <tr class="border-b border-card-border last:border-0">
-            <td class="px-3 py-2">
-              {{ candidate.name }}
-              {% if candidate.chosen %}
-              <span class="rounded-tag border border-score-strong px-2 py-0.5 text-xs text-score-strong">{{ t('report.recommendation.chosen', lang) }}</span>
-              {% endif %}
-            </td>
-            <td class="px-3 py-2 text-right font-semibold">{{ candidate.job_match }}</td>
-            {% for name in ['skills', 'experience', 'title', 'keywords'] %}
-            <td class="px-3 py-2 text-right text-text-2">{{ candidate.sub_scores.get(name, '—') }}</td>
-            {% endfor %}
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+{% if report.advice %}
+<p class="mt-1 text-sm text-text-2">{{ t('report.advice.intro', lang) }}</p>
+{% endif %}
+
+{# One item, in whichever group it falls. A promote item leads with its position chip;
+   its evidence is clamped to two lines and "Ver más" opens the whole text. #}
+{% macro advice_item(item, for_file) -%}
+<li class="flex items-start gap-3 px-4 py-3">
+  {% if item.kind == 'promote_bullet' %}
+  <span class="tag flex-none">{{ t('report.advice.chip_position', lang, position=item['values'].position) }}</span>
+  {% endif %}
+  <div class="min-w-0 flex-1">
+    <p class="text-sm">{{ advice_line(item, lang, for_file=for_file) }}</p>
+    {% if item.evidence %}
+    <div class="advice-evidence mt-1">
+      <p class="advice-clamp line-clamp-2 text-xs text-text-3">{{ item.evidence }}</p>
+      {% if item.evidence | length > 60 %}
+      <details class="disclosure text-xs">
+        <summary class="text-link">{{ t('report.advice.see_more', lang) }}</summary>
+        <p class="pb-2 pl-6 text-text-3">{{ item.evidence }}</p>
+      </details>
+      {% endif %}
     </div>
     {% endif %}
-    {% if report.recommendation.margin is not none %}
-    <p class="mt-2 text-sm text-text-2">
-      {{ t('report.recommendation.margin', lang,
-            runner_up=report.recommendation.candidates[1].name,
-            margin=report.recommendation.margin) }}
-    </p>
-    {% endif %}
-    {% if report.recommendation.tie_break %}
-    <p class="mt-1 text-sm text-text-2">
-      {{ t('report.recommendation.tie_sub', lang,
-            sub_score=t('report.sub.' ~ report.recommendation.tie_break.sub_score, lang),
-            delta=report.recommendation.tie_break.delta) }}
-      {% if report.recommendation.tie_break.organisation_track %}
-      {{ t('report.recommendation.tie_organisation', lang,
-            track=report.recommendation.tie_break.organisation_track) }}
-      {% endif %}
-    </p>
-    {% endif %}
-    {% if report.recommendation.justification %}
-    <p class="mt-1 text-sm">
-      {% if report.recommendation.justification.runner_up %}
-      {{ t('report.recommendation.justification', lang,
-            track=report.recommendation.justification.track,
-            sub_score=t('report.sub.' ~ report.recommendation.justification.sub_score, lang),
-            delta=report.recommendation.justification.delta,
-            runner_up=report.recommendation.justification.runner_up,
-            applies_when=report.recommendation.justification.applies_when) }}
-      {% else %}
-      {{ t('report.recommendation.justification_single', lang,
-            track=report.recommendation.justification.track,
-            applies_when=report.recommendation.justification.applies_when) }}
-      {% endif %}
-    </p>
-    {% endif %}
-    {% if report.recommendation.not_graded %}
-    <p class="mt-1 text-xs text-text-3">
-      {{ t('report.recommendation.not_graded', lang,
-            names=report.recommendation.not_graded | map(attribute='name') | join(', ')) }}
-    </p>
-    {% endif %}
-    {% endif %}
   </div>
-  <div>
-    {% if report.advice %}
-    {# F7.2: the six deterministic rules, in order. Each item is a claim, a one-line
-       reason and the rule it came from. A report stored before the rules existed has
-       no `advice` and renders exactly as it did. #}
-    <p class="text-sm font-semibold">{{ t('report.advice.intro', lang) }}</p>
-    <ul class="mt-2 space-y-2">
-      {% for item in report.advice %}
-      <li class="rounded-control border border-card-border bg-surface-1 px-3 py-2 text-sm">
-        <span class="rounded-tag border border-link px-2 py-0.5 text-xs text-link">{{ t('report.advice.tag.' ~ item.kind, lang) }}</span>
-        <span class="mt-1 block">{{ advice_line(item, lang, for_file=advice_for_file) }}</span>
-        {% if item.evidence %}
-        <span class="mt-1 block text-xs text-text-3">{{ t('report.advice.evidence', lang) }}: {{ item.evidence }}</span>
-        {% endif %}
-      </li>
+</li>
+{%- endmacro %}
+{% macro advice_groups(groups, for_file) -%}
+{% for group in groups %}
+<div class="mt-4">
+  <h3 class="text-sm font-semibold text-text-2">
+    {{ t('report.advice.group.add_file' if group.key == 'add' and for_file else 'report.advice.group.' ~ group.key, lang) }}
+    <span class="font-normal text-text-3">· {{ group['items'] | length }}</span>
+  </h3>
+  {% if group.key == 'skills' %}
+  <div class="mt-2 space-y-2 rounded-card border border-card-border bg-surface-1 px-4 py-3">
+    <p class="text-sm">{{ t('report.advice.file.skills_card' if for_file else 'report.advice.skills_card', lang) }}</p>
+    <ul class="flex flex-wrap gap-1.5">
+      {% for item in group['items'] %}
+      <li class="tag text-sm">{{ item.canonical or item['values'].canonical }}</li>
       {% endfor %}
     </ul>
-    {% endif %}
   </div>
+  {% else %}
+  <ul class="mt-2 divide-y divide-card-border rounded-card border border-card-border bg-surface-1">
+    {% for item in group['items'] %}{{ advice_item(item, for_file) }}{% endfor %}
+  </ul>
+  {% endif %}
 </div>
+{% endfor %}
+{%- endmacro %}
+
+{% if report.recommendation %}
+{# F7.1: the posting scored against every candidate track, its own card above the advice.
+   A report stored before the recommendation existed has none. #}
+<div id="track-ranking" class="mt-4 rounded-card border border-card-border bg-surface-1 p-4">
+  <p class="text-sm font-semibold">{{ t('report.recommendation', lang) }}</p>
+  <p class="mt-1 text-xs text-text-3">{{ t('report.recommendation.intro', lang) }}</p>
+  {% if report.recommendation.candidates %}
+  <div class="mt-2 max-w-full overflow-x-auto rounded-control border border-card-border bg-bg">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="border-b border-card-border text-xs uppercase tracking-wide text-text-3">
+          <th class="px-3 py-2 text-left">{{ t('report.recommendation.track', lang) }}</th>
+          <th class="px-3 py-2 text-right">{{ t('report.total', lang) }}</th>
+          {% for name in ['skills', 'experience', 'title', 'keywords'] %}
+          <th class="px-3 py-2 text-right">{{ t('report.sub.' ~ name, lang) }}</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for candidate in report.recommendation.candidates %}
+        <tr class="border-b border-card-border last:border-0">
+          <td class="px-3 py-2">
+            {{ candidate.name }}
+            {% if candidate.chosen %}
+            <span class="rounded-tag border border-score-strong px-2 py-0.5 text-xs text-score-strong">{{ t('report.recommendation.chosen', lang) }}</span>
+            {% endif %}
+          </td>
+          <td class="px-3 py-2 text-right font-semibold">{{ candidate.job_match }}</td>
+          {% for name in ['skills', 'experience', 'title', 'keywords'] %}
+          <td class="px-3 py-2 text-right text-text-2">{{ candidate.sub_scores.get(name, '—') }}</td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+  {% if report.recommendation.margin is not none %}
+  <p class="mt-2 text-sm text-text-2">
+    {{ t('report.recommendation.margin', lang,
+          runner_up=report.recommendation.candidates[1].name,
+          margin=report.recommendation.margin) }}
+  </p>
+  {% endif %}
+  {% if report.recommendation.tie_break %}
+  <p class="mt-1 text-sm text-text-2">
+    {{ t('report.recommendation.tie_sub', lang,
+          sub_score=t('report.sub.' ~ report.recommendation.tie_break.sub_score, lang),
+          delta=report.recommendation.tie_break.delta) }}
+    {% if report.recommendation.tie_break.organisation_track %}
+    {{ t('report.recommendation.tie_organisation', lang,
+          track=report.recommendation.tie_break.organisation_track) }}
+    {% endif %}
+  </p>
+  {% endif %}
+  {% if report.recommendation.justification %}
+  <p class="mt-1 text-sm">
+    {% if report.recommendation.justification.runner_up %}
+    {{ t('report.recommendation.justification', lang,
+          track=report.recommendation.justification.track,
+          sub_score=t('report.sub.' ~ report.recommendation.justification.sub_score, lang),
+          delta=report.recommendation.justification.delta,
+          runner_up=report.recommendation.justification.runner_up,
+          applies_when=report.recommendation.justification.applies_when) }}
+    {% else %}
+    {{ t('report.recommendation.justification_single', lang,
+          track=report.recommendation.justification.track,
+          applies_when=report.recommendation.justification.applies_when) }}
+    {% endif %}
+  </p>
+  {% endif %}
+  {% if report.recommendation.not_graded %}
+  <p class="mt-1 text-xs text-text-3">
+    {{ t('report.recommendation.not_graded', lang,
+          names=report.recommendation.not_graded | map(attribute='name') | join(', ')) }}
+  </p>
+  {% endif %}
+</div>
+{% endif %}
+
+{% if report.advice %}
+{# F7.2: the six deterministic rules, in order, grouped. Each item is a claim, a one-line
+   reason and the stored evidence. A report stored before the rules existed has no
+   `advice` and renders without this part. The first three show; the rest sit behind
+   "Ver todas", whose count is every item. #}
+{% set layout = advice_layout(report.advice) %}
+{{ advice_groups(layout.shown, advice_for_file) }}
+{% if layout.rest %}
+<details class="disclosure mt-4 rounded-card border border-card-border bg-surface-1 px-4">
+  <summary class="font-medium">{{ t('report.advice.see_all', lang, n=layout.total) }}</summary>
+  <div class="pb-3">
+    {{ advice_groups(layout.rest, advice_for_file) }}
+  </div>
+</details>
+{% endif %}
+{% endif %}
+
 {% if application.track_id and not attempt_view %}
-<p class="mt-3 text-sm">
-  <a href="/applications/{{ application.id }}/summary" class="text-link underline">{{ t('generate.propose_summary', lang) }}</a>
+<p class="mt-4">
+  <a href="/applications/{{ application.id }}/summary"
+     class="inline-flex min-h-11 items-center rounded-control border border-border px-4 text-sm text-link">{{ t('generate.propose_summary', lang) }}</a>
 </p>
 {% endif %}
 </section>

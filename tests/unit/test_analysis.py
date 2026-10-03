@@ -1183,8 +1183,9 @@ def test_the_report_page_shows_the_edit_recommendations(client, session, career,
     assert "Recomendaciones" in page
     # The rule that fires here: python is asked for, evidenced on a bullet, in the
     # pool, and missing from the track's own skills list (F7.2's rule 3).
-    assert "Añade python a las habilidades del puesto" in page
-    assert "Evidencia: python" in page
+    # U5: every skill to add is a tag in one card with one sentence.
+    assert "Añade a las habilidades del puesto: la oferta las pide" in page
+    assert "Habilidades · 1" in page and " python " in page
 
 
 def w3_report() -> dict:

@@ -2153,6 +2153,33 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "Select one to see its evidence.",
     },
     "report.req.level_of": {"es": "nivel {level} de 3", "en": "level {level} of 3"},
+    # §12.1 item 6 (queue U5): the recommendations in one column, grouped under headings
+    # with counts. `add_file` is the same group worded for a document (an attempt).
+    "report.advice.group.promote": {"es": "Ordena tus bullets", "en": "Order your bullets"},
+    "report.advice.group.add": {"es": "Añade a este puesto", "en": "Add to this track"},
+    "report.advice.group.add_file": {
+        "es": "Añade a tu documento",
+        "en": "Add to your document",
+    },
+    "report.advice.group.skills": {"es": "Habilidades", "en": "Skills"},
+    "report.advice.group.search": {"es": "Búsquedas y título", "en": "Searches and title"},
+    "report.advice.group.language": {"es": "Idioma", "en": "Language"},
+    "report.advice.group.other": {"es": "Otras", "en": "Other"},
+    "report.advice.skills_card": {
+        "es": "Añade a las habilidades del puesto: la oferta las pide y las tienes "
+        "evidenciadas.",
+        "en": "Add to the track's skills: the posting asks for them and you have them "
+        "evidenced.",
+    },
+    "report.advice.file.skills_card": {
+        "es": "Añade a las habilidades de tu documento: la oferta las pide y las tienes "
+        "evidenciadas.",
+        "en": "Add to your document's skills: the posting asks for them and you have them "
+        "evidenced.",
+    },
+    "report.advice.chip_position": {"es": "{position} → top 3", "en": "{position} → top 3"},
+    "report.advice.see_more": {"es": "Ver más", "en": "See more"},
+    "report.advice.see_all": {"es": "Ver todas ({n})", "en": "See all ({n})"},
     # §12.3 — the line under a paid form's button while the provider works. Honest
     # ranges and a live counter; no invented steps.
     "progress.analyze": {
