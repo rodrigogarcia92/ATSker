@@ -141,15 +141,17 @@ def test_the_script_blocks_a_second_paid_attempt_while_one_is_in_flight(
     assert script.index(".catch(") < script.index("setBusy(false)")
 
 
-def test_the_file_input_is_a_translated_button(client, session, career, provider):
+def test_the_file_input_is_the_drop_zone_and_keeps_its_id(client, session, career, provider):
+    """§12.4 replaced the "Elegir archivo" button; the submit script still finds the input."""
     login(client, career.first.email)
     application, _analysis = analyzed_application(session, career, provider)
 
     raw = client.get(f"/applications/{application.id}").text
 
-    assert 'class="attempt-file-input sr-only"' in raw
-    assert "Elegir archivo" in raw
-    assert 'for="attempt-file"' in raw
+    assert 'id="attempt-file"' in raw and 'name="file"' in raw
+    assert 'for="attempt-file"' in raw and "data-dropzone" in raw
+    assert "Arrastra tu CV aquí o elige un archivo" in raw
+    assert "Elegir archivo" not in raw
 
 
 def test_the_cancel_button_asks_before_losing_an_unsaved_result(

@@ -340,6 +340,7 @@ def _upload_page(
         user=user,
         profile=profile,
         values=values or EMPTY_FORM,
+        max_upload_bytes=MAX_UPLOAD_BYTES,
         resumes=list_resumes(profile.id, session, active_only=False),
         tracks=list_tracks(profile.id, session, active_only=True),
         can_extract=model_configured() if can_extract is None else can_extract,

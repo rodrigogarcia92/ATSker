@@ -431,9 +431,6 @@ STRINGS: dict[str, dict[str, str]] = {
         "es": "Nuevo intento ({n} de {max})",
         "en": "New attempt ({n} of {max})",
     },
-    "attempt.form.file": {"es": "Archivo (.docx o .pdf)", "en": "File (.docx or .pdf)"},
-    "attempt.form.choose": {"es": "Elegir archivo", "en": "Choose file"},
-    "attempt.form.no_file": {"es": "Ningún archivo elegido", "en": "No file chosen"},
     "attempt.form.working": {
         "es": "Analizando tu documento… puede tardar hasta un minuto.",
         "en": "Analysing your document… this can take up to a minute.",
@@ -1601,10 +1598,10 @@ STRINGS: dict[str, dict[str, str]] = {
         "document, then the extracted draft, which you can correct before anything "
         "is stored.",
     },
-    "import.file": {"es": "Archivo", "en": "File"},
+    # The drop zone states the formats and the size; this keeps the language note.
     "import.file_hint": {
-        "es": "PDF o DOCX, en español o inglés, hasta 10 MB.",
-        "en": "PDF or DOCX, Spanish or English, up to 10 MB.",
+        "es": "Tu CV puede estar en español o en inglés.",
+        "en": "Your CV can be in Spanish or English.",
     },
     "import.track": {"es": "Puesto objetivo (opcional)", "en": "Target track (optional)"},
     "import.track_hint": {
@@ -2223,6 +2220,26 @@ STRINGS: dict[str, dict[str, str]] = {
     "progress.letter": {
         "es": "Escribiendo la carta… suele tardar 10–30 s",
         "en": "Writing the letter… usually takes 10–30 s",
+    },
+    # §12.4 — the document drop zone shared by Importar CV and the attempt modal.
+    "dropzone.prompt": {
+        "es": "Arrastra tu CV aquí o elige un archivo",
+        "en": "Drop your CV here or choose a file",
+    },
+    "dropzone.formats": {
+        "es": ".docx o .pdf · máx. {mb} MB",
+        "en": ".docx or .pdf · max {mb} MB",
+    },
+    "dropzone.release": {"es": "Suelta para subir", "en": "Drop to upload"},
+    "dropzone.change": {"es": "Cambiar", "en": "Change"},
+    "dropzone.one_file": {"es": "Suelta un solo archivo", "en": "Drop a single file"},
+    "dropzone.bad_type": {
+        "es": "Solo se aceptan archivos .docx o .pdf",
+        "en": "Only .docx or .pdf files are accepted",
+    },
+    "dropzone.too_big": {
+        "es": "El archivo supera los {mb} MB",
+        "en": "The file is larger than {mb} MB",
     },
 }
 

@@ -17,10 +17,8 @@
 <form method="post" action="/import" enctype="multipart/form-data" data-progress="import"
       class="mt-6 space-y-4 rounded-card border border-card-border bg-surface-1 p-5">
   <div>
-    <label for="file" class="mb-1 block text-sm font-medium">{{ t('import.file', lang) }}</label>
-    <input id="file" name="file" type="file" accept=".pdf,.docx" required
-           class="w-full rounded-control border border-border px-3 py-2 text-sm">
-    <p class="mt-1 text-xs text-text-3">{{ t('import.file_hint', lang) }}</p>
+    {{ ui.dropzone('file', 'file', '.pdf,.docx', max_upload_bytes, lang) }}
+    <p class="mt-2 text-xs text-text-3">{{ t('import.file_hint', lang) }}</p>
   </div>
   <div>
     <label for="track_id" class="mb-1 block text-sm font-medium">

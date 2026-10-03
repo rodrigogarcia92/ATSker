@@ -54,6 +54,37 @@
 </span>
 {%- endmacro %}
 
+{# §12.4: the document drop zone. A <label> card for a real <input type="file">, so a click,
+   a tap, Enter or Space opens the picker and it works as a plain file field without
+   script. The shared script in base.html adds drag-and-drop, the client-side checks and
+   the chosen-file row; it reads everything it needs from the data attributes here.
+   The input comes first so the card can show its focus ring through a sibling selector.
+   There is no upload on drop: the form's own button sends the file. #}
+{% macro dropzone(input_id, name, accept, max_bytes, lang) -%}
+{%- set mb = '%g' | format(max_bytes / 1048576) -%}
+<div data-dropzone-root>
+  <input id="{{ input_id }}" name="{{ name }}" type="file" accept="{{ accept }}" required
+         class="dropzone-input sr-only">
+  <label for="{{ input_id }}" data-dropzone class="dropzone"
+         data-accept="{{ accept }}" data-max-bytes="{{ max_bytes }}"
+         data-prompt="{{ t('dropzone.prompt', lang) }}" data-release="{{ t('dropzone.release', lang) }}"
+         data-one-file="{{ t('dropzone.one_file', lang) }}" data-bad-type="{{ t('dropzone.bad_type', lang) }}"
+         data-too-big="{{ t('dropzone.too_big', lang, mb=mb) }}">
+    <svg class="dropzone-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
+         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 16V4"/><path d="m7 9 5-5 5 5"/><path d="M5 20h14"/></svg>
+    <span data-dropzone-prompt>{{ t('dropzone.prompt', lang) }}</span>
+    <span class="dropzone-formats">{{ t('dropzone.formats', lang, mb=mb) }}</span>
+  </label>
+  <p role="alert" hidden data-dropzone-error class="mt-2 text-sm text-sev-blocker"></p>
+  <div hidden data-dropzone-chosen class="dropzone-chosen">
+    <span class="min-w-0 break-all text-sm" data-dropzone-name></span>
+    <span class="text-xs text-text-3" data-dropzone-size></span>
+    <button type="button" data-dropzone-change
+            class="min-h-11 rounded-control border border-border px-3 text-sm">{{ t('dropzone.change', lang) }}</button>
+  </div>
+</div>
+{%- endmacro %}
+
 {# §12.3: the status line a paid form shows once submitted. It sits directly under the
    submit button and stays hidden until the shared script in base.html reveals it; the
    counter is aria-hidden so a screen reader hears the sentence once, not every second. #}

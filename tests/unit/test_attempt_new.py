@@ -149,7 +149,7 @@ def test_the_script_reopens_the_upload_cleared_and_focused(client, session, care
 
     assert "upload.hidden = false" in handler
     assert 'file.value = ""' in handler
-    assert "fileName.dataset.empty" in handler
+    assert 'new Event("change"' in handler, "the drop zone empties its file row on change"
     assert "upload.scrollIntoView" in handler
     assert "file.focus();" in raw[raw.index('closest("#attempt-new")') :]
     # While a run is in flight the upload and the button are put away, and a refusal

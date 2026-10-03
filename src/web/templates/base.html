@@ -161,5 +161,110 @@
       });
     })();
   </script>
+  <script>
+    // §12.4: the one script behind every [data-dropzone] (ui.dropzone). The card is already
+    // a <label> for a real file input, so everything here is an enhancement: a dragged file
+    // is checked, put into that same input and announced with a `change` event, and the form
+    // then submits it exactly as a picked file. Nothing is uploaded on drop.
+    (function () {
+      var cards = document.querySelectorAll('[data-dropzone]');
+      if (!cards.length) return;
+
+      // A file dropped anywhere else must not make the browser open or navigate to it.
+      ['dragover', 'drop'].forEach(function (type) {
+        document.addEventListener(type, function (event) {
+          var inside = event.target instanceof Element && event.target.closest('[data-dropzone-root]');
+          if (inside) return;
+          event.preventDefault();
+          if (event.dataTransfer) event.dataTransfer.dropEffect = 'none';
+        });
+      });
+
+      function size(bytes) {
+        return bytes < 1048576
+          ? Math.max(1, Math.round(bytes / 1024)) + ' KB'
+          : (bytes / 1048576).toFixed(1) + ' MB';
+      }
+
+      cards.forEach(function (card) {
+        var root = card.closest('[data-dropzone-root]');
+        var input = root.querySelector('input[type="file"]');
+        var prompt = card.querySelector('[data-dropzone-prompt]');
+        var alertLine = root.querySelector('[data-dropzone-error]');
+        var chosen = root.querySelector('[data-dropzone-chosen]');
+        var accepted = (card.dataset.accept || '').toLowerCase().split(',').map(function (part) {
+          return part.trim();
+        }).filter(Boolean);
+        var maxBytes = Number(card.dataset.maxBytes);
+
+        // The three client-side checks, in the order the user would fix them: one file, the
+        // extension, the size. Returns the message to show, or '' when the file may go.
+        function problem(files) {
+          if (files.length !== 1) return card.dataset.oneFile;
+          var file = files[0];
+          var name = file.name.toLowerCase();
+          if (!accepted.some(function (ext) { return name.endsWith(ext); })) return card.dataset.badType;
+          if (file.size > maxBytes) return card.dataset.tooBig;
+          return '';
+        }
+
+        function show(message) {
+          alertLine.textContent = message;
+          alertLine.hidden = !message;
+        }
+
+        function highlight(on) {
+          if (on) root.setAttribute('data-over', ''); else root.removeAttribute('data-over');
+          prompt.textContent = on ? card.dataset.release : card.dataset.prompt;
+        }
+
+        function render() {
+          var file = input.files && input.files.length === 1 ? input.files[0] : null;
+          card.hidden = file !== null;
+          chosen.hidden = file === null;
+          root.querySelector('[data-dropzone-name]').textContent = file ? file.name : '';
+          root.querySelector('[data-dropzone-size]').textContent = file ? size(file.size) : '';
+        }
+
+        // The picker and a drop both end here, so they are held to the same checks. A
+        // refused file leaves the input empty; clearing the input programmatically (the
+        // attempt modal does) fires this with no files and just empties the row.
+        input.addEventListener('change', function () {
+          if (!input.files || !input.files.length) { show(''); render(); return; }
+          var message = problem(input.files);
+          if (message) { input.value = ''; show(message); render(); return; }
+          show('');
+          render();
+        });
+
+        ['dragenter', 'dragover'].forEach(function (type) {
+          root.addEventListener(type, function (event) {
+            event.preventDefault();
+            if (input.disabled) { if (event.dataTransfer) event.dataTransfer.dropEffect = 'none'; return; }
+            if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+            highlight(true);
+          });
+        });
+        root.addEventListener('dragleave', function (event) {
+          if (event.relatedTarget instanceof Node && root.contains(event.relatedTarget)) return;
+          highlight(false);
+        });
+        root.addEventListener('drop', function (event) {
+          event.preventDefault();
+          highlight(false);
+          if (input.disabled || !event.dataTransfer) return;
+          var files = event.dataTransfer.files;
+          var message = problem(files);
+          if (message) { input.value = ''; show(message); render(); return; }
+          input.files = files;
+          input.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+
+        root.querySelector('[data-dropzone-change]').addEventListener('click', function () {
+          input.click();
+        });
+      });
+    })();
+  </script>
 </body>
 </html>

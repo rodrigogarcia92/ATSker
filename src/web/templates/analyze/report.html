@@ -876,17 +876,9 @@
        result brings it back, cleared. #}
     <div id="attempt-upload"{% if attempts %} hidden{% endif %}>
     <form id="attempt-form" method="post" enctype="multipart/form-data"
-          action="/applications/{{ application.id }}/attempts" class="mt-3 space-y-2">
-      <label for="attempt-file" class="block text-sm">{{ t('attempt.form.file', lang) }}</label>
-      <div class="flex flex-wrap items-center gap-2">
-        <input id="attempt-file" type="file" name="file" accept=".docx,.pdf" required
-               class="attempt-file-input sr-only">
-        <label for="attempt-file" class="attempt-file-button inline-flex min-h-11 items-center rounded-control border border-border px-3 text-sm">
-          {{ t('attempt.form.choose', lang) }}
-        </label>
-        <span id="attempt-file-name" class="min-w-0 break-all text-sm text-text-2"
-              data-empty="{{ t('attempt.form.no_file', lang) }}">{{ t('attempt.form.no_file', lang) }}</span>
-      </div>
+          action="/applications/{{ application.id }}/attempts" class="mt-3 space-y-3">
+      {# §12.4: the same drop zone as Importar CV; the file input keeps its id. #}
+      {{ ui.dropzone('attempt-file', 'file', '.docx,.pdf', max_upload_bytes, lang) }}
       <button type="submit" id="attempt-submit" class="min-h-11 rounded-control border border-border px-3 text-sm">
         {{ t('attempt.form.submit', lang) }}
       </button>
@@ -912,7 +904,6 @@
     const progress = document.getElementById("attempt-progress");
     const submit = document.getElementById("attempt-submit");
     const file = document.getElementById("attempt-file");
-    const fileName = document.getElementById("attempt-file-name");
     const upload = document.getElementById("attempt-upload");
     let poll = null;
     let unsaved = false;
@@ -998,14 +989,16 @@
     }
 
     // F10.4: "Nuevo intento" reopens the upload area, cleared, in view and focused. The
-    // button sits in the re-rendered result, so the listener is on `status`.
+    // button sits in the re-rendered result, so the listener is on `status`. Clearing the
+    // input announces it with a `change`, which is how the drop zone empties its file row;
+    // the focus goes to the zone's own input, whose focus ring is drawn on the card (§12.4).
     status.addEventListener("click", function (event) {
       const button = event.target.closest("#attempt-new");
       if (!button || button.disabled) { return; }
       error.classList.add("hidden");
       upload.hidden = false;
       file.value = "";
-      fileName.textContent = fileName.dataset.empty;
+      file.dispatchEvent(new Event("change", {bubbles: true}));
       upload.scrollIntoView({block: "start"});
       file.focus();
     });
@@ -1062,10 +1055,6 @@
       if (bar) { bar.classList.remove("hidden"); }
       stopPoll();
       if (unsaved) { window.location.reload(); }
-    });
-
-    file.addEventListener("change", function () {
-      fileName.textContent = file.files.length ? file.files[0].name : fileName.dataset.empty;
     });
 
     form.addEventListener("submit", function (event) {

@@ -34,6 +34,7 @@ from src.web.deps import DbSession, OwnProfile, SignedInUser
 from src.web.findings import document_kind, finding_rows
 from src.web.forms import is_checked
 from src.web.recall import query_rows
+from src.web.routes.ingest import MAX_UPLOAD_BYTES
 from src.web.templating import render
 
 router = APIRouter()
@@ -261,6 +262,8 @@ def application_report(
         attempts=application_attempts_report(attempt_rows),
         open_attempt=open_attempt,
         discarded_no=discarded_no,
+        # §12.4: the drop zone checks the size before anything is sent.
+        max_upload_bytes=MAX_UPLOAD_BYTES,
         findings=finding_rows(application.scan_readability or {}, user.ui_lang),
         # F7.3 Tier 3a: the rephrase control links only to a bullet that still exists
         # and is active — a stored report renders a deleted citation from its snapshot,
