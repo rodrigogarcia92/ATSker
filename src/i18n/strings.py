@@ -2141,6 +2141,18 @@ STRINGS: dict[str, dict[str, str]] = {
         "es": "Ningún requisito se cubre por transferencia.",
         "en": "No requirement is covered by transfer.",
     },
+    # §12.1 item 5 (queue U4): the requirements as buttons, with their summary.
+    "report.req.n_one": {"es": "{n} requisito", "en": "{n} requirement"},
+    "report.req.n": {"es": "{n} requisitos", "en": "{n} requirements"},
+    "report.req.covered_one": {"es": "{n} cubierto", "en": "{n} covered"},
+    "report.req.covered": {"es": "{n} cubiertos", "en": "{n} covered"},
+    "report.req.gaps_one": {"es": "{n} brecha", "en": "{n} gap"},
+    "report.req.gaps": {"es": "{n} brechas", "en": "{n} gaps"},
+    "report.req.hint": {
+        "es": "Toca uno para ver la evidencia.",
+        "en": "Select one to see its evidence.",
+    },
+    "report.req.level_of": {"es": "nivel {level} de 3", "en": "level {level} of 3"},
     # §12.3 — the line under a paid form's button while the provider works. Honest
     # ranges and a live counter; no invented steps.
     "progress.analyze": {
