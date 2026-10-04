@@ -118,15 +118,14 @@ def _next_number(
 def next_attempt_state(
     profile_id: uuid.UUID, session: Session, application_id: uuid.UUID
 ) -> tuple[int, bool]:
-    """The number the next attempt will get, and whether the limit already forbids it.
+    """The N of "Nuevo intento (N de 10)", and whether the limit already forbids another.
 
-    The number counts every row, failed ones included, like the row it will become; the
-    limit counts only the attempts that consume one of the ten (A5/A6).
+    N is the counted attempts plus one: failed attempts consume none of the ten (A5/A6), so
+    they do not move it, and it never exceeds the limit while the button is offered. (The
+    row the attempt becomes still takes the next number of every row, failed ones included.)
     """
-    return (
-        _next_number(profile_id, session, application_id),
-        counted_attempts(profile_id, session, application_id) >= MAX_ATTEMPTS,
-    )
+    counted = counted_attempts(profile_id, session, application_id)
+    return counted + 1, counted >= MAX_ATTEMPTS
 
 
 def create_attempt(

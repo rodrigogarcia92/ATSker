@@ -13,7 +13,7 @@ LANGUAGES = ("es", "en")
 STRINGS: dict[str, dict[str, str]] = {
     "app.name": {"es": "ATSker", "en": "ATSker"},
     "app.tagline": {
-        "es": "Evaluación de encaje entre tu currículum y una oferta",
+        "es": "Evaluación de ajuste entre tu currículum y una oferta",
         "en": "How well your résumé matches a job posting",
     },
     # Shell — the 64px icon rail of §12.1: three groups, nine links, and the account
@@ -189,7 +189,7 @@ STRINGS: dict[str, dict[str, str]] = {
     "applications.company": {"es": "Empresa", "en": "Company"},
     "applications.position": {"es": "Puesto", "en": "Role"},
     "applications.track": {"es": "Puesto objetivo", "en": "Track"},
-    "applications.score": {"es": "Encaje", "en": "Fit"},
+    "applications.score": {"es": "Ajuste", "en": "Fit"},
     "applications.outcome": {"es": "Resultado", "en": "Outcome"},
     "applications.outcome.no_reply": {"es": "Sin respuesta", "en": "No reply"},
     "applications.outcome.screen": {"es": "Criba", "en": "Screen"},
@@ -354,8 +354,8 @@ STRINGS: dict[str, dict[str, str]] = {
     "attempt.status.done": {"es": "Listo", "en": "Done"},
     "attempt.status.failed": {"es": "Fallido", "en": "Failed"},
     "attempt.score": {
-        "es": "Encaje {score} · techo {ceiling}",
-        "en": "Match {score} · ceiling {ceiling}",
+        "es": "Ajuste {score} · techo {ceiling}",
+        "en": "Fit {score} · ceiling {ceiling}",
     },
     "attempt.view_report": {
         "es": "Ver el informe completo",
@@ -434,7 +434,7 @@ STRINGS: dict[str, dict[str, str]] = {
     # F10.1/F10.4 (Run C): the modal, the result's content order and its wording.
     "attempt.form.submit": {"es": "Probar este archivo", "en": "Test this file"},
     # F10.4: the button at the end of a result that reopens the upload area. At the limit
-    # it states `attempt.limit`, which already says the maximum is reached.
+    # there is no button and `attempt.limit` stands in its place.
     "attempt.new": {
         "es": "Nuevo intento ({n} de {max})",
         "en": "New attempt ({n} of {max})",
@@ -544,14 +544,14 @@ STRINGS: dict[str, dict[str, str]] = {
     },
     "attempt.ready.checklist": {"es": "Falta:", "en": "Missing:"},
     "attempt.ready.match_band": {
-        "es": "El encaje ({job_match}) no llega al techo ({ceiling_low}) dentro del "
+        "es": "El ajuste ({job_match}) no llega al techo ({ceiling_low}) dentro del "
         "margen de {band}.",
-        "en": "The match ({job_match}) does not reach the ceiling ({ceiling_low}) "
+        "en": "The fit ({job_match}) does not reach the ceiling ({ceiling_low}) "
         "within the {band}-point band.",
     },
     "attempt.ready.match_target": {
-        "es": "El encaje ({job_match}) no llega a tu objetivo ({target}).",
-        "en": "The match ({job_match}) does not reach your target ({target}).",
+        "es": "El ajuste ({job_match}) no llega a tu objetivo ({target}).",
+        "en": "The fit ({job_match}) does not reach your target ({target}).",
     },
     "attempt.ready.readability": {
         "es": "El documento tiene bloqueantes de formato: {items}.",
@@ -653,7 +653,7 @@ STRINGS: dict[str, dict[str, str]] = {
     # keys, and `evidence`/`keyword`/`semantic` are what its JSON says.
     "report.sub.evidence": {"es": "Cobertura de evidencia", "en": "Evidence coverage"},
     "report.sub.keyword": {"es": "Contexto de palabras clave", "en": "Keyword context"},
-    "report.sub.semantic": {"es": "Encaje semántico", "en": "Semantic fit"},
+    "report.sub.semantic": {"es": "Ajuste semántico", "en": "Semantic fit"},
     # §12.1: no weights are shown on the report page, so there is no word for one. The
     # calculation version is what the page names instead.
     "report.calculation": {"es": "Cálculo", "en": "Calculation"},
@@ -713,7 +713,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "Keyword context, as the stored report recorded it.",
     },
     "report.sub_caption.semantic": {
-        "es": "Encaje semántico del informe almacenado.",
+        "es": "Ajuste semántico del informe almacenado.",
         "en": "Semantic fit, as the stored report recorded it.",
     },
     "report.disqualifiers": {"es": "Requisitos eliminatorios", "en": "Disqualifiers"},

@@ -7,6 +7,7 @@ that is not in the HTML is not reachable at all.
 
 import pytest
 
+from src.i18n.strings import STRINGS
 from src.web.recall import query_rows
 from tests.conftest import login
 
@@ -164,3 +165,23 @@ def test_recall_labels_are_shown_in_the_readers_language():
         "strict",
         "invented",
     ]
+
+
+def test_no_spanish_string_says_encaje():
+    """§12.1 (queue L7): the score's word is "Ajuste" everywhere it is shown."""
+    offenders = [key for key, entry in STRINGS.items() if "ncaje" in entry.get("es", "")]
+
+    assert offenders == []
+
+
+def test_the_score_is_ajuste_in_spanish_and_fit_in_english():
+    assert STRINGS["applications.score"] == {"es": "Ajuste", "en": "Fit"}
+    assert STRINGS["attempt.score"]["es"] == "Ajuste {score} · techo {ceiling}"
+    assert STRINGS["attempt.score"]["en"] == "Fit {score} · ceiling {ceiling}"
+    assert STRINGS["attempt.ready.match_band"]["es"].startswith("El ajuste (")
+    assert STRINGS["attempt.ready.match_target"]["en"].startswith("The fit (")
+    assert STRINGS["report.sub.semantic"]["es"] == "Ajuste semántico"
+    assert STRINGS["report.sub_caption.semantic"]["es"].startswith("Ajuste semántico")
+    assert STRINGS["report.sub_caption.semantic"]["en"].startswith("Semantic fit")
+    assert STRINGS["app.tagline"]["es"].endswith("de ajuste entre tu currículum y una oferta")
+
