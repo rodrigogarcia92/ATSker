@@ -24,12 +24,12 @@ from sqlalchemy.orm import Session
 from src.bullets import list_bullets
 from src.generate.proposals import pool_skills
 from src.generate.validators import LITERAL, PROVENANCE, Sources, Violation, validate
-from src.letters import get_letter, get_letter_settings, list_letters, update_letter
+from src.letters import get_letter_settings, list_letters
 from src.models import Application, LetterSettings, LetterTemplate, Track
 from src.roles import list_roles
 from src.stories import list_stories
 from src.summaries import get_summary
-from src.tracks import get_track, track_bullets
+from src.tracks import track_bullets
 from src.vocabulary import alias_map
 
 # F8's shape rules. Presentation is a paragraph; achievements is one paragraph long
@@ -128,37 +128,10 @@ def check_blocks(output: Mapping[str, Any], sources: Sources) -> list[Violation]
     return violations
 
 
-def accept_blocks(
-    profile_id: Any,
-    session: Session,
-    letter_id: Any,
-    output: Mapping[str, Any],
-) -> tuple[LetterTemplate | None, list[Violation]]:
-    """Accept a template's proposed blocks: validate again, then write them (N8.3)."""
-    letter = get_letter(profile_id, session, letter_id)
-    if letter is None:
-        return None, []
-    track = get_track(profile_id, session, letter.track_id) if letter.track_id else None
-    if track is None:
-        return letter, [
-            Violation(PROVENANCE, "letter", "", "the template is not linked to a track")
-        ]
-    _material, sources = block_material(profile_id, session, track, letter.lang)
-    violations = check_blocks(output, sources)
-    if violations:
-        return None, violations
-    update_letter(
-        profile_id,
-        session,
-        letter.id,
-        name=letter.name,
-        applies_when=letter.applies_when,
-        presentation=str((output.get("presentation") or {}).get("text") or ""),
-        achievements=str((output.get("achievements") or {}).get("text") or ""),
-        lang=letter.lang,
-        track_id=letter.track_id,
-    )
-    return letter, []
+def voice_notes_for(profile_id: Any, session: Session, language: str) -> str:
+    """The register the profile asked for, in this language (F8's voice notes)."""
+    entry = get_letter_settings(profile_id, session, language)
+    return entry.voice_notes if entry is not None else ""
 
 
 # --- N8.4: the bridge for one application ------------------------------------------

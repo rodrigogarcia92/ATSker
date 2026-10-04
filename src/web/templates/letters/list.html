@@ -21,7 +21,9 @@
     <div>
       <label for="header-{{ row.lang }}" class="mb-1 block text-sm font-medium">{{ t('letters.blocks_header', lang) }}</label>
       <textarea id="header-{{ row.lang }}" name="header" rows="2"
+                aria-describedby="header-hint-{{ row.lang }}"
                 class="w-full rounded-control border border-border px-3 py-2 text-sm">{{ row.entry.header if row.entry else '' }}</textarea>
+      <p id="header-hint-{{ row.lang }}" class="mt-1 text-xs text-text-3">{{ t('letters.blocks_header_hint', lang) }}</p>
     </div>
     <div>
       <label for="greeting-{{ row.lang }}" class="mb-1 block text-sm font-medium">{{ t('letters.blocks_greeting', lang) }}</label>
@@ -35,8 +37,9 @@
     </div>
     <div>
       <label for="sign-off-{{ row.lang }}" class="mb-1 block text-sm font-medium">{{ t('letters.blocks_sign_off', lang) }}</label>
-      <input id="sign-off-{{ row.lang }}" name="sign_off" value="{{ row.entry.sign_off if row.entry else '' }}"
-             class="w-full rounded-control border border-border px-3 py-2 text-sm">
+      {# Two lines ("Atentamente," and the name), so a textarea: an <input> drops the break. #}
+      <textarea id="sign-off-{{ row.lang }}" name="sign_off" rows="2"
+                class="w-full rounded-control border border-border px-3 py-2 text-sm">{{ row.entry.sign_off if row.entry else '' }}</textarea>
     </div>
     <div>
       <label for="voice-{{ row.lang }}" class="mb-1 block text-sm font-medium">{{ t('letters.blocks_voice', lang) }}</label>
@@ -44,9 +47,16 @@
                 class="w-full rounded-control border border-border px-3 py-2 text-sm">{{ row.entry.voice_notes if row.entry else '' }}</textarea>
       <p class="mt-1 text-xs text-text-3">{{ t('letters.blocks_voice_hint', lang) }}</p>
     </div>
-    <button type="submit" class="rounded-control bg-link px-3 py-2 text-sm font-medium text-bg hover:opacity-90">
-      {{ t('letters.save_blocks', lang) }}
-    </button>
+    <div class="flex flex-wrap items-center gap-3">
+      <button type="submit" class="min-h-11 rounded-control bg-link px-4 py-2 text-sm font-medium text-bg hover:opacity-90">
+        {{ t('letters.save_blocks', lang) }}
+      </button>
+      {# F8: fills only the empty fields, by code, and does not save. #}
+      <button type="submit" formaction="/letters/settings/autogenerate"
+              class="min-h-11 rounded-control border border-border px-4 py-2 text-sm hover:bg-surface-2">
+        {{ t('letters.autogenerate', lang) }}
+      </button>
+    </div>
   </form>
   {% endfor %}
 </div>

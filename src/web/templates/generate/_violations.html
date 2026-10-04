@@ -1,15 +1,17 @@
 {# A proposal that failed a validator: shown, grouped by the rule that failed with a
    count per group, and with no accept control (F7.3). `item_text` is the text the span
-   points into, passed by the page that includes this. #}
+   points into, passed by the page that includes this. A page whose text stays editable
+   sets `rejected_key` to say so instead of "cannot be accepted". #}
 {% if violations %}
 <section class="mt-4 rounded-card border border-sev-blocker bg-surface-1 p-4">
-  <p class="text-sm font-semibold text-sev-blocker">{{ t('generate.rejected', lang) }}</p>
+  <p class="text-sm font-semibold text-sev-blocker">{{ t(rejected_key | default('generate.rejected'), lang) }}</p>
   <div class="mt-2 space-y-2 text-sm">
-    {% for rule in ('provenance', 'literal', 'closure_missing', 'closure_unevidenced') %}
+    {% for rule in ('provenance', 'literal', 'closure_missing', 'closure_unevidenced', 'length', 'shape') %}
     {% set group = violations | selectattr('rule', 'equalto', rule) | list %}
     {% if group %}
     <div>
       <p class="text-sev-blocker">{{ t('generate.violation.' ~ rule, lang) }} ({{ group | length }})</p>
+      {% if rule not in ('length', 'shape') %}
       <ul class="mt-1 space-y-1">
         {% for violation in group %}
         <li>
@@ -21,6 +23,7 @@
         </li>
         {% endfor %}
       </ul>
+      {% endif %}
     </div>
     {% endif %}
     {% endfor %}

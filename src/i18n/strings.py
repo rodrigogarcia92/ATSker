@@ -1438,26 +1438,50 @@ STRINGS: dict[str, dict[str, str]] = {
     },
     "letters.save_blocks": {"es": "Guardar bloques", "en": "Save blocks"},
     # N8.3: the two reusable paragraphs, proposed from the track's own material.
-    "letters.propose": {
-        "es": "Proponer presentación y logros",
-        "en": "Propose presentation and achievements",
+    # F8: "Autogenerar" — the common blocks by code, the track's template by one call.
+    "letters.autogenerate": {"es": "Autogenerar", "en": "Autogenerate"},
+    "letters.autogenerate_notice": {
+        "es": "Revisa los campos y pulsa Guardar.",
+        "en": "Review the fields and press Save.",
     },
-    "letters.propose_title": {
-        "es": "Presentación y logros propuestos",
-        "en": "Proposed presentation and achievements",
+    "letters.blocks_header_hint": {
+        "es": "Añade tu teléfono o LinkedIn si quieres.",
+        "en": "Add your phone or LinkedIn if you like.",
     },
-    "letters.propose_intro": {
-        "es": "Dos párrafos escritos a partir del material del puesto objetivo. Nada se "
-        "guarda hasta que aceptes, y al aceptar se vuelve a validar.",
-        "en": "Two paragraphs written from the track's own material. Nothing is stored "
-        "until you accept, and accepting validates them again.",
+    "letters.default.header": {"es": "{name}\n{email}", "en": "{name}\n{email}"},
+    "letters.default.greeting": {
+        "es": "Estimado equipo de selección de [EMPRESA]:",
+        "en": "Dear [COMPANY] hiring team,",
     },
-    "letters.propose_no_track": {
-        "es": "Esta plantilla no está ligada a un puesto objetivo: sin uno no hay "
-        "material del que escribir.",
-        "en": "This template is not linked to a track: without one there is no material "
-        "to write from.",
+    "letters.default.closing": {
+        "es": "Gracias por su tiempo y consideración. Quedo a disposición para conversar "
+        "sobre el puesto de [PUESTO].",
+        "en": "Thank you for your time and consideration. I would welcome the chance to "
+        "talk about the [ROLE] position.",
     },
+    "letters.default.sign_off": {
+        "es": "Atentamente,\n{name}",
+        "en": "Kind regards,\n{name}",
+    },
+    "letters.autogenerate_template_hint": {
+        "es": "Una llamada de pago: redacta ambos párrafos con el material de este puesto. "
+        "Reemplaza lo que hay en los campos y no se guarda nada hasta que pulses Guardar.",
+        "en": "One paid call: drafts both paragraphs from this role's material. It replaces "
+        "what is in the fields and nothing is saved until you press Save.",
+    },
+    "letters.draft_notice": {
+        "es": "Borrador cargado en los campos. Revísalo y pulsa Guardar: todavía no se "
+        "ha guardado nada.",
+        "en": "Draft loaded into the fields. Review it and press Save: nothing has been "
+        "saved yet.",
+    },
+    "letters.draft_violations": {
+        "es": "Este párrafo no pasó una comprobación. Puedes editarlo y guardarlo: lo "
+        "que guardes es tu texto.",
+        "en": "This paragraph failed a check. You can edit and save it: what you save is "
+        "your text.",
+    },
+    "letters.undo": {"es": "Deshacer", "en": "Undo"},
     "generate.violation.length": {
         "es": "El párrafo no tiene la extensión pedida.",
         "en": "The paragraph is not the requested length.",
