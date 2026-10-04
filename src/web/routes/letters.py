@@ -19,12 +19,14 @@ from src.generate.letters import accept_blocks, block_material, check_blocks
 from src.generate.validators import Violation
 from src.i18n import t
 from src.letters import (
-    create_letter,
     get_letter,
     get_letter_settings,
     list_letters,
     save_letter_settings,
+    template_status,
+    track_template,
     update_letter,
+    use_template_for_track,
 )
 from src.tracks import get_track, list_tracks
 from src.web.deps import DbSession, OwnProfile, SignedInUser
@@ -37,37 +39,82 @@ router = APIRouter()
 LETTER_LANGS = ("es", "en")
 
 
-def _groups(letters, tracks) -> list[dict]:
-    """Templates grouped by the track they are linked to, unlinked last (F8, N8.2)."""
-    groups: list[dict] = []
+def _first_line(text: str, *, limit: int = 100) -> str:
+    """The first non-empty line of a paragraph, cut for a list row."""
+    line = next((row.strip() for row in (text or "").splitlines() if row.strip()), "")
+    return line if len(line) <= limit else line[: limit - 1].rstrip() + "…"
+
+
+def _track_rows(profile_id, session, tracks) -> list[dict]:
+    """One Cartas row per track: its status and whether it has a template to edit (F8)."""
+    rows = []
     for track in tracks:
-        linked = [letter for letter in letters if letter.track_id == track.id]
-        if linked:
-            groups.append({"name": track.name, "track_id": track.id, "letters": linked})
-    unlinked = [letter for letter in letters if letter.track_id is None]
-    if unlinked:
-        groups.append({"name": None, "track_id": None, "letters": unlinked})
-    return groups
+        status = template_status(profile_id, session, track)
+        rows.append(
+            {
+                "track": track,
+                "status": status,
+                "has_template": track_template(profile_id, session, track) is not None
+                and status != "missing",
+            }
+        )
+    return rows
+
+
+def _notice(session, profile, query, ui_lang: str) -> str | None:
+    """The status line a save or an assignment redirects with (F8).
+
+    The line is built from this profile's own track: an id that is not hers says nothing.
+    """
+    kind = query.get("notice")
+    if kind not in ("saved", "assigned"):
+        return None
+    track = get_track(profile.id, session, query.get("track") or "")
+    if track is None:
+        return None
+    if kind == "saved":
+        return t("letters.notice.saved", ui_lang, track=track.name)
+    moved = query.get("moved") == "1"
+    key = "letters.notice.assigned_moved" if moved else "letters.notice.assigned"
+    return t(key, ui_lang, track=track.name)
 
 
 def _list_context(session, profile) -> dict:
     letters = list_letters(profile.id, session)
     tracks = list_tracks(profile.id, session, active_only=False)
+    active = [track for track in tracks if track.active]
+    unlinked = [
+        {
+            "letter": letter,
+            "first_line": _first_line(letter.presentation),
+            # Only a track in the template's own language is offered (F8).
+            "tracks": [track for track in active if track.lang == letter.lang],
+        }
+        for letter in letters
+        if letter.track_id is None
+    ]
     return {
-        "letters": letters,
-        "tracks": tracks,
-        "groups": _groups(letters, tracks),
         "settings": [
             {"lang": lang, "entry": get_letter_settings(profile.id, session, lang)}
             for lang in LETTER_LANGS
         ],
+        "track_rows": _track_rows(profile.id, session, active),
+        "inactive_rows": _track_rows(
+            profile.id, session, [track for track in tracks if not track.active]
+        ),
+        "unlinked": unlinked,
     }
 
 
 @router.get("/letters")
 def letters_list(request: Request, user: SignedInUser, session: DbSession, profile: OwnProfile):
     return render(
-        request, "letters/list.html", user=user, profile=profile, **_list_context(session, profile)
+        request,
+        "letters/list.html",
+        user=user,
+        profile=profile,
+        notice=_notice(session, profile, request.query_params, user.ui_lang),
+        **_list_context(session, profile),
     )
 
 
@@ -97,58 +144,17 @@ def letter_settings_save(
     return RedirectResponse("/letters", status_code=303)
 
 
-@router.get("/letters/new")
-def letter_new(request: Request, user: SignedInUser, session: DbSession, profile: OwnProfile):
-    return render(
-        request,
-        "letters/form.html",
-        user=user,
-        profile=profile,
-        letter=None,
-        tracks=list_tracks(profile.id, session, active_only=False),
-    )
-
-
-@router.post("/letters")
-def letter_create(
-    session: DbSession,
-    profile: OwnProfile,
-    name: Annotated[str, Form()],
-    applies_when: Annotated[str, Form()],
-    presentation: Annotated[str, Form()],
-    achievements: Annotated[str, Form()],
-    lang: Annotated[str | None, Form()] = None,
-    track_id: Annotated[str | None, Form()] = None,
-):
-    letter = create_letter(
-        profile.id,
-        session,
-        name=name,
-        applies_when=applies_when,
-        presentation=presentation,
-        achievements=achievements,
-        lang=(lang or "es")[:5],
-        track_id=track_id,
-    )
-    session.commit()
-    return RedirectResponse(f"/letters/{letter.id}/edit", status_code=303)
-
-
 @router.get("/letters/{letter_id}/edit")
 def letter_edit(
     letter_id: str, request: Request, user: SignedInUser, session: DbSession, profile: OwnProfile
 ):
+    """The form for a template linked to no track; a linked one is edited on its track."""
     letter = get_letter(profile.id, session, letter_id)
     if letter is None:
         return render(request, "not_found.html", user=user, status_code=404)
-    return render(
-        request,
-        "letters/form.html",
-        user=user,
-        profile=profile,
-        letter=letter,
-        tracks=list_tracks(profile.id, session, active_only=False),
-    )
+    if letter.track_id is not None:
+        return RedirectResponse(f"/tracks/{letter.track_id}/letter", status_code=303)
+    return render(request, "letters/form.html", user=user, profile=profile, letter=letter)
 
 
 @router.post("/letters/{letter_id}")
@@ -161,23 +167,48 @@ def letter_save(
     presentation: Annotated[str, Form()],
     achievements: Annotated[str, Form()],
     lang: Annotated[str | None, Form()] = None,
-    track_id: Annotated[str | None, Form()] = None,
 ):
-    letter = update_letter(
+    """Save a template linked to no track; it stays unlinked (assigning is on Cartas)."""
+    letter = get_letter(profile.id, session, letter_id)
+    if letter is None:
+        raise HTTPException(status_code=404)
+    if letter.track_id is not None:
+        return RedirectResponse(f"/tracks/{letter.track_id}/letter", status_code=303)
+    update_letter(
         profile.id,
         session,
-        letter_id,
+        letter.id,
         name=name,
         applies_when=applies_when,
         presentation=presentation,
         achievements=achievements,
         lang=(lang or "es")[:5],
-        track_id=track_id,
+        track_id=None,
     )
-    if letter is None:
-        raise HTTPException(status_code=404)
     session.commit()
     return RedirectResponse("/letters", status_code=303)
+
+
+@router.post("/letters/{letter_id}/assign")
+def letter_assign(
+    letter_id: str,
+    session: DbSession,
+    profile: OwnProfile,
+    track_id: Annotated[str, Form()],
+):
+    """"Asignar a un puesto": link an unlinked template to a track of its language (F8)."""
+    letter = get_letter(profile.id, session, letter_id)
+    track = get_track(profile.id, session, track_id)
+    if letter is None or track is None:
+        raise HTTPException(status_code=404)
+    if letter.track_id is not None or track.lang != letter.lang:
+        raise HTTPException(status_code=400, detail="that template cannot go to this track")
+    moved = track_template(profile.id, session, track) is not None
+    use_template_for_track(profile.id, session, letter.id, track)
+    session.commit()
+    return RedirectResponse(
+        f"/letters?notice=assigned&track={track.id}&moved={int(moved)}", status_code=303
+    )
 
 
 @router.get("/letters/{letter_id}/delete")

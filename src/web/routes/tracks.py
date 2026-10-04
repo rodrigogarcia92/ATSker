@@ -23,6 +23,7 @@ from fastapi.responses import RedirectResponse
 from src.bullets import list_bullets
 from src.deletion import delete_track, impact_track
 from src.i18n import t
+from src.letters import template_status, track_template
 from src.resumes import get_resume
 from src.roles import list_roles
 from src.summaries import create_summary, get_summary, list_summaries
@@ -109,6 +110,10 @@ def tracks_list(request: Request, user: SignedInUser, session: DbSession, profil
         profile=profile,
         tracks=tracks,
         sizes=selection_sizes(profile.id, session),
+        # F8: Puestos objetivo says per track whether its cover letter is ready.
+        letter_status={
+            track.id: template_status(profile.id, session, track) for track in tracks
+        },
     )
 
 
@@ -174,6 +179,8 @@ def track_detail(
         bullets=track_bullets(profile.id, session, track.id),
         summary_es=_summary(session, profile, track.summary_es_id),
         summary_en=_summary(session, profile, track.summary_en_id),
+        letter_status=template_status(profile.id, session, track),
+        letter_template=track_template(profile.id, session, track),
     )
 
 

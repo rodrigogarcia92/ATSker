@@ -1143,6 +1143,7 @@ STRINGS: dict[str, dict[str, str]] = {
     },
     "tracks.lang": {"es": "Idioma", "en": "Language"},
     # F4.1/F8: the track's language is also the language of its cover letters.
+    "tracks.letter_card": {"es": "Carta", "en": "Letter"},
     "tracks.lang_hint": {
         "es": "Las cartas de este puesto se escriben en este idioma.",
         "en": "This role's cover letters are written in this language.",
@@ -1315,17 +1316,104 @@ STRINGS: dict[str, dict[str, str]] = {
     },
 
     # Letters
-    "letters.title": {"es": "Plantillas de carta", "en": "Letter templates"},
-    "letters.new": {"es": "Nueva plantilla", "en": "New template"},
+    "letters.title": {"es": "Cartas", "en": "Letters"},
+    "letters.intro": {
+        "es": "Una carta se arma con tus bloques comunes, la carta de cada puesto y un "
+        "párrafo de interés que se escribe para cada oferta.",
+        "en": "A letter is made of your common blocks, each role's letter and a paragraph "
+        "of interest written for each posting.",
+    },
     "letters.name": {"es": "Nombre", "en": "Name"},
     "letters.applies_when": {"es": "Cuándo usarla", "en": "When to use it"},
     "letters.applies_when_hint": {
-        "es": "La selección de plantilla lee esta descripción; no hay taxonomía interna.",
-        "en": "Template selection reads this description; there is no built-in taxonomy.",
+        "es": "Una nota para ti sobre cuándo servía esta carta.",
+        "en": "A note for yourself about when this letter was meant for.",
     },
     "letters.presentation": {"es": "Párrafo de presentación", "en": "Presentation paragraph"},
     "letters.achievements": {"es": "Párrafo de logros", "en": "Achievements paragraph"},
-    "letters.empty": {"es": "Todavía no hay plantillas.", "en": "No templates yet."},
+    # F8 (2026-10-04): one template per track — Cartas by track, the track's own page.
+    "letters.by_track_title": {"es": "Carta por puesto", "en": "Letter per role"},
+    "letters.by_track_hint": {
+        "es": "Cada puesto tiene una carta, escrita en el idioma del puesto.",
+        "en": "Each role has one letter, written in the role's language.",
+    },
+    "letters.no_tracks": {
+        "es": "Todavía no tienes puestos objetivo. Crea uno y vuelve aquí para escribir su carta.",
+        "en": "You have no target roles yet. Create one and come back to write its letter.",
+    },
+    "letters.status.ready": {"es": "Lista", "en": "Ready"},
+    "letters.status.missing": {"es": "Falta", "en": "Missing"},
+    "letters.status.several": {"es": "Varias: elige una", "en": "Several: choose one"},
+    "letters.status.other_lang": {"es": "Otro idioma", "en": "Other language"},
+    "letters.action.edit": {"es": "Editar carta", "en": "Edit letter"},
+    "letters.action.create": {"es": "Crear carta", "en": "Create letter"},
+    "letters.inactive_title": {"es": "Puestos inactivos", "en": "Inactive roles"},
+    "letters.unlinked_title": {"es": "Sin puesto", "en": "No role"},
+    "letters.unlinked_hint": {
+        "es": "Cartas de antes, sin puesto: ninguna carta las usa. Asígnalas a un puesto "
+        "para usarlas.",
+        "en": "Older letters with no role: no letter uses them. Assign one to a role to "
+        "use it.",
+    },
+    "letters.unlinked_note": {
+        "es": "Esta carta no está ligada a ningún puesto. Asígnala desde Cartas para usarla.",
+        "en": "This letter is not linked to any role. Assign it from Letters to use it.",
+    },
+    "letters.view": {"es": "Ver", "en": "View"},
+    "letters.assign": {"es": "Asignar a un puesto", "en": "Assign to a role"},
+    "letters.assign_label": {"es": "Puesto para esta carta", "en": "Role for this letter"},
+    "letters.assign_none": {
+        "es": "No hay puestos activos en {name}: crea uno para asignar esta carta.",
+        "en": "There are no active roles in {name}: create one to assign this letter.",
+    },
+    "letters.notice.saved": {
+        "es": "Carta de «{track}» guardada.",
+        "en": "Letter for “{track}” saved.",
+    },
+    "letters.notice.assigned": {
+        "es": "Carta asignada a «{track}».",
+        "en": "Letter assigned to “{track}”.",
+    },
+    "letters.notice.assigned_moved": {
+        "es": "Carta asignada a «{track}». La carta que tenía el puesto pasó a «Sin puesto».",
+        "en": "Letter assigned to “{track}”. The letter the role had moved to “No role”.",
+    },
+    "letters.notice.chosen": {
+        "es": "Carta elegida. Las demás pasaron a «Sin puesto», sin borrarse.",
+        "en": "Letter chosen. The others moved to “No role”, none deleted.",
+    },
+    "letters.track_letter_title": {"es": "Carta del puesto", "en": "Role letter"},
+    "letters.track_letter_lang": {
+        "es": "Idioma de la carta: {name}",
+        "en": "Letter language: {name}",
+    },
+    "letters.track_letter_intro": {
+        "es": "Presentación y logros de este puesto. Cada carta que escribas para él "
+        "parte de estos dos párrafos.",
+        "en": "This role's presentation and achievements. Every letter you write for it "
+        "starts from these two paragraphs.",
+    },
+    "letters.presentation_hint": {"es": "≤ 70 palabras", "en": "≤ 70 words"},
+    "letters.achievements_hint": {
+        "es": "80–160 palabras, un solo párrafo, con un logro principal y sus números",
+        "en": "80–160 words, one paragraph, with one main achievement and its numbers",
+    },
+    "letters.other_lang_alert": {
+        "es": "Esta carta está en {x} y el puesto en {y}: edítala o autogenérala.",
+        "en": "This letter is in {x} and the role is in {y}: edit it or autogenerate it.",
+    },
+    "letters.several_title": {
+        "es": "Este puesto tiene varias cartas",
+        "en": "This role has several letters",
+    },
+    "letters.several_hint": {
+        "es": "Se usa la primera de la lista hasta que elijas. Las demás no se borran: "
+        "pasan a «Sin puesto».",
+        "en": "The first in the list is used until you choose. The others are not deleted: "
+        "they move to “No role”.",
+    },
+    "letters.in_use": {"es": "En uso", "en": "In use"},
+    "letters.use_this": {"es": "Usar esta", "en": "Use this one"},
     # N8.2: the blocks every letter shares, and the template's optional track link.
     "letters.settings_title": {"es": "Bloques comunes", "en": "Common blocks"},
     "letters.settings_hint": {
@@ -1349,10 +1437,6 @@ STRINGS: dict[str, dict[str, str]] = {
         "not code.",
     },
     "letters.save_blocks": {"es": "Guardar bloques", "en": "Save blocks"},
-    "letters.templates_title": {"es": "Plantillas", "en": "Templates"},
-    "letters.group_unlinked": {"es": "Sin puesto objetivo", "en": "No track"},
-    "letters.track_link": {"es": "Puesto objetivo (opcional)", "en": "Track (optional)"},
-    "letters.track_none": {"es": "— sin puesto —", "en": "— no track —"},
     # N8.3: the two reusable paragraphs, proposed from the track's own material.
     "letters.propose": {
         "es": "Proponer presentación y logros",

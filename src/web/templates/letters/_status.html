@@ -1,0 +1,8 @@
+{# F8: the one tag every page uses for a track's letter — Lista, Falta, Varias, Otro idioma. #}
+{% macro status_tag(status, lang) -%}
+{% if status == 'ready' -%}
+<span class="inline-flex items-center rounded-control bg-surface-2 px-2 py-0.5 text-xs font-medium text-score-strong">✓ {{ t('letters.status.ready', lang) }}</span>
+{%- else -%}
+<span class="inline-flex items-center rounded-control bg-surface-2 px-2 py-0.5 text-xs font-medium text-sev-warning">{{ t('letters.status.' ~ status, lang) }}</span>
+{%- endif %}
+{%- endmacro %}

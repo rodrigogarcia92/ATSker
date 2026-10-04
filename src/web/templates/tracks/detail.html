@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "letters/_status.html" import status_tag %}
 {% block title %}{{ track.name }} — {{ t('app.name', lang) }}{% endblock %}
 {% block content %}
 <a href="/tracks" class="text-sm text-text-2 underline">{{ t('common.back', lang) }}</a>
@@ -52,6 +53,19 @@
     {{ t('tracks.summaries_absent', lang) }}
     {% endif %}
   </p>
+</div>
+
+{# F8: the track's one cover-letter template, and the link that writes or fixes it. #}
+<h2 class="mt-8 text-lg font-semibold">{{ t('tracks.letter_card', lang) }}</h2>
+<div class="mt-3 rounded-card border border-card-border bg-surface-1 p-4">
+  <p class="text-sm">{{ status_tag(letter_status, lang) }}</p>
+  {% if letter_template and letter_template.presentation %}
+  <p class="mt-2 break-words text-sm text-text-2">{{ letter_template.presentation[:120] }}{% if letter_template.presentation | length > 120 %}…{% endif %}</p>
+  {% endif %}
+  <a href="/tracks/{{ track.id }}/letter"
+     class="mt-3 inline-flex min-h-11 items-center rounded-control border border-border px-3 py-2 text-sm hover:bg-surface-2">
+    {{ t('letters.action.edit' if letter_status != 'missing' else 'letters.action.create', lang) }}
+  </a>
 </div>
 
 <h2 class="mt-8 text-lg font-semibold">{{ t('tracks.skills', lang) }}</h2>

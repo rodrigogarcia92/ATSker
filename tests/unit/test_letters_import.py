@@ -86,7 +86,7 @@ def test_the_letters_page_shows_the_blocks_and_the_template_groups(client, sessi
         session,
         name="Suelta",
         applies_when="",
-        presentation="x",
+        presentation="Texto de la carta suelta.",
         achievements="y",
     )
     session.commit()
@@ -96,9 +96,9 @@ def test_the_letters_page_shows_the_blocks_and_the_template_groups(client, sessi
 
     assert "Bloques comunes" in page
     assert 'name="voice_notes"' in page and 'value="Hola,"' in page
-    assert "Analista de datos" in page, "the linked track groups its template"
-    assert "Sin puesto objetivo" in page, "the unlinked template comes last"
-    assert page.index("Corporativo") < page.index("Suelta")
+    assert "Analista de datos" in page, "the linked track has its row"
+    assert "Texto de la carta suelta." in page, "the unlinked template is listed"
+    assert page.index("Carta por puesto") < page.index("Texto de la carta suelta.")
 
 
 def test_saving_the_blocks_persists_them(client, session, career):
@@ -121,27 +121,6 @@ def test_saving_the_blocks_persists_them(client, session, career):
     session.expire_all()
     entry = get_letter_settings(career.first_profile.id, session, "en")
     assert entry is not None and entry.greeting == "Dear team," and entry.voice_notes == "Formal."
-
-
-def test_a_template_can_be_created_with_a_track(client, session, career):
-    login(client, career.first.email)
-
-    created = client.post(
-        "/letters",
-        data={
-            "name": "Corporativo",
-            "applies_when": "Banca",
-            "presentation": "x",
-            "achievements": "y",
-            "lang": "es",
-            "track_id": str(career.first_track.id),
-        },
-        follow_redirects=False,
-    )
-
-    assert created.status_code == 303
-    session.expire_all()
-    assert list_letters(career.first_profile.id, session)[0].track_id == career.first_track.id
 
 
 # --- the import CLI ----------------------------------------------------------------
