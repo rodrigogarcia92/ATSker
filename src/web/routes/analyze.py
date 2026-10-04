@@ -54,13 +54,16 @@ def _form(
     error: str | None = None,
 ):
     tracks = list_tracks(profile.id, session, active_only=True)
-    # F7.1: a fresh form ticks "recommend a track" when there is a choice to make —
-    # two or more active tracks. With one there is nothing to choose between, and with
-    # none the analysis is the no-track one. A re-rendered form (a validation error)
-    # keeps exactly what was submitted, ticked or not: the box is the user's, and the
-    # default never overrides it. A form pre-filled from `?application=` has no box of
-    # its own, so it takes the default.
+    # F7.1: "recommend a track" is on whenever no track is chosen and there is a choice
+    # to make — two or more active tracks. With exactly one, that track is preselected
+    # and the box is not drawn; with none the analysis is the no-track one. A re-rendered
+    # form (a validation error) keeps exactly what was submitted, ticked or not, and the
+    # track it had: the defaults never override the user. A form pre-filled from
+    # `?application=` carries no track and no box of its own, so it takes the defaults.
     submitted = dict(values or EMPTY_FORM)
+    if len(tracks) == 1 and (values is None or "track_id" not in values):
+        submitted["track_id"] = str(tracks[0].id)
+    submitted.setdefault("track_id", "")
     submitted.setdefault("recommend", "on" if len(tracks) >= 2 else "off")
     return render(
         request,

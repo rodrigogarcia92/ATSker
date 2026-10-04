@@ -52,19 +52,31 @@
     </select>
     <p class="mt-1 text-xs text-text-3">{{ t('analyze.track_hint', lang) }}</p>
   </div>
-  {% if tracks %}
-  {# F7.1: for the user who has not decided which track to apply with. It only acts
-     when no track is chosen above, and it costs one grading call per candidate.
-     The route decides the default (`on` with two or more active tracks); the form
-     renders what it was given, so an untick survives a re-render. #}
-  <label class="flex items-start gap-2 text-sm">
-    <input type="checkbox" name="recommend" value="on" class="mt-0.5"
-           {% if values.recommend == 'on' %}checked{% endif %}>
-    <span>
-      {{ t('analyze.recommend', lang) }}
-      <span class="mt-1 block text-xs text-text-3">{{ t('analyze.recommend_hint', lang) }}</span>
-    </span>
-  </label>
+  {% if tracks | length >= 2 %}
+  {# F7.1: for the user who has not decided which track to apply with. It is on whenever
+     no track is chosen, and it costs one grading call per candidate. Choosing a track
+     turns it off and disables it (the script below; without script the server's rule
+     holds: a chosen track wins over the box). The route decides the default; the form
+     renders what it was given, so an untick survives a re-render. With one active
+     track that track is preselected and there is no box. #}
+  {% set chosen = values.track_id | string | length > 0 %}
+  <div>
+    <label class="flex min-h-11 items-start gap-2 text-sm">
+      <input type="checkbox" id="recommend" name="recommend" value="on" class="mt-0.5"
+             {% if chosen %}disabled{% elif values.recommend == 'on' %}checked{% endif %}>
+      <span>
+        {{ t('analyze.recommend', lang) }}
+        <span class="mt-1 block text-xs text-text-3">{{ t('analyze.recommend_hint', lang) }}</span>
+      </span>
+    </label>
+    <p id="recommend-na" class="mt-1 text-xs text-text-3" role="status" {% if not chosen %}hidden{% endif %}>
+      {{ t('analyze.recommend_na', lang) }}
+    </p>
+    <p id="recommend-off" class="mt-1 text-xs text-text-3" role="status"
+       {% if chosen or values.recommend == 'on' %}hidden{% endif %}>
+      {{ t('analyze.recommend_off', lang) }}
+    </p>
+  </div>
   {% endif %}
   <p class="text-xs text-text-3">{{ t('analyze.optional_hint', lang) }}</p>
   <button type="submit" class="rounded-control bg-link px-3 py-2 text-sm font-medium text-bg hover:opacity-90">
@@ -72,4 +84,33 @@
   </button>
   {{ ui.progress('analyze') }}
 </form>
+{% if tracks | length >= 2 %}
+<script>
+  // F7.1: "Recomendar puesto" follows the track select. Choosing a track unchecks and
+  // disables the box and says it does not apply; clearing the track enables and checks
+  // it again. On load nothing is changed: a re-rendered form keeps what was submitted.
+  (function () {
+    var select = document.getElementById('track_id');
+    var box = document.getElementById('recommend');
+    var notApplicable = document.getElementById('recommend-na');
+    var noTrackHint = document.getElementById('recommend-off');
+    if (!select || !box) return;
+    function hints() {
+      notApplicable.hidden = !select.value;
+      noTrackHint.hidden = !!select.value || box.checked;
+    }
+    select.addEventListener('change', function () {
+      if (select.value) {
+        box.checked = false;
+        box.disabled = true;
+      } else {
+        box.disabled = false;
+        box.checked = true;
+      }
+      hints();
+    });
+    box.addEventListener('change', hints);
+  })();
+</script>
+{% endif %}
 {% endblock %}

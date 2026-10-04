@@ -160,6 +160,14 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "Scores the posting against up to six of your tracks and says which one "
         "wins and why. Used only when no track is chosen above.",
     },
+    "analyze.recommend_na": {
+        "es": "No aplica: elegiste un puesto.",
+        "en": "Not applicable: you chose a track.",
+    },
+    "analyze.recommend_off": {
+        "es": "Sin puesto objetivo, al escribir la carta tendrás que elegir uno.",
+        "en": "Without a target role, you'll pick one when you write the cover letter.",
+    },
     # Application history (F9)
     "applications.title": {"es": "Historial", "en": "History"},
     "applications.new": {"es": "Analizar una oferta", "en": "Analyse a posting"},
@@ -1134,6 +1142,15 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "The recommender reads this to pick a track for a posting.",
     },
     "tracks.lang": {"es": "Idioma", "en": "Language"},
+    # F4.1/F8: the track's language is also the language of its cover letters.
+    "tracks.lang_hint": {
+        "es": "Las cartas de este puesto se escriben en este idioma.",
+        "en": "This role's cover letters are written in this language.",
+    },
+    "tracks.lang_line": {
+        "es": "Idioma: {code} · cartas en {name}",
+        "en": "Language: {code} · letters in {name}",
+    },
     "tracks.seniority": {"es": "Seniority objetivo", "en": "Target seniority"},
     "tracks.seniority_hint": {"es": "Opcional.", "en": "Optional."},
     "tracks.organisation_kind": {"es": "Tipo de organización", "en": "Organisation kind"},

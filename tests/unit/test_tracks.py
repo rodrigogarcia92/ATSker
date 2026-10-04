@@ -570,3 +570,14 @@ def test_saving_the_picker_writes_the_selection_and_its_order(client, session, c
         rows[0],
         rows[2],
     ]
+
+
+def test_the_track_form_and_detail_say_what_the_language_decides(client, session, career):
+    """F4.1/F8: the language is also the language of the track's letters, and it says so."""
+    login(client, career.first.email)
+
+    form = client.get(f"/tracks/{career.first_track.id}/edit").text
+    detail = client.get(f"/tracks/{career.first_track.id}").text
+
+    assert "Las cartas de este puesto se escriben en este idioma." in form
+    assert f"Idioma: {career.first_track.lang.upper()} · cartas en " in detail
