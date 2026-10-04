@@ -1493,28 +1493,90 @@ STRINGS: dict[str, dict[str, str]] = {
     # N8.4: the letter written for one application.
     "letters.letter_title": {"es": "Carta de presentación", "en": "Cover letter"},
     "letters.letter_intro": {
-        "es": "Una llamada para elegir plantilla y escribir tres puentes; el montaje es "
-        "determinista y cambiar de plantilla o variante no vuelve a llamar al modelo.",
-        "en": "One call to choose a template and write three bridges; assembly is "
-        "deterministic, and switching template or variant does not call the model again.",
+        "es": "El puesto ya trae su carta. Escribe o autogenera el párrafo de interés de "
+        "esta oferta, revisa la carta completa y guárdala.",
+        "en": "The role already has its letter. Write or autogenerate the paragraph of "
+        "interest for this posting, review the full letter and save it.",
     },
-    "letters.letter_no_candidates": {
-        "es": "No hay plantillas en el idioma del aviso: créalas en Cartas.",
-        "en": "No templates in the posting's language: create them in Letters.",
-    },
-    "letters.letter_no_settings": {
-        "es": "Faltan los bloques comunes de ese idioma: escríbelos en Cartas.",
-        "en": "The common blocks for that language are missing: write them in Letters.",
-    },
-    "letters.letter_reason": {"es": "Elegida porque", "en": "Chosen because"},
-    "letters.letter_runner_up": {"es": "Alternativa", "en": "Runner-up"},
     "letters.letter_risk": {"es": "Riesgo", "en": "Risk"},
-    "letters.letter_template": {"es": "Plantilla", "en": "Template"},
-    "letters.letter_variant": {"es": "Variante", "en": "Variant"},
-    "letters.letter_repeat_warning": {
-        "es": "Repite un número del párrafo de logros de esta plantilla.",
-        "en": "Repeats a number from this template's achievements paragraph.",
+    "letters.picker_intro": {
+        "es": "Este análisis no tiene puesto objetivo. Elige el puesto para la carta (no "
+        "cambia el análisis).",
+        "en": "This analysis has no target role. Choose the role for the letter (it does "
+        "not change the analysis).",
     },
+    "letters.picker_label": {"es": "Puesto objetivo", "en": "Target role"},
+    "letters.picker_submit": {"es": "Usar este puesto", "en": "Use this role"},
+    "letters.picker_none": {
+        "es": "No tienes puestos objetivo activos: crea uno para escribir la carta.",
+        "en": "You have no active target roles: create one to write the letter.",
+    },
+    "letters.language_notice": {
+        "es": "Este aviso está en {x} y tu puesto objetivo está en {y}; la carta va en {y}.",
+        "en": "This posting is in {x} and your target role is in {y}; the letter is in {y}.",
+    },
+    "letters.need_blocks": {
+        "es": "Faltan los bloques comunes en {name}.",
+        "en": "The common blocks in {name} are missing.",
+    },
+    "letters.go_cartas": {"es": "Ir a Cartas", "en": "Go to Letters"},
+    "letters.need_template": {
+        "es": "El puesto «{track}» no tiene carta en {name}.",
+        "en": "The role “{track}” has no letter in {name}.",
+    },
+    "letters.create_track_letter": {
+        "es": "Crear carta del puesto",
+        "en": "Create the role's letter",
+    },
+    "letters.several_note": {
+        "es": "Este puesto tiene varias cartas y se usa la primera. Elige una en Cartas:",
+        "en": "This role has several letters and the first one is used. Choose one in Letters:",
+    },
+    "letters.preview_title": {"es": "Así se lee la carta", "en": "How the letter reads"},
+    "letters.bridge_label": {"es": "Párrafo de interés", "en": "Paragraph of interest"},
+    "letters.bridge_generate": {
+        "es": "Autogenerar párrafo de interés",
+        "en": "Autogenerate paragraph of interest",
+    },
+    "letters.bridge_another": {
+        "es": "Otra versión ({n} de 5)",
+        "en": "Another version ({n} of 5)",
+    },
+    "letters.bridge_another_plain": {"es": "Otra versión", "en": "Another version"},
+    "letters.bridge_limit": {"es": "Llegaste a 5 versiones.", "en": "You reached 5 versions."},
+    "letters.bridge_marker": {"es": "[párrafo de interés]", "en": "[paragraph of interest]"},
+    "letters.bridge_version": {"es": "Versión {n} · {angle}", "en": "Version {n} · {angle}"},
+    "letters.bridge_failed": {
+        "es": "No se pudo escribir un párrafo que cumpla las reglas.",
+        "en": "A paragraph that follows the rules could not be written.",
+    },
+    "letters.soft.sentences": {
+        "es": "{n} frases: el máximo es 4.",
+        "en": "{n} sentences: the maximum is 4.",
+    },
+    "letters.soft.words": {
+        "es": "{n} palabras: el máximo es 90.",
+        "en": "{n} words: the maximum is 90.",
+    },
+    "letters.soft.banned": {
+        "es": "Usa una frase de plantilla: «{phrase}».",
+        "en": "Uses a template phrase: “{phrase}”.",
+    },
+    "letters.full_label": {"es": "Carta completa", "en": "Full letter"},
+    "letters.full_edited": {
+        "es": "Editaste la carta completa; el párrafo ya no se actualiza aquí.",
+        "en": "You edited the full letter; the paragraph no longer updates it here.",
+    },
+    "letters.reassemble": {"es": "Volver a montar", "en": "Reassemble"},
+    "letters.check_caption_generated": {
+        "es": "para el texto generado",
+        "en": "for the generated text",
+    },
+    "letters.check_caption_saved": {
+        "es": "para la carta guardada",
+        "en": "for the saved letter",
+    },
+    "letters.letter_saved_notice": {"es": "Carta guardada.", "en": "Letter saved."},
     "letters.letter_save": {"es": "Guardar carta", "en": "Save letter"},
     # F8.5: the checklist, deterministic and beside the letter.
     "letters.check.placeholders": {
@@ -1543,11 +1605,6 @@ STRINGS: dict[str, dict[str, str]] = {
     "letters.check.sentences": {
         "es": "El párrafo de interés tiene 4 frases o menos",
         "en": "The paragraph of interest has 4 sentences or fewer",
-    },
-    "letters.letter_saved": {"es": "Carta guardada", "en": "Saved letter"},
-    "letters.letter_missing_candidates_note": {
-        "es": "Solo sobrevivieron {count} variantes; no se rellenan hasta tres.",
-        "en": "Only {count} variants survived; three are never padded.",
     },
     "report.letter": {"es": "Carta de presentación", "en": "Cover letter"},
     "report.letter_link": {"es": "Escribir la carta", "en": "Write the letter"},

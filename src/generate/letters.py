@@ -27,7 +27,7 @@ from sqlalchemy.orm import Session
 from src.bullets import list_bullets
 from src.generate.proposals import pool_skills
 from src.generate.validators import LITERAL, PROVENANCE, Sources, Violation, validate
-from src.letters import get_letter_settings, list_letters
+from src.letters import get_letter_settings
 from src.models import Application, LetterSettings, LetterTemplate, Track
 from src.normalize.text import fold
 from src.roles import list_roles
@@ -153,19 +153,6 @@ def letter_settings_for(
 ) -> LetterSettings | None:
     """The common blocks for the posting's language, or None (F8)."""
     return get_letter_settings(profile_id, session, language)
-
-
-def letter_candidates(
-    profile_id: Any, session: Session, application: Application, language: str
-) -> list[LetterTemplate]:
-    """Templates in the posting's language; with a track, the linked ones first (F8.1)."""
-    templates = [letter for letter in list_letters(profile_id, session) if letter.lang == language]
-    linked = [
-        letter
-        for letter in templates
-        if application.track_id is not None and letter.track_id == application.track_id
-    ]
-    return linked + [letter for letter in templates if letter not in linked]
 
 
 def material_for_application(
@@ -326,82 +313,6 @@ def check_bridge(
     return hard, soft
 
 
-def check_variants(
-    output: Mapping[str, Any],
-    *,
-    sources: Sources,
-    candidates: Sequence[LetterTemplate],
-    jd_text: str,
-    company: str | None,
-    title: str | None,
-    achievements_text: str,
-) -> tuple[list[dict[str, Any]], list[Violation]]:
-    """Every rule F8.4 puts on the bridge; returns the surviving variants.
-
-    A variant whose company fact is not a verbatim quote of the posting is **dropped**,
-    not weakened (F8.4); the other rules are reported as violations for the variants
-    that keep. Every variant must cite at least one of the profile's own bullets,
-    stories or roles: the posting itself is not the user's material.
-    """
-    allowed_ids = {str(letter.id) for letter in candidates}
-    chosen = str(output.get("template_id") or "")
-    runner_up = output.get("runner_up_id")
-    violations: list[Violation] = []
-    if chosen not in allowed_ids:
-        violations.append(Violation(PROVENANCE, "template", chosen, "not a candidate template"))
-    if runner_up is not None and str(runner_up) not in allowed_ids:
-        violations.append(Violation(PROVENANCE, "template", str(runner_up), "not a candidate"))
-
-    forbidden = numbers_in(achievements_text)
-    jd_folded = " ".join(jd_text.split()).lower()
-    survivors: list[dict[str, Any]] = []
-    for index, variant in enumerate(output.get("variants") or []):
-        name = f"variant {index + 1}"
-        text = str(variant.get("text") or "")
-        cites = [str(value) for value in variant.get("sources") or []]
-        fact = variant.get("company_fact")
-        if fact:
-            quote = " ".join(str(fact.get("jd_quote") or "").split()).lower()
-            if not quote or quote not in jd_folded:
-                # Inventing a company detail is a failure, not a fallback: the variant
-                # is dropped, and the others still stand (F8.4).
-                continue
-        words = len(text.split())
-        if words > 90:
-            violations.append(Violation(LENGTH, name, text, f"{words} words, over 90"))
-        repeated = numbers_in(text) & forbidden
-        if repeated:
-            violations.append(
-                Violation(
-                    LITERAL,
-                    name,
-                    ", ".join(sorted(repeated)),
-                    "repeats a number from the template's achievements paragraph",
-                )
-            )
-        # The posting is not the user's material: a variant must cite at least one of
-        # the profile's own bullets, stories or roles *before* `__posting__` is added,
-        # or a bridge built only from the posting's own words would pass provenance.
-        if not any(cite in sources.ids for cite in cites):
-            violations.append(
-                Violation(PROVENANCE, name, "", "the bridge cites none of your material")
-            )
-        # The posting, the company and the title are citable for this rule: a variant
-        # may name the employer it is writing to (F8.4).
-        variant_sources = _bridge_sources(sources, jd_text, company, title)
-        violations.extend(
-            validate(
-                {"text": text, "cites": [*cites, "__posting__"]},
-                sources=variant_sources,
-                profile_id=None,
-                session=None,
-                kind="bullet",
-            )
-        )
-        survivors.append({**variant, "text": text, "sources": cites})
-    return survivors, violations
-
-
 def _bridge_sources(
     sources: Sources,
     jd_text: str,
@@ -490,6 +401,67 @@ def letter_values(
     }
 
 
+def _resolve_blocks(
+    raw_blocks: Sequence[str], values: Mapping[str, str | None]
+) -> tuple[list[str], list[str]]:
+    """Each block with its placeholders filled, and the keys that stayed literal."""
+    resolved: list[str] = []
+    unresolved: list[str] = []
+    for raw in raw_blocks:
+        text, missing = fill_placeholders(raw or "", values)
+        resolved.append(text.strip())
+        for key in missing:
+            if key not in unresolved:
+                unresolved.append(key)
+    return resolved, unresolved
+
+
+def _before_blocks(
+    settings: LetterSettings | None,
+    template: LetterTemplate | None,
+    values: Mapping[str, str | None],
+) -> list[str]:
+    """Header · date · greeting · presentation · achievements: what comes before the bridge."""
+    return [
+        settings.header if settings else "",
+        values["date"] or "",
+        settings.greeting if settings else "",
+        template.presentation if template else "",
+        template.achievements if template else "",
+    ]
+
+
+def _after_blocks(settings: LetterSettings | None) -> list[str]:
+    """Closing · sign-off: what comes after the bridge."""
+    return [settings.closing if settings else "", settings.sign_off if settings else ""]
+
+
+def assemble_parts(
+    *,
+    settings: LetterSettings | None,
+    template: LetterTemplate | None,
+    application: Application,
+    language: str,
+    today: date | None = None,
+) -> dict[str, Any]:
+    """The letter up to the bridge and after it, placeholders filled (F8).
+
+    The letter page renders both and lets the browser put the bridge between them, so
+    typing in the bridge field needs no round trip. `unresolved` names the placeholder
+    keys that stayed literal.
+    """
+    values = letter_values(application, language, today=today)
+    resolved, unresolved = _resolve_blocks(
+        [*_before_blocks(settings, template, values), *_after_blocks(settings)], values
+    )
+    before, after = resolved[:5], resolved[5:]
+    return {
+        "before": "\n\n".join(block for block in before if block),
+        "after": "\n\n".join(block for block in after if block),
+        "unresolved": unresolved,
+    }
+
+
 def assemble_letter(
     *,
     settings: LetterSettings | None,
@@ -506,25 +478,20 @@ def assemble_letter(
     can highlight them instead of shipping a blank.
     """
     values = letter_values(application, language, today=today)
-    raw_blocks: list[str] = [
-        settings.header if settings else "",
-        values["date"] or "",
-        settings.greeting if settings else "",
-        template.presentation if template else "",
-        template.achievements if template else "",
+    raw_blocks = [
+        *_before_blocks(settings, template, values),
         bridge_text,
-        settings.closing if settings else "",
-        settings.sign_off if settings else "",
+        *_after_blocks(settings),
     ]
-    resolved: list[str] = []
-    unresolved: list[str] = []
-    for raw in raw_blocks:
-        text, missing = fill_placeholders(raw or "", values)
-        resolved.append(text.strip())
-        for key in missing:
-            if key not in unresolved:
-                unresolved.append(key)
+    resolved, unresolved = _resolve_blocks(raw_blocks, values)
     return {"text": "\n\n".join(block for block in resolved if block), "unresolved": unresolved}
+
+
+def unresolved_placeholders(text: str) -> list[str]:
+    """The placeholder keys whose token is still in `text` (a saved or edited letter)."""
+    return [
+        key for key, tokens in PLACEHOLDER_PAIRS.items() if any(token in text for token in tokens)
+    ]
 
 
 def highlight_placeholders(text: str, unresolved: Sequence[str]) -> str:
@@ -553,18 +520,21 @@ def letter_checklist(
     facts_attributed: bool,
     track_lang: str | None = None,
     bridge_text: str = "",
+    banned_text: str | None = None,
 ) -> list[dict[str, Any]]:
     """F8.6's checks, in order, with what each one saw.
 
     Deterministic and free: it reads the assembled letter, never a model. A check that
     cannot pass is reported as failed, never hidden. `language` is the language the letter
     was written in and `track_lang` the track's, which decides it (F8); `bridge_text` is
-    the generated paragraph that the banned-phrase and sentence checks read.
+    the generated paragraph that the banned-phrase and sentence checks read. A letter
+    that was saved has no separate bridge, so its banned-phrase check reads `banned_text`,
+    the whole letter.
     """
     words = len(text.split())
     title = (application.title or "").strip()
     company = (application.company or "").strip()
-    banned = banned_in(bridge_text, track_lang or language)
+    banned = banned_in(bridge_text if banned_text is None else banned_text, track_lang or language)
     sentences = len(sentences_in(bridge_text))
     return [
         {

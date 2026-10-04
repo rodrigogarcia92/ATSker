@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 
 from src.i18n.strings import STRINGS, t
-from src.letters import save_letter_settings
+from src.letters import save_letter_settings, save_track_template
 from src.models import Resume
 from tests.conftest import login
 from tests.unit.test_generation import rephrase_url, stored_application, story_bullets_url
@@ -132,6 +132,14 @@ def test_the_generate_and_letter_run_forms_render_the_status_line(
         closing="Quedo a su disposición.",
         sign_off="Ana",
         voice_notes="Tuteo.",
+    )
+    # The letter page offers its run form once the track has a template (F8).
+    save_track_template(
+        career.first_profile.id,
+        session,
+        career.first_track,
+        presentation="Me presento.",
+        achievements="Logros.",
     )
     session.commit()
     login(client, career.first.email)

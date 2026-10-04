@@ -22,7 +22,6 @@ from src.extract.client import CallOptions, Completion, complete_json
 from src.extract.prompts import (
     BULLET_REPHRASE_V1,
     LETTER_BLOCKS_V1,
-    LETTER_BRIDGE_V1,
     LETTER_BRIDGE_V2,
     STORY_BULLETS_V1,
     SUMMARY_SKILLS_V2,
@@ -83,25 +82,6 @@ class CompanyFact(BaseModel):
 
     text: str = Field(description="the fact, as the letter states it")
     jd_quote: str = Field(description="the verbatim posting line it comes from")
-
-
-class BridgeVariant(BaseModel):
-    """One bridge, its angle, its sources, and any attributed company fact."""
-
-    angle: str = Field(description="two or three words naming the angle")
-    text: str = Field(description="2-4 sentences, at most 90 words")
-    sources: list[str] = Field(description="the ids it draws on")
-    company_fact: CompanyFact | None = None
-
-
-class LetterBridge(BaseModel):
-    """N8.4's answer: the chosen template, three bridges, and the risk line."""
-
-    template_id: str
-    reason: str
-    runner_up_id: str | None = None
-    variants: list[BridgeVariant] = Field(default_factory=list)
-    risk: str | None = None
 
 
 class LetterBridgeOne(BaseModel):
@@ -333,83 +313,6 @@ def generate_letter_blocks(
                 "text": answer.achievements.text.strip(),
                 "sources": list(answer.achievements.sources),
             },
-        },
-        completion=completion,
-    )
-
-
-def generate_letter_bridge(
-    session: Session,
-    *,
-    jd_text: str,
-    company: str | None,
-    title: str | None,
-    templates: Sequence[Mapping[str, Any]],
-    material: str,
-    voice_notes: str,
-    language: str,
-    known_names: Sequence[str] | None = None,
-    repair: str | None = None,
-    model: str | None = None,
-    options: CallOptions | None = None,
-) -> Proposal:
-    """One call: the bridge for one application, with its template choice (F8, N8.4).
-
-    `templates` are `{id, name, applies_when, achievements}` and `material` is the
-    person's own evidence, already ordered strongest-first by the caller. `repair`
-    turns the same call into the single retry: a fresh call whose user message says
-    what was unusable about the previous answer.
-    """
-    rows = [
-        f"{template['id']}\t{template['name']}\t{template.get('applies_when') or ''}\t"
-        f"{template.get('achievements') or ''}"
-        for template in templates
-    ]
-    body = LETTER_BRIDGE_V1.render(
-        posting=_redacted(jd_text, known_names),
-        company=company or "(none)",
-        title=title or "(none)",
-        templates=summarize_rows(rows),
-        material=material,
-        voice_notes=voice_notes.strip() or "(none)",
-        lang=language,
-    )
-    if repair:
-        body = f"{body}\n\nYour previous answer was unusable: {repair}"
-    completion = complete_json(
-        session,
-        purpose=LETTER_BRIDGE,
-        prompt_version=LETTER_BRIDGE_V1.version,
-        system=LETTER_BRIDGE_V1.render_system(),
-        user=body,
-        schema=LetterBridge,
-        model=model,
-        options=options,
-    )
-    answer = LetterBridge.model_validate(completion.data)
-    return Proposal(
-        kind="letter_bridge",
-        output={
-            "template_id": answer.template_id,
-            "reason": answer.reason.strip(),
-            "runner_up_id": answer.runner_up_id,
-            "variants": [
-                {
-                    "angle": variant.angle.strip(),
-                    "text": variant.text.strip(),
-                    "sources": list(variant.sources),
-                    "company_fact": (
-                        {
-                            "text": variant.company_fact.text.strip(),
-                            "jd_quote": variant.company_fact.jd_quote,
-                        }
-                        if variant.company_fact is not None
-                        else None
-                    ),
-                }
-                for variant in answer.variants
-            ],
-            "risk": (answer.risk or "").strip() or None,
         },
         completion=completion,
     )
