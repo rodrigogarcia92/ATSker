@@ -1532,10 +1532,18 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "Every company fact is attributed",
     },
     "letters.check.language": {
-        "es": "El idioma de la carta es el del aviso",
-        "en": "The letter's language is the posting's",
+        "es": "El idioma de la carta es el del puesto",
+        "en": "The letter's language is the role's",
     },
     "applications.letter_mark": {"es": "carta", "en": "letter"},
+    "letters.check.banned": {
+        "es": "Sin frases de plantilla de IA",
+        "en": "No AI-template phrasing",
+    },
+    "letters.check.sentences": {
+        "es": "El párrafo de interés tiene 4 frases o menos",
+        "en": "The paragraph of interest has 4 sentences or fewer",
+    },
     "letters.letter_saved": {"es": "Carta guardada", "en": "Saved letter"},
     "letters.letter_missing_candidates_note": {
         "es": "Solo sobrevivieron {count} variantes; no se rellenan hasta tres.",

@@ -14,9 +14,12 @@ would be the same achievement twice rather than a new one.
 """
 
 import html
+import json
 import re
 from collections.abc import Mapping, Sequence
 from datetime import UTC, date, datetime
+from functools import cache
+from pathlib import Path
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -26,6 +29,7 @@ from src.generate.proposals import pool_skills
 from src.generate.validators import LITERAL, PROVENANCE, Sources, Violation, validate
 from src.letters import get_letter_settings, list_letters
 from src.models import Application, LetterSettings, LetterTemplate, Track
+from src.normalize.text import fold
 from src.roles import list_roles
 from src.stories import list_stories
 from src.summaries import get_summary
@@ -40,6 +44,13 @@ ACHIEVEMENTS_MAX_WORDS = 160
 
 LENGTH = "length"
 SHAPE = "shape"
+BANNED = "banned"
+
+# F8.3: the bridge is three sentences ideally, four at most, and at most 90 words.
+BRIDGE_MAX_SENTENCES = 4
+BRIDGE_MAX_WORDS = 90
+
+_SENTENCE_END = re.compile(r"(?<=[.!?…])\s+")
 
 _NUMBER = re.compile(r"\d[\d.,]*%?")
 
@@ -199,6 +210,120 @@ def numbers_in(text: str) -> set[str]:
         match.group().replace("%", "").replace(",", "").rstrip(".")
         for match in _NUMBER.finditer(text)
     }
+
+
+@cache
+def _banned_phrases() -> dict[str, tuple[str, ...]]:
+    """`banned_phrases.json`: the AI phrasing the bridge must not use, per language (F8.3)."""
+    raw = json.loads(Path(__file__).with_name("banned_phrases.json").read_text("utf-8"))
+    return {lang: tuple(phrases) for lang, phrases in raw.items()}
+
+
+def _banned_key(text: str) -> str:
+    """Lower-case, unaccented, one space between words, and a straight apostrophe."""
+    return fold(text.replace("\u2019", "'").replace("\u2018", "'"))
+
+
+def banned_phrases(lang: str) -> list[str]:
+    """The banned phrases of one language, as written in the data file."""
+    return list(_banned_phrases().get(lang, ()))
+
+
+def banned_in(text: str, lang: str) -> list[str]:
+    """Which banned phrases of `lang` the text uses (F8.3).
+
+    Matched case-insensitively on word boundaries after folding whitespace and accents, so
+    `Me apasiona` and `LEVERAGE` are found and `leverage` inside `leveraged` is not. The
+    phrases come back as the data file spells them, once each, in file order.
+    """
+    key = _banned_key(text)
+    found: list[str] = []
+    for phrase in _banned_phrases().get(lang, ()):
+        pattern = r"(?<!\w)" + r"\s+".join(re.escape(part) for part in _banned_key(phrase).split())
+        if re.search(pattern + r"(?!\w)", key) and phrase not in found:
+            found.append(phrase)
+    return found
+
+
+def sentences_in(text: str) -> list[str]:
+    """The sentences of a paragraph, split after . ! ? or … and ignoring empty parts."""
+    return [part for part in _SENTENCE_END.split(text.strip()) if part.strip()]
+
+
+def check_bridge(
+    output: Mapping[str, Any],
+    *,
+    sources: Sources,
+    template: LetterTemplate,
+    jd_text: str,
+    company: str | None,
+    title: str | None,
+    lang: str,
+) -> tuple[list[Violation], list[Violation]]:
+    """Every rule F8.3 and F8.4 put on one bridge: `(hard, soft)`.
+
+    **Hard** failures mean no paragraph is shown: no own material cited or an id that was
+    never supplied, a number, date or name the cited material, the posting, the company
+    and the title do not hold (literal preservation, with `__posting__` as an allowed
+    source), a company fact without a verbatim posting quote, and a number taken from the
+    track's achievements paragraph. **Soft** failures are shown, marked: more than four
+    sentences, more than 90 words, a banned phrase.
+    """
+    text = str(output.get("text") or "")
+    cites = [str(value) for value in output.get("sources") or []]
+    hard: list[Violation] = []
+
+    # The posting is not the user's material: a bridge must cite at least one of the
+    # profile's own bullets, stories or roles *before* `__posting__` is added, or a
+    # bridge built only from the posting's own words would pass provenance.
+    if not any(cite in sources.ids for cite in cites):
+        hard.append(Violation(PROVENANCE, "bridge", "", "the bridge cites none of your material"))
+    # The posting, the company and the title are citable for the literal rule: a bridge
+    # may name the employer it is writing to (F8.4).
+    hard.extend(
+        validate(
+            {"text": text, "cites": [*cites, "__posting__"]},
+            sources=_bridge_sources(sources, jd_text, company, title),
+            profile_id=None,
+            session=None,
+            kind="bullet",
+        )
+    )
+    fact = output.get("company_fact")
+    if fact:
+        quote = " ".join(str(fact.get("jd_quote") or "").split()).lower()
+        if not quote or quote not in " ".join(jd_text.split()).lower():
+            hard.append(
+                Violation(
+                    PROVENANCE,
+                    "company_fact",
+                    str(fact.get("text") or ""),
+                    "the company fact has no verbatim quote from the posting",
+                )
+            )
+    repeated = numbers_in(text) & numbers_in(template.achievements or "")
+    if repeated:
+        hard.append(
+            Violation(
+                LITERAL,
+                "bridge",
+                ", ".join(sorted(repeated)),
+                "repeats a number from the template's achievements paragraph",
+            )
+        )
+
+    soft: list[Violation] = []
+    count = len(sentences_in(text))
+    if count > BRIDGE_MAX_SENTENCES:
+        soft.append(
+            Violation(LENGTH, "bridge", text, f"{count} sentences, over {BRIDGE_MAX_SENTENCES}")
+        )
+    words = len(text.split())
+    if words > BRIDGE_MAX_WORDS:
+        soft.append(Violation(LENGTH, "bridge", text, f"{words} words, over {BRIDGE_MAX_WORDS}"))
+    for phrase in banned_in(text, lang):
+        soft.append(Violation(BANNED, "bridge", phrase, f"uses the banned phrase {phrase!r}"))
+    return hard, soft
 
 
 def check_variants(
@@ -426,15 +551,21 @@ def letter_checklist(
     language: str,
     unresolved: Sequence[str],
     facts_attributed: bool,
+    track_lang: str | None = None,
+    bridge_text: str = "",
 ) -> list[dict[str, Any]]:
-    """F8.5's six checks, in order, with what each one saw.
+    """F8.6's checks, in order, with what each one saw.
 
     Deterministic and free: it reads the assembled letter, never a model. A check that
-    cannot pass is reported as failed, never hidden.
+    cannot pass is reported as failed, never hidden. `language` is the language the letter
+    was written in and `track_lang` the track's, which decides it (F8); `bridge_text` is
+    the generated paragraph that the banned-phrase and sentence checks read.
     """
     words = len(text.split())
     title = (application.title or "").strip()
     company = (application.company or "").strip()
+    banned = banned_in(bridge_text, track_lang or language)
+    sentences = len(sentences_in(bridge_text))
     return [
         {
             "key": "placeholders",
@@ -449,5 +580,15 @@ def letter_checklist(
             "detail": f"{words} / {CHECKLIST_WORD_LIMIT}",
         },
         {"key": "facts", "ok": facts_attributed, "detail": ""},
-        {"key": "language", "ok": language in ("es", "en"), "detail": language},
+        {
+            "key": "language",
+            "ok": language in ("es", "en") and language == (track_lang or language),
+            "detail": language,
+        },
+        {"key": "banned", "ok": not banned, "detail": ", ".join(banned)},
+        {
+            "key": "sentences",
+            "ok": sentences <= BRIDGE_MAX_SENTENCES,
+            "detail": f"{sentences} / {BRIDGE_MAX_SENTENCES}" if sentences else "",
+        },
     ]

@@ -23,6 +23,7 @@ from src.extract.prompts import (
     BULLET_REPHRASE_V1,
     LETTER_BLOCKS_V1,
     LETTER_BRIDGE_V1,
+    LETTER_BRIDGE_V2,
     STORY_BULLETS_V1,
     SUMMARY_SKILLS_V2,
     summarize_rows,
@@ -100,6 +101,16 @@ class LetterBridge(BaseModel):
     reason: str
     runner_up_id: str | None = None
     variants: list[BridgeVariant] = Field(default_factory=list)
+    risk: str | None = None
+
+
+class LetterBridgeOne(BaseModel):
+    """F8.3's answer: one bridge, its angle, its sources, and the risk line."""
+
+    angle: str = Field(description="two or three words naming the angle")
+    text: str = Field(description="three sentences ideally, four at most, at most 90 words")
+    sources: list[str] = Field(description="the ids it draws on")
+    company_fact: CompanyFact | None = None
     risk: str | None = None
 
 
@@ -398,6 +409,76 @@ def generate_letter_bridge(
                 }
                 for variant in answer.variants
             ],
+            "risk": (answer.risk or "").strip() or None,
+        },
+        completion=completion,
+    )
+
+
+def generate_letter_bridge_one(
+    session: Session,
+    *,
+    jd_text: str,
+    company: str | None,
+    title: str | None,
+    template: Any,
+    material: str,
+    voice_notes: str,
+    language: str,
+    banned: Sequence[str],
+    previous: Sequence[str],
+    known_names: Sequence[str] | None = None,
+    repair: str | None = None,
+    model: str | None = None,
+    options: CallOptions | None = None,
+) -> Proposal:
+    """One call: one bridge for one application (PRD F8.3).
+
+    `template` is the track's (its `presentation` and `achievements` are the style
+    reference); `material` is the person's own evidence, strongest first. The previous
+    versions are part of the user message, so each "Otra versión" is a new input and a
+    new cache key. `repair` turns the same call into the single retry.
+    """
+    body = LETTER_BRIDGE_V2.render(
+        posting=_redacted(jd_text, known_names),
+        company=company or "(none)",
+        title=title or "(none)",
+        presentation=template.presentation.strip() or "(none)",
+        achievements=template.achievements.strip() or "(none)",
+        material=material,
+        voice_notes=voice_notes.strip() or "(none)",
+        banned="\n".join(f"- {phrase}" for phrase in banned) or "(none)",
+        previous="\n".join(f"{index}. {text}" for index, text in enumerate(previous, 1))
+        or "(none)",
+        lang=language,
+    )
+    if repair:
+        body = f"{body}\n\nYour previous answer was unusable: {repair}"
+    completion = complete_json(
+        session,
+        purpose=LETTER_BRIDGE,
+        prompt_version=LETTER_BRIDGE_V2.version,
+        system=LETTER_BRIDGE_V2.render_system(),
+        user=body,
+        schema=LetterBridgeOne,
+        model=model,
+        options=options,
+    )
+    answer = LetterBridgeOne.model_validate(completion.data)
+    return Proposal(
+        kind="letter_bridge",
+        output={
+            "angle": answer.angle.strip(),
+            "text": answer.text.strip(),
+            "sources": list(answer.sources),
+            "company_fact": (
+                {
+                    "text": answer.company_fact.text.strip(),
+                    "jd_quote": answer.company_fact.jd_quote,
+                }
+                if answer.company_fact is not None
+                else None
+            ),
             "risk": (answer.risk or "").strip() or None,
         },
         completion=completion,

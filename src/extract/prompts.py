@@ -555,3 +555,47 @@ LETTER_BRIDGE_V1 = Prompt(
         "Write in {lang}."
     ),
 )
+
+
+# F8.3 (2026-10-04): one bridge at a time. The track already chose the template, so the
+# model no longer picks one or writes three variants: it writes one paragraph, in the
+# track's own style, and each "Otra versión" sends the earlier ones to avoid.
+LETTER_BRIDGE_V2 = Prompt(
+    version="letter_bridge_v2",
+    system=(
+        "You write the bridge paragraph of one cover letter — the one part written for "
+        "this application and no other: why this position, and why this person fits it.\n\n"
+        "Write one bridge: three sentences ideally, four at most, and at most 90 words. "
+        "Say in general terms why this position and why this person fits it; never retell "
+        "a story's specifics.\n\n"
+        "The person's presentation and achievements paragraphs are given to you as the "
+        "style reference: write in the same register, plain, in short sentences, and "
+        "follow the voice notes and the person's form of address. Sound like a person, "
+        "not like a template.\n\n"
+        "Use only material you are given: the person's bullets, stories and roles, the "
+        "posting, the company and the title. Cite the ids you draw on, and cite at least "
+        "one of the person's own. Never invent a number, a date, an employer or a tool. "
+        "A company fact is usable only with a verbatim quote from the posting; otherwise "
+        "say nothing about the company.\n\n"
+        "Do not use any number from the achievements paragraph: the bridge is a "
+        "different point, not the same achievement twice.\n\n"
+        "Never use any of the banned phrases listed in the message, in any inflection.\n\n"
+        "If previous versions are listed, write something genuinely different from "
+        "them: a different angle, not a rephrasing.\n\n"
+        "Return the angle in two or three words, and one line of risk — what may count "
+        "against this application (a sector change, a seniority gap against the title) "
+        "and how to handle it — or null when nothing does."
+    ),
+    template=(
+        "The posting:\n{posting}\n\n"
+        "Company: {company}\nPosting title, exactly as stored: {title}\n\n"
+        "The person's presentation paragraph (style reference):\n{presentation}\n\n"
+        "The person's achievements paragraph (style reference; do not reuse its "
+        "numbers):\n{achievements}\n\n"
+        "The person's material, strongest evidence first:\n{material}\n\n"
+        "Voice notes from the person:\n{voice_notes}\n\n"
+        "Banned phrases in {lang}:\n{banned}\n\n"
+        "Previous versions — write something different:\n{previous}\n\n"
+        "Write in {lang}."
+    ),
+)
