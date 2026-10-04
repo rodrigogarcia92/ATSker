@@ -185,7 +185,9 @@ def test_a_second_apply_updates_instead_of_duplicating(session, career, tmp_path
     )
 
 
-def test_the_production_database_is_refused(monkeypatch, session, career, tmp_path, capsys):
+def test_the_production_database_is_refused(
+    monkeypatch, test_settings, session, career, tmp_path, capsys
+):
     monkeypatch.setenv(
         "DATABASE_URL",
         "postgresql://user:secret@REDACTED-PROD-ENDPOINT/db",
@@ -225,3 +227,132 @@ def test_a_bad_payload_is_refused_before_anything_runs(tmp_path):
 
     with pytest.raises(letters_import.ImportRefused):
         letters_import.load_payload(path)
+
+
+# --- one template per track (F8) ---------------------------------------------------
+
+
+def run_import(session, career, tmp_path, payload, *, apply=True, capsys=None):
+    argv = ["--email", career.first.email, "--file", write_payload(tmp_path, payload)]
+    if apply:
+        argv.append("--apply")
+    code = letters_import.main(
+        argv, confirm=lambda _prompt: "IMPORT", scope=lambda: scope(session)
+    )
+    assert code == 0
+    session.expire_all()
+    return capsys.readouterr().out if capsys is not None else ""
+
+
+def template(name, *, track_name="Analista de datos", lang="es"):
+    entry = {
+        "name": name,
+        "applies_when": "",
+        "presentation": f"Presentación de {name}.",
+        "achievements": "Logros.",
+        "lang": lang,
+    }
+    if track_name is not None:
+        entry["track_name"] = track_name
+    return entry
+
+
+def linked_names(session, career):
+    return sorted(
+        letter.name
+        for letter in list_letters(career.first_profile.id, session)
+        if letter.track_id == career.first_track.id
+    )
+
+
+def test_a_second_template_for_the_same_track_is_imported_unlinked_and_listed(
+    session, career, tmp_path, capsys
+):
+    payload = {"templates": [template("Primera"), template("Segunda")]}
+
+    out = run_import(session, career, tmp_path, payload, capsys=capsys)
+
+    assert linked_names(session, career) == ["Primera"], "one template per track"
+    letters = {letter.name: letter for letter in list_letters(career.first_profile.id, session)}
+    assert letters["Segunda"].track_id is None, "imported, not dropped"
+    assert "track 'Analista de datos' already has a template; imported unlinked" in out
+
+
+def test_a_track_that_already_has_a_template_keeps_it(session, career, tmp_path, capsys):
+    from src.letters import save_track_template
+
+    save_track_template(
+        career.first_profile.id,
+        session,
+        career.first_track,
+        presentation="La que ya tenía.",
+        achievements="Logros.",
+    )
+    session.commit()
+
+    out = run_import(
+        session, career, tmp_path, {"templates": [template("Nueva")]}, capsys=capsys
+    )
+
+    assert linked_names(session, career) == ["Analista de datos"], "the existing one stays"
+    assert "already has a template; imported unlinked" in out
+    letters = {letter.name: letter for letter in list_letters(career.first_profile.id, session)}
+    assert letters["Nueva"].track_id is None
+
+
+def test_a_template_in_another_language_than_its_track_is_imported_unlinked(
+    session, career, tmp_path, capsys
+):
+    payload = {"templates": [template("English one", lang="en")]}
+
+    out = run_import(session, career, tmp_path, payload, capsys=capsys)
+
+    assert linked_names(session, career) == []
+    assert "template is in EN and track 'Analista de datos' is in ES; imported unlinked" in out
+    names = [letter.name for letter in list_letters(career.first_profile.id, session)]
+    assert "English one" in names
+
+
+def test_a_template_without_a_track_name_is_unlinked(session, career, tmp_path):
+    run_import(session, career, tmp_path, {"templates": [template("Suelta", track_name=None)]})
+
+    letters = {letter.name: letter for letter in list_letters(career.first_profile.id, session)}
+    assert letters["Suelta"].track_id is None
+
+
+def test_a_matching_template_takes_a_track_that_has_none(session, career, tmp_path):
+    run_import(session, career, tmp_path, {"templates": [template("Primera")]})
+
+    letters = {letter.name: letter for letter in list_letters(career.first_profile.id, session)}
+    assert letters["Primera"].track_id == career.first_track.id
+    assert letters["Primera"].lang == career.first_track.lang
+
+
+def test_running_the_import_again_keeps_the_link_and_lists_nothing(
+    session, career, tmp_path, capsys
+):
+    payload = {"templates": [template("Primera")]}
+    run_import(session, career, tmp_path, payload)
+
+    out = run_import(session, career, tmp_path, payload, capsys=capsys)
+
+    assert linked_names(session, career) == ["Primera"]
+    assert "already has a template" not in out
+    letters = list_letters(career.first_profile.id, session)
+    assert sum(letter.name == "Primera" for letter in letters) == 1
+
+
+def test_the_dry_run_lists_the_same_lines_and_writes_nothing(
+    session, career, tmp_path, capsys
+):
+    payload = {"templates": [template("Primera"), template("Segunda")]}
+
+    out = run_import(session, career, tmp_path, payload, apply=False, capsys=capsys)
+
+    assert "already has a template; imported unlinked" in out
+    assert "dry run: nothing written" in out
+    assert linked_names(session, career) == []
+    assert all(
+        letter.name not in ("Primera", "Segunda")
+        for letter in list_letters(career.first_profile.id, session)
+    )

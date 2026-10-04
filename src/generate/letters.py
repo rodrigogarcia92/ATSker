@@ -3,14 +3,15 @@
 Pure or database-reading code, never a provider call — the calls live in
 `src/extract/generation.py`. Two shapes:
 
-* the reusable **blocks** of a template (N8.3): a presentation and an achievements
-  paragraph, grounded in the track's own material;
-* the **bridge** written for one application (N8.4), assembled with the profile's
-  common blocks and a chosen template.
+* the track's **template** (F8): a presentation and an achievements paragraph, grounded
+  in the track's own material;
+* the **bridge** written for one application, one at a time (F8.3), assembled with the
+  profile's common blocks and the track's template.
 
 The bridge carries one rule the other generated text does not: it may not repeat a
-number that appears in the chosen template's achievements paragraph, because that
-would be the same achievement twice rather than a new one.
+number that appears in the track's achievements paragraph, because that would be the
+same achievement twice rather than a new one. A hard failure means no paragraph; a soft
+one (length, banned phrases) is shown and marked.
 """
 
 import html

@@ -1414,7 +1414,7 @@ STRINGS: dict[str, dict[str, str]] = {
     },
     "letters.in_use": {"es": "En uso", "en": "In use"},
     "letters.use_this": {"es": "Usar esta", "en": "Use this one"},
-    # N8.2: the blocks every letter shares, and the template's optional track link.
+    # F8: the blocks every letter shares, written once per language.
     "letters.settings_title": {"es": "Bloques comunes", "en": "Common blocks"},
     "letters.settings_hint": {
         "es": "Lo que no cambia entre candidaturas: se escribe una vez por idioma y lo "
@@ -1437,7 +1437,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "not code.",
     },
     "letters.save_blocks": {"es": "Guardar bloques", "en": "Save blocks"},
-    # N8.3: the two reusable paragraphs, proposed from the track's own material.
+    # F8: the track's two reusable paragraphs; "Autogenerar" drafts them from its own material.
     # F8: "Autogenerar" — the common blocks by code, the track's template by one call.
     "letters.autogenerate": {"es": "Autogenerar", "en": "Autogenerate"},
     "letters.autogenerate_notice": {
@@ -1606,7 +1606,6 @@ STRINGS: dict[str, dict[str, str]] = {
         "es": "El párrafo de interés tiene 4 frases o menos",
         "en": "The paragraph of interest has 4 sentences or fewer",
     },
-    "report.letter": {"es": "Carta de presentación", "en": "Cover letter"},
     "report.letter_link": {"es": "Escribir la carta", "en": "Write the letter"},
     "letters.placeholders": {"es": "Marcadores", "en": "Placeholders"},
     "letters.placeholders_hint": {
