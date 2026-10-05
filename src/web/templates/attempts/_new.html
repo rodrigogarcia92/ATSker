@@ -1,14 +1,15 @@
 {# F10.4: "Nuevo intento (N de 10)" — at the end of a result (done or failed), after the
-   actions and before the attempts list. It reopens the modal's upload area, cleared. At
-   the limit it is disabled and the reason sits beside it. A running attempt renders none
-   of this: the status partial includes it only for a finished one. #}
+   actions and before the attempts list. It reopens the modal's upload area, cleared. N is
+   the counted attempts plus one, so at the limit there is no button: the limit text takes
+   its place. A running attempt renders none of this: the status partial includes it only
+   for a finished one. #}
 <div class="mt-3 flex flex-wrap items-center gap-3">
-  <button type="button" id="attempt-new"
-          class="min-h-11 rounded-control bg-link px-4 text-sm font-semibold text-bg hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-          {% if at_limit %}disabled aria-describedby="attempt-new-limit"{% endif %}>
-    {{ t('attempt.new', lang, n=next_no, max=max_attempts) }}
-  </button>
   {% if at_limit %}
   <p id="attempt-new-limit" class="text-sm text-text-2">{{ t('attempt.limit', lang, max=max_attempts) }}</p>
+  {% else %}
+  <button type="button" id="attempt-new"
+          class="min-h-11 rounded-control bg-link px-4 text-sm font-semibold text-bg hover:opacity-90">
+    {{ t('attempt.new', lang, n=next_no, max=max_attempts) }}
+  </button>
   {% endif %}
 </div>

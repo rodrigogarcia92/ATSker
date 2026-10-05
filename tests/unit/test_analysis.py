@@ -512,7 +512,7 @@ def test_the_report_page_shows_the_total_its_cost_and_its_components(
     assert f"{score['capped']} / 100" in page
     assert "se renormaliza" not in page, "w2 has nothing to renormalise"
     assert "Habilidades" in page and "Palabras clave" in page
-    assert "Encaje semántico" not in page
+    assert "Ajuste semántico" not in page
     assert "$0.000492" in page, "the cost of the analysis that produced the report"
     assert "jd_extract_v3" in page
     assert career.first_bullet.text_es in page, "the citation is shown"
@@ -1446,7 +1446,7 @@ def test_a_stored_w1_report_still_renders_from_its_own_keys(session, career, cli
     assert "Cobertura de evidencia" in page, "the report's own component names"
     assert "Contexto de palabras clave" in page
     assert "renormaliza sobre 4 de 5 componentes" in page
-    assert "Encaje semántico" in page
+    assert "Ajuste semántico" in page
     assert "Habilidades" not in page, "the current names are not imposed on a stored report"
     assert "w1" in page
 

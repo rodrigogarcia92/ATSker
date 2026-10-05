@@ -2,7 +2,8 @@
 
 Before the first attempt the modal opens on the upload; once there is a result the upload
 is hidden and the end of the result offers a primary button that brings it back, cleared.
-At the limit the button is disabled and states why. A running attempt offers neither.
+N is the counted attempts plus one (failed attempts do not count), so at the limit there is no
+button and the limit text takes its place. A running attempt offers neither.
 """
 
 import re
@@ -105,23 +106,51 @@ def test_a_failed_attempt_also_offers_a_way_back_to_the_upload(client, session, 
 
     assert "hidden" in _upload_tag(page).replace('id="attempt-upload"', "")
     assert 'id="attempt-new"' in result
-    # A failure is not counted, but it still took a number: the next one is 2.
-    assert "Nuevo intento (2 de 10)" in plain(result)
+    # A failure does not consume one of the ten: the next attempt is still the first.
+    assert "Nuevo intento (1 de 10)" in plain(result)
 
 
-def test_at_the_limit_the_button_is_disabled_and_says_why(client, session, career, provider):
+def test_at_the_limit_there_is_no_button_and_the_limit_text_takes_its_place(
+    client, session, career, provider
+):
     login(client, career.first.email)
     application = _application(session, career, provider)
     for number in range(1, MAX_ATTEMPTS + 1):
         last = _attempt(session, career, application, number)
+    _attempt(session, career, application, MAX_ATTEMPTS + 1, status="failed")
 
     result = client.get(f"/applications/{application.id}/attempts/{last.id}").text
 
-    button = result[result.index('id="attempt-new"') :]
-    assert re.search(r"\sdisabled[\s>]", button.split(">")[0])
-    assert "Nuevo intento (11 de 10)" in plain(button)
+    assert 'id="attempt-new"' not in result, "ten counted attempts and one failure: no button"
+    assert "Nuevo intento" not in plain(result), "and never an 11th, 12th… in its label"
     assert "Este análisis ya tiene 10 intentos, que es el máximo." in plain(result)
-    assert 'aria-describedby="attempt-new-limit"' in button.split(">")[0]
+    assert 'id="attempt-new-limit"' in result
+
+
+def test_failed_attempts_do_not_move_the_number(client, session, career, provider):
+    login(client, career.first.email)
+    application = _application(session, career, provider)
+    for number in (1, 2, 3):
+        last = _attempt(session, career, application, number)
+    for number in (4, 5):
+        _attempt(session, career, application, number, status="failed")
+
+    result = client.get(f"/applications/{application.id}/attempts/{last.id}").text
+
+    assert "Nuevo intento (4 de 10)" in plain(result), "3 counted + 2 failed"
+
+
+def test_the_label_never_exceeds_the_limit_while_the_button_is_offered(
+    client, session, career, provider
+):
+    login(client, career.first.email)
+    application = _application(session, career, provider)
+    for number in range(1, MAX_ATTEMPTS):
+        last = _attempt(session, career, application, number)
+
+    result = client.get(f"/applications/{application.id}/attempts/{last.id}").text
+
+    assert "Nuevo intento (10 de 10)" in plain(result), "the last one is still allowed"
 
 
 def test_a_running_attempt_offers_neither_the_upload_nor_the_button(

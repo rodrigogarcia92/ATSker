@@ -1,6 +1,8 @@
-{# N8.4: the cover letter for one analysis. One paid call chooses a template and writes
-   three bridges; every template × variant is assembled here, so switching is a swap in
-   the browser and never another call. #}
+{# F8: the cover letter for one analysis. The track's template is already loaded: the page
+   shows the assembled letter with the bridge's place marked. "Autogenerar párrafo de
+   interés" is one paid call on a POST that writes one bridge; "Otra versión" writes a
+   different one. The full letter follows the bridge field in the browser, and stops
+   following once the user edits it directly. #}
 {% extends "base.html" %}
 {% import "_ui.html" as ui with context %}
 {% block title %}{{ t('letters.letter_title', lang) }} — {{ t('app.name', lang) }}{% endblock %}
@@ -10,153 +12,214 @@
 <p class="mt-1 text-sm text-text-2">{{ t('letters.letter_intro', lang) }}</p>
 <p class="mt-1 text-xs text-text-3">
   {{ application.title or t('report.title', lang) }}{% if application.company %} · {{ application.company }}{% endif %}
-  · {{ t('lang.' ~ language, lang) }}
+  {% if track %}· {{ track.name }} · {{ t('lang.' ~ language, lang) }}{% endif %}
 </p>
 
-{% if error %}
-<p class="mt-4 rounded-control border border-sev-warning px-3 py-2 text-sm text-sev-warning">{{ error }}</p>
-<p class="mt-2 text-sm"><a href="/letters" class="text-link underline">{{ t('letters.title', lang) }}</a></p>
-{% endif %}
-
-{% if run_url %}
-{# The provider call costs money, so it is a button on a POST, never a GET. #}
-<form method="post" action="{{ run_url }}" data-progress="letter" class="mt-4">
-  <button type="submit" class="rounded-control bg-link px-3 py-2 text-sm font-medium text-bg hover:opacity-90">
-    {{ t('generate.run', lang) }}
-  </button>
-  {{ ui.progress('letter') }}
-</form>
-{% endif %}
-
-{% if saved and not options %}
-<h2 class="mt-6 text-lg font-semibold">{{ t('letters.letter_saved', lang) }}</h2>
-<pre id="saved-letter" class="mt-2 whitespace-pre-wrap rounded-card border border-card-border bg-surface-1 p-4 text-sm">{{ saved }}</pre>
-<button type="button" class="mt-2 rounded-tag border border-border px-2 py-0.5 text-xs text-text-2 hover:bg-surface-2"
-        onclick="navigator.clipboard.writeText(document.getElementById('saved-letter').textContent.trim())">
-  {{ t('recall.copy', lang) }}
-</button>
-{% endif %}
-
-{% if bridge %}
-{% set ns = namespace(chosen=bridge.template_id) %}
-{% for candidate in candidates %}{% if candidate.id|string == bridge.template_id %}{% set ns.chosen = candidate.name %}{% endif %}{% endfor %}
-<h2 class="mt-6 text-lg font-semibold">{{ t('report.letter', lang) }}</h2>
-<p class="mt-1 text-sm text-text-2">
-  <span class="text-text-3">{{ t('letters.letter_template', lang) }}:</span>
-  {{ ns.chosen }}
-  — <span class="text-text-3">{{ t('letters.letter_reason', lang) }}:</span> {{ bridge.reason }}
-</p>
-{% if bridge.runner_up_id %}
-<p class="mt-1 text-sm text-text-2">
-  <span class="text-text-3">{{ t('letters.letter_runner_up', lang) }}:</span>
-  {% for candidate in candidates %}{% if candidate.id|string == bridge.runner_up_id %}{{ candidate.name }}{% endif %}{% endfor %}
-</p>
-{% endif %}
-{% if bridge.risk %}
-<p class="mt-1 text-sm text-sev-warning">{{ t('letters.letter_risk', lang) }}: {{ bridge.risk }}</p>
-{% endif %}
-{% if options | length < 3 %}
-<p class="mt-1 text-xs text-text-3">{{ t('letters.letter_missing_candidates_note', lang, count=options | map(attribute='index') | unique | list | length) }}</p>
-{% endif %}
-
-<div class="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
-  <div class="space-y-2">
-    <label for="letter-template" class="mb-1 block text-sm font-medium">{{ t('letters.letter_template', lang) }}</label>
-    <select id="letter-template" class="w-full rounded-control border border-border px-3 py-2 text-sm">
-      {% for candidate in candidates %}
-      <option value="{{ candidate.id }}" {% if candidate.id|string == bridge.template_id %}selected{% endif %}>{{ candidate.name }}</option>
-      {% endfor %}
-    </select>
-    <p class="mt-3 text-sm font-medium">{{ t('letters.letter_variant', lang) }}</p>
-    {% for index in range(3) %}
-      {% set same_index = options | selectattr('index', 'equalto', index) | list %}
-      {% if same_index %}
-      <label class="flex items-start gap-2 text-sm">
-        <input type="radio" name="variant" value="{{ index }}" {% if same_index[0].default %}checked{% endif %}>
-        <span>
-          {{ same_index[0].angle }}
-          {% if same_index[0].sources %}<span class="block text-xs text-text-3">{{ same_index[0].sources | join(', ') }}</span>{% endif %}
-        </span>
-      </label>
-      {% endif %}
-    {% endfor %}
-  </div>
-  <div class="lg:col-span-2">
-    {% for option in options %}
-    <div class="letter-option min-w-0" data-key="{{ option.key }}" data-template-id="{{ option.template_id }}"
-         data-letter="{{ option.letter_text }}" {% if not option.default %}hidden{% endif %}>
-      {% if option.warning %}
-      <p class="mb-2 rounded-control border border-sev-warning px-3 py-2 text-xs text-sev-warning">
-        {{ t('letters.letter_repeat_warning', lang) }} {{ option.warning | join(', ') }}
-      </p>
-      {% endif %}
-      <pre class="whitespace-pre-wrap rounded-card border border-card-border bg-surface-1 p-4 text-sm">{{ option.highlighted | safe }}</pre>
-      {# F8.5: the deterministic checklist, beside the letter it judges. #}
-      <ul class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs">
-        {% for item in option.checklist %}
-        {% if item.ok %}
-        <li class="text-score-strong">
-          ✓ {{ t('letters.check.' ~ item.key, lang) }}
-          {% if item.detail %}<span class="text-text-3">{{ item.detail }}</span>{% endif %}
-        </li>
-        {% else %}
-        <li class="text-sev-warning">
-          ✗ {{ t('letters.check.' ~ item.key, lang) }}
-          {% if item.detail %}<span class="text-text-3">{{ item.detail }}</span>{% endif %}
-        </li>
-        {% endif %}
+{% if picker %}
+{# No track on this analysis: the letter needs one, and the choice does not touch the analysis. #}
+<section class="mt-6 rounded-card border border-card-border bg-surface-1 p-5">
+  <p class="text-sm">{{ t('letters.picker_intro', lang) }}</p>
+  {% if tracks %}
+  <form method="get" action="/applications/{{ application.id }}/letter" class="mt-4 flex flex-wrap items-end gap-3">
+    <div class="min-w-0">
+      <label for="track" class="mb-1 block text-sm font-medium">{{ t('letters.picker_label', lang) }}</label>
+      <select id="track" name="track" class="min-h-11 rounded-control border border-border bg-surface-1 px-3 py-2 text-sm">
+        {% for option in tracks %}
+        <option value="{{ option.id }}">{{ option.name }} ({{ option.lang | upper }})</option>
         {% endfor %}
-      </ul>
+      </select>
     </div>
-    {% endfor %}
-    <form method="post" action="/applications/{{ application.id }}/letter/save" class="mt-3 space-y-3">
-      <input type="hidden" name="template_id" id="letter-template-id" value="{{ bridge.template_id }}">
-      <label for="letter-text" class="mb-1 block text-sm font-medium">{{ t('letters.letter_title', lang) }}</label>
-      <textarea id="letter-text" name="text" rows="16"
-                class="w-full rounded-control border border-border px-3 py-2 text-sm">{{ options[0].letter_text if options else '' }}</textarea>
+    <button type="submit" class="min-h-11 rounded-control bg-link px-4 py-2 text-sm font-medium text-bg hover:opacity-90">
+      {{ t('letters.picker_submit', lang) }}
+    </button>
+  </form>
+  {% else %}
+  <p class="mt-3 text-sm text-text-2">
+    {{ t('letters.picker_none', lang) }}
+    <a href="/tracks/new" class="text-link underline">{{ t('tracks.new', lang) }}</a>
+  </p>
+  {% endif %}
+</section>
+{% else %}
+
+{% if notice %}
+<p role="status" class="mt-4 rounded-control border border-card-border bg-surface-1 px-3 py-2 text-sm">{{ notice }}</p>
+{% endif %}
+{% if language_notice %}
+<p role="status" class="mt-4 rounded-control border border-card-border bg-surface-1 px-3 py-2 text-sm text-text-2">
+  {{ t('letters.language_notice', lang, x=t('lang.' ~ posting_language, lang), y=t('lang.' ~ language, lang)) }}
+</p>
+{% endif %}
+{% if error %}
+<p role="alert" class="mt-4 rounded-control border border-sev-warning bg-surface-1 px-3 py-2 text-sm text-sev-warning">{{ error }}</p>
+{% endif %}
+
+{# What is missing is fixed from here: each message has its link and no call is offered. #}
+{% if not blocks_ok %}
+<p role="alert" class="mt-4 rounded-control border border-sev-warning bg-surface-1 px-3 py-2 text-sm text-sev-warning">
+  {{ t('letters.need_blocks', lang, name=t('lang.' ~ language, lang)) }}
+  <a href="/letters" class="ml-2 inline-flex min-h-11 items-center underline">{{ t('letters.go_cartas', lang) }}</a>
+</p>
+{% endif %}
+{% if not template_ok %}
+<p role="alert" class="mt-4 rounded-control border border-sev-warning bg-surface-1 px-3 py-2 text-sm text-sev-warning">
+  {{ t('letters.need_template', lang, track=track.name, name=t('lang.' ~ language, lang)) }}
+  <a href="/tracks/{{ track.id }}/letter" class="ml-2 inline-flex min-h-11 items-center underline">{{ t('letters.create_track_letter', lang) }}</a>
+</p>
+{% endif %}
+{% if several %}
+<p class="mt-4 text-xs text-text-3">
+  {{ t('letters.several_note', lang) }}
+  <a href="/letters" class="underline">{{ t('letters.title', lang) }}</a>
+</p>
+{% endif %}
+
+{% if ready %}
+<div id="letter-compose" data-before="{{ before }}" data-after="{{ after }}" data-marker="{{ marker }}"
+     data-edited="{{ '1' if edited else '0' }}">
+
+  {# The letter as it reads, with the bridge's place marked until there is one. #}
+  <section id="letter-preview" class="mt-6 rounded-card border border-card-border bg-surface-1 p-4 text-sm" {% if edited %}hidden{% endif %}>
+    <p class="mb-2 text-xs uppercase tracking-wide text-text-3">{{ t('letters.preview_title', lang) }}</p>
+    <div class="whitespace-pre-wrap break-words">{{ before_html | safe }}</div>
+    <div id="preview-bridge" class="my-3 whitespace-pre-wrap break-words">{% if bridge_field %}{{ bridge_field }}{% else %}<mark class="bg-surface-2 text-sev-warning">{{ marker }}</mark>{% endif %}</div>
+    <div class="whitespace-pre-wrap break-words">{{ after_html | safe }}</div>
+  </section>
+
+  <form method="post" action="/applications/{{ application.id }}/letter/generate" data-progress="letter"
+        class="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
+    <input type="hidden" name="track_id" value="{{ track.id }}">
+    <input type="hidden" name="previous" value="{{ previous_json }}">
+    <div class="min-w-0 space-y-3 lg:col-span-2">
+      <label for="bridge-text" class="block text-sm font-medium">{{ t('letters.bridge_label', lang) }}</label>
+      <textarea id="bridge-text" name="bridge" rows="6"
+                class="w-full rounded-control border border-border px-3 py-2 text-sm">{{ bridge_field }}</textarea>
       <div class="flex flex-wrap items-center gap-3">
-        <button type="submit" class="rounded-control bg-link px-3 py-2 text-sm font-medium text-bg hover:opacity-90">
-          {{ t('letters.letter_save', lang) }}
+        <button type="submit" {% if at_limit %}disabled{% endif %}
+                class="min-h-11 rounded-control bg-link px-4 py-2 text-sm font-medium text-bg hover:opacity-90 disabled:opacity-50">
+          {% if at_limit %}{{ t('letters.bridge_another_plain', lang) }}
+          {% elif versions %}{{ t('letters.bridge_another', lang, n=versions + 1) }}
+          {% else %}{{ t('letters.bridge_generate', lang) }}{% endif %}
         </button>
-        <button type="button" class="rounded-tag border border-border px-2 py-0.5 text-xs text-text-2 hover:bg-surface-2"
-                onclick="navigator.clipboard.writeText(document.getElementById('letter-text').value)">
-          {{ t('recall.copy', lang) }}
-        </button>
-        {% if cost %}<span class="text-xs text-text-3">{{ t('report.cost_label', lang) }}: ${{ cost }}</span>{% endif %}
+        {% if at_limit %}<span class="text-xs text-text-3">{{ t('letters.bridge_limit', lang) }}</span>{% endif %}
       </div>
-    </form>
-  </div>
+      {{ ui.progress('letter') }}
+      {% if bridge_failed %}
+      <p role="alert" class="rounded-control border border-sev-warning bg-surface-1 px-3 py-2 text-sm text-sev-warning">{{ t('letters.bridge_failed', lang) }}</p>
+      {% endif %}
+    </div>
+    <aside class="min-w-0 space-y-2 text-sm">
+      {% if generated %}
+      <p class="font-medium">{{ t('letters.bridge_version', lang, n=generated.version, angle=generated.angle) }}</p>
+      {% if generated.risk %}
+      <p class="rounded-control border border-sev-warning px-3 py-2 text-xs text-sev-warning">{{ t('letters.letter_risk', lang) }}: {{ generated.risk }}</p>
+      {% endif %}
+      {% if generated.sentences > 4 %}<p class="text-xs text-sev-warning">✗ {{ t('letters.soft.sentences', lang, n=generated.sentences) }}</p>{% endif %}
+      {% if generated.words > 90 %}<p class="text-xs text-sev-warning">✗ {{ t('letters.soft.words', lang, n=generated.words) }}</p>{% endif %}
+      {% for phrase in generated.banned %}<p class="text-xs text-sev-warning">✗ {{ t('letters.soft.banned', lang, phrase=phrase) }}</p>{% endfor %}
+      <p class="text-xs text-text-3">{{ t('applications.cost', lang) }}: ${{ generated.cost }}</p>
+      {% endif %}
+    </aside>
+  </form>
+
+  <form method="post" action="/applications/{{ application.id }}/letter/save" class="mt-6 space-y-3">
+    <input type="hidden" name="track_id" value="{{ track.id }}">
+    <label for="letter-text" class="block text-sm font-medium">{{ t('letters.full_label', lang) }}</label>
+    <p id="edited-notice" role="status" class="flex flex-wrap items-center gap-3 rounded-control border border-card-border bg-surface-1 px-3 py-2 text-sm text-text-2" {% if not edited %}hidden{% endif %}>
+      <span>{{ t('letters.full_edited', lang) }}</span>
+      <button type="button" id="reassemble" class="min-h-11 rounded-control border border-border px-3 py-2 text-sm hover:bg-surface-2">
+        {{ t('letters.reassemble', lang) }}
+      </button>
+    </p>
+    <textarea id="letter-text" name="text" rows="18"
+              class="w-full rounded-control border border-border px-3 py-2 text-sm">{{ full_text }}</textarea>
+    <div class="flex flex-wrap items-center gap-3">
+      <button type="submit" class="min-h-11 rounded-control bg-link px-4 py-2 text-sm font-medium text-bg hover:opacity-90">
+        {{ t('letters.letter_save', lang) }}
+      </button>
+      <button type="button" id="copy-letter" class="min-h-11 rounded-control border border-border px-4 py-2 text-sm hover:bg-surface-2">
+        {{ t('recall.copy', lang) }}
+      </button>
+    </div>
+  </form>
+
+  {# F8.6: deterministic, for the text above — recomputed on save. #}
+  {% if checklist %}
+  <section class="mt-6">
+    <p class="text-xs text-text-3">{{ t(checklist_caption, lang) }}</p>
+    <ul class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs">
+      {% for item in checklist %}
+      {% if item.ok %}
+      <li class="text-score-strong">
+        ✓ {{ t('letters.check.' ~ item.key, lang) }}
+        {% if item.detail %}<span class="text-text-3">{{ item.detail }}</span>{% endif %}
+      </li>
+      {% else %}
+      <li class="text-sev-warning">
+        ✗ {{ t('letters.check.' ~ item.key, lang) }}
+        {% if item.detail %}<span class="text-text-3">{{ item.detail }}</span>{% endif %}
+      </li>
+      {% endif %}
+      {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
 </div>
 <script>
-  // A few lines, no storage: switching template or variant shows the assembly the
-  // server already computed, and never calls the model again (N8.4).
+  // F8: the full letter is before + bridge + after and follows the bridge field while the
+  // user types in it. Once they type in the full letter it stops following, says so, and
+  // "Volver a montar" rebuilds it. Nothing is stored and no call is made.
   (function () {
-    var select = document.getElementById('letter-template');
-    var templateField = document.getElementById('letter-template-id');
-    var textarea = document.getElementById('letter-text');
-    if (!select || !textarea) return;
-    var blocks = document.querySelectorAll('.letter-option');
-    function show() {
-      var checked = document.querySelector('input[name="variant"]:checked');
-      var key = select.value + ':' + (checked ? checked.value : '0');
-      blocks.forEach(function (block) {
-        var match = block.dataset.key === key;
-        block.hidden = !match;
-        if (match) {
-          textarea.value = block.dataset.letter;
-          templateField.value = block.dataset.templateId;
-        }
-      });
+    var root = document.getElementById('letter-compose');
+    var bridge = document.getElementById('bridge-text');
+    var full = document.getElementById('letter-text');
+    if (!root || !bridge || !full) return;
+    var preview = document.getElementById('letter-preview');
+    var previewBridge = document.getElementById('preview-bridge');
+    var notice = document.getElementById('edited-notice');
+    var marker = root.dataset.marker;
+    var edited = root.dataset.edited === '1';
+    function compose() {
+      var text = bridge.value.trim();
+      return [root.dataset.before, text || marker, root.dataset.after].filter(Boolean).join('\n\n');
     }
-    select.addEventListener('change', show);
-    document.querySelectorAll('input[name="variant"]').forEach(function (radio) {
-      radio.addEventListener('change', show);
+    function showBridge() {
+      var text = bridge.value.trim();
+      previewBridge.textContent = '';
+      if (text) {
+        previewBridge.textContent = text;
+      } else {
+        var mark = document.createElement('mark');
+        mark.className = 'bg-surface-2 text-sev-warning';
+        mark.textContent = marker;
+        previewBridge.appendChild(mark);
+      }
+    }
+    bridge.addEventListener('input', function () {
+      showBridge();
+      if (!edited) full.value = compose();
+    });
+    full.addEventListener('input', function () {
+      edited = true;
+      notice.hidden = false;
+      preview.hidden = true;
+    });
+    document.getElementById('reassemble').addEventListener('click', function () {
+      edited = false;
+      full.value = compose();
+      notice.hidden = true;
+      preview.hidden = false;
+      showBridge();
+    });
+    document.getElementById('copy-letter').addEventListener('click', function () {
+      if (navigator.clipboard) navigator.clipboard.writeText(full.value);
     });
   })();
 </script>
 {% endif %}
+{% endif %}
 
 <p class="mt-6 text-sm">
-  <a href="/applications/{{ application.id }}" class="text-link underline">{{ t('generate.back', lang) }}</a>
+  <a href="/applications/{{ application.id }}" class="inline-flex min-h-11 items-center text-link underline">{{ t('generate.back', lang) }}</a>
 </p>
 {% endblock %}

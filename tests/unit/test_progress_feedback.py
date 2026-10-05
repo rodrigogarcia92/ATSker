@@ -12,11 +12,10 @@ from pathlib import Path
 import pytest
 
 from src.i18n.strings import STRINGS, t
-from src.letters import save_letter_settings
+from src.letters import save_letter_settings, save_track_template
 from src.models import Resume
 from tests.conftest import login
 from tests.unit.test_generation import rephrase_url, stored_application, story_bullets_url
-from tests.unit.test_letter_blocks import linked_letter
 
 TEMPLATES = Path(__file__).resolve().parents[2] / "src" / "web" / "templates"
 FORM_TAG = re.compile(r"<form\b[^>]*>", re.S)
@@ -30,7 +29,7 @@ RUN_FORMS = {
     "generate/bullet.html": "generate",
     "generate/story.html": "generate",
     "letters/letter.html": "letter",
-    "letters/propose.html": "letter",
+    "tracks/letter.html": "letter",
 }
 
 # Forms that save, accept or discard what a call already produced; none may carry it.
@@ -42,7 +41,7 @@ NON_RUN_FORMS = (
     ("generate/bullet.html", "/rephrase/accept"),
     ("generate/story.html", "/bullets/accept"),
     ("letters/letter.html", "/letter/save"),
-    ("letters/propose.html", "/propose/accept"),
+    ("tracks/letter.html", '/letter"'),
 )
 
 PROGRESS_KEYS = ("analyze", "import", "generate", "letter")
@@ -124,7 +123,6 @@ def test_the_generate_and_letter_run_forms_render_the_status_line(
     client, session, career, test_settings
 ):
     application = stored_application(session, career)
-    letter = linked_letter(session, career)
     save_letter_settings(
         career.first_profile.id,
         session,
@@ -135,6 +133,14 @@ def test_the_generate_and_letter_run_forms_render_the_status_line(
         sign_off="Ana",
         voice_notes="Tuteo.",
     )
+    # The letter page offers its run form once the track has a template (F8).
+    save_track_template(
+        career.first_profile.id,
+        session,
+        career.first_track,
+        presentation="Me presento.",
+        achievements="Logros.",
+    )
     session.commit()
     login(client, career.first.email)
 
@@ -142,11 +148,11 @@ def test_the_generate_and_letter_run_forms_render_the_status_line(
     bullet = client.get(rephrase_url(application, career.first_bullet.id)).text
     story = client.get(story_bullets_url(career.first_story)).text
     letter_page = client.get(f"/applications/{application.id}/letter").text
-    propose = client.get(f"/letters/{letter.id}/propose").text
+    template_page = client.get(f"/tracks/{career.first_track.id}/letter").text
 
     for page in (summary, bullet, story):
         assert_status_under_the_button(page, "generate")
-    for page in (letter_page, propose):
+    for page in (letter_page, template_page):
         assert_status_under_the_button(page, "letter")
 
 

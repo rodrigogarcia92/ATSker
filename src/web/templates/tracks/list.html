@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "letters/_status.html" import status_tag %}
 {% block title %}{{ t('tracks.title', lang) }} — {{ t('app.name', lang) }}{% endblock %}
 {% block content %}
 <div class="flex items-center justify-between gap-4">
@@ -31,6 +32,8 @@
             langs=((['es'] if track.summary_es_id else []) + (['en'] if track.summary_en_id else [])) | join(', ')) }}
     </span>
     {% endif %}
+    <span class="text-xs text-text-3">{{ t('tracks.letter_card', lang) }}:</span>
+    <a href="/tracks/{{ track.id }}/letter" class="inline-flex items-center">{{ status_tag(letter_status.get(track.id, 'missing'), lang) }}</a>
     {% if not track.active %}
     <span class="rounded-control bg-surface-2 px-2 py-0.5 text-xs text-text-2">{{ t('common.inactive', lang) }}</span>
     {% endif %}

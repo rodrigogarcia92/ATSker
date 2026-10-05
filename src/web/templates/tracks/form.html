@@ -25,6 +25,7 @@
         <option value="es" {% if not track or track.lang == 'es' %}selected{% endif %}>ES</option>
         <option value="en" {% if track and track.lang == 'en' %}selected{% endif %}>EN</option>
       </select>
+      <p class="mt-1 text-xs text-text-3">{{ t('tracks.lang_hint', lang) }}</p>
     </div>
     <div>
       <label for="target_seniority" class="mb-1 block text-sm font-medium">{{ t('tracks.seniority', lang) }}</label>

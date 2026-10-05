@@ -1,6 +1,7 @@
 """Career-data behaviour: chips, metrics, soft delete, linking, isolation."""
 
 from src.bullets import get_bullet, list_bullets, set_bullet_active
+from src.letters import create_letter
 from src.roles import list_roles, set_role_active
 from src.stories import linked_bullet_ids, set_linked_bullets
 from src.vocabulary import list_unmapped
@@ -68,7 +69,7 @@ def test_pages_render_own_data_and_404_for_another_profile(client, career):
     assert client.get(f"/letters/{career.second_letter.id}/edit").status_code == 404
 
 
-def test_create_edit_and_delete_round_trip_through_the_browser(client, career):
+def test_create_edit_and_delete_round_trip_through_the_browser(client, session, career):
     login(client, career.first.email)
 
     created = client.post(
@@ -90,18 +91,16 @@ def test_create_edit_and_delete_round_trip_through_the_browser(client, career):
     assert bullet.status_code == 303
     assert "12 informes" in client.get(role_url, follow_redirects=True).text
 
-    letter = client.post(
-        "/letters",
-        data={
-            "name": "Consultoría",
-            "applies_when": "Para consultoría de datos",
-            "presentation": "Me presento.",
-            "achievements": "Logros.",
-        },
-        follow_redirects=False,
+    letter = create_letter(
+        career.first_profile.id,
+        session,
+        name="Consultoría",
+        applies_when="Para consultoría de datos",
+        presentation="Me presento.",
+        achievements="Logros.",
     )
-    assert letter.status_code == 303
-    letter_id = letter.headers["location"].split("/")[2]
+    session.commit()
+    letter_id = letter.id
 
     assert client.post(f"/letters/{letter_id}/delete", follow_redirects=False).status_code == 303
     assert client.get(f"/letters/{letter_id}/edit").status_code == 404

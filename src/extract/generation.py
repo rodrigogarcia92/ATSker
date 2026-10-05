@@ -22,7 +22,7 @@ from src.extract.client import CallOptions, Completion, complete_json
 from src.extract.prompts import (
     BULLET_REPHRASE_V1,
     LETTER_BLOCKS_V1,
-    LETTER_BRIDGE_V1,
+    LETTER_BRIDGE_V2,
     STORY_BULLETS_V1,
     SUMMARY_SKILLS_V2,
     summarize_rows,
@@ -84,22 +84,13 @@ class CompanyFact(BaseModel):
     jd_quote: str = Field(description="the verbatim posting line it comes from")
 
 
-class BridgeVariant(BaseModel):
-    """One bridge, its angle, its sources, and any attributed company fact."""
+class LetterBridgeOne(BaseModel):
+    """F8.3's answer: one bridge, its angle, its sources, and the risk line."""
 
     angle: str = Field(description="two or three words naming the angle")
-    text: str = Field(description="2-4 sentences, at most 90 words")
+    text: str = Field(description="three sentences ideally, four at most, at most 90 words")
     sources: list[str] = Field(description="the ids it draws on")
     company_fact: CompanyFact | None = None
-
-
-class LetterBridge(BaseModel):
-    """N8.4's answer: the chosen template, three bridges, and the risk line."""
-
-    template_id: str
-    reason: str
-    runner_up_id: str | None = None
-    variants: list[BridgeVariant] = Field(default_factory=list)
     risk: str | None = None
 
 
@@ -327,40 +318,41 @@ def generate_letter_blocks(
     )
 
 
-def generate_letter_bridge(
+def generate_letter_bridge_one(
     session: Session,
     *,
     jd_text: str,
     company: str | None,
     title: str | None,
-    templates: Sequence[Mapping[str, Any]],
+    template: Any,
     material: str,
     voice_notes: str,
     language: str,
+    banned: Sequence[str],
+    previous: Sequence[str],
     known_names: Sequence[str] | None = None,
     repair: str | None = None,
     model: str | None = None,
     options: CallOptions | None = None,
 ) -> Proposal:
-    """One call: the bridge for one application, with its template choice (F8, N8.4).
+    """One call: one bridge for one application (PRD F8.3).
 
-    `templates` are `{id, name, applies_when, achievements}` and `material` is the
-    person's own evidence, already ordered strongest-first by the caller. `repair`
-    turns the same call into the single retry: a fresh call whose user message says
-    what was unusable about the previous answer.
+    `template` is the track's (its `presentation` and `achievements` are the style
+    reference); `material` is the person's own evidence, strongest first. The previous
+    versions are part of the user message, so each "Otra versión" is a new input and a
+    new cache key. `repair` turns the same call into the single retry.
     """
-    rows = [
-        f"{template['id']}\t{template['name']}\t{template.get('applies_when') or ''}\t"
-        f"{template.get('achievements') or ''}"
-        for template in templates
-    ]
-    body = LETTER_BRIDGE_V1.render(
+    body = LETTER_BRIDGE_V2.render(
         posting=_redacted(jd_text, known_names),
         company=company or "(none)",
         title=title or "(none)",
-        templates=summarize_rows(rows),
+        presentation=template.presentation.strip() or "(none)",
+        achievements=template.achievements.strip() or "(none)",
         material=material,
         voice_notes=voice_notes.strip() or "(none)",
+        banned="\n".join(f"- {phrase}" for phrase in banned) or "(none)",
+        previous="\n".join(f"{index}. {text}" for index, text in enumerate(previous, 1))
+        or "(none)",
         lang=language,
     )
     if repair:
@@ -368,36 +360,28 @@ def generate_letter_bridge(
     completion = complete_json(
         session,
         purpose=LETTER_BRIDGE,
-        prompt_version=LETTER_BRIDGE_V1.version,
-        system=LETTER_BRIDGE_V1.render_system(),
+        prompt_version=LETTER_BRIDGE_V2.version,
+        system=LETTER_BRIDGE_V2.render_system(),
         user=body,
-        schema=LetterBridge,
+        schema=LetterBridgeOne,
         model=model,
         options=options,
     )
-    answer = LetterBridge.model_validate(completion.data)
+    answer = LetterBridgeOne.model_validate(completion.data)
     return Proposal(
         kind="letter_bridge",
         output={
-            "template_id": answer.template_id,
-            "reason": answer.reason.strip(),
-            "runner_up_id": answer.runner_up_id,
-            "variants": [
+            "angle": answer.angle.strip(),
+            "text": answer.text.strip(),
+            "sources": list(answer.sources),
+            "company_fact": (
                 {
-                    "angle": variant.angle.strip(),
-                    "text": variant.text.strip(),
-                    "sources": list(variant.sources),
-                    "company_fact": (
-                        {
-                            "text": variant.company_fact.text.strip(),
-                            "jd_quote": variant.company_fact.jd_quote,
-                        }
-                        if variant.company_fact is not None
-                        else None
-                    ),
+                    "text": answer.company_fact.text.strip(),
+                    "jd_quote": answer.company_fact.jd_quote,
                 }
-                for variant in answer.variants
-            ],
+                if answer.company_fact is not None
+                else None
+            ),
             "risk": (answer.risk or "").strip() or None,
         },
         completion=completion,

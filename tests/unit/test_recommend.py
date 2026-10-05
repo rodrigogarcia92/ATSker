@@ -433,15 +433,86 @@ def test_a_fresh_form_ticks_the_box_with_two_active_tracks(client, session, care
     assert box is not None and "checked" in box
 
 
-def test_a_fresh_form_leaves_the_box_unticked_with_one_active_track(client, session, career, stub):
-    """D.7.2: one track is nothing to choose between; F7.1 means a no-track analysis."""
+def selected_option(html: str, track_id) -> bool:
+    """Whether the track select draws this track's `<option>` as selected."""
+    match = re.search(rf"<option[^>]*value=\"{track_id}\"[^>]*>", html)
+    return match is not None and "selected" in match.group(0)
+
+
+def test_a_fresh_form_preselects_the_only_active_track_and_draws_no_box(
+    client, session, career, stub
+):
+    """F7.1 (2026-10-04): one track is nothing to choose between, so it is chosen."""
     retire(session, career)
-    make_track(session, career, "Único", ["Python con resultados medibles"])
+    only = make_track(session, career, "Único", ["Python con resultados medibles"])
     login(client, career.first.email)
 
-    box = recommend_box(client.get("/analyze").text)
+    page = client.get("/analyze").text
 
-    assert box is not None and "checked" not in box
+    assert recommend_box(page) is None
+    assert selected_option(page, only.id)
+
+
+def test_the_prefilled_form_also_preselects_the_only_active_track(client, session, career, stub):
+    retire(session, career)
+    only = make_track(session, career, "Único", ["Python con resultados medibles"])
+    login(client, career.first.email)
+    posted = client.post("/analyze", data={"jd_text": POSTING}, follow_redirects=False)
+    application = posted.headers["location"].rsplit("/", 1)[1]
+
+    page = client.get(f"/analyze?application={application}").text
+
+    assert selected_option(page, only.id)
+
+
+def test_a_chosen_track_renders_the_box_unticked_disabled_with_its_hint(
+    client, session, career, stub
+):
+    """F7.1: a re-rendered form with a track keeps the track; the box does not apply."""
+    retire(session, career)
+    first = make_track(session, career, "Uno", ["Python con resultados medibles"])
+    make_track(session, career, "Dos", ["Reportes semanales"])
+    login(client, career.first.email)
+
+    page = client.post("/analyze", data={"jd_text": "  ", "track_id": str(first.id)}).text
+
+    box = recommend_box(page)
+    assert box is not None and "disabled" in box and "checked" not in box
+    assert selected_option(page, first.id)
+    assert "No aplica: elegiste un puesto." in page
+    assert "hidden" not in re.search(r'<p id="recommend-na"[^>]*>', page).group(0)
+
+
+def test_the_hint_for_no_track_shows_under_an_unticked_box(client, session, career, stub):
+    retire(session, career)
+    make_track(session, career, "Uno", ["Python con resultados medibles"])
+    make_track(session, career, "Dos", ["Reportes semanales"])
+    login(client, career.first.email)
+
+    unticked = client.post("/analyze", data={"jd_text": "  ", "recommend": "off"}).text
+    fresh = client.get("/analyze").text
+
+    hint = "Sin puesto objetivo, al escribir la carta tendrás que elegir uno."
+    assert hint in unticked and hint in fresh
+    assert "hidden" not in re.search(r'<p id="recommend-off"[^>]*>', unticked).group(0)
+    assert "hidden" in re.search(r'<p id="recommend-off"[^>]*>', fresh).group(0)
+
+
+def test_the_form_script_follows_the_track_select(client, session, career, stub):
+    """Markup test: choosing a track unchecks and disables the box, clearing re-checks it."""
+    retire(session, career)
+    make_track(session, career, "Uno", ["Python con resultados medibles"])
+    make_track(session, career, "Dos", ["Reportes semanales"])
+    login(client, career.first.email)
+
+    page = client.get("/analyze").text
+    script = page[page.index("// F7.1: \"Recomendar puesto\" follows") :]
+    chosen, cleared = script.split("} else {", 1)
+
+    assert "if (select.value) {" in chosen
+    assert "box.checked = false;" in chosen and "box.disabled = true;" in chosen
+    assert "box.disabled = false;" in cleared and "box.checked = true;" in cleared
+    assert "addEventListener('change'" in script
 
 
 def test_a_fresh_form_draws_no_box_without_tracks(client, session, career, stub):

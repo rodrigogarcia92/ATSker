@@ -13,7 +13,7 @@ LANGUAGES = ("es", "en")
 STRINGS: dict[str, dict[str, str]] = {
     "app.name": {"es": "ATSker", "en": "ATSker"},
     "app.tagline": {
-        "es": "Evaluación de encaje entre tu currículum y una oferta",
+        "es": "Evaluación de ajuste entre tu currículum y una oferta",
         "en": "How well your résumé matches a job posting",
     },
     # Shell — the 64px icon rail of §12.1: three groups, nine links, and the account
@@ -160,6 +160,14 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "Scores the posting against up to six of your tracks and says which one "
         "wins and why. Used only when no track is chosen above.",
     },
+    "analyze.recommend_na": {
+        "es": "No aplica: elegiste un puesto.",
+        "en": "Not applicable: you chose a track.",
+    },
+    "analyze.recommend_off": {
+        "es": "Sin puesto objetivo, al escribir la carta tendrás que elegir uno.",
+        "en": "Without a target role, you'll pick one when you write the cover letter.",
+    },
     # Application history (F9)
     "applications.title": {"es": "Historial", "en": "History"},
     "applications.new": {"es": "Analizar una oferta", "en": "Analyse a posting"},
@@ -181,7 +189,7 @@ STRINGS: dict[str, dict[str, str]] = {
     "applications.company": {"es": "Empresa", "en": "Company"},
     "applications.position": {"es": "Puesto", "en": "Role"},
     "applications.track": {"es": "Puesto objetivo", "en": "Track"},
-    "applications.score": {"es": "Encaje", "en": "Fit"},
+    "applications.score": {"es": "Ajuste", "en": "Fit"},
     "applications.outcome": {"es": "Resultado", "en": "Outcome"},
     "applications.outcome.no_reply": {"es": "Sin respuesta", "en": "No reply"},
     "applications.outcome.screen": {"es": "Criba", "en": "Screen"},
@@ -346,8 +354,8 @@ STRINGS: dict[str, dict[str, str]] = {
     "attempt.status.done": {"es": "Listo", "en": "Done"},
     "attempt.status.failed": {"es": "Fallido", "en": "Failed"},
     "attempt.score": {
-        "es": "Encaje {score} · techo {ceiling}",
-        "en": "Match {score} · ceiling {ceiling}",
+        "es": "Ajuste {score} · techo {ceiling}",
+        "en": "Fit {score} · ceiling {ceiling}",
     },
     "attempt.view_report": {
         "es": "Ver el informe completo",
@@ -426,7 +434,7 @@ STRINGS: dict[str, dict[str, str]] = {
     # F10.1/F10.4 (Run C): the modal, the result's content order and its wording.
     "attempt.form.submit": {"es": "Probar este archivo", "en": "Test this file"},
     # F10.4: the button at the end of a result that reopens the upload area. At the limit
-    # it states `attempt.limit`, which already says the maximum is reached.
+    # there is no button and `attempt.limit` stands in its place.
     "attempt.new": {
         "es": "Nuevo intento ({n} de {max})",
         "en": "New attempt ({n} of {max})",
@@ -536,14 +544,14 @@ STRINGS: dict[str, dict[str, str]] = {
     },
     "attempt.ready.checklist": {"es": "Falta:", "en": "Missing:"},
     "attempt.ready.match_band": {
-        "es": "El encaje ({job_match}) no llega al techo ({ceiling_low}) dentro del "
+        "es": "El ajuste ({job_match}) no llega al techo ({ceiling_low}) dentro del "
         "margen de {band}.",
-        "en": "The match ({job_match}) does not reach the ceiling ({ceiling_low}) "
+        "en": "The fit ({job_match}) does not reach the ceiling ({ceiling_low}) "
         "within the {band}-point band.",
     },
     "attempt.ready.match_target": {
-        "es": "El encaje ({job_match}) no llega a tu objetivo ({target}).",
-        "en": "The match ({job_match}) does not reach your target ({target}).",
+        "es": "El ajuste ({job_match}) no llega a tu objetivo ({target}).",
+        "en": "The fit ({job_match}) does not reach your target ({target}).",
     },
     "attempt.ready.readability": {
         "es": "El documento tiene bloqueantes de formato: {items}.",
@@ -645,7 +653,7 @@ STRINGS: dict[str, dict[str, str]] = {
     # keys, and `evidence`/`keyword`/`semantic` are what its JSON says.
     "report.sub.evidence": {"es": "Cobertura de evidencia", "en": "Evidence coverage"},
     "report.sub.keyword": {"es": "Contexto de palabras clave", "en": "Keyword context"},
-    "report.sub.semantic": {"es": "Encaje semántico", "en": "Semantic fit"},
+    "report.sub.semantic": {"es": "Ajuste semántico", "en": "Semantic fit"},
     # §12.1: no weights are shown on the report page, so there is no word for one. The
     # calculation version is what the page names instead.
     "report.calculation": {"es": "Cálculo", "en": "Calculation"},
@@ -705,7 +713,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "Keyword context, as the stored report recorded it.",
     },
     "report.sub_caption.semantic": {
-        "es": "Encaje semántico del informe almacenado.",
+        "es": "Ajuste semántico del informe almacenado.",
         "en": "Semantic fit, as the stored report recorded it.",
     },
     "report.disqualifiers": {"es": "Requisitos eliminatorios", "en": "Disqualifiers"},
@@ -1134,6 +1142,16 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "The recommender reads this to pick a track for a posting.",
     },
     "tracks.lang": {"es": "Idioma", "en": "Language"},
+    # F4.1/F8: the track's language is also the language of its cover letters.
+    "tracks.letter_card": {"es": "Carta", "en": "Letter"},
+    "tracks.lang_hint": {
+        "es": "Las cartas de este puesto se escriben en este idioma.",
+        "en": "This role's cover letters are written in this language.",
+    },
+    "tracks.lang_line": {
+        "es": "Idioma: {code} · cartas en {name}",
+        "en": "Language: {code} · letters in {name}",
+    },
     "tracks.seniority": {"es": "Seniority objetivo", "en": "Target seniority"},
     "tracks.seniority_hint": {"es": "Opcional.", "en": "Optional."},
     "tracks.organisation_kind": {"es": "Tipo de organización", "en": "Organisation kind"},
@@ -1298,18 +1316,105 @@ STRINGS: dict[str, dict[str, str]] = {
     },
 
     # Letters
-    "letters.title": {"es": "Plantillas de carta", "en": "Letter templates"},
-    "letters.new": {"es": "Nueva plantilla", "en": "New template"},
+    "letters.title": {"es": "Cartas", "en": "Letters"},
+    "letters.intro": {
+        "es": "Una carta se arma con tus bloques comunes, la carta de cada puesto y un "
+        "párrafo de interés que se escribe para cada oferta.",
+        "en": "A letter is made of your common blocks, each role's letter and a paragraph "
+        "of interest written for each posting.",
+    },
     "letters.name": {"es": "Nombre", "en": "Name"},
     "letters.applies_when": {"es": "Cuándo usarla", "en": "When to use it"},
     "letters.applies_when_hint": {
-        "es": "La selección de plantilla lee esta descripción; no hay taxonomía interna.",
-        "en": "Template selection reads this description; there is no built-in taxonomy.",
+        "es": "Una nota para ti sobre cuándo servía esta carta.",
+        "en": "A note for yourself about when this letter was meant for.",
     },
     "letters.presentation": {"es": "Párrafo de presentación", "en": "Presentation paragraph"},
     "letters.achievements": {"es": "Párrafo de logros", "en": "Achievements paragraph"},
-    "letters.empty": {"es": "Todavía no hay plantillas.", "en": "No templates yet."},
-    # N8.2: the blocks every letter shares, and the template's optional track link.
+    # F8 (2026-10-04): one template per track — Cartas by track, the track's own page.
+    "letters.by_track_title": {"es": "Carta por puesto", "en": "Letter per role"},
+    "letters.by_track_hint": {
+        "es": "Cada puesto tiene una carta, escrita en el idioma del puesto.",
+        "en": "Each role has one letter, written in the role's language.",
+    },
+    "letters.no_tracks": {
+        "es": "Todavía no tienes puestos objetivo. Crea uno y vuelve aquí para escribir su carta.",
+        "en": "You have no target roles yet. Create one and come back to write its letter.",
+    },
+    "letters.status.ready": {"es": "Lista", "en": "Ready"},
+    "letters.status.missing": {"es": "Falta", "en": "Missing"},
+    "letters.status.several": {"es": "Varias: elige una", "en": "Several: choose one"},
+    "letters.status.other_lang": {"es": "Otro idioma", "en": "Other language"},
+    "letters.action.edit": {"es": "Editar carta", "en": "Edit letter"},
+    "letters.action.create": {"es": "Crear carta", "en": "Create letter"},
+    "letters.inactive_title": {"es": "Puestos inactivos", "en": "Inactive roles"},
+    "letters.unlinked_title": {"es": "Sin puesto", "en": "No role"},
+    "letters.unlinked_hint": {
+        "es": "Cartas de antes, sin puesto: ninguna carta las usa. Asígnalas a un puesto "
+        "para usarlas.",
+        "en": "Older letters with no role: no letter uses them. Assign one to a role to "
+        "use it.",
+    },
+    "letters.unlinked_note": {
+        "es": "Esta carta no está ligada a ningún puesto. Asígnala desde Cartas para usarla.",
+        "en": "This letter is not linked to any role. Assign it from Letters to use it.",
+    },
+    "letters.view": {"es": "Ver", "en": "View"},
+    "letters.assign": {"es": "Asignar a un puesto", "en": "Assign to a role"},
+    "letters.assign_label": {"es": "Puesto para esta carta", "en": "Role for this letter"},
+    "letters.assign_none": {
+        "es": "No hay puestos activos en {name}: crea uno para asignar esta carta.",
+        "en": "There are no active roles in {name}: create one to assign this letter.",
+    },
+    "letters.notice.saved": {
+        "es": "Carta de «{track}» guardada.",
+        "en": "Letter for “{track}” saved.",
+    },
+    "letters.notice.assigned": {
+        "es": "Carta asignada a «{track}».",
+        "en": "Letter assigned to “{track}”.",
+    },
+    "letters.notice.assigned_moved": {
+        "es": "Carta asignada a «{track}». La carta que tenía el puesto pasó a «Sin puesto».",
+        "en": "Letter assigned to “{track}”. The letter the role had moved to “No role”.",
+    },
+    "letters.notice.chosen": {
+        "es": "Carta elegida. Las demás pasaron a «Sin puesto», sin borrarse.",
+        "en": "Letter chosen. The others moved to “No role”, none deleted.",
+    },
+    "letters.track_letter_title": {"es": "Carta del puesto", "en": "Role letter"},
+    "letters.track_letter_lang": {
+        "es": "Idioma de la carta: {name}",
+        "en": "Letter language: {name}",
+    },
+    "letters.track_letter_intro": {
+        "es": "Presentación y logros de este puesto. Cada carta que escribas para él "
+        "parte de estos dos párrafos.",
+        "en": "This role's presentation and achievements. Every letter you write for it "
+        "starts from these two paragraphs.",
+    },
+    "letters.presentation_hint": {"es": "≤ 70 palabras", "en": "≤ 70 words"},
+    "letters.achievements_hint": {
+        "es": "80–160 palabras, un solo párrafo, con un logro principal y sus números",
+        "en": "80–160 words, one paragraph, with one main achievement and its numbers",
+    },
+    "letters.other_lang_alert": {
+        "es": "Esta carta está en {x} y el puesto en {y}: edítala o autogenérala.",
+        "en": "This letter is in {x} and the role is in {y}: edit it or autogenerate it.",
+    },
+    "letters.several_title": {
+        "es": "Este puesto tiene varias cartas",
+        "en": "This role has several letters",
+    },
+    "letters.several_hint": {
+        "es": "Se usa la primera de la lista hasta que elijas. Las demás no se borran: "
+        "pasan a «Sin puesto».",
+        "en": "The first in the list is used until you choose. The others are not deleted: "
+        "they move to “No role”.",
+    },
+    "letters.in_use": {"es": "En uso", "en": "In use"},
+    "letters.use_this": {"es": "Usar esta", "en": "Use this one"},
+    # F8: the blocks every letter shares, written once per language.
     "letters.settings_title": {"es": "Bloques comunes", "en": "Common blocks"},
     "letters.settings_hint": {
         "es": "Lo que no cambia entre candidaturas: se escribe una vez por idioma y lo "
@@ -1332,31 +1437,51 @@ STRINGS: dict[str, dict[str, str]] = {
         "not code.",
     },
     "letters.save_blocks": {"es": "Guardar bloques", "en": "Save blocks"},
-    "letters.templates_title": {"es": "Plantillas", "en": "Templates"},
-    "letters.group_unlinked": {"es": "Sin puesto objetivo", "en": "No track"},
-    "letters.track_link": {"es": "Puesto objetivo (opcional)", "en": "Track (optional)"},
-    "letters.track_none": {"es": "— sin puesto —", "en": "— no track —"},
-    # N8.3: the two reusable paragraphs, proposed from the track's own material.
-    "letters.propose": {
-        "es": "Proponer presentación y logros",
-        "en": "Propose presentation and achievements",
+    # F8: the track's two reusable paragraphs; "Autogenerar" drafts them from its own material.
+    # F8: "Autogenerar" — the common blocks by code, the track's template by one call.
+    "letters.autogenerate": {"es": "Autogenerar", "en": "Autogenerate"},
+    "letters.autogenerate_notice": {
+        "es": "Revisa los campos y pulsa Guardar.",
+        "en": "Review the fields and press Save.",
     },
-    "letters.propose_title": {
-        "es": "Presentación y logros propuestos",
-        "en": "Proposed presentation and achievements",
+    "letters.blocks_header_hint": {
+        "es": "Añade tu teléfono o LinkedIn si quieres.",
+        "en": "Add your phone or LinkedIn if you like.",
     },
-    "letters.propose_intro": {
-        "es": "Dos párrafos escritos a partir del material del puesto objetivo. Nada se "
-        "guarda hasta que aceptes, y al aceptar se vuelve a validar.",
-        "en": "Two paragraphs written from the track's own material. Nothing is stored "
-        "until you accept, and accepting validates them again.",
+    "letters.default.header": {"es": "{name}\n{email}", "en": "{name}\n{email}"},
+    "letters.default.greeting": {
+        "es": "Estimado equipo de selección de [EMPRESA]:",
+        "en": "Dear [COMPANY] hiring team,",
     },
-    "letters.propose_no_track": {
-        "es": "Esta plantilla no está ligada a un puesto objetivo: sin uno no hay "
-        "material del que escribir.",
-        "en": "This template is not linked to a track: without one there is no material "
-        "to write from.",
+    "letters.default.closing": {
+        "es": "Gracias por su tiempo y consideración. Quedo a disposición para conversar "
+        "sobre el puesto de [PUESTO].",
+        "en": "Thank you for your time and consideration. I would welcome the chance to "
+        "talk about the [ROLE] position.",
     },
+    "letters.default.sign_off": {
+        "es": "Atentamente,\n{name}",
+        "en": "Kind regards,\n{name}",
+    },
+    "letters.autogenerate_template_hint": {
+        "es": "Una llamada de pago: redacta ambos párrafos con el material de este puesto. "
+        "Reemplaza lo que hay en los campos y no se guarda nada hasta que pulses Guardar.",
+        "en": "One paid call: drafts both paragraphs from this role's material. It replaces "
+        "what is in the fields and nothing is saved until you press Save.",
+    },
+    "letters.draft_notice": {
+        "es": "Borrador cargado en los campos. Revísalo y pulsa Guardar: todavía no se "
+        "ha guardado nada.",
+        "en": "Draft loaded into the fields. Review it and press Save: nothing has been "
+        "saved yet.",
+    },
+    "letters.draft_violations": {
+        "es": "Este párrafo no pasó una comprobación. Puedes editarlo y guardarlo: lo "
+        "que guardes es tu texto.",
+        "en": "This paragraph failed a check. You can edit and save it: what you save is "
+        "your text.",
+    },
+    "letters.undo": {"es": "Deshacer", "en": "Undo"},
     "generate.violation.length": {
         "es": "El párrafo no tiene la extensión pedida.",
         "en": "The paragraph is not the requested length.",
@@ -1368,28 +1493,90 @@ STRINGS: dict[str, dict[str, str]] = {
     # N8.4: the letter written for one application.
     "letters.letter_title": {"es": "Carta de presentación", "en": "Cover letter"},
     "letters.letter_intro": {
-        "es": "Una llamada para elegir plantilla y escribir tres puentes; el montaje es "
-        "determinista y cambiar de plantilla o variante no vuelve a llamar al modelo.",
-        "en": "One call to choose a template and write three bridges; assembly is "
-        "deterministic, and switching template or variant does not call the model again.",
+        "es": "El puesto ya trae su carta. Escribe o autogenera el párrafo de interés de "
+        "esta oferta, revisa la carta completa y guárdala.",
+        "en": "The role already has its letter. Write or autogenerate the paragraph of "
+        "interest for this posting, review the full letter and save it.",
     },
-    "letters.letter_no_candidates": {
-        "es": "No hay plantillas en el idioma del aviso: créalas en Cartas.",
-        "en": "No templates in the posting's language: create them in Letters.",
-    },
-    "letters.letter_no_settings": {
-        "es": "Faltan los bloques comunes de ese idioma: escríbelos en Cartas.",
-        "en": "The common blocks for that language are missing: write them in Letters.",
-    },
-    "letters.letter_reason": {"es": "Elegida porque", "en": "Chosen because"},
-    "letters.letter_runner_up": {"es": "Alternativa", "en": "Runner-up"},
     "letters.letter_risk": {"es": "Riesgo", "en": "Risk"},
-    "letters.letter_template": {"es": "Plantilla", "en": "Template"},
-    "letters.letter_variant": {"es": "Variante", "en": "Variant"},
-    "letters.letter_repeat_warning": {
-        "es": "Repite un número del párrafo de logros de esta plantilla.",
-        "en": "Repeats a number from this template's achievements paragraph.",
+    "letters.picker_intro": {
+        "es": "Este análisis no tiene puesto objetivo. Elige el puesto para la carta (no "
+        "cambia el análisis).",
+        "en": "This analysis has no target role. Choose the role for the letter (it does "
+        "not change the analysis).",
     },
+    "letters.picker_label": {"es": "Puesto objetivo", "en": "Target role"},
+    "letters.picker_submit": {"es": "Usar este puesto", "en": "Use this role"},
+    "letters.picker_none": {
+        "es": "No tienes puestos objetivo activos: crea uno para escribir la carta.",
+        "en": "You have no active target roles: create one to write the letter.",
+    },
+    "letters.language_notice": {
+        "es": "Este aviso está en {x} y tu puesto objetivo está en {y}; la carta va en {y}.",
+        "en": "This posting is in {x} and your target role is in {y}; the letter is in {y}.",
+    },
+    "letters.need_blocks": {
+        "es": "Faltan los bloques comunes en {name}.",
+        "en": "The common blocks in {name} are missing.",
+    },
+    "letters.go_cartas": {"es": "Ir a Cartas", "en": "Go to Letters"},
+    "letters.need_template": {
+        "es": "El puesto «{track}» no tiene carta en {name}.",
+        "en": "The role “{track}” has no letter in {name}.",
+    },
+    "letters.create_track_letter": {
+        "es": "Crear carta del puesto",
+        "en": "Create the role's letter",
+    },
+    "letters.several_note": {
+        "es": "Este puesto tiene varias cartas y se usa la primera. Elige una en Cartas:",
+        "en": "This role has several letters and the first one is used. Choose one in Letters:",
+    },
+    "letters.preview_title": {"es": "Así se lee la carta", "en": "How the letter reads"},
+    "letters.bridge_label": {"es": "Párrafo de interés", "en": "Paragraph of interest"},
+    "letters.bridge_generate": {
+        "es": "Autogenerar párrafo de interés",
+        "en": "Autogenerate paragraph of interest",
+    },
+    "letters.bridge_another": {
+        "es": "Otra versión ({n} de 5)",
+        "en": "Another version ({n} of 5)",
+    },
+    "letters.bridge_another_plain": {"es": "Otra versión", "en": "Another version"},
+    "letters.bridge_limit": {"es": "Llegaste a 5 versiones.", "en": "You reached 5 versions."},
+    "letters.bridge_marker": {"es": "[párrafo de interés]", "en": "[paragraph of interest]"},
+    "letters.bridge_version": {"es": "Versión {n} · {angle}", "en": "Version {n} · {angle}"},
+    "letters.bridge_failed": {
+        "es": "No se pudo escribir un párrafo que cumpla las reglas.",
+        "en": "A paragraph that follows the rules could not be written.",
+    },
+    "letters.soft.sentences": {
+        "es": "{n} frases: el máximo es 4.",
+        "en": "{n} sentences: the maximum is 4.",
+    },
+    "letters.soft.words": {
+        "es": "{n} palabras: el máximo es 90.",
+        "en": "{n} words: the maximum is 90.",
+    },
+    "letters.soft.banned": {
+        "es": "Usa una frase de plantilla: «{phrase}».",
+        "en": "Uses a template phrase: “{phrase}”.",
+    },
+    "letters.full_label": {"es": "Carta completa", "en": "Full letter"},
+    "letters.full_edited": {
+        "es": "Editaste la carta completa; el párrafo ya no se actualiza aquí.",
+        "en": "You edited the full letter; the paragraph no longer updates it here.",
+    },
+    "letters.reassemble": {"es": "Volver a montar", "en": "Reassemble"},
+    "letters.check_caption_generated": {
+        "es": "para el texto generado",
+        "en": "for the generated text",
+    },
+    "letters.check_caption_saved": {
+        "es": "para la carta guardada",
+        "en": "for the saved letter",
+    },
+    "letters.letter_saved_notice": {"es": "Carta guardada.", "en": "Letter saved."},
     "letters.letter_save": {"es": "Guardar carta", "en": "Save letter"},
     # F8.5: the checklist, deterministic and beside the letter.
     "letters.check.placeholders": {
@@ -1407,16 +1594,18 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "Every company fact is attributed",
     },
     "letters.check.language": {
-        "es": "El idioma de la carta es el del aviso",
-        "en": "The letter's language is the posting's",
+        "es": "El idioma de la carta es el del puesto",
+        "en": "The letter's language is the role's",
     },
     "applications.letter_mark": {"es": "carta", "en": "letter"},
-    "letters.letter_saved": {"es": "Carta guardada", "en": "Saved letter"},
-    "letters.letter_missing_candidates_note": {
-        "es": "Solo sobrevivieron {count} variantes; no se rellenan hasta tres.",
-        "en": "Only {count} variants survived; three are never padded.",
+    "letters.check.banned": {
+        "es": "Sin frases de plantilla de IA",
+        "en": "No AI-template phrasing",
     },
-    "report.letter": {"es": "Carta de presentación", "en": "Cover letter"},
+    "letters.check.sentences": {
+        "es": "El párrafo de interés tiene 4 frases o menos",
+        "en": "The paragraph of interest has 4 sentences or fewer",
+    },
     "report.letter_link": {"es": "Escribir la carta", "en": "Write the letter"},
     "letters.placeholders": {"es": "Marcadores", "en": "Placeholders"},
     "letters.placeholders_hint": {

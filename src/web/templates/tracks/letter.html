@@ -1,0 +1,152 @@
+{# F8: the track's one letter template — presentation and achievements, in the track's
+   language. A GET renders the form; saving is a POST, and nothing here calls a model. #}
+{% extends "base.html" %}
+{% import "_ui.html" as ui with context %}
+{% from "letters/_status.html" import status_tag %}
+{% block title %}{{ t('letters.track_letter_title', lang) }} — {{ track.name }} — {{ t('app.name', lang) }}{% endblock %}
+{% block content %}
+<a href="/letters" class="inline-flex min-h-11 items-center text-sm text-text-2 underline">{{ t('common.back', lang) }}</a>
+
+<h1 class="mt-1 text-2xl font-semibold tracking-tight">{{ t('letters.track_letter_title', lang) }}</h1>
+<p class="mt-1 text-sm text-text-2">
+  <a href="/tracks/{{ track.id }}" class="font-medium underline">{{ track.name }}</a>
+  · {{ t('letters.track_letter_lang', lang, name=t('lang.' ~ track.lang, lang)) }}
+  · {{ status_tag(status, lang) }}
+</p>
+<p class="mt-1 text-xs text-text-3">{{ t('letters.track_letter_intro', lang) }}</p>
+
+{% if chosen %}
+<p role="status" class="mt-4 rounded-control border border-card-border bg-surface-1 px-3 py-2 text-sm">
+  {{ t('letters.notice.chosen', lang) }}
+</p>
+{% endif %}
+
+{% if status == 'other_lang' and letter_template %}
+<p role="alert" class="mt-4 rounded-control border border-sev-warning bg-surface-1 px-3 py-2 text-sm text-sev-warning">
+  {{ t('letters.other_lang_alert', lang, x=t('lang.' ~ letter_template.lang, lang), y=t('lang.' ~ track.lang, lang)) }}
+</p>
+{% endif %}
+
+{% if linked_templates | length > 1 %}
+{# Duplicates from before one-per-track: shown, never deleted. The first is the one in use. #}
+<section class="mt-4 rounded-card border border-sev-warning bg-surface-1 p-4">
+  <p class="text-sm font-semibold">{{ t('letters.several_title', lang) }}</p>
+  <p class="mt-1 text-xs text-text-3">{{ t('letters.several_hint', lang) }}</p>
+  <ul class="mt-3 divide-y divide-card-border">
+    {% for linked in linked_templates %}
+    <li class="flex flex-wrap items-center justify-between gap-3 py-2">
+      <div class="min-w-0">
+        <p class="text-sm">
+          <span class="text-xs uppercase text-text-3">{{ linked.lang }}</span>
+          {% if loop.first %}<span class="ml-1 rounded-control bg-surface-2 px-2 py-0.5 text-xs">{{ t('letters.in_use', lang) }}</span>{% endif %}
+        </p>
+        <p class="mt-1 break-words text-sm text-text-2">{{ (linked.presentation or '')[:120] }}{% if (linked.presentation or '') | length > 120 %}…{% endif %}</p>
+      </div>
+      {% if not loop.first %}
+      <form method="post" action="/tracks/{{ track.id }}/letter/use">
+        <input type="hidden" name="template_id" value="{{ linked.id }}">
+        <button type="submit" class="min-h-11 rounded-control border border-border px-3 py-2 text-sm hover:bg-surface-2">
+          {{ t('letters.use_this', lang) }}
+        </button>
+      </form>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+{% if error %}
+<p role="alert" class="mt-4 rounded-control border border-sev-warning bg-surface-1 px-3 py-2 text-sm text-sev-warning">{{ error }}</p>
+{% endif %}
+{% if cost %}
+<p role="status" class="mt-4 rounded-control border border-card-border bg-surface-1 px-3 py-2 text-sm">
+  {{ t('letters.draft_notice', lang) }}
+  <span class="text-xs text-text-3">{{ t('applications.cost', lang) }}: ${{ '%.6f'|format(cost|float) }}</span>
+</p>
+{% endif %}
+
+{# "Autogenerar" is the one paid call, so it is a button on a POST, never a GET. It fills the
+   two fields and saves nothing. The hidden copies are refreshed from the textareas on submit,
+   so unsaved edits can be restored with "Deshacer". #}
+<div class="mt-6 rounded-card border border-card-border bg-surface-1 p-5">
+  {% if can_autogenerate %}
+  <form method="post" action="/tracks/{{ track.id }}/letter/autogenerate" id="autogenerate-form" data-progress="letter">
+    <input type="hidden" name="presentation" value="{{ values.presentation }}">
+    <input type="hidden" name="achievements" value="{{ values.achievements }}">
+    <div class="flex flex-wrap items-center gap-3">
+      <button type="submit" class="min-h-11 rounded-control border border-border px-4 py-2 text-sm font-medium hover:bg-surface-2">
+        {{ t('letters.autogenerate', lang) }}
+      </button>
+      {% if previous %}
+      <button type="button" id="undo-draft" data-presentation="{{ previous.presentation }}"
+              data-achievements="{{ previous.achievements }}"
+              class="min-h-11 rounded-control border border-border px-4 py-2 text-sm hover:bg-surface-2">
+        {{ t('letters.undo', lang) }}
+      </button>
+      {% endif %}
+    </div>
+    {{ ui.progress('letter') }}
+    <p class="mt-2 text-xs text-text-3">{{ t('letters.autogenerate_template_hint', lang) }}</p>
+  </form>
+  {% else %}
+  <p class="text-sm text-text-2">{{ t('analyze.no_model', lang) }}</p>
+  {% endif %}
+</div>
+
+<form method="post" action="/tracks/{{ track.id }}/letter"
+      class="mt-4 space-y-4 rounded-card border border-card-border bg-surface-1 p-5">
+  <div>
+    <label for="presentation" class="mb-1 block text-sm font-medium">{{ t('letters.presentation', lang) }}</label>
+    <textarea id="presentation" name="presentation" rows="5"
+              aria-describedby="presentation-hint"
+              class="w-full rounded-control border border-border px-3 py-2 text-sm">{{ values.presentation }}</textarea>
+    <p id="presentation-hint" class="mt-1 text-xs text-text-3">{{ t('letters.presentation_hint', lang) }}</p>
+    {% set item_text = values.presentation %}
+    {% set rejected_key = 'letters.draft_violations' %}
+    {% set violations = all_violations | selectattr('item', 'equalto', 'presentation') | list %}
+    {% include "generate/_violations.html" %}
+  </div>
+  <div>
+    <label for="achievements" class="mb-1 block text-sm font-medium">{{ t('letters.achievements', lang) }}</label>
+    <textarea id="achievements" name="achievements" rows="9"
+              aria-describedby="achievements-hint"
+              class="w-full rounded-control border border-border px-3 py-2 text-sm">{{ values.achievements }}</textarea>
+    <p id="achievements-hint" class="mt-1 text-xs text-text-3">{{ t('letters.achievements_hint', lang) }}</p>
+    {% set item_text = values.achievements %}
+    {% set rejected_key = 'letters.draft_violations' %}
+    {% set violations = all_violations | selectattr('item', 'equalto', 'achievements') | list %}
+    {% include "generate/_violations.html" %}
+  </div>
+  {% include "letters/_placeholders.html" %}
+  <div class="flex flex-wrap items-center gap-4">
+    <button type="submit" class="min-h-11 rounded-control bg-link px-4 py-2 text-sm font-medium text-bg hover:opacity-90">
+      {{ t('common.save', lang) }}
+    </button>
+    <a href="/letters" class="inline-flex min-h-11 items-center text-sm underline">{{ t('common.cancel', lang) }}</a>
+  </div>
+</form>
+<script>
+  // F8: the draft replaces the fields; "Deshacer" puts back what they held, in the page only.
+  // On "Autogenerar" the hidden copies are refreshed from the textareas (unsaved edits too).
+  (function () {
+    var form = document.getElementById('autogenerate-form');
+    var presentation = document.getElementById('presentation');
+    var achievements = document.getElementById('achievements');
+    if (form) {
+      form.addEventListener('submit', function () {
+        form.elements.presentation.value = presentation.value;
+        form.elements.achievements.value = achievements.value;
+      });
+    }
+    var undo = document.getElementById('undo-draft');
+    if (undo) {
+      undo.addEventListener('click', function () {
+        presentation.value = undo.dataset.presentation;
+        achievements.value = undo.dataset.achievements;
+        undo.hidden = true;
+      });
+    }
+  })();
+</script>
+{% endblock %}

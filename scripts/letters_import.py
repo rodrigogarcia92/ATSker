@@ -11,7 +11,12 @@ into one profile's rows. It is deliberately boring:
   is the production endpoint, and an import there must be deliberate. A dev
   import needs no flag.
 * Settings upsert by (profile, language); templates upsert by (profile, name, language).
-  A `track_name` that matches no track links nothing and is listed for the operator.
+* **One template per track (F8).** A template whose `track_name` matches a track is linked
+  to it, in the track's language, when that track has no template yet. Otherwise it is
+  imported **unlinked** and listed for the operator: the track already has one, another
+  template of this file claimed the track, the template's language is not the track's, or
+  the `track_name` matches no track. A template with no `track_name` is unlinked. An
+  existing link is never replaced; the user picks with "Usar esta" on Cartas.
 
     uv run python scripts/letters_import.py --email you@example.com --file letters.json
     uv run python scripts/letters_import.py --email you@example.com --file letters.json --apply
@@ -38,6 +43,7 @@ from src.letters import (
     get_letter_settings,
     list_letters,
     save_letter_settings,
+    track_templates,
     update_letter,
 )
 from src.models import Track, User
@@ -87,6 +93,34 @@ def refusal_reason(database_url: str, *, prod: bool) -> str | None:
     return None
 
 
+def _decide_link(
+    profile_id: Any,
+    session: Session,
+    track: Track | None,
+    *,
+    lang: str,
+    current: Any,
+    claimed: set[Any],
+) -> tuple[bool, str | None]:
+    """Whether this template may take its track, and why not when it may not (F8).
+
+    A track keeps the template it has: the import links only to a track with none, or to the
+    one template the track already has when it is this very row being updated.
+    """
+    if track is None:
+        return False, None  # no `track_name`, or no such track: the caller lists the latter
+    if track.lang != lang:
+        return False, (
+            f"template is in {lang.upper()} and track {track.name!r} is in "
+            f"{track.lang.upper()}; imported unlinked"
+        )
+    linked = track_templates(profile_id, session, track)
+    already_has_another = any(current is None or letter.id != current.id for letter in linked)
+    if already_has_another or track.id in claimed:
+        return False, f"track {track.name!r} already has a template; imported unlinked"
+    return True, None
+
+
 def plan_import(session: Session, profile_id: Any, payload: dict[str, Any]) -> dict[str, Any]:
     """What would change, resolved against the database — computed without writing."""
     tracks = {
@@ -97,6 +131,8 @@ def plan_import(session: Session, profile_id: Any, payload: dict[str, Any]) -> d
         (letter.name.strip().lower(), letter.lang): letter
         for letter in list_letters(profile_id, session)
     }
+    # Tracks that end up with a template from this file, so two entries never share one.
+    claimed: set[Any] = set()
     settings = [
         {
             "entry": entry,
@@ -114,15 +150,23 @@ def plan_import(session: Session, profile_id: Any, payload: dict[str, Any]) -> d
         lang = str(entry.get("lang") or "es")[:5]
         track_name = str(entry.get("track_name") or "").strip()
         track = tracks.get(track_name.lower()) if track_name else None
+        current = existing.get((name.lower(), lang))
+        link, note = _decide_link(
+            profile_id, session, track, lang=lang, current=current, claimed=claimed
+        )
+        if link:
+            claimed.add(track.id)
         templates.append(
             {
                 "entry": entry,
                 "name": name,
                 "lang": lang,
                 "key": (name.lower(), lang),
-                "updates": (name.lower(), lang) in existing,
-                "track_id": track.id if track is not None else None,
+                "updates": current is not None,
+                "track_id": track.id if link else None,
+                "track_name": track_name,
                 "unresolved_track": track_name if track_name and track is None else None,
+                "note": note,
             }
         )
     return {"settings": settings, "templates": templates}
@@ -189,6 +233,8 @@ def _print_plan(plan: dict[str, Any]) -> None:
         print(f"template {row['name']!r} ({row['lang']}): {action}, {link}")
         if row["unresolved_track"]:
             print(f"  ! no track named {row['unresolved_track']!r}: left unlinked")
+        if row["note"]:
+            print(f"  ! {row['note']}")
 
 
 def _resolve_profile(session: Session, email: str):
