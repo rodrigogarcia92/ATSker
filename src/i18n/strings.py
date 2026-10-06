@@ -35,7 +35,18 @@ STRINGS: dict[str, dict[str, str]] = {
     "nav.group.account": {"es": "Cuenta", "en": "Account"},
     "nav.menu": {"es": "Menú", "en": "Menu"},
     # Shared
-    "common.save": {"es": "Guardar", "en": "Save"},
+    # §12.5: the shared proposal dialog.
+    "dialog.close": {"es": "Cerrar", "en": "Close"},
+    "dialog.loading": {"es": "Cargando…", "en": "Loading…"},
+    "dialog.error": {
+        "es": "No se pudo cargar ({detail}). Cierra e inténtalo de nuevo.",
+        "en": "It could not be loaded ({detail}). Close it and try again.",
+    },
+    "dialog.confirm_close": {
+        "es": "Hay una propuesta sin aceptar. ¿Cerrar de todos modos?",
+        "en": "A proposal has not been accepted. Close anyway?",
+    },
+    "common.save":{"es": "Guardar", "en": "Save"},
     "common.create": {"es": "Crear", "en": "Create"},
     "common.cancel": {"es": "Cancelar", "en": "Cancel"},
     "common.edit": {"es": "Editar", "en": "Edit"},
