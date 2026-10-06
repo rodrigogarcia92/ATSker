@@ -2434,6 +2434,77 @@ STRINGS: dict[str, dict[str, str]] = {
     "report.advice.chip_position": {"es": "{position} → top 3", "en": "{position} → top 3"},
     "report.advice.see_more": {"es": "Ver más", "en": "See more"},
     "report.advice.see_all": {"es": "Ver todas ({n})", "en": "See all ({n})"},
+    # F7.5: the Keywords card. Every item names its basis and where it would go; the card
+    # writes nothing, and says it is computed from the material as it is now.
+    "report.keywords.title": {"es": "Palabras clave que faltan", "en": "Missing keywords"},
+    "report.keywords.intro": {
+        "es": "Palabras de la oferta que faltan en esta línea y dónde ponerlas, solo si es verdad.",
+        "en": "Keywords from the posting that this track lacks, and where to put them, only if "
+        "true.",
+    },
+    "report.keywords.intro_file": {
+        "es": "Palabras de la oferta que faltan en tu documento y dónde ponerlas, solo si es "
+        "verdad.",
+        "en": "Keywords from the posting that your document lacks, and where to put them, only "
+        "if true.",
+    },
+    "report.keywords.calculated": {
+        "es": "calculado con tu material actual",
+        "en": "calculated from your current material",
+    },
+    "report.keywords.basis.pool": {"es": "Lo tienes", "en": "You have it"},
+    "report.keywords.basis.bullet": {
+        "es": "Un bullet tuyo lo respalda",
+        "en": "One of your bullets backs it",
+    },
+    "report.keywords.basis.equivalent": {"es": "Equivalente", "en": "Equivalent"},
+    "report.keywords.basis.inferred": {
+        "es": "Probable — solo si es verdad",
+        "en": "Probable — only if true",
+    },
+    "report.keywords.priority.must_have": {"es": "Imprescindible", "en": "Must-have"},
+    "report.keywords.priority.nice_to_have": {"es": "Deseable", "en": "Nice-to-have"},
+    "report.keywords.priority.other": {"es": "Palabra clave", "en": "Keyword"},
+    "report.keywords.where.skills": {"es": "Habilidades", "en": "Skills"},
+    "report.keywords.where.skills_file": {
+        "es": "Tu sección Habilidades",
+        "en": "Your Skills section",
+    },
+    "report.keywords.where.bullet": {"es": "Un bullet tuyo", "en": "One of your bullets"},
+    "report.keywords.hint.pool": {
+        "es": "ya figura en tu material; añádela a tu lista de habilidades.",
+        "en": "it is already in your material; add it to your skills list.",
+    },
+    "report.keywords.hint.pool_file": {
+        "es": "ya figura en tu material; añádela a tu sección Habilidades.",
+        "en": "it is already in your material; add it to your Skills section.",
+    },
+    "report.keywords.hint.bullet_use": {
+        "es": "tu bullet «{text}» lo describe sin nombrarlo: usa la palabra de la oferta en él.",
+        "en": "your bullet “{text}” describes it without naming it: use the posting's word "
+        "in it.",
+    },
+    "report.keywords.hint.bullet_add": {
+        "es": "tu bullet «{text}» ya lo dice; inclúyelo en esta línea.",
+        "en": "your bullet “{text}” already says it; include it in this track.",
+    },
+    "report.keywords.hint.bullet_add_file": {
+        "es": "tu bullet «{text}» ya lo dice; añádelo a tu documento.",
+        "en": "your bullet “{text}” already says it; add it to your document.",
+    },
+    "report.keywords.hint.equivalent": {
+        "es": "tienes {sibling}; añádela solo si de verdad la has usado.",
+        "en": "you have {sibling}; add it only if you have really used it.",
+    },
+    "report.keywords.copy": {"es": "Copiar «{keyword}»", "en": "Copy “{keyword}”"},
+    "report.keywords.unsupported_one": {
+        "es": "{n} palabra clave no tiene respaldo en tu material: está en tus brechas.",
+        "en": "{n} keyword has no backing in your material: it is in your gaps.",
+    },
+    "report.keywords.unsupported": {
+        "es": "{n} palabras clave no tienen respaldo en tu material: están en tus brechas.",
+        "en": "{n} keywords have no backing in your material: they are in your gaps.",
+    },
     # §12.1 item 10 (queue U6): the desktop action rail and the phone's bottom bar.
     "report.actions.label": {"es": "Acciones", "en": "Actions"},
     "report.actions.try_cv": {

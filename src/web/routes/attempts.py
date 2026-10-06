@@ -48,6 +48,7 @@ from src.extract.client import (
 from src.extract.resume import EmptyExtraction
 from src.i18n import t
 from src.ingest.documents import SUPPORTED_SUFFIXES, UnreadableDocument
+from src.keyword_advice import keyword_advice
 from src.parse.gate import checks_not_run
 from src.tracks import get_track, list_tracks
 from src.web.alerts import ceiling_remainder
@@ -459,6 +460,10 @@ def attempt_report(
         attempt_no=attempt.attempt_no,
         readiness=_readiness(application, attempt),
         advice_for_file=True,
+        # F7.5: the same card for the uploaded file's own Keywords sub-score, worded for it.
+        keywords=keyword_advice(
+            profile.id, session, report=report, track=track, for_file=True
+        ),
         findings=finding_rows(report.get("gate") or {}, user.ui_lang),
         live_bullets={
             str(bullet.id) for bullet in list_bullets(profile.id, session, active_only=True)

@@ -1,4 +1,7 @@
-"""Edit advice (PRD F7.2, *The rules, exactly*): six deterministic rules over the report.
+"""Edit advice (PRD F7.2, *The rules, exactly*): deterministic rules over the report.
+
+Rule 3 and the skill branch of rule 4 were retired on 2026-10-05: the Keywords card
+(`src.keyword_advice`, F7.5) says which skill to surface, and on which basis.
 
 No provider call, ever: every line here is arithmetic on the report the analysis just
 produced plus the user's own rows, so the same report always yields the same advice
@@ -119,7 +122,7 @@ def edit_advice(
     report: Mapping[str, object],
     track: Track | None,
 ) -> list[AdviceItem]:
-    """F7.2's six rules, in order, at most eight items.
+    """F7.2's rules, in order, at most eight items (rule 3 is the Keywords card's now).
 
     `report` is the analysis as it will be stored — or a stored one — so this reads
     the same things the page will: the grades, the title sub-score, the recall queries
@@ -136,7 +139,6 @@ def edit_advice(
     by_id: dict[str, Bullet] = {str(bullet.id): bullet for bullet in bullets}
     for bullet in selection:
         by_id.setdefault(str(bullet.id), bullet)
-    track_skills = list(track.skills) if track is not None else []
     # The user's own data in F7.2's sense: what their lines are tagged with. The pool
     # is annotation and cannot lift a number (decision 32), so a canonical it names
     # with no bullet behind it is not evidence, and an item that leans on it is
@@ -209,27 +211,9 @@ def edit_advice(
                 )
                 break
 
-        # Rule 3 — surface a skill: in the pool, evidenced on a line, asked for by the
-        # posting, absent from the track's skills list.
-        jd = _mapping(report.get("jd"))
-        asked = {
-            canonical
-            for canonical in (
-                _canonical(term, aliases)
-                for term in [*(jd.get("must_have") or []), *(jd.get("nice_to_have") or [])]
-            )
-            if canonical is not None
-        }
-        for canonical in sorted(asked & evidenced & set(profile.skills) - set(track_skills)):
-            seen_canonicals.add(canonical)
-            items.append(
-                AdviceItem(
-                    kind="surface_skill",
-                    canonical=canonical,
-                    evidence=canonical,
-                    values={"canonical": canonical},
-                )
-            )
+        # Rule 3 — surface a skill — is the Keywords card's now (F7.5, `keyword_advice`), which
+        # also covers related and probable keywords. A report stored before it keeps its
+        # `surface_skill` items and renders them as before; a new one emits none.
 
         # Rule 4 — a recruiter's query that fails on a term the user can evidence.
         for query in _queries(report):
@@ -264,16 +248,7 @@ def edit_advice(
                             },
                         )
                     )
-                elif canonical in profile.skills and canonical not in track_skills:
-                    seen_canonicals.add(canonical)
-                    items.append(
-                        AdviceItem(
-                            kind="surface_skill",
-                            canonical=canonical,
-                            evidence=canonical,
-                            values={"canonical": canonical},
-                        )
-                    )
+                # No bullet says it: the keyword is the Keywords card's, or a gap (F6).
 
     # Rule 5 — title: under the floor with the posting's words in a title the user
     # already has in the other language (F4.2) is a translation to fill; otherwise the

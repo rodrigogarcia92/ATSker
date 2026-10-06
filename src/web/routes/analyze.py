@@ -25,6 +25,7 @@ from src.extract.client import (
 )
 from src.extract.grading import CitationViolation
 from src.i18n import t
+from src.keyword_advice import keyword_advice
 from src.parse.gate import checks_not_run
 from src.recommend import recommend
 from src.resumes import source_document_for_track
@@ -268,6 +269,9 @@ def application_report(
         discarded_no=discarded_no,
         # §12.5: the summary pop-up's "Aceptar" redirects here and the page says it saved.
         summary_saved=summary_saved == "1",
+        # F7.5: the Keywords card, computed now from the stored report and the user's
+        # current material — deterministic, no model call, nothing written.
+        keywords=keyword_advice(profile.id, session, report=application.report, track=track),
         # §12.4: the drop zone checks the size before anything is sent.
         max_upload_bytes=MAX_UPLOAD_BYTES,
         findings=finding_rows(application.scan_readability or {}, user.ui_lang),
