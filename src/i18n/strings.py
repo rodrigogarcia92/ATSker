@@ -602,6 +602,29 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "No track: every active bullet was scored.",
     },
     "report.sub_scores": {"es": "Componentes", "en": "Components"},
+    # §12.1 item 3: the colour legend under Componentes, and the hidden word each term chip
+    # carries beside its glyph.
+    "report.legend.sample": {"es": "término", "en": "term"},
+    "report.legend.found": {"es": "aparece en tu CV", "en": "appears in your CV"},
+    "report.legend.missing": {"es": "falta en tu CV", "en": "missing from your CV"},
+    "report.legend.toggle": {"es": "Cómo leer los colores", "en": "How to read the colours"},
+    "report.legend.scores": {
+        "es": "Puntuaciones: verde desde 75, ámbar de 50 a 74, rojo por debajo de 50.",
+        "en": "Scores: green from 75, amber 50 to 74, red below 50.",
+    },
+    "report.legend.purple": {
+        "es": "Morado: algo falta o necesita atención "
+        "(un término que falta, una brecha decisiva, una advertencia).",
+        "en": "Purple: something is missing or needs attention "
+        "(a missing term, a blocking gap, a warning).",
+    },
+    "report.legend.gray": {"es": "Gris: está presente.", "en": "Gray: it is present."},
+    "report.legend.severity": {
+        "es": "Los iconos de octágono, triángulo y círculo son del análisis de legibilidad.",
+        "en": "The octagon, triangle and circle icons are for the readability scan.",
+    },
+    "report.term.found": {"es": "encontrada", "en": "found"},
+    "report.term.missing": {"es": "falta", "en": "missing"},
     # F7.1: the table the recommendation produces, above the components, with the
     # chosen track marked. The justification is a code-built line, not prose from a
     # model: the winner, the sub-score it leads on, and the track's own "when to use".
