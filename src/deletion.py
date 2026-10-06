@@ -36,6 +36,7 @@ from src.extract.gaps import PURPOSE as GAP_INTERPRET
 from src.extract.generation import (
     GENERATE_BULLET,
     GENERATE_SUMMARY,
+    KEYWORD_INFER,
     LETTER_BLOCKS,
     LETTER_BRIDGE,
     STORY_BULLETS,
@@ -68,7 +69,8 @@ from src.scoping import owned_row, owned_rows
 # kept whole. F7.3's three added theirs, and F8's two letter calls: generated prose is
 # the user's own material, so "Eliminar todo" blanks it like the résumé it came from.
 # F10's attempt calls (A9): the file a user tests is theirs, so "Eliminar todo" blanks
-# these answers like the résumé extraction they mirror. The pipeline that writes them
+# these answers like the résumé extraction they mirror. F7.5's `keyword_infer` joins them:
+# its answer quotes the user's own bullets. The pipeline that writes them
 # arrives in Run B; the names are ledger strings, so the redaction is correct the day
 # the first call is made.
 ATTEMPT_EXTRACT = "attempt_extract"
@@ -84,6 +86,7 @@ PERSONAL_PURPOSES = (
     STORY_BULLETS,
     LETTER_BLOCKS,
     LETTER_BRIDGE,
+    KEYWORD_INFER,
     ATTEMPT_EXTRACT,
     ATTEMPT_GRADE,
 )

@@ -21,6 +21,7 @@ from src.extract import redaction
 from src.extract.client import CallOptions, Completion, complete_json
 from src.extract.prompts import (
     BULLET_REPHRASE_V1,
+    KEYWORD_INFER_V1,
     LETTER_BLOCKS_V1,
     LETTER_BRIDGE_V2,
     STORY_BULLETS_V1,
@@ -34,6 +35,7 @@ GENERATE_BULLET = "generate_bullet"
 STORY_BULLETS = "story_bullets"
 LETTER_BLOCKS = "letter_blocks"
 LETTER_BRIDGE = "letter_bridge"
+KEYWORD_INFER = "keyword_infer"
 
 
 class SummaryOnly(BaseModel):
@@ -91,6 +93,25 @@ class LetterBridgeOne(BaseModel):
     sources: list[str] = Field(description="the ids it draws on")
     company_fact: CompanyFact | None = None
     risk: str | None = None
+
+
+class InferredKeyword(BaseModel):
+    """One keyword the model judges highly probable, with what it rests on (F7.5)."""
+
+    keyword: str = Field(description="one of the candidates, copied exactly")
+    confidence: str = Field(description='"high" — anything less is omitted')
+    supports: list[str] = Field(description="skill:<canonical> and bullet:<id> it rests on")
+    reason: str = Field(description="one line: what the person holds that makes it probable")
+    placement: str = Field(description="skills, existing_bullet or new_bullet")
+    bullet_id: str | None = Field(default=None, description="for existing_bullet")
+    role_id: str | None = Field(default=None, description="for new_bullet")
+    draft: str | None = Field(default=None, description="the bullet's wording, if any")
+
+
+class KeywordInference(BaseModel):
+    """F7.5's answer: the probable keywords, and nothing else."""
+
+    items: list[InferredKeyword] = Field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -384,6 +405,68 @@ def generate_letter_bridge_one(
                 else None
             ),
             "risk": (answer.risk or "").strip() or None,
+        },
+        completion=completion,
+    )
+
+
+def generate_keyword_inference(
+    session: Session,
+    *,
+    candidates: Sequence[str],
+    pool: Sequence[str],
+    bullets: Sequence[tuple[str, str]],
+    roles: Sequence[tuple[str, str]],
+    banned: Sequence[str],
+    language: str,
+    known_names: Sequence[str] | None = None,
+    model: str | None = None,
+    options: CallOptions | None = None,
+) -> Proposal:
+    """One call: which of the leftover keywords are highly probable for this person (F7.5).
+
+    Purpose `keyword_infer`, redacted like every call and cached by content hash, so the
+    same material asks the provider once. The answer is raw: `generate.validators` decides
+    which items may be shown, and nothing here is stored.
+    """
+    completion = complete_json(
+        session,
+        purpose=KEYWORD_INFER,
+        prompt_version=KEYWORD_INFER_V1.version,
+        system=KEYWORD_INFER_V1.render_system(),
+        user=KEYWORD_INFER_V1.render(
+            lang=language,
+            candidates=summarize_rows(list(candidates)),
+            pool=summarize_rows(list(pool)),
+            bullets=summarize_rows(
+                [f"{bullet_id}\t{_redacted(text, known_names)}" for bullet_id, text in bullets]
+            ),
+            roles=summarize_rows(
+                [f"{role_id}\t{_redacted(title, known_names)}" for role_id, title in roles]
+            ),
+            banned="\n".join(f"- {phrase}" for phrase in banned) or "(none)",
+        ),
+        schema=KeywordInference,
+        model=model,
+        options=options,
+    )
+    answer = KeywordInference.model_validate(completion.data)
+    return Proposal(
+        kind="keyword_infer",
+        output={
+            "items": [
+                {
+                    "keyword": item.keyword,
+                    "confidence": item.confidence,
+                    "supports": list(item.supports),
+                    "reason": item.reason.strip(),
+                    "placement": item.placement,
+                    "bullet_id": item.bullet_id,
+                    "role_id": item.role_id,
+                    "draft": (item.draft or "").strip() or None,
+                }
+                for item in answer.items
+            ]
         },
         completion=completion,
     )

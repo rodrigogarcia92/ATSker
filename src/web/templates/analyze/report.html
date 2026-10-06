@@ -568,6 +568,20 @@
     {{ t('report.keywords.unsupported_one' if keywords.unsupported | length == 1 else 'report.keywords.unsupported', lang, n=keywords.unsupported | length) }}
   </p>
   {% endif %}
+  {# F7.5, probable keywords: the button shows only with something left over and a model to
+     ask; otherwise one line says why not. The pop-up is a GET until its own button posts. #}
+  <div class="mt-3">
+    {% if infer_left and infer_ready %}
+    {% set infer_suffix = ('?attempt=' ~ attempt_id) if attempt_view else '' %}
+    {{ ui.dialog_opener('/applications/' ~ application.id ~ '/keywords/dialog' ~ infer_suffix,
+          '/applications/' ~ application.id ~ '/keywords' ~ infer_suffix, t('report.keywords.infer', lang),
+          'inline-flex min-h-11 items-center rounded-control border border-border px-4 text-sm text-link') }}
+    {% elif infer_left %}
+    <p class="text-xs text-text-3">{{ t('report.keywords.infer_no_model', lang) }}</p>
+    {% else %}
+    <p class="text-xs text-text-3">{{ t('report.keywords.infer_none', lang) }}</p>
+    {% endif %}
+  </div>
 </div>
 {% endif %}
 
@@ -1191,7 +1205,7 @@
 </div>
 {% endif %}
 
-{# §12.5: the one dialog the proposal openers share. An attempt's read-only report has no
-   opener yet, so it carries no dialog. #}
-{% if not attempt_view %}{{ ui.dialog('proposal-dialog') }}{% endif %}
+{# §12.5: the one dialog the proposal openers share. An attempt's read-only report carries
+   it only when it offers the keywords button. #}
+{% if not attempt_view or (infer_left and infer_ready) %}{{ ui.dialog('proposal-dialog') }}{% endif %}
 {% endblock %}

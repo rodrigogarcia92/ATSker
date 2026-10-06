@@ -637,3 +637,47 @@ LETTER_BRIDGE_V2 = Prompt(
         "Write in {lang}."
     ),
 )
+
+
+# F7.5's probable keywords (N8.11, K6): one on-demand call. The rules are the stable system
+# prefix; the posting's language, the candidates, the pool, the bullets, the roles and the
+# banned phrases (the same data file as F8's letters) are the variable user message. The
+# code checks every answer afterwards — `generate.validators.validate_keyword_items`.
+KEYWORD_INFER_V1 = Prompt(
+    version="keyword_infer_v1",
+    system=(
+        "You help a job seeker see which keywords of one job posting they could honestly "
+        "add to their own CV. You are given the posting's keywords that nothing in their "
+        "material states yet (the candidates), the skills in their pool, their bullets by "
+        "id and their roles by id.\n\n"
+        "Propose a candidate only when it is highly probable that the person has it, given "
+        "what they hold — the way one method is built on another: someone who lists "
+        "econometrics very probably knows statistical inference. Omit anything less likely; "
+        "a short list, or an empty one, is the right answer when nothing is that probable. "
+        'Mark every item you return with confidence "high" and never return a lower one.\n\n'
+        "Choose only from the candidates, copying the keyword exactly as written. Never "
+        "propose a named software product, tool or platform: the person can be asked about "
+        "it in one question, so it cannot be inferred.\n\n"
+        "Give the reason in one line: what the person holds that makes it probable. List "
+        "what it rests on in supports — `skill:<canonical>` for a skill in their pool, "
+        "`bullet:<id>` for a bullet — citing only ids and skills you were given, and at "
+        "least one.\n\n"
+        "Say where it would go: `skills` (their skills list), `existing_bullet` (the word "
+        "added to one of their bullets, whose id goes in bullet_id) or `new_bullet` (a new "
+        "bullet under one of their roles, whose id goes in role_id). A draft may add the "
+        "keyword and nothing else that is new: no number, percentage, date, employer, "
+        "client or tool that is not in the material you cite. Use null for bullet_id, "
+        "role_id or draft where they do not apply.\n\n"
+        "Write the reason and any draft in the posting's language, in a plain register: no "
+        "marketing phrases, and none of the banned phrases listed in the message."
+    ),
+    template=(
+        "The posting's language: {lang}\n\n"
+        "Candidates — the only keywords you may propose, verbatim:\n{candidates}\n\n"
+        "The person's skill pool (canonicals):\n{pool}\n\n"
+        "The person's bullets (id, text):\n{bullets}\n\n"
+        "The person's roles (id, title):\n{roles}\n\n"
+        "Banned phrases in {lang}:\n{banned}\n\n"
+        "Return the items you judge highly probable, or an empty list."
+    ),
+)

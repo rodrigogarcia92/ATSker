@@ -44,8 +44,10 @@ from src.extract.client import (
     NoModelConfigured,
     ProviderUnavailable,
     StructuredOutputError,
+    model_configured,
 )
 from src.extract.resume import EmptyExtraction
+from src.generate.keywords import inferable
 from src.i18n import t
 from src.ingest.documents import SUPPORTED_SUFFIXES, UnreadableDocument
 from src.keyword_advice import keyword_advice
@@ -432,6 +434,7 @@ def attempt_report(
         profile.id, session, report=application.report, track=track
     )
     kind = attempt.file_format or ""
+    keywords = keyword_advice(profile.id, session, report=report, track=track, for_file=True)
     return render(
         request,
         "analyze/report.html",
@@ -461,9 +464,10 @@ def attempt_report(
         readiness=_readiness(application, attempt),
         advice_for_file=True,
         # F7.5: the same card for the uploaded file's own Keywords sub-score, worded for it.
-        keywords=keyword_advice(
-            profile.id, session, report=report, track=track, for_file=True
-        ),
+        keywords=keywords,
+        infer_left=len(inferable(session, keywords)),
+        infer_ready=model_configured(),
+        attempt_id=attempt.id,
         findings=finding_rows(report.get("gate") or {}, user.ui_lang),
         live_bullets={
             str(bullet.id) for bullet in list_bullets(profile.id, session, active_only=True)

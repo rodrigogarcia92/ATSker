@@ -1,0 +1,15 @@
+{# F7.5: the probable keywords, as a page. This is the no-JavaScript path to the same flow the
+   report's pop-up (§12.5) runs; the body is shared with it. #}
+{% extends "base.html" %}
+{% block title %}{{ t('keywords.infer.title', lang) }} — {{ t('app.name', lang) }}{% endblock %}
+{% block width %}max-w-3xl{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-semibold tracking-tight">{{ t('keywords.infer.title', lang) }}</h1>
+<p class="mt-1 text-xs text-text-3">{{ application.title or t('report.title', lang) }}</p>
+
+{% include "generate/_keywords_body.html" %}
+
+<p class="mt-6 text-sm">
+  <a href="{{ back_url }}" class="text-link underline">{{ t('generate.back', lang) }}</a>
+</p>
+{% endblock %}

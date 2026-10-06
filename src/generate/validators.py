@@ -354,3 +354,127 @@ def validate(
                     )
                 )
     return violations
+
+
+# --- F7.5: the probable-keywords answer ---------------------------------------------
+
+PLACEMENTS = ("skills", "existing_bullet", "new_bullet")
+
+
+@dataclass(frozen=True)
+class KeywordMaterial:
+    """What the keyword inference was given, and so what its answer may claim (F7.5).
+
+    Built by the caller from the profile's own rows, so an id that is not here is somebody
+    else's row or no row at all. `canonicals` maps each candidate, as sent, to the canonical
+    the vocabulary gives it — or `None` for a phrase the vocabulary does not know, which is
+    allowed — and `kinds` gives that canonical's kind.
+    """
+
+    candidates: tuple[str, ...]
+    canonicals: Mapping[str, str | None]
+    kinds: Mapping[str, str]
+    skills: frozenset[str]
+    bullets: Mapping[str, str]
+    roles: Mapping[str, str]
+    aliases: Mapping[str, str] = field(default_factory=dict)
+
+
+def _id_or_none(value: Any) -> str | None:
+    text = str(value).strip() if value is not None else ""
+    return text if text and text.lower() not in {"null", "none"} else None
+
+
+def _keyword_item_ok(item: Mapping[str, Any], material: KeywordMaterial) -> dict[str, Any] | None:
+    """The item, normalised, when every guard of F7.5 holds; otherwise `None`."""
+    keyword = str(item.get("keyword") or "")
+    # 1 — closed candidate set: verbatim, never a term the model brought.
+    if keyword not in material.candidates:
+        return None
+    # 2 — only what the model itself marked highly probable.
+    if str(item.get("confidence") or "").strip().lower() != "high":
+        return None
+    # 5 — a named tool is never inferred; a phrase the vocabulary does not know may be.
+    canonical = material.canonicals.get(keyword)
+    if canonical is not None and material.kinds.get(canonical) == "tool":
+        return None
+    reason = str(item.get("reason") or "").strip()
+    if not reason:
+        return None
+
+    # 3 — provenance: something is cited, and every id is one that was sent.
+    supports = [str(value) for value in item.get("supports") or [] if str(value).strip()]
+    if not supports:
+        return None
+    cited_text: list[str] = []
+    for support in supports:
+        kind, _, name = support.partition(":")
+        if kind == "skill" and name in material.skills:
+            cited_text.append(name)
+        elif kind == "bullet" and name in material.bullets:
+            cited_text.append(material.bullets[name])
+        else:
+            return None
+    placement = str(item.get("placement") or "")
+    if placement not in PLACEMENTS:
+        return None
+    bullet_id, role_id = _id_or_none(item.get("bullet_id")), _id_or_none(item.get("role_id"))
+    if bullet_id is not None and bullet_id not in material.bullets:
+        return None
+    if role_id is not None and role_id not in material.roles:
+        return None
+    if placement == "existing_bullet" and bullet_id is None:
+        return None
+    if placement == "new_bullet" and role_id is None:
+        return None
+    if placement == "skills":
+        bullet_id = role_id = None
+    elif placement == "existing_bullet":
+        role_id = None
+    else:
+        bullet_id = None
+
+    # 4 — literal preservation (F7.3): the draft may add the keyword and nothing else new.
+    draft = _id_or_none(item.get("draft"))
+    if draft is not None:
+        corpus = [*cited_text, keyword]
+        if bullet_id is not None:
+            corpus.append(material.bullets[bullet_id])
+        if role_id is not None:
+            corpus.append(material.roles[role_id])
+        if unsupported_claims(draft, " ".join(corpus), material.aliases, skip_ambiguous=True):
+            return None
+    return {
+        "keyword": keyword,
+        "canonical": canonical,
+        "confidence": "high",
+        "supports": supports,
+        "reason": reason,
+        "placement": placement,
+        "bullet_id": bullet_id,
+        "role_id": role_id,
+        "draft": draft,
+    }
+
+
+def validate_keyword_items(
+    items: Sequence[Mapping[str, Any]], material: KeywordMaterial
+) -> tuple[list[dict[str, Any]], int]:
+    """F7.5's guards over the model's items: `(items that may be shown, how many dropped)`.
+
+    An item that breaks a guard is dropped, never weakened until it passes — and counted, so
+    the page can say how many suggestions could not be checked. A keyword offered twice
+    counts once. Run after the call and again on render: the answer is data from a model,
+    and the material it was checked against is the user's own.
+    """
+    kept: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    dropped = 0
+    for item in items:
+        checked = _keyword_item_ok(item, material)
+        if checked is None or checked["keyword"] in seen:
+            dropped += 1
+            continue
+        seen.add(checked["keyword"])
+        kept.append(checked)
+    return kept, dropped

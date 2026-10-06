@@ -7,7 +7,6 @@ validators are the reason the number on the page can be trusted.
 """
 
 import json
-import logging
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Form, HTTPException, Request
@@ -15,13 +14,7 @@ from fastapi.responses import RedirectResponse
 
 from src.applications import get_application
 from src.bullets import bullet_text, get_bullet, suggest_skills
-from src.extract.client import (
-    CallOptions,
-    NoModelConfigured,
-    ProviderUnavailable,
-    StructuredOutputError,
-    model_configured,
-)
+from src.extract.client import CallOptions, NoModelConfigured, model_configured
 from src.extract.generation import generate_bullet, generate_story_bullets, generate_summary
 from src.generate.proposals import (
     accept_bullet,
@@ -43,34 +36,17 @@ from src.summaries import get_summary
 from src.tracks import get_track, track_bullets
 from src.web.deps import DbSession, OwnProfile, SignedInUser
 from src.web.forms import is_checked
+from src.web.generation_errors import (
+    BULLET,
+    PROVIDER_ERRORS,
+    STORY,
+    SUMMARY,
+    failed,
+    no_model,
+)
 from src.web.templating import render
 
 router = APIRouter()
-
-logger = logging.getLogger(__name__)
-
-# PRD §12.5: a failed proposal says why, in one of three sentences, and the log line carries
-# the error class and the purpose — never any text the model saw or said.
-SUMMARY = "generate_summary"
-BULLET = "generate_bullet"
-STORY = "story_bullets"
-PROVIDER_ERRORS = (NoModelConfigured, ProviderUnavailable, StructuredOutputError)
-
-
-def _no_model(purpose: str, lang: str) -> str:
-    """Nothing is configured to call: said before a call is attempted."""
-    logger.warning("generation refused: purpose=%s error=NoModelConfigured", purpose)
-    return t("generate.err.no_model", lang)
-
-
-def _failed(exc: BaseException, purpose: str, lang: str) -> str:
-    """Which of the three it was: no model, the provider, or an answer nobody can use."""
-    logger.warning("generation failed: purpose=%s error=%s", purpose, type(exc).__name__)
-    if isinstance(exc, NoModelConfigured):
-        return t("generate.err.no_model", lang)
-    if isinstance(exc, ProviderUnavailable):
-        return t("generate.err.provider", lang)
-    return t("generate.err.unusable", lang)
 
 
 def _target(application_id: str, session, profile):
@@ -85,7 +61,7 @@ def _current(session, track, language: str) -> dict[str, Any]:
     """What the track holds in this language today — the other side of the diff."""
     slot = track.summary_en_id if language == "en" else track.summary_es_id
     summary = get_summary(track.profile_id, session, slot) if slot else None
-    return {"summary": summary.text if summary is not None else None, "skills": list(track.skills)}
+    return {"summary": summary.text if summary is not None else None}
 
 
 def _page(
@@ -162,7 +138,7 @@ def propose_summary(
             application,
             track,
             session,
-            error=_no_model(SUMMARY, user.ui_lang),
+            error=no_model(SUMMARY, user.ui_lang),
             dialog=popup,
         )
     return _page(request, user, profile, application, track, session, dialog=popup)
@@ -193,7 +169,7 @@ def generate_summary_proposal(
             application,
             track,
             session,
-            error=_no_model(SUMMARY, user.ui_lang),
+            error=no_model(SUMMARY, user.ui_lang),
             dialog=popup,
         )
 
@@ -230,7 +206,7 @@ def generate_summary_proposal(
             application,
             track,
             session,
-            error=_failed(exc, SUMMARY, user.ui_lang),
+            error=failed(exc, SUMMARY, user.ui_lang),
             retry=not isinstance(exc, NoModelConfigured),
             dialog=popup,
         )
@@ -380,7 +356,7 @@ def propose_bullet(
             application,
             bullet,
             language,
-            error=_no_model(BULLET, user.ui_lang),
+            error=no_model(BULLET, user.ui_lang),
         )
     return _bullet_page(request, user, profile, application, bullet, language)
 
@@ -407,7 +383,7 @@ def generate_bullet_proposal(
             application,
             bullet,
             language,
-            error=_no_model(BULLET, user.ui_lang),
+            error=no_model(BULLET, user.ui_lang),
         )
 
     # Everything the prompt reads is computed first; the reads end before the call.
@@ -438,7 +414,7 @@ def generate_bullet_proposal(
             application,
             bullet,
             language,
-            error=_failed(exc, BULLET, user.ui_lang),
+            error=failed(exc, BULLET, user.ui_lang),
         )
 
     session.commit()
@@ -575,7 +551,7 @@ def propose_story_bullets(
         )
     if not model_configured():
         return _story_page(
-            request, user, profile, story, roles, language, error=_no_model(STORY, user.ui_lang)
+            request, user, profile, story, roles, language, error=no_model(STORY, user.ui_lang)
         )
     return _story_page(request, user, profile, story, roles, language)
 
@@ -607,7 +583,7 @@ def generate_story_bullets_proposal(
         )
     if not model_configured():
         return _story_page(
-            request, user, profile, story, roles, language, error=_no_model(STORY, user.ui_lang)
+            request, user, profile, story, roles, language, error=no_model(STORY, user.ui_lang)
         )
 
     # reads first, then the call; nothing is stored until a candidate is accepted.
@@ -626,7 +602,7 @@ def generate_story_bullets_proposal(
     except PROVIDER_ERRORS as exc:
         session.commit()
         return _story_page(
-            request, user, profile, story, roles, language, error=_failed(exc, STORY, user.ui_lang)
+            request, user, profile, story, roles, language, error=failed(exc, STORY, user.ui_lang)
         )
 
     session.commit()

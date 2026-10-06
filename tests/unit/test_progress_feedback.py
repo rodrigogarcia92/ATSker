@@ -26,6 +26,7 @@ RUN_FORMS = {
     "import/upload.html": "import",
     "import/review.html": "import",
     "generate/_summary_body.html": "generate",
+    "generate/_keywords_body.html": "generate",
     "generate/bullet.html": "generate",
     "generate/story.html": "generate",
     "letters/letter.html": "letter",

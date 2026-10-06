@@ -96,7 +96,9 @@ def test_the_attempt_report_is_read_only(client, session, career, provider):
     assert "Proponer resumen" not in text
     assert "Carta de presentación" not in text
     assert 'id="attempt-open"' not in raw
-    assert "<dialog" not in raw
+    # K6: the read-only report may carry the shared proposal dialog for its keywords button;
+    # it never carries the F10 attempt modal.
+    assert 'id="attempt-modal"' not in raw
 
 
 # --- C.5: what a real browser showed ------------------------------------------------

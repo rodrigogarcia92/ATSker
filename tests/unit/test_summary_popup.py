@@ -260,9 +260,9 @@ def test_a_foreign_application_is_a_404_in_every_form(client, session, career, p
 
 
 def run_and_read(client, application, caplog):
-    caplog.set_level(logging.WARNING, logger="src.web.routes.generate")
+    caplog.set_level(logging.WARNING, logger="src.web.generation_errors")
     page = client.post(urls(application)[1], data={"dialog": "1"}).text
-    return page, [r.getMessage() for r in caplog.records if r.name == "src.web.routes.generate"]
+    return page, [r.getMessage() for r in caplog.records if r.name == "src.web.generation_errors"]
 
 
 def test_no_model_configured_says_so_and_offers_no_button(

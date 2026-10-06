@@ -2497,6 +2497,80 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "you have {sibling}; add it only if you have really used it.",
     },
     "report.keywords.copy": {"es": "Copiar «{keyword}»", "en": "Copy “{keyword}”"},
+    # F7.5 probable keywords: the button, and the pop-up behind it.
+    "report.keywords.infer": {
+        "es": "Sugerir más palabras clave probables",
+        "en": "Suggest more probable keywords",
+    },
+    "report.keywords.infer_no_model": {
+        "es": "Para sugerir más palabras clave hace falta un modelo configurado.",
+        "en": "Suggesting more keywords needs a model to be configured.",
+    },
+    "report.keywords.infer_none": {
+        "es": "No queda ninguna palabra clave sin respaldo que sugerir.",
+        "en": "No keyword without backing is left to suggest.",
+    },
+    "keywords.infer.title": {
+        "es": "Sugerir más palabras clave probables",
+        "en": "Suggest more probable keywords",
+    },
+    "keywords.infer.sends": {
+        "es": "Se enviarán al modelo, sin tu nombre ni tus datos de contacto: las {n} palabras "
+        "clave sin respaldo, tus habilidades, tus bullets y tus puestos. Solo propone lo muy "
+        "probable y no escribe nada en tu material.",
+        "en": "Sent to the model, without your name or contact details: the {n} keywords with no "
+        "backing, your skills, your bullets and your roles. It only proposes what is highly "
+        "probable and writes nothing to your material.",
+    },
+    "keywords.infer.sends_file": {
+        "es": "Se enviarán al modelo, sin tu nombre ni tus datos de contacto: las {n} palabras "
+        "clave de tu documento sin respaldo, tus habilidades, tus bullets y tus puestos. Solo "
+        "propone lo muy probable y no escribe nada en tu material.",
+        "en": "Sent to the model, without your name or contact details: the {n} keywords of "
+        "your document with no backing, your skills, your bullets and your roles. It only "
+        "proposes what is highly probable and writes nothing to your material.",
+    },
+    "keywords.infer.cost": {
+        "es": "Es una llamada de pago, una sola por pulsación; si tu material no cambió, "
+        "repetirla no cuesta nada. Abrir esta ventana tampoco.",
+        "en": "It is one paid call per press; if your material has not changed, repeating it "
+        "costs nothing. Opening this window costs nothing either.",
+    },
+    "keywords.infer.run": {"es": "Generar", "en": "Generate"},
+    "keywords.infer.none_left": {
+        "es": "No queda ninguna palabra clave sin respaldo que sugerir.",
+        "en": "No keyword without backing is left to suggest.",
+    },
+    "keywords.infer.empty": {
+        "es": "El modelo no encontró ninguna palabra clave lo bastante probable.",
+        "en": "The model found no keyword probable enough.",
+    },
+    "keywords.infer.rests_on": {"es": "Se apoya en:", "en": "Rests on:"},
+    "keywords.infer.support.skill": {"es": "habilidad", "en": "skill"},
+    "keywords.infer.support.bullet": {"es": "bullet", "en": "bullet"},
+    "keywords.infer.where": {"es": "Dónde ponerla:", "en": "Where to put it:"},
+    "keywords.infer.where.existing": {
+        "es": "en tu bullet «{text}»",
+        "en": "in your bullet “{text}”",
+    },
+    "keywords.infer.where.new": {
+        "es": "un bullet nuevo en «{role}»",
+        "en": "a new bullet under “{role}”",
+    },
+    "keywords.infer.draft": {"es": "Borrador", "en": "Draft"},
+    "keywords.infer.copy_draft": {"es": "Copiar el borrador", "en": "Copy the draft"},
+    "keywords.infer.dropped_one": {
+        "es": "{n} sugerencia descartada por no poder comprobarse.",
+        "en": "{n} suggestion dropped because it could not be checked.",
+    },
+    "keywords.infer.dropped": {
+        "es": "{n} sugerencias descartadas por no poder comprobarse.",
+        "en": "{n} suggestions dropped because they could not be checked.",
+    },
+    "keywords.infer.writes_nothing": {
+        "es": "Nada de esto se guarda: edita tu propio archivo, y solo si es verdad.",
+        "en": "None of this is saved: edit your own file, and only if it is true.",
+    },
     "report.keywords.unsupported_one": {
         "es": "{n} palabra clave no tiene respaldo en tu material: está en tus brechas.",
         "en": "{n} keyword has no backing in your material: it is in your gaps.",
