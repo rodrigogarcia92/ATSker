@@ -24,6 +24,11 @@
 {# F10.7: "Descartar" says what it did here, above the page, once the modal is closed. The
    script fills and un-hides it; a no-JS discard arrives as `?discarded=N` with it already
    visible and no dismiss button, which needs script. #}
+{# F7.3 / §12.5: "Aceptar" in the summary pop-up lands here with `?summary_saved=1`. #}
+{% if summary_saved is defined and summary_saved and not attempt_view %}
+<p id="summary-saved" role="status" class="mb-4 rounded-card border border-score-strong bg-surface-1 px-4 py-3 text-sm text-text-2">{{ t('generate.saved', lang) }}</p>
+{% endif %}
+
 {% if not attempt_view %}
 {% set notice_no = discarded_no if discarded_no is defined else none %}
 <p id="attempt-notice" role="status" class="mb-4 rounded-card border border-card-border bg-surface-1 px-4 py-3 text-sm text-text-2"
@@ -373,7 +378,7 @@
 
 {# 8 — Recommendations: the track table and the edit advice, side by side. Tier 1's
    "Proponer resumen y habilidades" lives here too, when the analysis used a track. #}
-{% if report.recommendation or report.advice or application.track_id %}
+{% if report.recommendation or report.advice or application.track_id or not attempt_view %}
 <section id="recommendations">
 <h2 class="mt-8 text-lg font-semibold">{{ t('report.advice', lang) }}</h2>
 {% if report.advice %}
@@ -525,11 +530,21 @@
 {% endif %}
 {% endif %}
 
-{% if application.track_id and not attempt_view %}
-<p class="mt-4">
-  <a href="/applications/{{ application.id }}/summary"
-     class="inline-flex min-h-11 items-center rounded-control border border-border px-4 text-sm text-link">{{ t('generate.propose_summary', lang) }}</a>
-</p>
+{# F7.3 Tier 1 / §12.5: "Proponer resumen" opens the shared dialog; without script it is
+   the link to the page. With no track the button stays, disabled, and says why. An attempt
+   view is read-only and offers neither. #}
+{% if not attempt_view %}
+<div class="mt-4">
+  {% if application.track_id %}
+  {{ ui.dialog_opener('/applications/' ~ application.id ~ '/summary?dialog=1',
+        '/applications/' ~ application.id ~ '/summary', t('generate.propose_summary', lang),
+        'inline-flex min-h-11 items-center rounded-control border border-border px-4 text-sm text-link') }}
+  {% else %}
+  <button type="button" disabled aria-describedby="summary-no-track"
+          class="inline-flex min-h-11 cursor-not-allowed items-center rounded-control border border-border px-4 text-sm text-text-3 opacity-60">{{ t('generate.propose_summary', lang) }}</button>
+  <p id="summary-no-track" class="mt-1 text-xs text-text-3">{{ t('generate.no_track', lang) }}</p>
+  {% endif %}
+</div>
 {% endif %}
 </section>
 {% endif %}
@@ -851,7 +866,7 @@
     <a href="#recruiter" class="flex min-h-11 items-center text-link">{{ t('recall.title', lang) }}</a>
     {% endif %}
     <a href="#requirements" class="flex min-h-11 items-center text-link">{{ t('report.requirements', lang) }}</a>
-    {% if report.recommendation or report.advice or application.track_id %}
+    {% if report.recommendation or report.advice or application.track_id or not attempt_view %}
     <a href="#recommendations" class="flex min-h-11 items-center text-link">{{ t('report.advice', lang) }}</a>
     {% endif %}
     <a href="#ats" class="flex min-h-11 items-center text-link">{{ t('report.scan_readability_question', lang) }}</a>
@@ -1117,4 +1132,8 @@
 {% else %}
 </div>
 {% endif %}
+
+{# §12.5: the one dialog the proposal openers share. An attempt's read-only report has no
+   opener yet, so it carries no dialog. #}
+{% if not attempt_view %}{{ ui.dialog('proposal-dialog') }}{% endif %}
 {% endblock %}

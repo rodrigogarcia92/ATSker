@@ -431,6 +431,9 @@ SUMMARY_SKILLS_V1 = Prompt(
 
 # V2 states the skills-list rule outright, so the pool is not a suggestion. The version
 # string is new on purpose: it busts the cache, and V1 stays for reports that cite it.
+# Since N8.11 (K4) neither is called: the summary is proposed alone (`SUMMARY_V3`), because
+# a skills list is the Keywords card's business now (F7.5). Both stay defined so a stored
+# report that cites `summary_skills_v1`/`_v2` still names a prompt that exists.
 SUMMARY_SKILLS_V2 = Prompt(
     version="summary_skills_v2",
     system=(
@@ -443,6 +446,41 @@ SUMMARY_SKILLS_V2 = Prompt(
         )
     ),
     template=SUMMARY_SKILLS_V1.template,
+)
+
+
+# V3 (N8.11, K4): the summary alone. The rules of V2 minus every request for a skills list;
+# the track's skills and the pool still travel in the user message, but only as context for
+# skill closure — what the summary may name — never as something to output.
+SUMMARY_V3 = Prompt(
+    version="summary_v3",
+    system=(
+        "You write a short professional summary for one person's CV, tailored to one job "
+        "posting, in the posting's language.\n\n"
+        "You may use only the material you are given. The bullets are the person's own "
+        "words about their own work. The summary restates what they already say, leading "
+        "with the skill the posting centres on, and never adds a number, a percentage, a "
+        "year, a date, an employer, a tool or a result that is not written in the bullets "
+        "you cite.\n\n"
+        "Every summary cites the bullet ids it draws on. A summary that cites nothing is "
+        "not a summary; return no summary rather than an uncited one.\n\n"
+        "The skills and the pool below are context, not output. Name a skill in the summary "
+        "only if it is in the person's pool and the bullets you cite show it; a skill the "
+        "posting asks for and the person lacks is a gap, so leave it out rather than "
+        "naming it. Never return a list of skills.\n\n"
+        "Return the summary text and the bullet ids it cites."
+    ),
+    template=(
+        "The posting, as extracted (language {lang}):\n{jd}\n\n"
+        "The track's bullets, by id — the only material the summary may restate:\n"
+        "{bullets}\n\n"
+        "The grades those bullets received for this posting (requirement, level 0-3, "
+        "weight):\n{grades}\n\n"
+        "Context only — the skills already chosen for this track:\n{track_skills}\n\n"
+        "Context only — the person's full skill pool, every canonical a summary may name "
+        "if the cited bullets show it:\n{pool}\n\n"
+        "Write the summary in {lang}."
+    ),
 )
 
 

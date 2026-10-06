@@ -214,6 +214,7 @@ def application_report(
     profile: OwnProfile,
     attempt: str | None = None,
     discarded: str | None = None,
+    summary_saved: str | None = None,
 ):
     application = get_application(profile.id, session, application_id)
     if application is None:
@@ -265,6 +266,8 @@ def application_report(
         attempts=application_attempts_report(attempt_rows),
         open_attempt=open_attempt,
         discarded_no=discarded_no,
+        # §12.5: the summary pop-up's "Aceptar" redirects here and the page says it saved.
+        summary_saved=summary_saved == "1",
         # §12.4: the drop zone checks the size before anything is sent.
         max_upload_bytes=MAX_UPLOAD_BYTES,
         findings=finding_rows(application.scan_readability or {}, user.ui_lang),

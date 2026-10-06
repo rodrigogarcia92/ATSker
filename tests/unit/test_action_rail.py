@@ -105,8 +105,16 @@ def test_a_report_without_a_recruiter_scan_does_not_link_to_it(client, session, 
     nav = part(page, "nav", 'aria-label="En esta página"')
 
     anchors = re.findall(r'href="(#\w+)"', nav)
-    assert "#recruiter" not in anchors and "#recommendations" not in anchors
-    assert anchors == ["#fit", "#components", "#requirements", "#ats", "#before"]
+    assert "#recruiter" not in anchors
+    # K4: with no track the summary button stays, disabled, in Recomendaciones.
+    assert anchors == [
+        "#fit",
+        "#components",
+        "#requirements",
+        "#recommendations",
+        "#ats",
+        "#before",
+    ]
 
 
 def test_the_mid_page_block_and_the_bottom_letter_link_are_gone(client, career, provider):

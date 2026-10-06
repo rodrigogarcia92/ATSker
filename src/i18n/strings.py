@@ -985,16 +985,48 @@ STRINGS: dict[str, dict[str, str]] = {
     "report.jd_hash": {"es": "Hash de la oferta", "en": "Posting hash"},
     "report.again": {"es": "Analizar otra oferta", "en": "Analyse another posting"},
     # F7.3's generated text: on demand, validated, shown as a diff, accepted by hand.
-    "generate.propose_summary": {
-        "es": "Proponer resumen y habilidades",
-        "en": "Propose a summary and skills",
+    "generate.propose_summary": {"es": "Proponer resumen", "en": "Propose summary"},
+    "generate.saved": {
+        "es": "Resumen guardado en tu material",
+        "en": "Summary saved to your material",
+    },
+    "generate.no_track": {
+        "es": "Elige una línea de carrera al analizar para proponer un resumen",
+        "en": "Choose a track when you analyse to propose a summary",
+    },
+    # §12.5: what the pop-up says before the button, in words — opening it calls nothing.
+    "generate.dialog.sends": {
+        "es": "Se enviarán al modelo, sin tu nombre ni tus datos de contacto: la oferta tal "
+        "como se extrajo, los {n} bullets de «{track}» y tus habilidades como contexto. "
+        "Solo se propone el resumen.",
+        "en": "Sent to the model, without your name or contact details: the posting as "
+        "extracted, the {n} bullets of “{track}” and your skills as context. Only the "
+        "summary is proposed.",
+    },
+    "generate.dialog.cost": {
+        "es": "Es una llamada de pago al modelo, una sola por pulsación. Abrir esta ventana "
+        "no cuesta nada.",
+        "en": "It is one paid call to the model per press. Opening this window costs nothing.",
+    },
+    # §12.5: a failed proposal says which of three things went wrong.
+    "generate.err.no_model": {
+        "es": "El modelo no está configurado: no se puede proponer nada todavía.",
+        "en": "No model is configured: nothing can be proposed yet.",
+    },
+    "generate.err.provider": {
+        "es": "El proveedor del modelo no respondió; no se ha propuesto nada. Inténtalo de "
+        "nuevo.",
+        "en": "The model provider did not answer; nothing was proposed. Try again.",
+    },
+    "generate.err.unusable": {
+        "es": "El modelo respondió, pero la respuesta no fue utilizable; no se ha propuesto "
+        "nada. Inténtalo de nuevo.",
+        "en": "The model answered, but the answer was not usable; nothing was proposed. "
+        "Try again.",
     },
     # The provider call is a button on a POST, never a GET (F.0).
     "generate.run": {"es": "Generar propuesta", "en": "Generate proposal"},
-    "generate.title": {
-        "es": "Resumen y habilidades propuestos",
-        "en": "Proposed summary and skills",
-    },
+    "generate.title": {"es": "Resumen propuesto", "en": "Proposed summary"},
     "generate.intro": {
         "es": "Una propuesta a partir de tu propio material. Nada se guarda hasta que "
         "aceptes, y al aceptar se vuelve a validar contra la base de datos.",

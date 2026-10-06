@@ -23,7 +23,7 @@ from src.models import Application, Bullet, BulletRevision, Profile, Story, Summ
 from src.roles import get_role, list_roles
 from src.stories import get_story
 from src.summaries import create_summary
-from src.tracks import set_track_skills, set_track_summary, track_bullets
+from src.tracks import set_track_summary, track_bullets
 from src.vocabulary import alias_map
 
 
@@ -134,23 +134,20 @@ def accept_summary(
     *,
     text: str,
     cites: Sequence[str],
-    skills: Sequence[str],
     use_in_track: bool,
 ) -> tuple[Summary | None, list[Violation]]:
-    """Accept a summary: validate again, then write the pool row and the track's slots.
+    """Accept a summary: validate again, then write the pool row and, if asked, the slot.
 
     The form's text is never trusted. The summary joins the pool in the posting's
-    language; the skills replace the track's list (only pool canonicals can appear,
-    by closure); and with "usar en este puesto" the new pool row becomes the track's
-    summary for that language.
+    language; with "usar en esta línea" the new pool row becomes the track's summary for
+    that language. It never touches the track's skills (F7.5: skills are keywords now).
     """
-    output = {"summary": {"text": text, "cites": list(cites)}, "skills": list(skills)}
+    output = {"summary": {"text": text, "cites": list(cites)}}
     violations = check_summary(profile_id, session, application, track, output)
     if violations:
         return None, violations
     language = report_language(application)
     summary = create_summary(profile_id, session, text=text, lang=language)
-    set_track_skills(profile_id, session, track.id, list(skills))
     if use_in_track:
         set_track_summary(profile_id, session, track.id, lang=language, summary_id=summary.id)
     session.flush()

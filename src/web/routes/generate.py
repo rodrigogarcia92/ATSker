@@ -7,6 +7,7 @@ validators are the reason the number on the page can be trusted.
 """
 
 import json
+import logging
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Form, HTTPException, Request
@@ -46,9 +47,30 @@ from src.web.templating import render
 
 router = APIRouter()
 
-# What the model being unreachable reads as. The same sentence the analysis form
-# uses, because it is the same problem with the same fix.
-_NO_MODEL = "analyze.no_model"
+logger = logging.getLogger(__name__)
+
+# PRD §12.5: a failed proposal says why, in one of three sentences, and the log line carries
+# the error class and the purpose — never any text the model saw or said.
+SUMMARY = "generate_summary"
+BULLET = "generate_bullet"
+STORY = "story_bullets"
+PROVIDER_ERRORS = (NoModelConfigured, ProviderUnavailable, StructuredOutputError)
+
+
+def _no_model(purpose: str, lang: str) -> str:
+    """Nothing is configured to call: said before a call is attempted."""
+    logger.warning("generation refused: purpose=%s error=NoModelConfigured", purpose)
+    return t("generate.err.no_model", lang)
+
+
+def _failed(exc: BaseException, purpose: str, lang: str) -> str:
+    """Which of the three it was: no model, the provider, or an answer nobody can use."""
+    logger.warning("generation failed: purpose=%s error=%s", purpose, type(exc).__name__)
+    if isinstance(exc, NoModelConfigured):
+        return t("generate.err.no_model", lang)
+    if isinstance(exc, ProviderUnavailable):
+        return t("generate.err.provider", lang)
+    return t("generate.err.unusable", lang)
 
 
 def _target(application_id: str, session, profile):
@@ -77,17 +99,25 @@ def _page(
     proposal=None,
     violations: list[Violation] | None = None,
     error: str | None = None,
+    retry: bool = False,
     refused: dict[str, Any] | None = None,
+    dialog: bool = False,
 ):
+    """The summary flow, as the full page or — with `dialog` — as the pop-up's partial.
+
+    Both render `generate/_summary_body.html`; the page adds a heading and a way back, the
+    partial is what the shared dialog (§12.5) loads into its body.
+    """
     language = report_language(application)
     return render(
         request,
-        "generate/summary.html",
+        "generate/_summary_body.html" if dialog else "generate/summary.html",
         user=user,
         profile=profile,
         application=application,
         track=track,
         language=language,
+        dialog=dialog,
         proposal=proposal,
         proposal_json=(
             json.dumps(proposal.output, ensure_ascii=False) if proposal is not None else ""
@@ -95,10 +125,12 @@ def _page(
         violations=violations or [],
         refused=refused,
         current=_current(session, track, language),
-        # The call costs money, so it is a button on a POST, never a GET (F.0).
+        bullet_count=len(track_bullets(profile.id, session, track.id)),
+        # The call costs money, so it is a button on a POST, never a GET (F.0). After a
+        # failure the same button comes back, except when no model is configured.
         run_url=(
             f"/applications/{application.id}/summary/generate"
-            if proposal is None and refused is None and error is None
+            if proposal is None and refused is None and (error is None or retry)
             else None
         ),
         error=error,
@@ -112,16 +144,28 @@ def propose_summary(
     user: SignedInUser,
     session: DbSession,
     profile: OwnProfile,
+    dialog: str | None = None,
 ):
-    """The Tier-1 page. A GET renders the button; the provider call is the POST (F.0)."""
+    """The Tier-1 page, or with `?dialog=1` the pop-up's partial. Neither calls the provider.
+
+    A GET renders what will be sent and the button; the provider call is the POST (F.0).
+    """
     application, track = _target(application_id, session, profile)
     if application is None or track is None:
         return render(request, "not_found.html", user=user, status_code=404)
+    popup = dialog == "1"
     if not model_configured():
         return _page(
-            request, user, profile, application, track, session, error=t(_NO_MODEL, user.ui_lang)
+            request,
+            user,
+            profile,
+            application,
+            track,
+            session,
+            error=_no_model(SUMMARY, user.ui_lang),
+            dialog=popup,
         )
-    return _page(request, user, profile, application, track, session)
+    return _page(request, user, profile, application, track, session, dialog=popup)
 
 
 @router.post("/applications/{application_id}/summary/generate")
@@ -131,29 +175,41 @@ def generate_summary_proposal(
     user: SignedInUser,
     session: DbSession,
     profile: OwnProfile,
+    dialog: Annotated[str | None, Form()] = None,
 ):
-    """One paid call, on demand: the Tier-1 proposal for this application (F7.3)."""
+    """One paid call, on demand: the Tier-1 proposal for this application (F7.3).
+
+    With `dialog=1` the answer is the pop-up's partial; without it, the full page.
+    """
     application, track = _target(application_id, session, profile)
     if application is None or track is None:
         return render(request, "not_found.html", user=user, status_code=404)
+    popup = dialog == "1"
     if not model_configured():
         return _page(
-            request, user, profile, application, track, session, error=t(_NO_MODEL, user.ui_lang)
+            request,
+            user,
+            profile,
+            application,
+            track,
+            session,
+            error=_no_model(SUMMARY, user.ui_lang),
+            dialog=popup,
         )
 
     language = report_language(application)
     # Everything the prompt needs is read first, then the reads are ended: a live
     # transaction must not be held across the provider call (the client refuses).
+    jd = StructuredJD.model_validate(application.report.get("jd") or {})
+    bullets = [
+        (str(bullet.id), bullet_text(bullet, language))
+        for bullet in track_bullets(profile.id, session, track.id)
+    ]
+    track_skills = list(track.skills)
+    pool = list(pool_skills(profile.id, session))
+    grades = grades_of(application)
+    session.commit()
     try:
-        jd = StructuredJD.model_validate(application.report.get("jd") or {})
-        bullets = [
-            (str(bullet.id), bullet_text(bullet, language))
-            for bullet in track_bullets(profile.id, session, track.id)
-        ]
-        track_skills = list(track.skills)
-        pool = list(pool_skills(profile.id, session))
-        grades = grades_of(application)
-        session.commit()
         proposal = generate_summary(
             session,
             jd=jd,
@@ -164,7 +220,7 @@ def generate_summary_proposal(
             language=language,
             options=CallOptions(profile_id=profile.id),
         )
-    except (NoModelConfigured, ProviderUnavailable, StructuredOutputError):
+    except PROVIDER_ERRORS as exc:
         # A paid call that failed is still paid; keep the ledger and report plainly.
         session.commit()
         return _page(
@@ -174,7 +230,9 @@ def generate_summary_proposal(
             application,
             track,
             session,
-            error=t("generate.failed", user.ui_lang),
+            error=_failed(exc, SUMMARY, user.ui_lang),
+            retry=not isinstance(exc, NoModelConfigured),
+            dialog=popup,
         )
 
     session.commit()
@@ -188,6 +246,7 @@ def generate_summary_proposal(
         session,
         proposal=proposal,
         violations=violations,
+        dialog=popup,
     )
 
 
@@ -200,8 +259,14 @@ def accept_summary_proposal(
     profile: OwnProfile,
     payload: Annotated[str, Form()],
     use_in_track: Annotated[str | None, Form()] = None,
+    dialog: Annotated[str | None, Form()] = None,
 ):
-    """Accept a proposal: re-validate against the database, then write it (F7.3)."""
+    """Accept a proposal: re-validate against the database, then write it (F7.3).
+
+    Only the summary's text and citations are read from the form: a `skills` field an
+    older page may still post is ignored, and the track's skills are never written. From
+    the pop-up (`dialog=1`) the answer is a redirect to the report with a status line.
+    """
     application, track = _target(application_id, session, profile)
     if application is None or track is None:
         return render(request, "not_found.html", user=user, status_code=404)
@@ -217,7 +282,6 @@ def accept_summary_proposal(
         track,
         text=str((data.get("summary") or {}).get("text") or ""),
         cites=list((data.get("summary") or {}).get("cites") or []),
-        skills=list(data.get("skills") or []),
         use_in_track=is_checked(use_in_track),
     )
     if violations:
@@ -235,6 +299,8 @@ def accept_summary_proposal(
         )
 
     session.commit()
+    if dialog == "1":
+        return RedirectResponse(f"/applications/{application.id}?summary_saved=1", status_code=303)
     return RedirectResponse(f"/tracks/{track.id}", status_code=303)
 
 
@@ -308,7 +374,13 @@ def propose_bullet(
     language = report_language(application)
     if not model_configured():
         return _bullet_page(
-            request, user, profile, application, bullet, language, error=t(_NO_MODEL, user.ui_lang)
+            request,
+            user,
+            profile,
+            application,
+            bullet,
+            language,
+            error=_no_model(BULLET, user.ui_lang),
         )
     return _bullet_page(request, user, profile, application, bullet, language)
 
@@ -329,7 +401,13 @@ def generate_bullet_proposal(
     language = report_language(application)
     if not model_configured():
         return _bullet_page(
-            request, user, profile, application, bullet, language, error=t(_NO_MODEL, user.ui_lang)
+            request,
+            user,
+            profile,
+            application,
+            bullet,
+            language,
+            error=_no_model(BULLET, user.ui_lang),
         )
 
     # Everything the prompt reads is computed first; the reads end before the call.
@@ -351,7 +429,7 @@ def generate_bullet_proposal(
             language=language,
             options=CallOptions(profile_id=profile.id),
         )
-    except (NoModelConfigured, ProviderUnavailable, StructuredOutputError):
+    except PROVIDER_ERRORS as exc:
         session.commit()
         return _bullet_page(
             request,
@@ -360,7 +438,7 @@ def generate_bullet_proposal(
             application,
             bullet,
             language,
-            error=t("generate.failed", user.ui_lang),
+            error=_failed(exc, BULLET, user.ui_lang),
         )
 
     session.commit()
@@ -497,7 +575,7 @@ def propose_story_bullets(
         )
     if not model_configured():
         return _story_page(
-            request, user, profile, story, roles, language, error=t(_NO_MODEL, user.ui_lang)
+            request, user, profile, story, roles, language, error=_no_model(STORY, user.ui_lang)
         )
     return _story_page(request, user, profile, story, roles, language)
 
@@ -529,7 +607,7 @@ def generate_story_bullets_proposal(
         )
     if not model_configured():
         return _story_page(
-            request, user, profile, story, roles, language, error=t(_NO_MODEL, user.ui_lang)
+            request, user, profile, story, roles, language, error=_no_model(STORY, user.ui_lang)
         )
 
     # reads first, then the call; nothing is stored until a candidate is accepted.
@@ -545,10 +623,10 @@ def generate_story_bullets_proposal(
             language=language,
             options=CallOptions(profile_id=profile.id),
         )
-    except (NoModelConfigured, ProviderUnavailable, StructuredOutputError):
+    except PROVIDER_ERRORS as exc:
         session.commit()
         return _story_page(
-            request, user, profile, story, roles, language, error=t("generate.failed", user.ui_lang)
+            request, user, profile, story, roles, language, error=_failed(exc, STORY, user.ui_lang)
         )
 
     session.commit()

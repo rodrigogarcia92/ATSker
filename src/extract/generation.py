@@ -24,7 +24,7 @@ from src.extract.prompts import (
     LETTER_BLOCKS_V1,
     LETTER_BRIDGE_V2,
     STORY_BULLETS_V1,
-    SUMMARY_SKILLS_V2,
+    SUMMARY_V3,
     summarize_rows,
 )
 from src.jd import StructuredJD
@@ -36,12 +36,11 @@ LETTER_BLOCKS = "letter_blocks"
 LETTER_BRIDGE = "letter_bridge"
 
 
-class SummarySkills(BaseModel):
-    """Tier 1's answer: a summary and the skills block, both grounded in the bullets."""
+class SummaryOnly(BaseModel):
+    """Tier 1's answer: a summary and the bullet ids it draws on. No skills list (F7.5)."""
 
     summary: str = Field(description="the summary text, in the posting's language")
     cites: list[str] = Field(description="the bullet ids the summary draws on")
-    skills: list[str] = Field(description="canonicals, ordered for this posting")
 
 
 class BulletRephrase(BaseModel):
@@ -99,7 +98,7 @@ class Proposal:
     """One generated answer, with what it cost and the prompt that produced it.
 
     `output` is the shape the validator and the form both read: for a summary
-    `{"summary": {"text", "cites"}, "skills"}`, for a bullet `{"text", "cites"}`, for
+    `{"summary": {"text", "cites"}}`, for a bullet `{"text", "cites"}`, for
     story bullets `{"bullets": [{"text", "story_id", "role_id"}]}`.
     """
 
@@ -149,16 +148,21 @@ def generate_summary(
     model: str | None = None,
     options: CallOptions | None = None,
 ) -> Proposal:
-    """One call: the summary and the skills block for one application (F7.3, Tier 1)."""
+    """One call: the summary for one application (F7.3, Tier 1; `summary_v3`).
+
+    The track's skills and the pool go in as context for skill closure, never as output:
+    the answer is a summary and its citations, and accepting it never touches the track's
+    skills.
+    """
     bullet_rows = summarize_rows(
-        [f"{bullet_id}\t{_redacted(text, known_names)}" for bullet_id, text in bullets]
+        [f"{bullet_id}	{_redacted(text, known_names)}" for bullet_id, text in bullets]
     )
     completion = complete_json(
         session,
         purpose=GENERATE_SUMMARY,
-        prompt_version=SUMMARY_SKILLS_V2.version,
-        system=SUMMARY_SKILLS_V2.render_system(),
-        user=SUMMARY_SKILLS_V2.render(
+        prompt_version=SUMMARY_V3.version,
+        system=SUMMARY_V3.render_system(),
+        user=SUMMARY_V3.render(
             lang=language,
             jd=_jd_block(jd),
             bullets=bullet_rows,
@@ -166,17 +170,14 @@ def generate_summary(
             track_skills=summarize_rows(list(track_skills)),
             pool=summarize_rows(list(pool)),
         ),
-        schema=SummarySkills,
+        schema=SummaryOnly,
         model=model,
         options=options,
     )
-    answer = SummarySkills.model_validate(completion.data)
+    answer = SummaryOnly.model_validate(completion.data)
     return Proposal(
         kind="summary",
-        output={
-            "summary": {"text": answer.summary.strip(), "cites": list(answer.cites)},
-            "skills": list(answer.skills),
-        },
+        output={"summary": {"text": answer.summary.strip(), "cites": list(answer.cites)}},
         completion=completion,
     )
 
