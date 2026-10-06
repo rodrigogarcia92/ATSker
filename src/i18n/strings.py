@@ -997,10 +997,10 @@ STRINGS: dict[str, dict[str, str]] = {
     # §12.5: what the pop-up says before the button, in words — opening it calls nothing.
     "generate.dialog.sends": {
         "es": "Se enviarán al modelo, sin tu nombre ni tus datos de contacto: la oferta tal "
-        "como se extrajo, los {n} bullets de «{track}» y tus habilidades como contexto. "
+        "como se extrajo, los bullets de «{track}» ({n}) y tus habilidades como contexto. "
         "Solo se propone el resumen.",
         "en": "Sent to the model, without your name or contact details: the posting as "
-        "extracted, the {n} bullets of “{track}” and your skills as context. Only the "
+        "extracted, the bullets of “{track}” ({n}) and your skills as context. Only the "
         "summary is proposed.",
     },
     "generate.dialog.cost": {
@@ -1035,7 +1035,6 @@ STRINGS: dict[str, dict[str, str]] = {
     },
     "generate.current": {"es": "Ahora", "en": "Current"},
     "generate.proposed": {"es": "Propuesta", "en": "Proposed"},
-    "generate.skills": {"es": "Habilidades", "en": "Skills"},
     "generate.empty_summary": {
         "es": "— sin resumen en este idioma —",
         "en": "— no summary in this language —",
@@ -2515,19 +2514,19 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "Suggest more probable keywords",
     },
     "keywords.infer.sends": {
-        "es": "Se enviarán al modelo, sin tu nombre ni tus datos de contacto: las {n} palabras "
-        "clave sin respaldo, tus habilidades, tus bullets y tus puestos. Solo propone lo muy "
-        "probable y no escribe nada en tu material.",
-        "en": "Sent to the model, without your name or contact details: the {n} keywords with no "
-        "backing, your skills, your bullets and your roles. It only proposes what is highly "
+        "es": "Se enviarán al modelo, sin tu nombre ni tus datos de contacto: las palabras "
+        "clave sin respaldo ({n}), tus habilidades, tus bullets y tus puestos. Solo propone lo "
+        "muy probable y no escribe nada en tu material.",
+        "en": "Sent to the model, without your name or contact details: the keywords with no "
+        "backing ({n}), your skills, your bullets and your roles. It only proposes what is highly "
         "probable and writes nothing to your material.",
     },
     "keywords.infer.sends_file": {
-        "es": "Se enviarán al modelo, sin tu nombre ni tus datos de contacto: las {n} palabras "
-        "clave de tu documento sin respaldo, tus habilidades, tus bullets y tus puestos. Solo "
-        "propone lo muy probable y no escribe nada en tu material.",
-        "en": "Sent to the model, without your name or contact details: the {n} keywords of "
-        "your document with no backing, your skills, your bullets and your roles. It only "
+        "es": "Se enviarán al modelo, sin tu nombre ni tus datos de contacto: las palabras "
+        "clave de tu documento sin respaldo ({n}), tus habilidades, tus bullets y tus puestos. "
+        "Solo propone lo muy probable y no escribe nada en tu material.",
+        "en": "Sent to the model, without your name or contact details: the keywords of "
+        "your document with no backing ({n}), your skills, your bullets and your roles. It only "
         "proposes what is highly probable and writes nothing to your material.",
     },
     "keywords.infer.cost": {

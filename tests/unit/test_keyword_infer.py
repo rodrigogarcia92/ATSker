@@ -202,7 +202,7 @@ def test_opening_the_dialog_and_the_report_make_no_provider_call(
     assert opened.status_code == page.status_code == report.status_code == 200
     assert provider.calls == []
     words = text_of(opened.text)
-    assert "1 palabras clave sin respaldo" in words or "las 1 palabras clave" in words
+    assert "palabras clave sin respaldo (1)" in words
     assert "una llamada de pago" in words.lower() and "no cuesta nada" in words
     form = re.search(r'<form method="post" action="([^"]*)"[^>]*>', opened.text)
     assert form.group(1) == urls(worked_case)[2] and "data-dialog-form" in form.group(0)

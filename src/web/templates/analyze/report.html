@@ -376,8 +376,9 @@
 
 {# 7 — Potencial (F7.4) is not built yet: nothing is rendered, and no placeholder. #}
 
-{# 8 — Recommendations: the track table and the edit advice, side by side. Tier 1's
-   "Proponer resumen y habilidades" lives here too, when the analysis used a track. #}
+{# 8 — Recommendations, one column: the track ranking, the Keywords card (F7.5), the edit
+   advice, and Tier 1's "Proponer resumen" pop-up button — disabled, with its reason, when
+   the analysis used no track. #}
 {% if report.recommendation or report.advice or application.track_id or not attempt_view %}
 <section id="recommendations">
 <h2 class="mt-8 text-lg font-semibold">{{ t('report.advice', lang) }}</h2>
