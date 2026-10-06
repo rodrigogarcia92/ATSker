@@ -243,7 +243,7 @@ def test_several_linked_templates_are_listed_with_usar_esta(client, session, car
     assert done.status_code == 303 and done.headers["location"].endswith("?chosen=1")
     session.expire_all()
     assert [letter.id for letter in linked_to(session, track)] == [chosen.id]
-    assert "Las demás pasaron a «Sin puesto»" in client.get(done.headers["location"]).text
+    assert "Las demás pasaron a «Sin línea»" in client.get(done.headers["location"]).text
     assert second.id is not None
 
 
@@ -256,7 +256,7 @@ def test_a_template_in_another_language_gets_an_alert(client, session, career):
 
     page = client.get(f"/tracks/{track.id}/letter").text
 
-    assert "Esta carta está en inglés y el puesto en español: edítala o autogenérala." in page
+    assert "Esta carta está en inglés y la línea en español: edítala o autogenérala." in page
     assert 'role="alert"' in page
 
 
@@ -299,12 +299,12 @@ def test_cartas_shows_three_sections_and_offers_crear_for_a_track_without_a_lett
 
     page = client.get("/letters").text
 
-    assert page.index("Bloques comunes") < page.index("Carta por puesto") < page.index(
-        ">Sin puesto<"
+    assert page.index("Bloques comunes") < page.index("Carta por línea") < page.index(
+        ">Sin línea<"
     )
     assert f'href="/tracks/{career.first_track.id}/letter"' in page
     assert "Crear carta" in page and "Falta" in page
-    assert "Asignar a un puesto" in page, "the old 'Datos' template can be assigned"
+    assert "Asignar a una línea" in page, "the old 'Datos' template can be assigned"
 
 
 def test_cartas_marks_a_ready_track_and_collapses_inactive_ones(client, session, career):
@@ -320,8 +320,8 @@ def test_cartas_marks_a_ready_track_and_collapses_inactive_ones(client, session,
     page = client.get("/letters").text
 
     assert "✓ Lista" in page and "Editar carta" in page
-    assert "Puestos inactivos (1)" in page
-    assert page.index("Puestos inactivos") < page.index("Archivado")
+    assert "Líneas inactivas (1)" in page
+    assert page.index("Líneas inactivas") < page.index("Archivado")
 
 
 def test_assigning_offers_only_active_tracks_of_the_templates_language(client, session, career):
@@ -350,7 +350,7 @@ def test_a_template_with_no_track_in_its_language_says_so(client, session, caree
 
     page = client.get("/letters").text
 
-    assert "No hay puestos activos en inglés" in page
+    assert "No hay líneas activas en inglés" in page
     assert f'id="assign-{letter.id}"' not in page
 
 
@@ -370,8 +370,8 @@ def test_assigning_links_the_template_and_says_where_the_old_one_went(client, se
     assert [letter.id for letter in linked_to(session, track)] == [career.first_letter.id]
     assert get_letter(profile_id, session, incumbent.id).track_id is None
     page = client.get(done.headers["location"]).text
-    assert "La carta que tenía el puesto pasó a «Sin puesto»" in page
-    assert "La que ya estaba." in page, "the displaced template is listed under Sin puesto"
+    assert "La carta que tenía la línea pasó a «Sin línea»" in page
+    assert "La que ya estaba." in page, "the displaced template is listed under Sin línea"
 
 
 def test_assigning_to_a_track_of_the_other_language_is_refused(client, session, career):

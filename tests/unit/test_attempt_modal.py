@@ -79,7 +79,7 @@ def test_the_delta_reads_flat_within_the_stability_band(client, session, career,
 
     text = plain(client.get(f"/applications/{application.id}/attempts/{attempt.id}").text)
 
-    assert "vs. análisis del puesto" in text
+    assert "vs. análisis de la línea" in text
     assert "sin cambio significativo" in text
 
 
@@ -190,7 +190,7 @@ def test_the_result_does_not_repeat_the_header_numbers(client, session, career, 
     text = plain(client.get(f"/applications/{application.id}/attempts/{attempt.id}").text)
 
     assert text.count("Techo con tu material") == 0
-    assert "vs. análisis del puesto" in text, "the delta line stays"
+    assert "vs. análisis de la línea" in text, "the delta line stays"
 
 
 def test_nothing_left_has_its_own_wording(client, session, career, provider):

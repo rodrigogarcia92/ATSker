@@ -300,7 +300,7 @@ def test_the_nav_links_tracks_between_import_and_experience(client, career):
 
     assert page.index('href="/import"') < page.index('href="/tracks"')
     assert page.index('href="/tracks"') < page.index('href="/roles"')
-    assert "Puestos objetivo" in page, "one word for one concept"
+    assert "Líneas de carrera" in page, "one word for one concept"
 
 
 def test_creating_a_track_lands_on_its_detail_page(client, session, career):
@@ -579,5 +579,5 @@ def test_the_track_form_and_detail_say_what_the_language_decides(client, session
     form = client.get(f"/tracks/{career.first_track.id}/edit").text
     detail = client.get(f"/tracks/{career.first_track.id}").text
 
-    assert "Las cartas de este puesto se escriben en este idioma." in form
+    assert "Las cartas de esta línea se escriben en este idioma." in form
     assert f"Idioma: {career.first_track.lang.upper()} · cartas en " in detail

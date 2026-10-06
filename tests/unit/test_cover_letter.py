@@ -181,7 +181,7 @@ def test_an_application_without_a_track_renders_the_picker(client, session, care
 
     page = client.get(url(application)).text
 
-    assert "Este análisis no tiene puesto objetivo. Elige el puesto para la carta" in page
+    assert "Este análisis no tiene línea de carrera. Elige la línea para la carta" in page
     assert "no cambia el análisis" in page
     assert 'method="get"' in page and f'value="{career.first_track.id}"' in page
     assert f'action="{url(application)}/generate"' not in page
@@ -199,7 +199,7 @@ def test_an_owned_track_param_renders_the_letter_and_a_foreign_one_the_picker(
 
     assert PRESENTATION in data_attribute(own, "before")
     assert foreign.status_code == 200
-    assert "Elige el puesto para la carta" in foreign.text
+    assert "Elige la línea para la carta" in foreign.text
     assert "Riesgo" not in foreign.text, "another profile's track is not leaked"
     assert str(career.second_track.id) not in foreign.text
 
@@ -258,9 +258,9 @@ def test_no_template_links_to_the_tracks_letter_and_offers_no_call(
     page = client.get(url(application)).text
     posted = generate(client, application).text
 
-    assert "El puesto «Analista de datos» no tiene carta en español." in page
+    assert "La línea «Analista de datos» no tiene carta en español." in page
     assert f'href="/tracks/{career.first_track.id}/letter"' in page
-    assert "Crear carta del puesto" in page
+    assert "Crear carta de la línea" in page
     assert f'action="{url(application)}/generate"' not in page
     assert "no tiene carta en español" in posted
     assert provider.calls == []
@@ -291,7 +291,7 @@ def test_several_templates_use_the_first_and_link_to_cartas(client, session, car
 
     page = client.get(url(application)).text
 
-    assert "Este puesto tiene varias cartas y se usa la primera" in page
+    assert "Esta línea tiene varias cartas y se usa la primera" in page
     assert 'href="/letters"' in page
     assert f'action="{url(application)}/generate"' in page, "the letter can still be written"
 
@@ -305,7 +305,7 @@ def test_the_language_notice_when_the_posting_is_in_the_other_language(
     page = client.get(url(application)).text
 
     assert (
-        "Este aviso está en inglés y tu puesto objetivo está en español; la carta va en español."
+        "Este aviso está en inglés y tu línea de carrera está en español; la carta va en español."
         in page
     )
     assert 'role="status"' in page

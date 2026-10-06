@@ -705,7 +705,7 @@ def test_a_merge_can_turn_the_document_into_a_track(client, session, career, pro
     )
 
     assert created.status_code == 200
-    assert "Puesto objetivo creado: Analista de datos (CV)" in plain(created.text)
+    assert "Línea de carrera creada: Analista de datos (CV)" in plain(created.text)
     track = session.scalar(select(Track).where(Track.name == "Analista de datos (CV)"))
     assert track is not None
     assert track.lang == "es"
@@ -730,7 +730,7 @@ def test_an_unnamed_merge_still_creates_a_track_named_after_the_file(
     merged = client.post(f"{uploaded.headers['location']}/merge", data=MERGE_FORM)
 
     text = plain(merged.text)
-    assert "Puesto objetivo creado: cv" in text
+    assert "Línea de carrera creada: cv" in text
     assert "Titular: rellenado desde el documento" in text
     assert "Resumen: rellenado desde el documento" in text
     track = session.scalar(select(Track).where(Track.name == "cv"))
@@ -757,7 +757,7 @@ def test_a_tagged_upload_says_which_track_it_joins_and_how_many_bullets_it_added
 
     merged = plain(client.post(f"{review_url}/merge", data=MERGE_FORM).text)
     assert "Bullets añadidos a «Analista de datos»: 1" in merged
-    assert "Puesto objetivo creado" not in merged, "it joined; it did not create"
+    assert "Línea de carrera creada" not in merged, "it joined; it did not create"
 
     session.expire_all()
     joined = track_bullets(career.first_profile.id, session, career.first_track.id)

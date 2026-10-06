@@ -110,7 +110,7 @@ def test_three_skills_render_one_card_listing_all_three_names(client, session, c
         client, session, career, [skill("microsoft excel"), skill("power bi"), skill("sql")]
     )
 
-    sentence = "Añade a las habilidades del puesto: la oferta las pide y las tienes evidenciadas."
+    sentence = "Añade a las habilidades de la línea: la oferta las pide y las tienes evidenciadas."
     assert text_of(page).count(sentence) == 1, "one sentence, one card — not one per skill"
     card = page[page.index(sentence) :]
     for name in ("microsoft excel", "power bi", "sql"):
@@ -132,7 +132,7 @@ def test_groups_come_in_the_stated_order_with_their_counts(client, session, care
 
     assert headings(page) == [
         "Ordena tus bullets · 2",
-        "Añade a este puesto · 1",
+        "Añade a esta línea · 1",
         "Habilidades · 2",
         "Búsquedas y título · 1",
         "Idioma · 1",
@@ -142,7 +142,7 @@ def test_groups_come_in_the_stated_order_with_their_counts(client, session, care
 def test_a_group_with_no_items_shows_no_heading(client, session, career):
     page = recommendations(client, session, career, [add()])
 
-    assert headings(page) == ["Añade a este puesto · 1"]
+    assert headings(page) == ["Añade a esta línea · 1"]
 
 
 def test_with_six_items_exactly_three_are_outside_ver_todas(client, session, career):

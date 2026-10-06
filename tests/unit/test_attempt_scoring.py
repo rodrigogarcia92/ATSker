@@ -134,4 +134,4 @@ def test_the_advice_reads_for_the_document():
     item = {"kind": "add_bullet", "values": {"canonical": "python"}}
 
     assert "tu documento" in advice_line(item, "es", for_file=True)
-    assert "al puesto" in advice_line(item, "es"), "the analysis wording is unchanged"
+    assert "a la línea" in advice_line(item, "es"), "the analysis wording is unchanged"

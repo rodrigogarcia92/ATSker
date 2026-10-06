@@ -391,7 +391,7 @@ def test_the_route_recommends_and_stores_the_winner(client, session, career, stu
 
     assert posted.status_code == 303
     page = client.get(posted.headers["location"]).text
-    assert "Recomendación de puesto" in page
+    assert "Recomendación de línea de carrera" in page
     assert "Elegido" in page
     assert "Fuerte" in page
     application = session.query(Application).one()
@@ -411,7 +411,7 @@ def test_the_route_without_the_box_analyses_without_a_track(client, session, car
 
     assert posted.status_code == 303
     page = client.get(posted.headers["location"]).text
-    assert "Recomendación de puesto" not in page
+    assert "Recomendación de línea de carrera" not in page
     assert stub.turns("EvidenceGrading") == 1
 
 
@@ -479,7 +479,7 @@ def test_a_chosen_track_renders_the_box_unticked_disabled_with_its_hint(
     box = recommend_box(page)
     assert box is not None and "disabled" in box and "checked" not in box
     assert selected_option(page, first.id)
-    assert "No aplica: elegiste un puesto." in page
+    assert "No aplica: elegiste una línea." in page
     assert "hidden" not in re.search(r'<p id="recommend-na"[^>]*>', page).group(0)
 
 
@@ -492,7 +492,7 @@ def test_the_hint_for_no_track_shows_under_an_unticked_box(client, session, care
     unticked = client.post("/analyze", data={"jd_text": "  ", "recommend": "off"}).text
     fresh = client.get("/analyze").text
 
-    hint = "Sin puesto objetivo, al escribir la carta tendrás que elegir uno."
+    hint = "Sin línea, al escribir la carta tendrás que elegir una."
     assert hint in unticked and hint in fresh
     assert "hidden" not in re.search(r'<p id="recommend-off"[^>]*>', unticked).group(0)
     assert "hidden" in re.search(r'<p id="recommend-off"[^>]*>', fresh).group(0)
@@ -506,7 +506,7 @@ def test_the_form_script_follows_the_track_select(client, session, career, stub)
     login(client, career.first.email)
 
     page = client.get("/analyze").text
-    script = page[page.index("// F7.1: \"Recomendar puesto\" follows") :]
+    script = page[page.index("// F7.1: \"Recomendar línea de carrera\" follows") :]
     chosen, cleared = script.split("} else {", 1)
 
     assert "if (select.value) {" in chosen
@@ -548,7 +548,7 @@ def test_an_unticked_box_with_two_tracks_runs_the_plain_analysis(client, session
 
     assert posted.status_code == 303
     page = client.get(posted.headers["location"]).text
-    assert "Recomendación de puesto" not in page
+    assert "Recomendación de línea de carrera" not in page
     application = session.query(Application).one()
     assert "recommendation" not in application.report
     assert application.track_id is None
