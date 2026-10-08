@@ -27,7 +27,9 @@ def ledger(monkeypatch, session):
     return session
 
 
-def row(model, purpose, prompt, completion, cost, *, days_ago=0, degenerate=False):
+def row(
+    model, purpose, prompt, completion, cost, *, days_ago=0, degenerate=False, latency_ms=None
+):
     return LlmCall(
         purpose=purpose,
         prompt_version="v1",
@@ -38,6 +40,7 @@ def row(model, purpose, prompt, completion, cost, *, days_ago=0, degenerate=Fals
         completion_tokens=completion,
         cost_usd=Decimal(cost),
         degenerate=degenerate,
+        latency_ms=latency_ms,
         created_at=datetime.now(UTC) - timedelta(days=days_ago, hours=1),
     )
 
@@ -68,10 +71,12 @@ def test_groups_by_model_and_purpose_with_sums_and_the_degenerate_count(filled, 
     out = lines_of(capsys)
     by_group = {(r[0], r[1]): r[2:] for r in out if r[0].startswith("model/") and len(r) > 6}
     # calls, purged, prompt tok, compl tok, cost, avg/call
-    assert by_group[("model/a", "generate_summary")] == [
+    assert by_group[("model/a", "generate_summary")][:6] == [
         "2", "1", "3000", "400", "$0.040000", "$0.020000",
     ]  # fmt: skip
-    assert by_group[("model/a", "grade")] == ["1", "0", "500", "50", "$0.002000", "$0.002000"]
+    assert by_group[("model/a", "grade")][:6] == [
+        "1", "0", "500", "50", "$0.002000", "$0.002000",
+    ]  # fmt: skip
     assert by_group[("model/b", "generate_summary")][0] == "1"
     assert by_group[("model/b", "grade")][0] == "1", "the 30-day-old row is outside the window"
 
@@ -80,8 +85,8 @@ def test_prints_a_total_per_model(filled, capsys):
     llm_costs.cmd_summary("7d")
 
     totals = {r[0]: r for r in lines_of(capsys) if "(all" in " ".join(r)}
-    assert totals["model/a"][3:] == ["3", "1", "3500", "450", "$0.042000", "$0.014000"]
-    assert totals["model/b"][3:] == ["2", "0", "1200", "130", "$0.005000", "$0.002500"]
+    assert totals["model/a"][3:9] == ["3", "1", "3500", "450", "$0.042000", "$0.014000"]
+    assert totals["model/b"][3:9] == ["2", "0", "1200", "130", "$0.005000", "$0.002500"]
 
 
 def test_by_purpose_totals_per_purpose(filled, capsys):
@@ -133,3 +138,41 @@ def test_purge_and_the_list_still_parse(filled, capsys):
     assert "no call matches" in capsys.readouterr().out
     assert llm_costs.main(["--since", "7d"]) == 0
     assert "total:" in capsys.readouterr().out
+
+
+def test_summary_prints_average_and_max_seconds_and_a_dash_without_latency(ledger, capsys):
+    ledger.add_all(
+        [
+            row("model/a", "grade", 10, 1, "0.001000", latency_ms=2000),
+            row("model/a", "grade", 10, 1, "0.001000", latency_ms=4500),
+            row("model/a", "grade", 10, 1, "0.001000"),  # written before migration 0017
+            row("model/b", "grade", 10, 1, "0.001000"),
+        ]
+    )
+    ledger.commit()
+
+    llm_costs.cmd_summary("7d")
+
+    out = lines_of(capsys)
+    assert out[0][-4:] == ["avg/call", "avg", "s", "max", "s"][-4:]
+    by_group = {(r[0], r[1]): r for r in out if r[0].startswith("model/") and len(r) > 6}
+    a = by_group[("model/a", "grade")]
+    assert a[-2:] == ["3.2", "4.5"], "averaged over the rows that have a latency"
+    b = by_group[("model/b", "grade")]
+    assert b[-2:] == [llm_costs.DASH, llm_costs.DASH]
+
+
+def test_the_plain_list_shows_latency_per_row(ledger, capsys):
+    ledger.add_all(
+        [
+            row("model/a", "grade", 10, 1, "0.001000", latency_ms=12300),
+            row("model/a", "grade", 10, 1, "0.001000"),
+        ]
+    )
+    ledger.commit()
+
+    llm_costs.cmd_list("7d", 10)
+
+    printed = capsys.readouterr().out
+    assert "12.3s" in printed
+    assert "latency" in printed

@@ -463,6 +463,9 @@ class LlmCall(Base):
     profile_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("profiles.id", ondelete="SET NULL"), index=True
     )
+    # Wall-clock milliseconds of the provider request whose answer this row records
+    # (migration 0017); NULL on rows written before it.
+    latency_ms: Mapped[int | None] = mapped_column(Integer)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

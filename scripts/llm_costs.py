@@ -10,8 +10,9 @@ what keeps the list short.
     uv run python scripts/llm_costs.py --since 2d --limit 10
 
 `summary` totals the ledger by model and purpose — what a model trial needs to compare two
-models. The ledger has no application id, so a cost *per analysis* cannot be computed from it
-and is not printed.
+models. The ledger records each call's latency (`avg s`, `max s`; a dash for rows written before
+migration 0017) but still has no application id, so a cost *per analysis* cannot be computed
+from it and is not printed.
 
     uv run python scripts/llm_costs.py summary --since 7d
     uv run python scripts/llm_costs.py summary --since 7d --by purpose
@@ -29,7 +30,7 @@ unless `--confirm` says otherwise.
 import argparse
 import sys
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -44,13 +45,15 @@ from src.models import LlmCall  # noqa: E402
 
 HEADER = (
     f"{'created':<17} {'purpose':<18} {'model':<26} {'prompt version':<22} "
-    f"{'tokens':>15}  {'cost':>11}"
+    f"{'tokens':>15}  {'cost':>11}  {'latency':>8}"
 )
 
 SUMMARY_HEADER = (
     f"{'model':<26} {'purpose':<18} {'calls':>6} {'purged':>6} "
-    f"{'prompt tok':>11} {'compl tok':>10} {'cost':>12} {'avg/call':>11}"
+    f"{'prompt tok':>11} {'compl tok':>10} {'cost':>12} {'avg/call':>11} {'avg s':>7} {'max s':>7}"
 )
+
+DASH = "–"
 
 # Shown beside a row the cache will not serve again.
 DEGENERATE_MARK = "purged"
@@ -67,12 +70,17 @@ def parse_since(raw: str) -> datetime:
     return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
 
 
+def _seconds(latency_ms: int | None) -> str:
+    return DASH if latency_ms is None else f"{latency_ms / 1000:.1f}s"
+
+
 def _row_line(row: LlmCall) -> str:
     tokens = f"{row.prompt_tokens} + {row.completion_tokens}"
     mark = f"  [{DEGENERATE_MARK}]" if row.degenerate else ""
     return (
         f"{row.created_at:%Y-%m-%d %H:%M} {row.purpose:<18} {row.model:<26} "
-        f"{row.prompt_version:<22} {tokens:>15}  ${row.cost_usd:>10.6f}{mark}"
+        f"{row.prompt_version:<22} {tokens:>15}  ${row.cost_usd:>10.6f}  "
+        f"{_seconds(row.latency_ms):>8}{mark}"
     )
 
 
@@ -123,20 +131,39 @@ class _Totals:
     prompt_tokens: int = 0
     completion_tokens: int = 0
     cost: Decimal = Decimal(0)
+    latencies: list[int] = field(default_factory=list)
 
-    def add(self, prompt: int, completion: int, cost: Decimal, degenerate: bool) -> None:
+    def add(
+        self,
+        prompt: int,
+        completion: int,
+        cost: Decimal,
+        degenerate: bool,
+        latency_ms: int | None = None,
+    ) -> None:
         self.calls += 1
         self.degenerate += 1 if degenerate else 0
         self.prompt_tokens += prompt or 0
         self.completion_tokens += completion or 0
         self.cost += cost or Decimal(0)
+        if latency_ms is not None:
+            self.latencies.append(latency_ms)
+
+    def _average_s(self) -> str:
+        if not self.latencies:
+            return DASH
+        return f"{sum(self.latencies) / len(self.latencies) / 1000:.1f}"
+
+    def _max_s(self) -> str:
+        return f"{max(self.latencies) / 1000:.1f}" if self.latencies else DASH
 
     def line(self, first: str, second: str) -> str:
         average = self.cost / self.calls if self.calls else Decimal(0)
         return (
             f"{first:<26} {second:<18} {self.calls:>6} {self.degenerate:>6} "
             f"{self.prompt_tokens:>11} {self.completion_tokens:>10} "
-            f"{_money(self.cost):>12} {_money(average):>11}"
+            f"{_money(self.cost):>12} {_money(average):>11} "
+            f"{self._average_s():>7} {self._max_s():>7}"
         )
 
 
@@ -144,8 +171,9 @@ def cmd_summary(since_raw: str, by: str = "model") -> int:
     """Totals per (model, purpose), then per model (or per purpose with `--by purpose`).
 
     Reads only counts, tokens, cost and the degenerate flag: never `response_json`, which can
-    hold personal data, and never a hash. The ledger has no application id, so the cost per
-    analysis is deliberately not derived here.
+    hold personal data, and never a hash. Latency is averaged over the rows that
+    have one. The ledger has no application id, so the cost per analysis is deliberately not
+    derived here.
     """
     since = parse_since(since_raw)
     with session_scope() as session:
@@ -157,6 +185,7 @@ def cmd_summary(since_raw: str, by: str = "model") -> int:
                 LlmCall.completion_tokens,
                 LlmCall.cost_usd,
                 LlmCall.degenerate,
+                LlmCall.latency_ms,
             ).where(LlmCall.created_at >= since)
         ).all()
     if not rows:
@@ -164,9 +193,9 @@ def cmd_summary(since_raw: str, by: str = "model") -> int:
         return 0
 
     groups: dict[tuple[str, str], _Totals] = {}
-    for model, purpose, prompt, completion, cost, degenerate in rows:
+    for model, purpose, prompt, completion, cost, degenerate, latency_ms in rows:
         groups.setdefault((model, purpose), _Totals()).add(
-            prompt, completion, cost, bool(degenerate)
+            prompt, completion, cost, bool(degenerate), latency_ms
         )
     # The first key is what the rows are grouped under and what gets a total.
     first = 0 if by == "model" else 1
@@ -184,6 +213,7 @@ def cmd_summary(since_raw: str, by: str = "model") -> int:
         bucket.prompt_tokens += group.prompt_tokens
         bucket.completion_tokens += group.completion_tokens
         bucket.cost += group.cost
+        bucket.latencies.extend(group.latencies)
     for name, bucket in totals.items():
         label = "(all purposes)" if by == "model" else "(all models)"
         print(bucket.line(name, label) if by == "model" else bucket.line(label, name))
