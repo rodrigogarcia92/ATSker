@@ -276,7 +276,7 @@
     (function () {
       var dialog = document.querySelector('dialog[data-proposal-dialog]');
       var openers = document.querySelectorAll('[data-dialog-opener]');
-      if (!dialog || !openers.length || typeof dialog.showModal !== 'function') return;
+      if (!dialog || typeof dialog.showModal !== 'function') return;
       openers.forEach(function (box) {
         box.querySelector('[data-dialog-fallback]').hidden = true;
         box.querySelector('[data-dialog-url]').hidden = false;
@@ -366,9 +366,11 @@
         fetch(form.action, {method: 'POST', body: new FormData(form), headers: {'X-Requested-With': 'fetch'}})
           .then(function (response) {
             if (!response.ok) { throw new Error(response.status); }
+            // An accepted proposal answers with a redirect: leave the dialog for that page.
+            if (response.redirected) { window.location.href = response.url; return null; }
             return response.text();
           })
-          .then(function (html) { if (mine === token) { show(html); } })
+          .then(function (html) { if (html !== null && mine === token) { show(html); } })
           .catch(function (failure) {
             if (mine !== token) { return; }
             stopTicker();

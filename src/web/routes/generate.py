@@ -24,13 +24,13 @@ from src.generate.proposals import (
     base_summary,
     check_bullet,
     check_story_bullet,
-    check_summary,
     grades_of,
     pool_skills,
     posting_title,
     report_language,
+    summary_validator,
 )
-from src.generate.summary_rules import key_skill_shortlist, title_is_unheld
+from src.generate.summary_rules import check_style, key_skill_shortlist, title_is_unheld
 from src.generate.summary_rules import propose_summary as run_summary_proposal
 from src.generate.validators import Violation
 from src.i18n import t
@@ -87,6 +87,7 @@ def _page(
     checklist: list[dict[str, Any]] | None = None,
     base=None,
     shortlist_size: int | None = None,
+    shortlist_related: int = 0,
     unheld_title: str | None = None,
 ):
     """The summary flow, as the full page or — with `dialog` — as the pop-up's partial.
@@ -106,12 +107,17 @@ def _page(
         dialog=dialog,
         proposal=proposal,
         proposal_json=(
-            json.dumps(proposal.output, ensure_ascii=False) if proposal is not None else ""
+            json.dumps(proposal.output, ensure_ascii=False)
+            if proposal is not None
+            else json.dumps(refused, ensure_ascii=False)
+            if refused is not None
+            else ""
         ),
         violations=violations or [],
         checklist=checklist or [],
         base=base,
         shortlist_size=shortlist_size,
+        shortlist_related=shortlist_related,
         unheld_title=unheld_title,
         refused=refused,
         current=_current(session, track, language),
@@ -203,11 +209,15 @@ def generate_summary_proposal(
     title = posting_title(application)
     base = base_summary(profile.id, session, track, language)
     aliases = alias_map(session)
-    shortlist = key_skill_shortlist(application.report or {}, pool_set, aliases)
+    shortlist = key_skill_shortlist(
+        application.report or {}, pool_set, aliases, bullet_texts=dict(bullets)
+    )
     banned = banned_phrases(language)
+    validator = summary_validator(profile.id, session, application, track)
+    unheld = title_is_unheld(profile.id, session, track, title, aliases)
     session.commit()
     try:
-        proposal, checklist = run_summary_proposal(
+        proposal, checklist, violations = run_summary_proposal(
             session,
             jd=jd,
             bullets=bullets,
@@ -220,6 +230,7 @@ def generate_summary_proposal(
             shortlist=shortlist,
             aliases=aliases,
             banned=banned,
+            validate=validator,
             options=CallOptions(profile_id=profile.id),
         )
     except PROVIDER_ERRORS as exc:
@@ -238,7 +249,6 @@ def generate_summary_proposal(
         )
 
     session.commit()
-    violations = check_summary(profile.id, session, application, track, proposal.output)
     return _page(
         request,
         user,
@@ -252,7 +262,8 @@ def generate_summary_proposal(
         checklist=checklist,
         base=base,
         shortlist_size=len(shortlist),
-        unheld_title=title if title_is_unheld(profile.id, session, track, title, aliases) else None,
+        shortlist_related=sum(1 for skill in shortlist if skill.step == "related"),
+        unheld_title=title if unheld else None,
     )
 
 
@@ -264,14 +275,17 @@ def accept_summary_proposal(
     session: DbSession,
     profile: OwnProfile,
     payload: Annotated[str, Form()],
+    text: Annotated[str | None, Form()] = None,
     use_in_track: Annotated[str | None, Form()] = None,
     dialog: Annotated[str | None, Form()] = None,
 ):
     """Accept a proposal: re-validate against the database, then write it (F7.3).
 
-    Only the summary's text and citations are read from the form: a `skills` field an
-    older page may still post is ignored, and the track's skills are never written. From
-    the pop-up (`dialog=1`) the answer is a redirect to the report with a status line.
+    The text is the text area's when the form has one (the user may have edited it), else the
+    payload's (the page without it, and older pages); the citations come from the payload. The
+    track's skills are never written. From the pop-up (`dialog=1`) the answer is a redirect to
+    the report with a status line. A refusal never calls the provider: it shows the user's own
+    text again, with the findings and a checklist recomputed by code on that text.
     """
     application, track = _target(application_id, session, profile)
     if application is None or track is None:
@@ -281,17 +295,33 @@ def accept_summary_proposal(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail="malformed proposal") from exc
 
+    summary = data.get("summary") or {}
+    edited = text if text is not None else str(summary.get("text") or "")
+    cites = list(summary.get("cites") or [])
     _, violations = accept_summary(
         profile.id,
         session,
         application,
         track,
-        text=str((data.get("summary") or {}).get("text") or ""),
-        cites=list((data.get("summary") or {}).get("cites") or []),
+        text=edited,
+        cites=cites,
         use_in_track=is_checked(use_in_track),
     )
     if violations:
-        # Refused: shown with the rule that failed, and nothing was written.
+        # Refused: shown with the rule that failed, and nothing was written. Everything the
+        # pop-up shows is recomputed from the database and the user's text: no provider call.
+        language = report_language(application)
+        aliases = alias_map(session)
+        title = posting_title(application)
+        shortlist = key_skill_shortlist(
+            application.report or {},
+            pool_skills(profile.id, session),
+            aliases,
+            bullet_texts={
+                str(bullet.id): bullet_text(bullet, language)
+                for bullet in track_bullets(profile.id, session, track.id)
+            },
+        )
         return _page(
             request,
             user,
@@ -300,8 +330,16 @@ def accept_summary_proposal(
             track,
             session,
             violations=violations,
-            refused=data,
+            refused={"summary": {"text": edited, "cites": cites}},
             error=t("generate.refused", user.ui_lang),
+            dialog=dialog == "1",
+            checklist=check_style(edited, title=title, shortlist=shortlist, aliases=aliases),
+            base=base_summary(profile.id, session, track, language),
+            shortlist_size=len(shortlist),
+            shortlist_related=sum(1 for skill in shortlist if skill.step == "related"),
+            unheld_title=title
+            if title_is_unheld(profile.id, session, track, title, aliases)
+            else None,
         )
 
     session.commit()

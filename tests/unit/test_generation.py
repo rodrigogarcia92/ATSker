@@ -226,10 +226,13 @@ def test_a_tampered_number_is_refused_on_accept(client, session, career, provide
     assert session.query(Summary).count() == before
 
 
-def test_a_generated_proposal_that_fails_a_validator_cannot_be_accepted(
+def test_a_generated_proposal_that_fails_a_validator_is_shown_marked_and_editable(
     client, session, career, provider
 ):
-    """The proposal is shown, marked, and there is no accept control (F7.3)."""
+    """The proposal is shown with its findings in an editable text area (F7.3 (b), P5).
+
+    It used to carry no accept control; now the user can edit it, and the server still
+    refuses whatever does not pass (see test_summary_editable)."""
     provider.answers["SummaryOnly"] = {
         "summary": "Automaticé el reporte con Kubernetes.",
         "cites": [str(career.first_bullet.id)],
@@ -240,8 +243,9 @@ def test_a_generated_proposal_that_fails_a_validator_cannot_be_accepted(
     url = f"/applications/{application.id}/summary"
     page = client.post(f"{url}/generate").text
 
-    assert "no pasó la validación" in page
-    assert f'action="{url}/accept"' not in page
+    assert "no pasa la validación" in page and "Kubernetes" in page
+    assert '<textarea id="proposal-text"' in page
+    assert f'action="{url}/accept"' in page
 
 
 def test_another_profiles_application_is_a_404(client, session, career, provider):

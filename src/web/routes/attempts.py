@@ -30,6 +30,7 @@ from src.attempts import (
     attempt_view,
     counted_attempts,
     create_attempt,
+    effective_status,
     extract,
     fail_attempt,
     finish_run,
@@ -41,6 +42,7 @@ from src.attempts import (
 )
 from src.bullets import list_bullets
 from src.extract.client import (
+    CallOptions,
     NoModelConfigured,
     ProviderUnavailable,
     StructuredOutputError,
@@ -48,6 +50,10 @@ from src.extract.client import (
 )
 from src.extract.resume import EmptyExtraction
 from src.generate.keywords import inferable
+from src.generate.letters import banned_phrases
+from src.generate.proposals import attempt_summary_material
+from src.generate.summary_rules import key_skill_shortlist, title_is_unheld
+from src.generate.summary_rules import propose_summary as run_summary_proposal
 from src.i18n import t
 from src.ingest.documents import SUPPORTED_SUFFIXES, UnreadableDocument
 from src.keyword_advice import keyword_advice
@@ -56,6 +62,7 @@ from src.tracks import get_track, list_tracks
 from src.web.alerts import ceiling_remainder
 from src.web.deps import DbSession, OwnProfile, SignedInUser
 from src.web.findings import finding_rows
+from src.web.generation_errors import PROVIDER_ERRORS, SUMMARY, failed, no_model
 from src.web.recall import query_rows
 from src.web.routes.ingest import MAX_UPLOAD_BYTES
 from src.web.templating import render
@@ -407,6 +414,161 @@ def attempt_discard(
     discard_attempt(attempt)
     session.commit()
     return _modal_action_response(request, user, application, attempt, session, discarded=True)
+
+
+def _file_summary_page(
+    request: Request,
+    user,
+    profile,
+    application,
+    attempt,
+    material,
+    *,
+    proposal=None,
+    violations=None,
+    error: str | None = None,
+    retry: bool = False,
+    checklist=None,
+    shortlist=None,
+    unheld_title: str | None = None,
+):
+    """The copy-only pop-up body for a summary of the attempt's file (PRD F10.7).
+
+    The shared summary partial with `copy_only`: nothing here accepts, saves or writes.
+    """
+    base = f"/applications/{application.id}/attempts/{attempt.id}/summary"
+    return render(
+        request,
+        "generate/_summary_body.html",
+        user=user,
+        profile=profile,
+        application=application,
+        track=material.track,
+        language=material.language,
+        dialog=True,
+        copy_only=True,
+        proposal=proposal,
+        proposal_json="",
+        violations=violations or [],
+        checklist=checklist or [],
+        base=material.base,
+        shortlist_size=len(shortlist) if shortlist is not None else None,
+        shortlist_related=(
+            sum(1 for skill in shortlist if skill.step == "related") if shortlist else 0
+        ),
+        unheld_title=unheld_title,
+        refused=None,
+        current={"summary": None},
+        bullet_count=len(material.bullets),
+        run_url=f"{base}/generate" if proposal is None and (error is None or retry) else None,
+        error=error,
+    )
+
+
+def _done_attempt(profile_id, session, application_id: str, attempt_id: str):
+    """`(application, attempt)` for a finished attempt of this profile, else `(None, None)`."""
+    application, attempt = _owned(profile_id, session, application_id, attempt_id)
+    if attempt is None or effective_status(attempt) != "done" or not attempt.report:
+        return None, None
+    return application, attempt
+
+
+@router.get("/applications/{application_id}/attempts/{attempt_id}/summary")
+def attempt_summary(
+    request: Request,
+    user: SignedInUser,
+    session: DbSession,
+    profile: OwnProfile,
+    application_id: str,
+    attempt_id: str,
+):
+    """The pop-up shell: what will be sent and the Generar button. Never a provider call (F.0)."""
+    application, attempt = _done_attempt(profile.id, session, application_id, attempt_id)
+    if attempt is None:
+        return render(request, "not_found.html", user=user, status_code=404)
+    material = attempt_summary_material(profile.id, session, application, attempt)
+    error = None if model_configured() else no_model(SUMMARY, user.ui_lang)
+    return _file_summary_page(request, user, profile, application, attempt, material, error=error)
+
+
+@router.post("/applications/{application_id}/attempts/{attempt_id}/summary/generate")
+def attempt_summary_generate(
+    request: Request,
+    user: SignedInUser,
+    session: DbSession,
+    profile: OwnProfile,
+    application_id: str,
+    attempt_id: str,
+):
+    """One paid call (two with the retry): a summary for the file, copy-only (PRD F10.7).
+
+    Nothing is stored: the attempt row, its report and the user's material are untouched.
+    """
+    application, attempt = _done_attempt(profile.id, session, application_id, attempt_id)
+    if attempt is None:
+        return render(request, "not_found.html", user=user, status_code=404)
+    material = attempt_summary_material(profile.id, session, application, attempt)
+    if not model_configured():
+        return _file_summary_page(
+            request,
+            user,
+            profile,
+            application,
+            attempt,
+            material,
+            error=no_model(SUMMARY, user.ui_lang),
+        )
+    aliases = material.sources.aliases
+    shortlist = key_skill_shortlist(
+        material.report, material.pool, aliases, bullet_texts=dict(material.bullets)
+    )
+    banned = banned_phrases(material.language)
+    unheld = title_is_unheld(profile.id, session, material.track, material.title, aliases)
+    # Every read is done: end the transaction before the provider call (the client refuses).
+    session.commit()
+    try:
+        proposal, checklist, violations = run_summary_proposal(
+            session,
+            jd=material.jd,
+            bullets=material.bullets,
+            track_skills=material.track_skills,
+            pool=sorted(material.pool),
+            grades=material.prompt_grades,
+            language=material.language,
+            title=material.title,
+            base=material.base,
+            shortlist=shortlist,
+            aliases=aliases,
+            banned=banned,
+            validate=material.validate,
+            options=CallOptions(profile_id=profile.id),
+        )
+    except PROVIDER_ERRORS as exc:
+        session.commit()
+        return _file_summary_page(
+            request,
+            user,
+            profile,
+            application,
+            attempt,
+            material,
+            error=failed(exc, SUMMARY, user.ui_lang),
+            retry=not isinstance(exc, NoModelConfigured),
+        )
+    session.commit()
+    return _file_summary_page(
+        request,
+        user,
+        profile,
+        application,
+        attempt,
+        material,
+        proposal=proposal,
+        violations=violations,
+        checklist=checklist,
+        shortlist=shortlist,
+        unheld_title=material.title if unheld else None,
+    )
 
 
 @router.get("/applications/{application_id}/attempts/{attempt_id}/report")

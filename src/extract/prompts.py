@@ -537,6 +537,26 @@ SUMMARY_V4 = Prompt(
 )
 
 
+# summary_v5 (N8.13): v4's three rules, plus two sentences. The model cites the bullet that
+# shows each skill it names, and a base skill that is not on the shortlist is dropped or
+# replaced rather than kept. V4 stays defined: a stored ledger row may name it.
+SUMMARY_V5 = Prompt(
+    version="summary_v5",
+    system=SUMMARY_V4.system.replace(
+        "Never name a skill that is not on the shortlist.\n",
+        "Never name a skill that is not on the shortlist. Cite the bullet that shows each "
+        "skill you name.\n",
+    ).replace(
+        "language as part of improving it.",
+        "language as part of improving it. A skill the base names that is not on the "
+        "shortlist is not a fact to keep: drop it, or replace it with a shortlist skill.",
+    ),
+    template=SUMMARY_V4.template.replace(
+        "(name three or four):", "(name three or four; each row says where the skill comes from):"
+    ),
+)
+
+
 BULLET_REPHRASE_V1 = Prompt(
     version="bullet_rephrase_v1",
     system=(

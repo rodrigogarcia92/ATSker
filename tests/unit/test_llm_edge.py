@@ -764,3 +764,64 @@ def test_the_default_timeout_is_the_one_the_probe_measures_against(
         client._post({"model": "x"}, "key")
 
     assert seen["timeout"] == client.TIMEOUT_SECONDS
+
+
+def test_the_ledger_row_records_the_latency_of_the_request(session, test_settings, monkeypatch):
+    import time
+
+    def slow_post(payload, api_key):
+        time.sleep(0.03)
+        return Answer('{"role_id": null, "bullet_ids": [], "skills": [], "note": "ok"}').response(
+            payload
+        )
+
+    monkeypatch.setattr(client, "_post", slow_post)
+
+    call(session)
+
+    assert session.query(LlmCall).one().latency_ms >= 25
+
+
+def test_a_cache_hit_writes_no_row_and_so_no_latency(session, test_settings, monkeypatch):
+    stub(monkeypatch, Answer('{"role_id": null, "bullet_ids": [], "skills": [], "note": "ok"}'))
+    call(session)
+
+    call(session)
+
+    assert session.query(LlmCall).count() == 1
+
+
+def test_an_unparsed_answer_carries_its_latency_too(session, test_settings, monkeypatch):
+    import time
+
+    def slow_bad(payload, api_key):
+        time.sleep(0.03)
+        return Answer("not json at all").response(payload)
+
+    monkeypatch.setattr(client, "_post", slow_bad)
+
+    with pytest.raises(StructuredOutputError):
+        call(session)
+
+    row = session.query(LlmCall).one()
+    assert row.degenerate is True and row.latency_ms >= 25
+
+
+def test_a_retry_records_the_time_of_the_request_whose_answer_is_stored(
+    session, test_settings, monkeypatch
+):
+    import time
+
+    delays = iter([0.12, 0.02])
+    answers = iter(["not json", '{"role_id": null, "bullet_ids": [], "skills": [], "note": "ok"}'])
+
+    def post(payload, api_key):
+        time.sleep(next(delays))
+        return Answer(next(answers)).response(payload)
+
+    monkeypatch.setattr(client, "_post", post)
+
+    call(session, retries=1)
+
+    stored = session.query(LlmCall).filter(LlmCall.degenerate.is_(False)).one()
+    assert 15 <= stored.latency_ms < 100, "the second request alone, not the sum"

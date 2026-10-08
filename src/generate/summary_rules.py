@@ -9,6 +9,7 @@ one retry that names the failed rules. A style rule that still fails is shown, n
 
 import re
 import uuid
+from collections import Counter
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
@@ -16,10 +17,11 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from src.extract.generation import BaseLike, Proposal, generate_summary
+from src.generate.validators import CLOSURE_RULES, LITERAL, Violation
 from src.jd import StructuredJD
 from src.models import Track
-from src.normalize.text import fold
-from src.normalize.vocabulary import match_text
+from src.normalize.text import fold, term_pattern
+from src.normalize.vocabulary import ambiguous_aliases, match_text
 from src.roles import list_roles
 from src.score.title import FUNCTION_WORDS, title_tokens
 
@@ -44,45 +46,109 @@ _FAILED = {
 }
 
 
+STEP_POSTING = "posting"
+STEP_RELATED = "related"
+
+
 @dataclass(frozen=True)
 class KeySkill:
-    """A shortlisted skill: the posting's wording and the canonical the vocabulary gives it."""
+    """A shortlisted skill: the wording to use and the canonical the vocabulary gives it.
+
+    `step` says where it came from: the posting's own requirement (`posting`, F7.3 rule 2) or a
+    skill the user shows in a bullet that carries a requirement (`related`, the fallback ladder).
+    """
 
     wording: str
     canonical: str
+    step: str = STEP_POSTING
+
+
+def _in_order_of_appearance(text: str, aliases: Mapping[str, str]) -> list[str]:
+    """The pool-agnostic canonicals matched in `text`, by where they first appear."""
+    found = match_text(text, aliases, skip_ambiguous=True)
+    haystack = fold(text)
+    ambiguous = ambiguous_aliases()
+    position: dict[str, int] = {}
+    for alias, canonical in aliases.items():
+        if canonical not in found or alias in ambiguous:
+            continue
+        hit = term_pattern(alias).search(haystack)
+        if hit is not None:
+            position[canonical] = min(hit.start(), position.get(canonical, hit.start()))
+    return sorted(found, key=lambda canonical: position.get(canonical, len(haystack)))
 
 
 def key_skill_shortlist(
-    report: Mapping[str, Any], pool: frozenset[str], aliases: Mapping[str, str]
+    report: Mapping[str, Any],
+    pool: frozenset[str],
+    aliases: Mapping[str, str],
+    *,
+    bullet_texts: Mapping[str, str] | None = None,
 ) -> list[KeySkill]:
-    """The posting's must-haves, then nice-to-haves, graded level >= 2 on a direct basis.
+    """Up to four key skills, in three steps that each add only canonicals not yet chosen.
 
-    Only a canonical in the profile's pool qualifies; equivalent and transferable credit
-    never does (F5.4.1). Posting order, one entry per canonical, at most four.
+    (a) The posting's must-haves, then nice-to-haves, graded level >= 2 on a direct basis and
+    in the pool, in the posting's order and wording. Equivalent and transferable credit never
+    qualifies (F5.4.1).
+    (b) The user's own skills that carry the requirements: for each grade at level >= 2,
+    must-haves first, the pool canonicals matched in that grade's bullet, in the order they
+    appear there, in the vocabulary's canonical wording.
+    (c) Other pool canonicals in any bullet graded >= 2 for this posting, the most evidenced
+    first, then alphabetically.
+
+    Every skill returned is one the closure validator accepts for a summary that cites the
+    bullet showing it.
     """
+    texts = bullet_texts or {}
     jd = report.get("jd") or {}
+    grade_list = [grade for grade in report.get("grades") or [] if isinstance(grade, Mapping)]
     grades: dict[str, Mapping[str, Any]] = {}
-    for grade in report.get("grades") or []:
+    for grade in grade_list:
         grades.setdefault(fold(str(grade.get("requirement") or "")), grade)
     chosen: list[KeySkill] = []
     seen: set[str] = set()
+
+    def full() -> bool:
+        return len(chosen) >= SHORTLIST_MAX
+
+    def add(wording: str, canonical: str, step: str) -> None:
+        if not full() and canonical not in seen and canonical in pool:
+            seen.add(canonical)
+            chosen.append(KeySkill(wording, canonical, step))
+
     for term in [*(jd.get("must_have") or []), *(jd.get("nice_to_have") or [])]:
         wording = str(term)
         grade = grades.get(fold(wording))
         canonical = aliases.get(fold(wording))
         if (
-            grade is None
-            or int(grade.get("level") or 0) < 2
-            or grade.get("basis") != "direct"
-            or not canonical
-            or canonical not in pool
-            or canonical in seen
+            grade is not None
+            and int(grade.get("level") or 0) >= 2
+            and grade.get("basis") == "direct"
+            and canonical
         ):
-            continue
-        seen.add(canonical)
-        chosen.append(KeySkill(wording, canonical))
-        if len(chosen) == SHORTLIST_MAX:
-            break
+            add(wording, canonical, STEP_POSTING)
+
+    evidenced = [
+        grade
+        for grade in grade_list
+        if int(grade.get("level") or 0) >= 2 and str(grade.get("bullet_id") or "") in texts
+    ]
+    for must in (True, False):
+        for grade in evidenced:
+            if bool(grade.get("must_have")) != must:
+                continue
+            for canonical in _in_order_of_appearance(texts[str(grade["bullet_id"])], aliases):
+                add(canonical, canonical, STEP_RELATED)
+
+    shown: Counter[str] = Counter()
+    for bullet_id in {str(grade["bullet_id"]) for grade in evidenced}:
+        shown.update(
+            canonical
+            for canonical in match_text(texts[bullet_id], aliases, skip_ambiguous=True)
+            if canonical in pool
+        )
+    for canonical in sorted(shown, key=lambda name: (-shown[name], name)):
+        add(canonical, canonical, STEP_RELATED)
     return chosen
 
 
@@ -156,6 +222,15 @@ def _text_of(proposal: Proposal) -> str:
     return str(proposal.output["summary"]["text"])
 
 
+def violation_instruction(violation: Violation) -> str:
+    """What the retry tells the model about one validator finding, built from the finding."""
+    if violation.rule in CLOSURE_RULES:
+        return f"remove «{violation.text}»: no cited bullet shows it"
+    if violation.rule == LITERAL:
+        return f"remove «{violation.text}»: it is not in the sources you cite"
+    return "cite only ids that were given"
+
+
 def propose_summary(
     session: Session,
     *,
@@ -170,16 +245,23 @@ def propose_summary(
     shortlist: Sequence[KeySkill],
     aliases: Mapping[str, str],
     banned: Sequence[str],
+    validate: Callable[[Mapping[str, Any]], list[Violation]],
     call: Callable[..., Proposal] = generate_summary,
     **options: Any,
-) -> tuple[Proposal, list[dict[str, Any]]]:
-    """One call, and one retry if a style rule failed; the answer satisfying more rules wins.
+) -> tuple[Proposal, list[dict[str, Any]], list[Violation]]:
+    """One call, and one retry if a style rule or a validator failed.
 
-    On a tie the second answer is kept. Never more than two calls. Both go through
-    `complete_json`, so the ledger keeps both.
+    `validate` runs the three validators over a proposal's output (the caller closes over
+    its sources). The retry names the failed style rules and, per finding, the word to remove
+    or the citation to fix. The answer with no validator finding wins; if both or neither have
+    one, the answer passing more style rules; on a tie, the second. Never more than two calls;
+    both go through `complete_json`, so the ledger keeps both. Returns the chosen answer, its
+    checklist and its findings.
     """
 
-    def run(retry: tuple[str, Sequence[str]] | None) -> tuple[Proposal, list[dict[str, Any]]]:
+    def run(
+        retry: tuple[str, Sequence[str]] | None,
+    ) -> tuple[Proposal, list[dict[str, Any]], list[Violation]]:
         proposal = call(
             session,
             jd=jd,
@@ -190,23 +272,35 @@ def propose_summary(
             language=language,
             title=title,
             base=base,
-            shortlist=[(skill.wording, skill.canonical) for skill in shortlist],
+            shortlist=[(skill.wording, skill.canonical, skill.step) for skill in shortlist],
             banned=banned,
             retry=retry,
             **options,
         )
-        return proposal, check_style(
+        checklist = check_style(
             _text_of(proposal), title=title, shortlist=shortlist, aliases=aliases
         )
+        return proposal, checklist, validate(proposal.output)
 
-    first, checklist = run(None)
+    first, checklist, violations = run(None)
     failed = [row["rule"] for row in checklist if not row["ok"]]
-    if not failed:
-        return first, checklist
-    second, second_checklist = run((_text_of(first), [_FAILED[rule] for rule in failed]))
+    if not failed and not violations:
+        return first, checklist, violations
+    instructions = [_FAILED[rule] for rule in failed]
+    for violation in violations:
+        instruction = violation_instruction(violation)
+        if instruction not in instructions:
+            instructions.append(instruction)
+    second, second_checklist, second_violations = run((_text_of(first), instructions))
+    if bool(violations) != bool(second_violations):
+        return (second, second_checklist, second_violations) if not second_violations else (
+            first,
+            checklist,
+            violations,
+        )
     if sum(row["ok"] for row in second_checklist) >= sum(row["ok"] for row in checklist):
-        return second, second_checklist
-    return first, checklist
+        return second, second_checklist, second_violations
+    return first, checklist, violations
 
 
 __all__ = [
@@ -218,4 +312,5 @@ __all__ = [
     "key_skill_shortlist",
     "propose_summary",
     "title_is_unheld",
+    "violation_instruction",
 ]

@@ -152,7 +152,8 @@ def load_pair(path: Path) -> GoldenPair:
 
 
 def load_pairs(directory: Path) -> list[GoldenPair]:
-    paths = sorted(directory.glob("*.toml"))
+    # `*.local.toml` is the operator's run file (profiles and CV paths), not a pair.
+    paths = sorted(p for p in directory.glob("*.toml") if not p.name.endswith(".local.toml"))
     if not paths:
         raise ValueError(f"no golden pairs (*.toml) in {directory}")
     pairs = [load_pair(path) for path in paths]

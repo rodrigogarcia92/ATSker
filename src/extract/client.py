@@ -13,6 +13,7 @@ provider thinks is the one the database kills mid-flight (2026-09-20, defect 1).
 
 import hashlib
 import json
+import time
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -355,6 +356,7 @@ def _write_ledger(
     cost_usd: Decimal,
     degenerate: bool = False,
     profile_id: uuid.UUID | None = None,
+    latency_ms: int | None = None,
 ) -> None:
     """Write the paid call's row on the client's own connection, with one retry.
 
@@ -382,6 +384,7 @@ def _write_ledger(
                         cost_usd=cost_usd,
                         degenerate=degenerate,
                         profile_id=profile_id,
+                        latency_ms=latency_ms,
                     )
                 )
                 ledger.commit()
@@ -403,6 +406,7 @@ def _record_unparsed(
     completion_tokens: int,
     cost_usd: Decimal,
     profile_id: uuid.UUID | None,
+    latency_ms: int | None = None,
 ) -> None:
     """Ledger a paid answer the schema could not parse, marked degenerate (A.8.2).
 
@@ -426,6 +430,7 @@ def _record_unparsed(
             cost_usd=cost_usd,
             degenerate=True,
             profile_id=profile_id,
+            latency_ms=latency_ms,
         )
     except LedgerWriteError:
         pass
@@ -515,7 +520,9 @@ def complete_json(
     attempt = 0
     while True:
         try:
+            started = time.perf_counter()
             body = _post(payload, settings.openrouter_api_key.get_secret_value())
+            latency_ms = round((time.perf_counter() - started) * 1000)
         except httpx.HTTPError as exc:
             # A transport or status failure spends nothing and caches nothing, but
             # the caller still needs to name it rather than fail as an unknown 500.
@@ -549,6 +556,7 @@ def complete_json(
                 completion_tokens=completion_tokens,
                 cost_usd=cost,
                 profile_id=opts.profile_id,
+                latency_ms=latency_ms,
             )
             if attempt < retries:
                 attempt += 1
@@ -581,6 +589,7 @@ def complete_json(
             cost_usd=cost,
             degenerate=degenerate,
             profile_id=opts.profile_id,
+            latency_ms=latency_ms,
         )
     except LedgerWriteError as exc:
         # The answer was paid for: return it, and let the caller surface that the
