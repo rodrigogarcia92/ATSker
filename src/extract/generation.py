@@ -176,7 +176,7 @@ def generate_summary(
     skills.
     """
     bullet_rows = summarize_rows(
-        [f"{bullet_id}	{_redacted(text, known_names)}" for bullet_id, text in bullets]
+        [f"{bullet_id}\t{_redacted(text, known_names)}" for bullet_id, text in bullets]
     )
     completion = complete_json(
         session,
