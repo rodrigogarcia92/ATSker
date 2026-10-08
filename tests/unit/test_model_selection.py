@@ -8,6 +8,7 @@ cache instead of the judge.
 
 import json
 import re
+import shutil
 import zlib
 from dataclasses import replace
 from datetime import UTC, datetime
@@ -280,6 +281,19 @@ def test_a_fixture_missing_a_field_names_the_field(tmp_path):
     message = str(error.value)
     assert "broken.toml" in message
     assert "id" in message and "bucket" in message
+
+
+def test_load_pairs_skips_local_run_files(tmp_path):
+    shutil.copy(next(SYNTHETIC.glob("*.toml")), tmp_path / "one.toml")
+    (tmp_path / "golden_run.local.toml").write_text('profiles = ["x"]\n', encoding="utf-8")
+
+    assert len(load_pairs(tmp_path)) == 1
+
+    only_local = tmp_path / "only"
+    only_local.mkdir()
+    (only_local / "x.local.toml").write_text("a = 1\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="no golden pairs"):
+        load_pairs(only_local)
 
 
 def test_composition_notes_flag_a_thin_golden_set(pairs):
