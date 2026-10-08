@@ -484,6 +484,59 @@ SUMMARY_V3 = Prompt(
 )
 
 
+# V4 (N8.12, M3; PRD F7.3's three rules): the summary opens with the posting's title exactly
+# as given, names three or four key skills that code chose, and follows and improves the
+# summary the person already has. V3 stays defined and unused: a stored report may cite it.
+# The rules are the stable prefix; the title, shortlist, base and bullets are the message.
+SUMMARY_V4 = Prompt(
+    version="summary_v4",
+    system=(
+        "You write a short professional summary for one person's CV, tailored to one job "
+        "posting, in the posting's language.\n\n"
+        "You may use only the material you are given. The bullets are the person's own "
+        "words about their own work. Never add a number, a percentage, a year, a date, an "
+        "employer, a tool or a result that is not written in the base summary or in the "
+        "bullets you cite.\n\n"
+        "Three rules, in order:\n"
+        "1. Open the first sentence with the posting's title exactly as given in the "
+        "message — the same words, the same accents — once, as the role the summary is "
+        "written for. Do not paraphrase it.\n"
+        "2. Name three or four skills from the shortlist in the message, in the posting's "
+        "own wording, and no other skill. If the shortlist has fewer than three, name all "
+        "of them. Never name a skill that is not on the shortlist.\n"
+        "3. When a base summary is given, follow it and improve it: keep its voice, its "
+        "order and its facts; remove filler and vagueness; tighten it; lead with the title "
+        "and the key skills. Add nothing that is not in the base or in the bullets you "
+        "cite. If the base is in another language, translate it into the posting's "
+        "language as part of improving it. When there is no base, write the summary from "
+        "the bullets alone.\n\n"
+        "Write three or four sentences and at most 80 words, in a plain register. Never use "
+        "any of the banned phrases listed in the message, in any inflection.\n\n"
+        "Every summary cites the ids it draws on: the bullet ids, and `summary:<id>` for the "
+        "base summary when one is given. A summary that cites nothing is not a summary; "
+        "return no summary rather than an uncited one.\n\n"
+        "The skills and the pool in the message are context, not output. Never return a list "
+        "of skills.\n\n"
+        "Return the summary text and the ids it cites."
+    ),
+    template=(
+        "The posting's title, to be used exactly as written:\n{title}\n\n"
+        "The shortlist of key skills, in the posting's wording (name three or four):\n"
+        "{shortlist}\n\n"
+        "The base summary:\n{base}\n\n"
+        "The posting, as extracted (language {lang}):\n{jd}\n\n"
+        "The track's bullets, by id — the only other material the summary may restate:\n"
+        "{bullets}\n\n"
+        "The grades those bullets received for this posting (requirement, level 0-3, "
+        "weight):\n{grades}\n\n"
+        "Context only — the skills already chosen for this track:\n{track_skills}\n\n"
+        "Context only — the person's full skill pool:\n{pool}\n\n"
+        "Banned phrases in {lang}:\n{banned}\n\n"
+        "Write the summary in {lang}.{retry}"
+    ),
+)
+
+
 BULLET_REPHRASE_V1 = Prompt(
     version="bullet_rephrase_v1",
     system=(

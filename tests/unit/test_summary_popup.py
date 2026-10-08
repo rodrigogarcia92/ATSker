@@ -34,7 +34,7 @@ def provider(monkeypatch, test_settings, career) -> Provider:
     stub = Provider(
         {
             "SummaryOnly": {
-                "summary": "Automaticé el reporte con Python.",
+                "summary": "Analista de datos que automatizó el reporte con Python.",
                 "cites": [str(career.first_bullet.id)],
             }
         }
@@ -86,7 +86,7 @@ def test_the_ledger_row_keeps_its_purpose_and_names_the_new_version(
     client.post(urls(application)[1], data={"dialog": "1"})
 
     rows = session.query(LlmCall).filter_by(purpose="generate_summary").all()
-    assert [row.prompt_version for row in rows] == ["summary_v3"]
+    assert [row.prompt_version for row in rows] == ["summary_v4"]
     from src.deletion import PERSONAL_PURPOSES
 
     assert "generate_summary" in PERSONAL_PURPOSES, "its answer is still blanked by Eliminar todo"
@@ -219,7 +219,7 @@ def test_the_dialog_and_the_full_page_both_work(client, session, career, provide
     assert "<html" not in popup.text and "<div data-dialog-dirty>" in popup.text
     assert "<html" in full.text and "<div data-dialog-dirty>" not in full.text
     for answer in (popup.text, full.text):
-        assert "Automaticé el reporte con Python." in answer
+        assert "Analista de datos que automatizó el reporte con Python." in answer
         assert "Ahora" in answer and "Propuesta" in answer, "current beside the proposal"
         assert f'action="{base}/accept"' in answer
         assert 'name="use_in_track"' in answer

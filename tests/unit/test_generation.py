@@ -46,7 +46,7 @@ def provider(monkeypatch, test_settings, career) -> Provider:
     stub = Provider(
         {
             "SummaryOnly": {
-                "summary": "Automaticé el reporte con Python.",
+                "summary": "Analista de datos que automatizó el reporte con Python.",
                 "cites": [str(career.first_bullet.id)],
             }
         }
@@ -77,6 +77,7 @@ def stored_application(session, career, *, language: str = "es", grades: list | 
                 "requirement": "python",
                 "must_have": True,
                 "level": 3,
+                "basis": "direct",
                 "bullet_id": bullet_id,
                 "bullet_text": career.first_bullet.text_es,
             }
@@ -129,7 +130,7 @@ def test_the_proposal_is_shown_as_a_diff(client, session, career, provider):
 
     page = client.post(f"{url}/generate").text
     assert "Ahora" in page and "Propuesta" in page, "both sides of the diff"
-    assert "Automaticé el reporte con Python." in page
+    assert "Analista de datos que automatizó el reporte con Python." in page
     assert f'action="{url}/accept"' in page
 
 
@@ -541,7 +542,7 @@ def test_the_summary_prompt_is_versioned_and_states_the_pool_rule():
     assert SUMMARY_SKILLS_V2.template == SUMMARY_SKILLS_V1.template
 
 
-def test_generating_uses_the_v3_prompt_and_asks_for_no_skills_list(
+def test_generating_uses_the_v4_prompt_and_asks_for_no_skills_list(
     client, session, career, provider
 ):
     application = stored_application(session, career)

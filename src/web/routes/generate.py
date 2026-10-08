@@ -15,18 +15,23 @@ from fastapi.responses import RedirectResponse
 from src.applications import get_application
 from src.bullets import bullet_text, get_bullet, suggest_skills
 from src.extract.client import CallOptions, NoModelConfigured, model_configured
-from src.extract.generation import generate_bullet, generate_story_bullets, generate_summary
+from src.extract.generation import generate_bullet, generate_story_bullets
+from src.generate.letters import banned_phrases
 from src.generate.proposals import (
     accept_bullet,
     accept_story_bullet,
     accept_summary,
+    base_summary,
     check_bullet,
     check_story_bullet,
     check_summary,
     grades_of,
     pool_skills,
+    posting_title,
     report_language,
 )
+from src.generate.summary_rules import key_skill_shortlist
+from src.generate.summary_rules import propose_summary as run_summary_proposal
 from src.generate.validators import Violation
 from src.i18n import t
 from src.jd import StructuredJD
@@ -34,6 +39,7 @@ from src.roles import get_role, list_roles
 from src.stories import get_story
 from src.summaries import get_summary
 from src.tracks import get_track, track_bullets
+from src.vocabulary import alias_map
 from src.web.deps import DbSession, OwnProfile, SignedInUser
 from src.web.forms import is_checked
 from src.web.generation_errors import (
@@ -78,6 +84,9 @@ def _page(
     retry: bool = False,
     refused: dict[str, Any] | None = None,
     dialog: bool = False,
+    checklist: list[dict[str, Any]] | None = None,
+    base=None,
+    shortlist_size: int | None = None,
 ):
     """The summary flow, as the full page or — with `dialog` — as the pop-up's partial.
 
@@ -99,6 +108,9 @@ def _page(
             json.dumps(proposal.output, ensure_ascii=False) if proposal is not None else ""
         ),
         violations=violations or [],
+        checklist=checklist or [],
+        base=base,
+        shortlist_size=shortlist_size,
         refused=refused,
         current=_current(session, track, language),
         bullet_count=len(track_bullets(profile.id, session, track.id)),
@@ -182,11 +194,18 @@ def generate_summary_proposal(
         for bullet in track_bullets(profile.id, session, track.id)
     ]
     track_skills = list(track.skills)
-    pool = list(pool_skills(profile.id, session))
+    pool_set = pool_skills(profile.id, session)
+    pool = list(pool_set)
     grades = grades_of(application)
+    # F7.3's three rules: the title, the key skills and the base are decided by code, here.
+    title = posting_title(application)
+    base = base_summary(profile.id, session, track, language)
+    aliases = alias_map(session)
+    shortlist = key_skill_shortlist(application.report or {}, pool_set, aliases)
+    banned = banned_phrases(language)
     session.commit()
     try:
-        proposal = generate_summary(
+        proposal, checklist = run_summary_proposal(
             session,
             jd=jd,
             bullets=bullets,
@@ -194,6 +213,11 @@ def generate_summary_proposal(
             pool=pool,
             grades=grades,
             language=language,
+            title=title,
+            base=base,
+            shortlist=shortlist,
+            aliases=aliases,
+            banned=banned,
             options=CallOptions(profile_id=profile.id),
         )
     except PROVIDER_ERRORS as exc:
@@ -223,6 +247,9 @@ def generate_summary_proposal(
         proposal=proposal,
         violations=violations,
         dialog=popup,
+        checklist=checklist,
+        base=base,
+        shortlist_size=len(shortlist),
     )
 
 

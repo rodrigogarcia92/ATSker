@@ -12,7 +12,7 @@ answer becomes a proposal that travels in a form until the user accepts it.
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Protocol
 
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -25,7 +25,7 @@ from src.extract.prompts import (
     LETTER_BLOCKS_V1,
     LETTER_BRIDGE_V2,
     STORY_BULLETS_V1,
-    SUMMARY_V3,
+    SUMMARY_V4,
     summarize_rows,
 )
 from src.jd import StructuredJD
@@ -42,7 +42,9 @@ class SummaryOnly(BaseModel):
     """Tier 1's answer: a summary and the bullet ids it draws on. No skills list (F7.5)."""
 
     summary: str = Field(description="the summary text, in the posting's language")
-    cites: list[str] = Field(description="the bullet ids the summary draws on")
+    cites: list[str] = Field(
+        description="the bullet ids the summary draws on, and summary:<id> for the base summary"
+    )
 
 
 class BulletRephrase(BaseModel):
@@ -156,6 +158,36 @@ def _redacted(text: str, known_names: Sequence[str] | None) -> str:
     return redaction.redact(text, known_names=known_names or None)
 
 
+class BaseLike(Protocol):
+    """The summary a proposal follows (`generate.proposals.BaseSummary`)."""
+
+    text: str
+    summary_id: str
+    origin: str
+
+
+def _base_block(base: BaseLike | None, language: str, known_names: Sequence[str] | None) -> str:
+    if base is None:
+        return "(none) — there is no base summary; write it from the bullets."
+    note = (
+        f"This base is in another language: translate it into {language} as you improve it.\n"
+        if base.origin == "other_language"
+        else ""
+    )
+    return f"{note}id: summary:{base.summary_id}\n{_redacted(base.text, known_names)}"
+
+
+def _retry_block(retry: tuple[str, Sequence[str]] | None) -> str:
+    if retry is None:
+        return ""
+    previous, failed = retry
+    return (
+        "\n\nYour previous answer broke these rules: "
+        + "; ".join(failed)
+        + f".\nThe previous text was:\n{previous}\nWrite it again so every rule holds."
+    )
+
+
 def generate_summary(
     session: Session,
     *,
@@ -165,31 +197,43 @@ def generate_summary(
     pool: Sequence[str],
     grades: Sequence[Mapping[str, Any]],
     language: str,
+    title: str = "",
+    base: BaseLike | None = None,
+    shortlist: Sequence[tuple[str, str]] = (),
+    banned: Sequence[str] = (),
+    retry: tuple[str, Sequence[str]] | None = None,
     known_names: Sequence[str] | None = None,
     model: str | None = None,
     options: CallOptions | None = None,
 ) -> Proposal:
-    """One call: the summary for one application (F7.3, Tier 1; `summary_v3`).
+    """One call: the summary for one application (F7.3, Tier 1; `summary_v4`).
 
-    The track's skills and the pool go in as context for skill closure, never as output:
-    the answer is a summary and its citations, and accepting it never touches the track's
-    skills.
+    `title` is the posting's, to be opened with verbatim; `shortlist` is (the posting's
+    wording, canonical) pairs that code chose; `base` is the summary to follow and improve.
+    `retry` is (the previous text, the failed rules) for the one second call. The track's
+    skills and the pool go in as context for skill closure, never as output: the answer is
+    a summary and its citations, and accepting it never touches the track's skills.
     """
     bullet_rows = summarize_rows(
-        [f"{bullet_id}\t{_redacted(text, known_names)}" for bullet_id, text in bullets]
+        [f"{bullet_id}	{_redacted(text, known_names)}" for bullet_id, text in bullets]
     )
     completion = complete_json(
         session,
         purpose=GENERATE_SUMMARY,
-        prompt_version=SUMMARY_V3.version,
-        system=SUMMARY_V3.render_system(),
-        user=SUMMARY_V3.render(
+        prompt_version=SUMMARY_V4.version,
+        system=SUMMARY_V4.render_system(),
+        user=SUMMARY_V4.render(
             lang=language,
+            title=title or "(none)",
+            shortlist=summarize_rows([wording for wording, _canonical in shortlist]),
+            base=_base_block(base, language, known_names),
             jd=_jd_block(jd),
             bullets=bullet_rows,
             grades=_grades_block(grades),
             track_skills=summarize_rows(list(track_skills)),
             pool=summarize_rows(list(pool)),
+            banned="\n".join(f"- {phrase}" for phrase in banned) or "(none)",
+            retry=_retry_block(retry),
         ),
         schema=SummaryOnly,
         model=model,
