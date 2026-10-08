@@ -332,6 +332,16 @@ def validate(
                 match_text(bullet_text, sources.aliases, skip_ambiguous=True)
             )
 
+    if kind == "summary":
+        # A skill the user wrote in the base summary this proposal cites is the user's own
+        # claim in the user's own words (F7.3 amended (b)): it counts as evidenced. The pool
+        # check below still applies, so a canonical outside the pool fails wherever it came from.
+        for cite in cited:
+            if cite.startswith(SUMMARY_PREFIX):
+                evidenced_canonicals.update(
+                    match_text(sources.text_of(cite), sources.aliases, skip_ambiguous=True)
+                )
+
     named_in_text = (
         match_text(all_text, sources.aliases, skip_ambiguous=True) if sources.aliases else []
     )

@@ -24,11 +24,11 @@ from src.generate.proposals import (
     base_summary,
     check_bullet,
     check_story_bullet,
-    check_summary,
     grades_of,
     pool_skills,
     posting_title,
     report_language,
+    summary_validator,
 )
 from src.generate.summary_rules import key_skill_shortlist, title_is_unheld
 from src.generate.summary_rules import propose_summary as run_summary_proposal
@@ -209,9 +209,10 @@ def generate_summary_proposal(
         application.report or {}, pool_set, aliases, bullet_texts=dict(bullets)
     )
     banned = banned_phrases(language)
+    validator = summary_validator(profile.id, session, application, track)
     session.commit()
     try:
-        proposal, checklist = run_summary_proposal(
+        proposal, checklist, violations = run_summary_proposal(
             session,
             jd=jd,
             bullets=bullets,
@@ -224,6 +225,7 @@ def generate_summary_proposal(
             shortlist=shortlist,
             aliases=aliases,
             banned=banned,
+            validate=validator,
             options=CallOptions(profile_id=profile.id),
         )
     except PROVIDER_ERRORS as exc:
@@ -242,7 +244,6 @@ def generate_summary_proposal(
         )
 
     session.commit()
-    violations = check_summary(profile.id, session, application, track, proposal.output)
     return _page(
         request,
         user,

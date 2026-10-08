@@ -17,6 +17,7 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from src.extract.generation import BaseLike, Proposal, generate_summary
+from src.generate.validators import CLOSURE_RULES, LITERAL, Violation
 from src.jd import StructuredJD
 from src.models import Track
 from src.normalize.text import fold, term_pattern
@@ -221,6 +222,15 @@ def _text_of(proposal: Proposal) -> str:
     return str(proposal.output["summary"]["text"])
 
 
+def violation_instruction(violation: Violation) -> str:
+    """What the retry tells the model about one validator finding, built from the finding."""
+    if violation.rule in CLOSURE_RULES:
+        return f"remove «{violation.text}»: no cited bullet shows it"
+    if violation.rule == LITERAL:
+        return f"remove «{violation.text}»: it is not in the sources you cite"
+    return "cite only ids that were given"
+
+
 def propose_summary(
     session: Session,
     *,
@@ -235,16 +245,23 @@ def propose_summary(
     shortlist: Sequence[KeySkill],
     aliases: Mapping[str, str],
     banned: Sequence[str],
+    validate: Callable[[Mapping[str, Any]], list[Violation]],
     call: Callable[..., Proposal] = generate_summary,
     **options: Any,
-) -> tuple[Proposal, list[dict[str, Any]]]:
-    """One call, and one retry if a style rule failed; the answer satisfying more rules wins.
+) -> tuple[Proposal, list[dict[str, Any]], list[Violation]]:
+    """One call, and one retry if a style rule or a validator failed.
 
-    On a tie the second answer is kept. Never more than two calls. Both go through
-    `complete_json`, so the ledger keeps both.
+    `validate` runs the three validators over a proposal's output (the caller closes over
+    its sources). The retry names the failed style rules and, per finding, the word to remove
+    or the citation to fix. The answer with no validator finding wins; if both or neither have
+    one, the answer passing more style rules; on a tie, the second. Never more than two calls;
+    both go through `complete_json`, so the ledger keeps both. Returns the chosen answer, its
+    checklist and its findings.
     """
 
-    def run(retry: tuple[str, Sequence[str]] | None) -> tuple[Proposal, list[dict[str, Any]]]:
+    def run(
+        retry: tuple[str, Sequence[str]] | None,
+    ) -> tuple[Proposal, list[dict[str, Any]], list[Violation]]:
         proposal = call(
             session,
             jd=jd,
@@ -255,23 +272,35 @@ def propose_summary(
             language=language,
             title=title,
             base=base,
-            shortlist=[(skill.wording, skill.canonical) for skill in shortlist],
+            shortlist=[(skill.wording, skill.canonical, skill.step) for skill in shortlist],
             banned=banned,
             retry=retry,
             **options,
         )
-        return proposal, check_style(
+        checklist = check_style(
             _text_of(proposal), title=title, shortlist=shortlist, aliases=aliases
         )
+        return proposal, checklist, validate(proposal.output)
 
-    first, checklist = run(None)
+    first, checklist, violations = run(None)
     failed = [row["rule"] for row in checklist if not row["ok"]]
-    if not failed:
-        return first, checklist
-    second, second_checklist = run((_text_of(first), [_FAILED[rule] for rule in failed]))
+    if not failed and not violations:
+        return first, checklist, violations
+    instructions = [_FAILED[rule] for rule in failed]
+    for violation in violations:
+        instruction = violation_instruction(violation)
+        if instruction not in instructions:
+            instructions.append(instruction)
+    second, second_checklist, second_violations = run((_text_of(first), instructions))
+    if bool(violations) != bool(second_violations):
+        return (second, second_checklist, second_violations) if not second_violations else (
+            first,
+            checklist,
+            violations,
+        )
     if sum(row["ok"] for row in second_checklist) >= sum(row["ok"] for row in checklist):
-        return second, second_checklist
-    return first, checklist
+        return second, second_checklist, second_violations
+    return first, checklist, violations
 
 
 __all__ = [
@@ -283,4 +312,5 @@ __all__ = [
     "key_skill_shortlist",
     "propose_summary",
     "title_is_unheld",
+    "violation_instruction",
 ]

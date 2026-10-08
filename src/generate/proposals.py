@@ -12,7 +12,7 @@ already enforces.
 """
 
 import uuid
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -172,6 +172,35 @@ def story_sources(
         skills=pool_skills(profile_id, session),
         aliases=alias_map(session),
     )
+
+
+def summary_validator(
+    profile_id: uuid.UUID,
+    session: Session,
+    application: Application,
+    track: Track,
+) -> Callable[[Mapping[str, Any]], list[Violation]]:
+    """The three validators as a function of the output, with the sources read up front.
+
+    The retry in `propose_summary` runs it between two provider calls, and the client refuses a
+    call while the caller holds a transaction, so every read happens here, before the first.
+    """
+    sources = summary_sources(
+        profile_id, session, track, report_language(application), application
+    )
+    grades = grades_of(application)
+
+    def run(output: Mapping[str, Any]) -> list[Violation]:
+        return validate(
+            output,
+            sources=sources,
+            profile_id=profile_id,
+            session=session,
+            kind="summary",
+            grades=grades,
+        )
+
+    return run
 
 
 def check_summary(
@@ -352,4 +381,5 @@ __all__ = [
     "report_language",
     "story_sources",
     "summary_sources",
+    "summary_validator",
 ]
