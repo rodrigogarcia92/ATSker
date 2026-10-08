@@ -120,8 +120,9 @@ def test_the_experience_card_has_its_years_line_and_a_closed_detail(client, sess
 
     assert "3 años · 3 de 5" in text_of(components), "relevant years, then relevant of held"
     toggles = DETAILS_TAG.findall(components)
-    assert len(toggles) == 1 and " open" not in toggles[0], "Ver detalle starts closed"
-    detail = components[components.index("<details") :]
+    assert len(toggles) == 2, "the colour legend's toggle, then Ver detalle"
+    assert all(" open" not in tag for tag in toggles), "both start closed"
+    detail = components[components.index("Ver detalle") :]
     assert "Ver detalle" in detail
     assert "Analista de riesgo (1.0)" in text_of(detail), "the relevant roles, with their weight"
     assert "Requeridos: 3 años" in text_of(detail)
@@ -147,7 +148,7 @@ def test_a_report_without_experience_detail_gets_the_card_without_the_toggle(
     page = client.get(f"/applications/{application.id}").text
 
     components = section(page, "components")
-    assert DETAILS_TAG.findall(components) == [], "no detail, no toggle"
+    assert len(DETAILS_TAG.findall(components)) == 1, "only the colour legend's toggle"
     assert "Ver detalle" not in components
 
 

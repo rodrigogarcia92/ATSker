@@ -12,7 +12,7 @@ answer becomes a proposal that travels in a form until the user accepts it.
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Protocol
 
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -21,10 +21,11 @@ from src.extract import redaction
 from src.extract.client import CallOptions, Completion, complete_json
 from src.extract.prompts import (
     BULLET_REPHRASE_V1,
+    KEYWORD_INFER_V1,
     LETTER_BLOCKS_V1,
     LETTER_BRIDGE_V2,
     STORY_BULLETS_V1,
-    SUMMARY_SKILLS_V2,
+    SUMMARY_V4,
     summarize_rows,
 )
 from src.jd import StructuredJD
@@ -34,14 +35,16 @@ GENERATE_BULLET = "generate_bullet"
 STORY_BULLETS = "story_bullets"
 LETTER_BLOCKS = "letter_blocks"
 LETTER_BRIDGE = "letter_bridge"
+KEYWORD_INFER = "keyword_infer"
 
 
-class SummarySkills(BaseModel):
-    """Tier 1's answer: a summary and the skills block, both grounded in the bullets."""
+class SummaryOnly(BaseModel):
+    """Tier 1's answer: a summary and the bullet ids it draws on. No skills list (F7.5)."""
 
     summary: str = Field(description="the summary text, in the posting's language")
-    cites: list[str] = Field(description="the bullet ids the summary draws on")
-    skills: list[str] = Field(description="canonicals, ordered for this posting")
+    cites: list[str] = Field(
+        description="the bullet ids the summary draws on, and summary:<id> for the base summary"
+    )
 
 
 class BulletRephrase(BaseModel):
@@ -94,12 +97,31 @@ class LetterBridgeOne(BaseModel):
     risk: str | None = None
 
 
+class InferredKeyword(BaseModel):
+    """One keyword the model judges highly probable, with what it rests on (F7.5)."""
+
+    keyword: str = Field(description="one of the candidates, copied exactly")
+    confidence: str = Field(description='"high" — anything less is omitted')
+    supports: list[str] = Field(description="skill:<canonical> and bullet:<id> it rests on")
+    reason: str = Field(description="one line: what the person holds that makes it probable")
+    placement: str = Field(description="skills, existing_bullet or new_bullet")
+    bullet_id: str | None = Field(default=None, description="for existing_bullet")
+    role_id: str | None = Field(default=None, description="for new_bullet")
+    draft: str | None = Field(default=None, description="the bullet's wording, if any")
+
+
+class KeywordInference(BaseModel):
+    """F7.5's answer: the probable keywords, and nothing else."""
+
+    items: list[InferredKeyword] = Field(default_factory=list)
+
+
 @dataclass(frozen=True)
 class Proposal:
     """One generated answer, with what it cost and the prompt that produced it.
 
     `output` is the shape the validator and the form both read: for a summary
-    `{"summary": {"text", "cites"}, "skills"}`, for a bullet `{"text", "cites"}`, for
+    `{"summary": {"text", "cites"}}`, for a bullet `{"text", "cites"}`, for
     story bullets `{"bullets": [{"text", "story_id", "role_id"}]}`.
     """
 
@@ -136,6 +158,36 @@ def _redacted(text: str, known_names: Sequence[str] | None) -> str:
     return redaction.redact(text, known_names=known_names or None)
 
 
+class BaseLike(Protocol):
+    """The summary a proposal follows (`generate.proposals.BaseSummary`)."""
+
+    text: str
+    summary_id: str
+    origin: str
+
+
+def _base_block(base: BaseLike | None, language: str, known_names: Sequence[str] | None) -> str:
+    if base is None:
+        return "(none) — there is no base summary; write it from the bullets."
+    note = (
+        f"This base is in another language: translate it into {language} as you improve it.\n"
+        if base.origin == "other_language"
+        else ""
+    )
+    return f"{note}id: summary:{base.summary_id}\n{_redacted(base.text, known_names)}"
+
+
+def _retry_block(retry: tuple[str, Sequence[str]] | None) -> str:
+    if retry is None:
+        return ""
+    previous, failed = retry
+    return (
+        "\n\nYour previous answer broke these rules: "
+        + "; ".join(failed)
+        + f".\nThe previous text was:\n{previous}\nWrite it again so every rule holds."
+    )
+
+
 def generate_summary(
     session: Session,
     *,
@@ -145,38 +197,52 @@ def generate_summary(
     pool: Sequence[str],
     grades: Sequence[Mapping[str, Any]],
     language: str,
+    title: str = "",
+    base: BaseLike | None = None,
+    shortlist: Sequence[tuple[str, str]] = (),
+    banned: Sequence[str] = (),
+    retry: tuple[str, Sequence[str]] | None = None,
     known_names: Sequence[str] | None = None,
     model: str | None = None,
     options: CallOptions | None = None,
 ) -> Proposal:
-    """One call: the summary and the skills block for one application (F7.3, Tier 1)."""
+    """One call: the summary for one application (F7.3, Tier 1; `summary_v4`).
+
+    `title` is the posting's, to be opened with verbatim; `shortlist` is (the posting's
+    wording, canonical) pairs that code chose; `base` is the summary to follow and improve.
+    `retry` is (the previous text, the failed rules) for the one second call. The track's
+    skills and the pool go in as context for skill closure, never as output: the answer is
+    a summary and its citations, and accepting it never touches the track's skills.
+    """
     bullet_rows = summarize_rows(
-        [f"{bullet_id}\t{_redacted(text, known_names)}" for bullet_id, text in bullets]
+        [f"{bullet_id}	{_redacted(text, known_names)}" for bullet_id, text in bullets]
     )
     completion = complete_json(
         session,
         purpose=GENERATE_SUMMARY,
-        prompt_version=SUMMARY_SKILLS_V2.version,
-        system=SUMMARY_SKILLS_V2.render_system(),
-        user=SUMMARY_SKILLS_V2.render(
+        prompt_version=SUMMARY_V4.version,
+        system=SUMMARY_V4.render_system(),
+        user=SUMMARY_V4.render(
             lang=language,
+            title=title or "(none)",
+            shortlist=summarize_rows([wording for wording, _canonical in shortlist]),
+            base=_base_block(base, language, known_names),
             jd=_jd_block(jd),
             bullets=bullet_rows,
             grades=_grades_block(grades),
             track_skills=summarize_rows(list(track_skills)),
             pool=summarize_rows(list(pool)),
+            banned="\n".join(f"- {phrase}" for phrase in banned) or "(none)",
+            retry=_retry_block(retry),
         ),
-        schema=SummarySkills,
+        schema=SummaryOnly,
         model=model,
         options=options,
     )
-    answer = SummarySkills.model_validate(completion.data)
+    answer = SummaryOnly.model_validate(completion.data)
     return Proposal(
         kind="summary",
-        output={
-            "summary": {"text": answer.summary.strip(), "cites": list(answer.cites)},
-            "skills": list(answer.skills),
-        },
+        output={"summary": {"text": answer.summary.strip(), "cites": list(answer.cites)}},
         completion=completion,
     )
 
@@ -383,6 +449,68 @@ def generate_letter_bridge_one(
                 else None
             ),
             "risk": (answer.risk or "").strip() or None,
+        },
+        completion=completion,
+    )
+
+
+def generate_keyword_inference(
+    session: Session,
+    *,
+    candidates: Sequence[str],
+    pool: Sequence[str],
+    bullets: Sequence[tuple[str, str]],
+    roles: Sequence[tuple[str, str]],
+    banned: Sequence[str],
+    language: str,
+    known_names: Sequence[str] | None = None,
+    model: str | None = None,
+    options: CallOptions | None = None,
+) -> Proposal:
+    """One call: which of the leftover keywords are highly probable for this person (F7.5).
+
+    Purpose `keyword_infer`, redacted like every call and cached by content hash, so the
+    same material asks the provider once. The answer is raw: `generate.validators` decides
+    which items may be shown, and nothing here is stored.
+    """
+    completion = complete_json(
+        session,
+        purpose=KEYWORD_INFER,
+        prompt_version=KEYWORD_INFER_V1.version,
+        system=KEYWORD_INFER_V1.render_system(),
+        user=KEYWORD_INFER_V1.render(
+            lang=language,
+            candidates=summarize_rows(list(candidates)),
+            pool=summarize_rows(list(pool)),
+            bullets=summarize_rows(
+                [f"{bullet_id}\t{_redacted(text, known_names)}" for bullet_id, text in bullets]
+            ),
+            roles=summarize_rows(
+                [f"{role_id}\t{_redacted(title, known_names)}" for role_id, title in roles]
+            ),
+            banned="\n".join(f"- {phrase}" for phrase in banned) or "(none)",
+        ),
+        schema=KeywordInference,
+        model=model,
+        options=options,
+    )
+    answer = KeywordInference.model_validate(completion.data)
+    return Proposal(
+        kind="keyword_infer",
+        output={
+            "items": [
+                {
+                    "keyword": item.keyword,
+                    "confidence": item.confidence,
+                    "supports": list(item.supports),
+                    "reason": item.reason.strip(),
+                    "placement": item.placement,
+                    "bullet_id": item.bullet_id,
+                    "role_id": item.role_id,
+                    "draft": (item.draft or "").strip() or None,
+                }
+                for item in answer.items
+            ]
         },
         completion=completion,
     )

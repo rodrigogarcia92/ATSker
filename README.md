@@ -108,7 +108,7 @@ Two realism checks sit *beside* the number, never inside it:
   recruiter would run, and a deterministic evaluator answers whether this track appears.
   A query is a gate, not a percentage: recall never changes the Job Match number.
 
-Generated text (a summary and skills block, a bullet rephrased for one posting, bullets a
+Generated text (a summary, with the Keywords card beside it, a bullet rephrased for one posting, bullets a
 story supports) is on demand and never during an analysis. Each proposal must pass three
 validators before it is shown — provenance (every item cites a stored source), literal
 preservation (every number and proper noun exists in that source), skill closure (every

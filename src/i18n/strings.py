@@ -22,7 +22,7 @@ STRINGS: dict[str, dict[str, str]] = {
     "nav.analyze": {"es": "Analizar", "en": "Analyse"},
     "nav.applications": {"es": "Historial", "en": "History"},
     "nav.import": {"es": "Importar CV", "en": "Import CV"},
-    "nav.tracks": {"es": "Puestos objetivo", "en": "Tracks"},
+    "nav.tracks": {"es": "Líneas de carrera", "en": "Tracks"},
     "nav.profile": {"es": "Perfil", "en": "Profile"},
     "nav.roles": {"es": "Experiencia", "en": "Experience"},
     "nav.stories": {"es": "Historias", "en": "Stories"},
@@ -35,7 +35,18 @@ STRINGS: dict[str, dict[str, str]] = {
     "nav.group.account": {"es": "Cuenta", "en": "Account"},
     "nav.menu": {"es": "Menú", "en": "Menu"},
     # Shared
-    "common.save": {"es": "Guardar", "en": "Save"},
+    # §12.5: the shared proposal dialog.
+    "dialog.close": {"es": "Cerrar", "en": "Close"},
+    "dialog.loading": {"es": "Cargando…", "en": "Loading…"},
+    "dialog.error": {
+        "es": "No se pudo cargar ({detail}). Cierra e inténtalo de nuevo.",
+        "en": "It could not be loaded ({detail}). Close it and try again.",
+    },
+    "dialog.confirm_close": {
+        "es": "Hay una propuesta sin aceptar. ¿Cerrar de todos modos?",
+        "en": "A proposal has not been accepted. Close anyway?",
+    },
+    "common.save":{"es": "Guardar", "en": "Save"},
     "common.create": {"es": "Crear", "en": "Create"},
     "common.cancel": {"es": "Cancelar", "en": "Cancel"},
     "common.edit": {"es": "Editar", "en": "Edit"},
@@ -141,40 +152,40 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "No active bullets: without them there is no evidence to cite and "
         "coverage will be zero.",
     },
-    "analyze.track": {"es": "Puesto objetivo (opcional)", "en": "Track (optional)"},
+    "analyze.track": {"es": "Línea de carrera (opcional)", "en": "Track (optional)"},
     "analyze.track_none": {
-        "es": "Sin puesto objetivo: todos los bullets activos",
+        "es": "Sin línea: todos los bullets activos",
         "en": "No track: every active bullet",
     },
     "analyze.track_hint": {
-        "es": "Con un puesto objetivo, la puntuación usa solo sus bullets y, si lo "
-        "tiene, su titular.",
+        "es": "Con una línea de carrera, la puntuación usa solo sus bullets y, si la tiene, su "
+        "titular.",
         "en": "With a track, the score uses only its bullets and, when set, its headline.",
     },
     # F7.1: the recommendation, for the user who has not decided which track to apply
     # with. It only acts when no track is chosen.
-    "analyze.recommend": {"es": "Recomendar puesto", "en": "Recommend a track"},
+    "analyze.recommend": {"es": "Recomendar línea de carrera", "en": "Recommend a track"},
     "analyze.recommend_hint": {
-        "es": "Puntúa la oferta contra tus puestos objetivo, hasta seis, y te dice "
-        "cuál gana y por qué. Solo se usa si no eliges un puesto arriba.",
+        "es": "Puntúa la oferta contra tus líneas de carrera, hasta seis, y te dice cuál gana y "
+        "por qué. Solo se usa si no eliges una línea arriba.",
         "en": "Scores the posting against up to six of your tracks and says which one "
         "wins and why. Used only when no track is chosen above.",
     },
     "analyze.recommend_na": {
-        "es": "No aplica: elegiste un puesto.",
+        "es": "No aplica: elegiste una línea.",
         "en": "Not applicable: you chose a track.",
     },
     "analyze.recommend_off": {
-        "es": "Sin puesto objetivo, al escribir la carta tendrás que elegir uno.",
+        "es": "Sin línea, al escribir la carta tendrás que elegir una.",
         "en": "Without a target role, you'll pick one when you write the cover letter.",
     },
     # Application history (F9)
     "applications.title": {"es": "Historial", "en": "History"},
     "applications.new": {"es": "Analizar una oferta", "en": "Analyse a posting"},
     "applications.intro": {
-        "es": "Cada análisis queda guardado con su puntuación, su puesto objetivo y su "
-        "coste. Esta tabla es el conjunto de datos: con suficientes candidaturas dirá si "
-        "las componentes predicen una respuesta.",
+        "es": "Cada análisis queda guardado con su puntuación, su línea de carrera y su coste. "
+        "Esta tabla es el conjunto de datos: con suficientes candidaturas dirá si las componentes "
+        "predicen una respuesta.",
         "en": "Every analysis is kept with its score, its track and its cost. This table "
         "is the dataset: with enough applications it says whether the sub-scores "
         "predict a callback.",
@@ -188,7 +199,7 @@ STRINGS: dict[str, dict[str, str]] = {
     "applications.date": {"es": "Fecha", "en": "Date"},
     "applications.company": {"es": "Empresa", "en": "Company"},
     "applications.position": {"es": "Puesto", "en": "Role"},
-    "applications.track": {"es": "Puesto objetivo", "en": "Track"},
+    "applications.track": {"es": "Línea de carrera", "en": "Track"},
     "applications.score": {"es": "Ajuste", "en": "Fit"},
     "applications.outcome": {"es": "Resultado", "en": "Outcome"},
     "applications.outcome.no_reply": {"es": "Sin respuesta", "en": "No reply"},
@@ -224,9 +235,9 @@ STRINGS: dict[str, dict[str, str]] = {
     "recall.label.strict": {"es": "estricta", "en": "strict"},
     "recall.label.core": {"es": "núcleo", "en": "core"},
     "recall.intro": {
-        "es": "Las consultas que un reclutador escribiría en un ATS o en un portal, y "
-        "si tu puesto objetivo aparecería en sus resultados. No entra en el Ajuste "
-        "general: una consulta es una puerta, no un porcentaje.",
+        "es": "Las consultas que un reclutador escribiría en un ATS o en un portal, y si tu línea "
+        "de carrera aparecería en sus resultados. No entra en el Ajuste general: una consulta es "
+        "una puerta, no un porcentaje.",
         "en": "The queries a recruiter would type in an ATS or a job board, and whether "
         "your track would come back in the results. It does not enter the Job Match "
         "number: a query is a gate, not a percentage.",
@@ -240,13 +251,12 @@ STRINGS: dict[str, dict[str, str]] = {
     "recall.unlabelled": {"es": "Consulta", "en": "Query"},
     "recall.copy": {"es": "Copiar", "en": "Copy"},
     "recall.fail.missing": {
-        "es": "Falla en «{term}»: no aparece ningún alias de este término en este puesto "
-        "objetivo.",
+        "es": "Falla en «{term}»: no aparece ningún alias de este término en esta línea de "
+        "carrera.",
         "en": "Fails on “{term}” — no alias of this term appears in this track.",
     },
     "recall.fail.present": {
-        "es": "Falla en «{term}»: aparece en este puesto objetivo y la consulta lo "
-        "excluye.",
+        "es": "Falla en «{term}»: aparece en esta línea de carrera y la consulta lo excluye.",
         "en": "Fails on “{term}” — it appears in this track and the query excludes it.",
     },
     "recall.clause_met": {"es": "{term} — lo cumple {unit}", "en": "{term} — met by {unit}"},
@@ -387,8 +397,8 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "Add to my material",
     },
     "attempt.incorporate.intro": {
-        "es": "Esto es lo que el documento trae y tu base de datos no tiene. Nada se "
-        "escribe hasta que confirmes, y ningún puesto se toca salvo que elijas uno.",
+        "es": "Esto es lo que el documento trae y tu base de datos no tiene. Nada se escribe "
+        "hasta que confirmes, y ninguna línea se toca salvo que elijas una.",
         "en": "This is what the document brings that your database does not have. "
         "Nothing is written until you confirm, and no track is touched unless you "
         "choose one.",
@@ -402,14 +412,14 @@ STRINGS: dict[str, dict[str, str]] = {
     "attempt.incorporate.skills": {"es": "Habilidades nuevas", "en": "New skills"},
     "attempt.incorporate.destination": {"es": "Destino", "en": "Destination"},
     "attempt.incorporate.solo": {
-        "es": "Solo mi material (ningún puesto)",
+        "es": "Solo mi material (ninguna línea)",
         "en": "Only my material (no track)",
     },
-    "attempt.incorporate.este": {"es": "Este puesto", "en": "This track"},
-    "attempt.incorporate.otro": {"es": "Otro puesto", "en": "Another track"},
-    "attempt.incorporate.nuevo": {"es": "Nuevo puesto", "en": "A new track"},
+    "attempt.incorporate.este": {"es": "Esta línea", "en": "This track"},
+    "attempt.incorporate.otro": {"es": "Otra línea", "en": "Another track"},
+    "attempt.incorporate.nuevo": {"es": "Nueva línea", "en": "A new track"},
     "attempt.incorporate.new_name": {
-        "es": "Nombre del nuevo puesto",
+        "es": "Nombre de la nueva línea",
         "en": "New track name",
     },
     "attempt.incorporate.confirm": {"es": "Incorporar", "en": "Add"},
@@ -452,7 +462,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "The file could not be uploaded: {detail}",
     },
     "attempt.delta": {
-        "es": "{delta} vs. análisis del puesto",
+        "es": "{delta} vs. análisis de la línea",
         "en": "{delta} vs. the posting analysis",
     },
     "attempt.delta_flat": {
@@ -465,7 +475,7 @@ STRINGS: dict[str, dict[str, str]] = {
     },
     "attempt.change.title": {"es": "Qué cambió", "en": "What changed"},
     "attempt.change.none_first": {
-        "es": "Sin cambios respecto al análisis del puesto",
+        "es": "Sin cambios respecto al análisis de la línea",
         "en": "No changes against the posting analysis",
     },
     "attempt.change.none_previous": {
@@ -596,26 +606,49 @@ STRINGS: dict[str, dict[str, str]] = {
         "es": "El documento limita la puntuación: {check}.",
         "en": "The document caps the score: {check}.",
     },
-    "report.track": {"es": "Puesto objetivo: {name}", "en": "Track: {name}"},
+    "report.track": {"es": "Línea de carrera: {name}", "en": "Track: {name}"},
     "report.no_track": {
-        "es": "Sin puesto objetivo: se puntuaron todos los bullets activos.",
+        "es": "Sin línea: se puntuaron todos los bullets activos.",
         "en": "No track: every active bullet was scored.",
     },
     "report.sub_scores": {"es": "Componentes", "en": "Components"},
+    # §12.1 item 3: the colour legend under Componentes, and the hidden word each term chip
+    # carries beside its glyph.
+    "report.legend.sample": {"es": "término", "en": "term"},
+    "report.legend.found": {"es": "aparece en tu CV", "en": "appears in your CV"},
+    "report.legend.missing": {"es": "falta en tu CV", "en": "missing from your CV"},
+    "report.legend.toggle": {"es": "Cómo leer los colores", "en": "How to read the colours"},
+    "report.legend.scores": {
+        "es": "Puntuaciones: verde desde 75, ámbar de 50 a 74, rojo por debajo de 50.",
+        "en": "Scores: green from 75, amber 50 to 74, red below 50.",
+    },
+    "report.legend.purple": {
+        "es": "Morado: algo falta o necesita atención "
+        "(un término que falta, una brecha decisiva, una advertencia).",
+        "en": "Purple: something is missing or needs attention "
+        "(a missing term, a blocking gap, a warning).",
+    },
+    "report.legend.gray": {"es": "Gris: está presente.", "en": "Gray: it is present."},
+    "report.legend.severity": {
+        "es": "Los iconos de octágono, triángulo y círculo son del análisis de legibilidad.",
+        "en": "The octagon, triangle and circle icons are for the readability scan.",
+    },
+    "report.term.found": {"es": "encontrada", "en": "found"},
+    "report.term.missing": {"es": "falta", "en": "missing"},
     # F7.1: the table the recommendation produces, above the components, with the
     # chosen track marked. The justification is a code-built line, not prose from a
     # model: the winner, the sub-score it leads on, and the track's own "when to use".
     "report.recommendation": {
-        "es": "Recomendación de puesto",
+        "es": "Recomendación de línea de carrera",
         "en": "Track recommendation",
     },
     "report.recommendation.intro": {
-        "es": "La oferta puntuada contra cada puesto objetivo candidato. La elegida es "
-        "la que se guarda en esta aplicación.",
+        "es": "La oferta puntuada contra cada línea de carrera candidata. La elegida es la que se "
+        "guarda en esta aplicación.",
         "en": "The posting scored against each candidate track. The chosen one is what "
         "this application stores.",
     },
-    "report.recommendation.track": {"es": "Puesto", "en": "Track"},
+    "report.recommendation.track": {"es": "Línea", "en": "Track"},
     "report.recommendation.chosen": {"es": "Elegido", "en": "Chosen"},
     "report.recommendation.not_graded": {
         "es": "Sin evaluar: {names}",
@@ -661,7 +694,7 @@ STRINGS: dict[str, dict[str, str]] = {
     "report.calls_cost": {"es": "Llamadas y coste", "en": "Calls and cost"},
     "report.evidence_language": {"es": "Idioma de la evidencia", "en": "Evidence language"},
     "report.analyse_another": {
-        "es": "Analizar con otro puesto",
+        "es": "Analizar con otra línea",
         "en": "Analyse with another posting",
     },
     "report.job_match_caption": {
@@ -677,7 +710,7 @@ STRINGS: dict[str, dict[str, str]] = {
     # N6.6: the readability panel is always present; with no source document it says so
     # rather than disappearing, which read as a clean bill of health.
     "report.scan_no_document": {
-        "es": "No se leyó ningún archivo en este análisis: el puesto no tiene un CV subido.",
+        "es": "No se leyó ningún archivo en este análisis: la línea no tiene un CV subido.",
         "en": "No file was read for this analysis: the track has no uploaded CV.",
     },
     "report.requirements": {"es": "Requisitos y evidencia", "en": "Requirements and evidence"},
@@ -848,26 +881,26 @@ STRINGS: dict[str, dict[str, str]] = {
         "own data.",
     },
     "report.advice.promote_bullet": {
-        "es": "Mueve este bullet a las tres primeras del puesto: demuestra {requirement} "
-        "y está en la posición {position}, con material más débil por encima.",
+        "es": "Mueve este bullet a las tres primeras de la línea: demuestra {requirement} y está "
+        "en la posición {position}, con material más débil por encima.",
         "en": "Move this bullet into the track's first three: it demonstrates "
         "{requirement} and it sits at position {position}, with weaker material above.",
     },
     "report.advice.add_bullet": {
-        "es": "Añade este bullet al puesto: demuestra {canonical}, que la oferta pide y "
-        "el análisis no encontró.",
+        "es": "Añade este bullet a la línea: demuestra {canonical}, que la oferta pide y el "
+        "análisis no encontró.",
         "en": "Add this bullet to the track: it demonstrates {canonical}, which the "
         "posting asks for and the analysis did not find.",
     },
     "report.advice.surface_skill": {
-        "es": "Añade {canonical} a las habilidades del puesto: la oferta lo pide y tú "
-        "lo tienes demostrado.",
+        "es": "Añade {canonical} a las habilidades de la línea: la oferta lo pide y tú lo tienes "
+        "demostrado.",
         "en": "Add {canonical} to the track's skills: the posting asks for it and you "
         "have it evidenced.",
     },
     "report.advice.fix_query": {
-        "es": "La búsqueda «{query}» no te devolvería, y tienes un bullet que dice "
-        "{canonical}: inclúyela en el puesto o usa sus palabras.",
+        "es": "La búsqueda «{query}» no te devolvería, y tienes un bullet que dice {canonical}: "
+        "inclúyela en la línea o usa sus palabras.",
         "en": "The search “{query}” would not return you, and you have a bullet that "
         "says {canonical}: add it to the track, or use its words.",
     },
@@ -952,16 +985,48 @@ STRINGS: dict[str, dict[str, str]] = {
     "report.jd_hash": {"es": "Hash de la oferta", "en": "Posting hash"},
     "report.again": {"es": "Analizar otra oferta", "en": "Analyse another posting"},
     # F7.3's generated text: on demand, validated, shown as a diff, accepted by hand.
-    "generate.propose_summary": {
-        "es": "Proponer resumen y habilidades",
-        "en": "Propose a summary and skills",
+    "generate.propose_summary": {"es": "Proponer resumen", "en": "Propose summary"},
+    "generate.saved": {
+        "es": "Resumen guardado en tu material",
+        "en": "Summary saved to your material",
+    },
+    "generate.no_track": {
+        "es": "Elige una línea de carrera al analizar para proponer un resumen",
+        "en": "Choose a track when you analyse to propose a summary",
+    },
+    # §12.5: what the pop-up says before the button, in words — opening it calls nothing.
+    "generate.dialog.sends": {
+        "es": "Se enviarán al modelo, sin tu nombre ni tus datos de contacto: la oferta tal "
+        "como se extrajo, los bullets de «{track}» ({n}) y tus habilidades como contexto. "
+        "Solo se propone el resumen.",
+        "en": "Sent to the model, without your name or contact details: the posting as "
+        "extracted, the bullets of “{track}” ({n}) and your skills as context. Only the "
+        "summary is proposed.",
+    },
+    "generate.dialog.cost": {
+        "es": "Es una llamada de pago al modelo, una sola por pulsación. Abrir esta ventana "
+        "no cuesta nada.",
+        "en": "It is one paid call to the model per press. Opening this window costs nothing.",
+    },
+    # §12.5: a failed proposal says which of three things went wrong.
+    "generate.err.no_model": {
+        "es": "El modelo no está configurado: no se puede proponer nada todavía.",
+        "en": "No model is configured: nothing can be proposed yet.",
+    },
+    "generate.err.provider": {
+        "es": "El proveedor del modelo no respondió; no se ha propuesto nada. Inténtalo de "
+        "nuevo.",
+        "en": "The model provider did not answer; nothing was proposed. Try again.",
+    },
+    "generate.err.unusable": {
+        "es": "El modelo respondió, pero la respuesta no fue utilizable; no se ha propuesto "
+        "nada. Inténtalo de nuevo.",
+        "en": "The model answered, but the answer was not usable; nothing was proposed. "
+        "Try again.",
     },
     # The provider call is a button on a POST, never a GET (F.0).
     "generate.run": {"es": "Generar propuesta", "en": "Generate proposal"},
-    "generate.title": {
-        "es": "Resumen y habilidades propuestos",
-        "en": "Proposed summary and skills",
-    },
+    "generate.title": {"es": "Resumen propuesto", "en": "Proposed summary"},
     "generate.intro": {
         "es": "Una propuesta a partir de tu propio material. Nada se guarda hasta que "
         "aceptes, y al aceptar se vuelve a validar contra la base de datos.",
@@ -970,14 +1035,61 @@ STRINGS: dict[str, dict[str, str]] = {
     },
     "generate.current": {"es": "Ahora", "en": "Current"},
     "generate.proposed": {"es": "Propuesta", "en": "Proposed"},
-    "generate.skills": {"es": "Habilidades", "en": "Skills"},
     "generate.empty_summary": {
         "es": "— sin resumen en este idioma —",
         "en": "— no summary in this language —",
     },
     "generate.use_in_track": {
-        "es": "Usar en este puesto: {name}",
+        "es": "Usar en esta línea: {name}",
         "en": "Use in this track: {name}",
+    },
+    "generate.check.title": {
+        "es": "Título exacto de la oferta",
+        "en": "Exact posting title",
+    },
+    "generate.check.skills": {
+        "es": "Habilidades clave nombradas ({n})",
+        "en": "Key skills named ({n})",
+    },
+    "generate.check.length": {
+        "es": "Máximo 80 palabras ({n})",
+        "en": "At most 80 words ({n})",
+    },
+    "generate.check.ok": {"es": "cumple", "en": "met"},
+    "generate.check.fail": {"es": "no cumple", "en": "not met"},
+    "generate.check.heading": {
+        "es": "Reglas de estilo de la propuesta",
+        "en": "The proposal's style rules",
+    },
+    "generate.check.note": {
+        "es": "Si una regla no se cumple puedes aceptar la propuesta igualmente.",
+        "en": "If a rule is not met you can still accept the proposal.",
+    },
+    "generate.base.track": {
+        "es": "Basado en el resumen de tu línea «{name}»",
+        "en": "Based on the summary of your track «{name}»",
+    },
+    "generate.base.cv": {
+        "es": "Basado en el resumen de tu CV subido",
+        "en": "Based on the summary of your uploaded CV",
+    },
+    "generate.base.other_language": {
+        "es": "Basado en tu resumen en {other}, traducido",
+        "en": "Based on your summary in {other}, translated",
+    },
+    "generate.base.none": {
+        "es": "No había un resumen base: escrito desde tus bullets",
+        "en": "There was no base summary: written from your bullets",
+    },
+    "generate.langname.es": {"es": "español", "en": "Spanish"},
+    "generate.langname.en": {"es": "inglés", "en": "English"},
+    "generate.title_note": {
+        "es": "«{title}» es el título de la oferta; no figura entre los que has tenido.",
+        "en": "«{title}» is the posting's title; it is not among the titles you have held.",
+    },
+    "generate.shortlist_short": {
+        "es": "Habilidades clave que tu CV respalda directamente en esta oferta: {n}.",
+        "en": "Key skills your CV directly backs for this posting: {n}.",
     },
     "generate.accept": {"es": "Aceptar", "en": "Accept"},
     "generate.back": {"es": "Volver al informe", "en": "Back to the report"},
@@ -1127,25 +1239,25 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "Deactivating keeps the role for reports already generated.",
     },
     # Tracks (N2)
-    "tracks.title": {"es": "Puestos objetivo", "en": "Tracks"},
-    "tracks.new": {"es": "Nuevo puesto objetivo", "en": "New track"},
+    "tracks.title": {"es": "Líneas de carrera", "en": "Tracks"},
+    "tracks.new": {"es": "Nueva línea de carrera", "en": "New track"},
     "tracks.intro": {
-        "es": "Un puesto objetivo es un rol al que apuntas, con una selección "
-        "ordenada de tus bullets. No copia contenido: el mismo bullet sirve a varios.",
+        "es": "Una línea de carrera es un rol al que apuntas, con una selección ordenada de tus "
+        "bullets. No copia contenido: el mismo bullet sirve a varias.",
         "en": "A track is a target role with an ordered selection of your bullets. It copies "
         "no content: the same bullet serves several tracks.",
     },
     "tracks.name": {"es": "Nombre", "en": "Name"},
     "tracks.applies_when": {"es": "Cuándo usarlo", "en": "When to use it"},
     "tracks.applies_hint": {
-        "es": "Lo lee el recomendador para elegir el puesto objetivo ante una oferta.",
+        "es": "Lo lee el recomendador para elegir la línea de carrera ante una oferta.",
         "en": "The recommender reads this to pick a track for a posting.",
     },
     "tracks.lang": {"es": "Idioma", "en": "Language"},
     # F4.1/F8: the track's language is also the language of its cover letters.
     "tracks.letter_card": {"es": "Carta", "en": "Letter"},
     "tracks.lang_hint": {
-        "es": "Las cartas de este puesto se escriben en este idioma.",
+        "es": "Las cartas de esta línea se escriben en este idioma.",
         "en": "This role's cover letters are written in this language.",
     },
     "tracks.lang_line": {
@@ -1163,7 +1275,7 @@ STRINGS: dict[str, dict[str, str]] = {
     },
     "tracks.specialisation": {"es": "Especialización", "en": "Specialisation"},
     "tracks.specialisation_hint": {
-        "es": "El eje del propio puesto: riesgo, marketing, plataforma… Opcional.",
+        "es": "El eje de la propia línea: riesgo, marketing, plataforma… Opcional.",
         "en": "The role's own axis: risk, marketing, platform… Optional.",
     },
     "tracks.headline_es": {"es": "Titular en español", "en": "Spanish headline"},
@@ -1182,9 +1294,9 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "Or write a new one (it joins the pool)",
     },
     "tracks.summary_hint": {
-        "es": "Uno por idioma, tomado del fondo común de resúmenes o escrito aquí: uno "
-        "escrito nuevo entra en el fondo y puede reusarlo otro puesto objetivo. El "
-        "puesto referencia el fondo; no guarda texto propio.",
+        "es": "Uno por idioma, tomado del fondo común de resúmenes o escrito aquí: uno escrito "
+        "nuevo entra en el fondo y puede reusarlo otra línea de carrera. La línea referencia el "
+        "fondo; no guarda texto propio.",
         "en": "One per language, picked from the summary pool or written here: a written "
         "one joins the pool and can be reused by another track. The track references "
         "the pool; it stores no text of its own.",
@@ -1206,7 +1318,7 @@ STRINGS: dict[str, dict[str, str]] = {
     "tracks.summaries_absent": {"es": "Sin resumen todavía.", "en": "No summary yet."},
     "tracks.bullets": {"es": "bullets", "en": "bullets"},
     "tracks.empty": {
-        "es": "Todavía no hay puestos objetivo. Crea el primero.",
+        "es": "Todavía no hay líneas de carrera. Crea la primera.",
         "en": "No tracks yet. Create the first one.",
     },
     "tracks.selection": {"es": "Bullets seleccionados", "en": "Selected bullets"},
@@ -1234,14 +1346,14 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "Copies the fields and the selection, order included.",
     },
     "tracks.deactivate_hint": {
-        "es": "Desactivar conserva el puesto objetivo para los informes ya generados.",
+        "es": "Desactivar conserva la línea de carrera para los informes ya generados.",
         "en": "Deactivating keeps the track for reports already generated.",
     },
     # Summary pool (F2.7/F4.1)
     "summaries.edit": {"es": "Editar el resumen", "en": "Edit the summary"},
     "summaries.edit_hint": {
-        "es": "Los resúmenes viven en un fondo común: editar aquí cambia el texto en "
-        "todos los puestos objetivo que lo usen.",
+        "es": "Los resúmenes viven en un fondo común: editar aquí cambia el texto en todas las "
+        "líneas de carrera que lo usen.",
         "en": "Summaries live in a shared pool: editing here changes the text in every "
         "track that uses it.",
     },
@@ -1318,8 +1430,8 @@ STRINGS: dict[str, dict[str, str]] = {
     # Letters
     "letters.title": {"es": "Cartas", "en": "Letters"},
     "letters.intro": {
-        "es": "Una carta se arma con tus bloques comunes, la carta de cada puesto y un "
-        "párrafo de interés que se escribe para cada oferta.",
+        "es": "Una carta se arma con tus bloques comunes, la carta de cada línea y un párrafo de "
+        "interés que se escribe para cada oferta.",
         "en": "A letter is made of your common blocks, each role's letter and a paragraph "
         "of interest written for each posting.",
     },
@@ -1332,13 +1444,13 @@ STRINGS: dict[str, dict[str, str]] = {
     "letters.presentation": {"es": "Párrafo de presentación", "en": "Presentation paragraph"},
     "letters.achievements": {"es": "Párrafo de logros", "en": "Achievements paragraph"},
     # F8 (2026-10-04): one template per track — Cartas by track, the track's own page.
-    "letters.by_track_title": {"es": "Carta por puesto", "en": "Letter per role"},
+    "letters.by_track_title": {"es": "Carta por línea", "en": "Letter per role"},
     "letters.by_track_hint": {
-        "es": "Cada puesto tiene una carta, escrita en el idioma del puesto.",
+        "es": "Cada línea tiene una carta, escrita en el idioma de la línea.",
         "en": "Each role has one letter, written in the role's language.",
     },
     "letters.no_tracks": {
-        "es": "Todavía no tienes puestos objetivo. Crea uno y vuelve aquí para escribir su carta.",
+        "es": "Todavía no tienes líneas de carrera. Crea una y vuelve aquí para escribir su carta.",
         "en": "You have no target roles yet. Create one and come back to write its letter.",
     },
     "letters.status.ready": {"es": "Lista", "en": "Ready"},
@@ -1347,23 +1459,23 @@ STRINGS: dict[str, dict[str, str]] = {
     "letters.status.other_lang": {"es": "Otro idioma", "en": "Other language"},
     "letters.action.edit": {"es": "Editar carta", "en": "Edit letter"},
     "letters.action.create": {"es": "Crear carta", "en": "Create letter"},
-    "letters.inactive_title": {"es": "Puestos inactivos", "en": "Inactive roles"},
-    "letters.unlinked_title": {"es": "Sin puesto", "en": "No role"},
+    "letters.inactive_title": {"es": "Líneas inactivas", "en": "Inactive roles"},
+    "letters.unlinked_title": {"es": "Sin línea", "en": "No role"},
     "letters.unlinked_hint": {
-        "es": "Cartas de antes, sin puesto: ninguna carta las usa. Asígnalas a un puesto "
-        "para usarlas.",
+        "es": "Cartas de antes, sin línea: ninguna carta las usa. Asígnalas a una línea para "
+        "usarlas.",
         "en": "Older letters with no role: no letter uses them. Assign one to a role to "
         "use it.",
     },
     "letters.unlinked_note": {
-        "es": "Esta carta no está ligada a ningún puesto. Asígnala desde Cartas para usarla.",
+        "es": "Esta carta no está ligada a ninguna línea. Asígnala desde Cartas para usarla.",
         "en": "This letter is not linked to any role. Assign it from Letters to use it.",
     },
     "letters.view": {"es": "Ver", "en": "View"},
-    "letters.assign": {"es": "Asignar a un puesto", "en": "Assign to a role"},
-    "letters.assign_label": {"es": "Puesto para esta carta", "en": "Role for this letter"},
+    "letters.assign": {"es": "Asignar a una línea", "en": "Assign to a role"},
+    "letters.assign_label": {"es": "Línea para esta carta", "en": "Role for this letter"},
     "letters.assign_none": {
-        "es": "No hay puestos activos en {name}: crea uno para asignar esta carta.",
+        "es": "No hay líneas activas en {name}: crea una para asignar esta carta.",
         "en": "There are no active roles in {name}: create one to assign this letter.",
     },
     "letters.notice.saved": {
@@ -1375,21 +1487,21 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "Letter assigned to “{track}”.",
     },
     "letters.notice.assigned_moved": {
-        "es": "Carta asignada a «{track}». La carta que tenía el puesto pasó a «Sin puesto».",
+        "es": "Carta asignada a «{track}». La carta que tenía la línea pasó a «Sin línea».",
         "en": "Letter assigned to “{track}”. The letter the role had moved to “No role”.",
     },
     "letters.notice.chosen": {
-        "es": "Carta elegida. Las demás pasaron a «Sin puesto», sin borrarse.",
+        "es": "Carta elegida. Las demás pasaron a «Sin línea», sin borrarse.",
         "en": "Letter chosen. The others moved to “No role”, none deleted.",
     },
-    "letters.track_letter_title": {"es": "Carta del puesto", "en": "Role letter"},
+    "letters.track_letter_title": {"es": "Carta de la línea", "en": "Role letter"},
     "letters.track_letter_lang": {
         "es": "Idioma de la carta: {name}",
         "en": "Letter language: {name}",
     },
     "letters.track_letter_intro": {
-        "es": "Presentación y logros de este puesto. Cada carta que escribas para él "
-        "parte de estos dos párrafos.",
+        "es": "Presentación y logros de esta línea. Cada carta que escribas para ella parte de "
+        "estos dos párrafos.",
         "en": "This role's presentation and achievements. Every letter you write for it "
         "starts from these two paragraphs.",
     },
@@ -1399,16 +1511,16 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "80–160 words, one paragraph, with one main achievement and its numbers",
     },
     "letters.other_lang_alert": {
-        "es": "Esta carta está en {x} y el puesto en {y}: edítala o autogenérala.",
+        "es": "Esta carta está en {x} y la línea en {y}: edítala o autogenérala.",
         "en": "This letter is in {x} and the role is in {y}: edit it or autogenerate it.",
     },
     "letters.several_title": {
-        "es": "Este puesto tiene varias cartas",
+        "es": "Esta línea tiene varias cartas",
         "en": "This role has several letters",
     },
     "letters.several_hint": {
-        "es": "Se usa la primera de la lista hasta que elijas. Las demás no se borran: "
-        "pasan a «Sin puesto».",
+        "es": "Se usa la primera de la lista hasta que elijas. Las demás no se borran: pasan a "
+        "«Sin línea».",
         "en": "The first in the list is used until you choose. The others are not deleted: "
         "they move to “No role”.",
     },
@@ -1464,7 +1576,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "Kind regards,\n{name}",
     },
     "letters.autogenerate_template_hint": {
-        "es": "Una llamada de pago: redacta ambos párrafos con el material de este puesto. "
+        "es": "Una llamada de pago: redacta ambos párrafos con el material de esta línea. "
         "Reemplaza lo que hay en los campos y no se guarda nada hasta que pulses Guardar.",
         "en": "One paid call: drafts both paragraphs from this role's material. It replaces "
         "what is in the fields and nothing is saved until you press Save.",
@@ -1493,26 +1605,26 @@ STRINGS: dict[str, dict[str, str]] = {
     # N8.4: the letter written for one application.
     "letters.letter_title": {"es": "Carta de presentación", "en": "Cover letter"},
     "letters.letter_intro": {
-        "es": "El puesto ya trae su carta. Escribe o autogenera el párrafo de interés de "
-        "esta oferta, revisa la carta completa y guárdala.",
+        "es": "La línea ya trae su carta. Escribe o autogenera el párrafo de interés de esta "
+        "oferta, revisa la carta completa y guárdala.",
         "en": "The role already has its letter. Write or autogenerate the paragraph of "
         "interest for this posting, review the full letter and save it.",
     },
     "letters.letter_risk": {"es": "Riesgo", "en": "Risk"},
     "letters.picker_intro": {
-        "es": "Este análisis no tiene puesto objetivo. Elige el puesto para la carta (no "
-        "cambia el análisis).",
+        "es": "Este análisis no tiene línea de carrera. Elige la línea para la carta (no cambia "
+        "el análisis).",
         "en": "This analysis has no target role. Choose the role for the letter (it does "
         "not change the analysis).",
     },
-    "letters.picker_label": {"es": "Puesto objetivo", "en": "Target role"},
-    "letters.picker_submit": {"es": "Usar este puesto", "en": "Use this role"},
+    "letters.picker_label": {"es": "Línea de carrera", "en": "Target role"},
+    "letters.picker_submit": {"es": "Usar esta línea", "en": "Use this role"},
     "letters.picker_none": {
-        "es": "No tienes puestos objetivo activos: crea uno para escribir la carta.",
+        "es": "No tienes líneas de carrera activas: crea una para escribir la carta.",
         "en": "You have no active target roles: create one to write the letter.",
     },
     "letters.language_notice": {
-        "es": "Este aviso está en {x} y tu puesto objetivo está en {y}; la carta va en {y}.",
+        "es": "Este aviso está en {x} y tu línea de carrera está en {y}; la carta va en {y}.",
         "en": "This posting is in {x} and your target role is in {y}; the letter is in {y}.",
     },
     "letters.need_blocks": {
@@ -1521,15 +1633,15 @@ STRINGS: dict[str, dict[str, str]] = {
     },
     "letters.go_cartas": {"es": "Ir a Cartas", "en": "Go to Letters"},
     "letters.need_template": {
-        "es": "El puesto «{track}» no tiene carta en {name}.",
+        "es": "La línea «{track}» no tiene carta en {name}.",
         "en": "The role “{track}” has no letter in {name}.",
     },
     "letters.create_track_letter": {
-        "es": "Crear carta del puesto",
+        "es": "Crear carta de la línea",
         "en": "Create the role's letter",
     },
     "letters.several_note": {
-        "es": "Este puesto tiene varias cartas y se usa la primera. Elige una en Cartas:",
+        "es": "Esta línea tiene varias cartas y se usa la primera. Elige una en Cartas:",
         "en": "This role has several letters and the first one is used. Choose one in Letters:",
     },
     "letters.preview_title": {"es": "Así se lee la carta", "en": "How the letter reads"},
@@ -1594,7 +1706,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "Every company fact is attributed",
     },
     "letters.check.language": {
-        "es": "El idioma de la carta es el del puesto",
+        "es": "El idioma de la carta es el de la línea",
         "en": "The letter's language is the role's",
     },
     "applications.letter_mark": {"es": "carta", "en": "letter"},
@@ -1642,11 +1754,9 @@ STRINGS: dict[str, dict[str, str]] = {
         ),
     },
     "delete.impact.bullet": {
-        "es": (
-            "La bala está en {tracks} pistas y citada por {analyses} análisis; los análisis "
-            "conservan su copia. Se eliminan además sus {story_links} enlaces a historias y sus "
-            "{revisions} revisiones."
-        ),
+        "es": "La bala está en {tracks} líneas y citada por {analyses} análisis; los análisis "
+        "conservan su copia. Se eliminan además sus {story_links} enlaces a historias y sus "
+        "{revisions} revisiones.",
         "en": (
             "The bullet is in {tracks} tracks and cited by {analyses} analyses; the analyses "
             "keep their copy. Its {story_links} story links and its {revisions} revisions go "
@@ -1654,21 +1764,17 @@ STRINGS: dict[str, dict[str, str]] = {
         ),
     },
     "delete.impact.skill": {
-        "es": (
-            "«{skill}» saldrá de tu pool y de {tracks} pistas. El vocabulario compartido no "
-            "se toca."
-        ),
+        "es": "«{skill}» saldrá de tu pool y de {tracks} líneas. El vocabulario compartido no se "
+        "toca.",
         "en": "“{skill}” leaves your pool and {tracks} tracks. The shared vocabulary is untouched.",
     },
     "delete.impact.summary": {
-        "es": "Se eliminará el resumen del pool. {tracks} pistas pierden esa casilla.",
+        "es": "Se eliminará el resumen del pool. {tracks} líneas pierden esa casilla.",
         "en": "The pool summary will be deleted. {tracks} tracks lose that slot.",
     },
     "delete.impact.track": {
-        "es": (
-            "Se eliminarán la pista y su selección de {selection} balas. {analyses} análisis "
-            "conservan el nombre de la pista."
-        ),
+        "es": "Se eliminarán la línea y su selección de {selection} balas. {analyses} análisis "
+        "conservan el nombre de la línea.",
         "en": (
             "The track and its selection of {selection} bullets will be deleted. {analyses} "
             "analyses keep the track name."
@@ -1693,14 +1799,11 @@ STRINGS: dict[str, dict[str, str]] = {
         ),
     },
     "delete.impact.everything": {
-        "es": (
-            "Se eliminará todo lo del perfil: {resumes} CV, {roles} puestos, {bullets} balas, "
-            "{summaries} resúmenes, {tracks} pistas, {stories} historias, {letter_templates} "
-            "plantillas, {applications} análisis, {application_attempts} intentos y {skills} "
-            "habilidades del pool. Se vaciarán {ledger_redacted} respuestas personales del "
-            "registro de modelos, conservando tokens y coste. Tu cuenta y tu fila de perfil se "
-            "quedan, vacías."
-        ),
+        "es": "Se eliminará todo lo del perfil: {resumes} CV, {roles} puestos, {bullets} balas, "
+        "{summaries} resúmenes, {tracks} líneas, {stories} historias, {letter_templates} "
+        "plantillas, {applications} análisis, {application_attempts} intentos y {skills} "
+        "habilidades del pool. Se vaciarán {ledger_redacted} respuestas personales del registro "
+        "de modelos, conservando tokens y coste. Tu cuenta y tu fila de perfil se quedan, vacías.",
         "en": (
             "Everything in the profile goes: {resumes} CVs, {roles} roles, {bullets} bullets, "
             "{summaries} summaries, {tracks} tracks, {stories} stories, {letter_templates} "
@@ -1737,11 +1840,9 @@ STRINGS: dict[str, dict[str, str]] = {
     "profile.skills_none": {"es": "El pool está vacío.", "en": "The pool is empty."},
     "profile.delete_all": {"es": "Eliminar todo", "en": "Delete everything"},
     "profile.delete_all_hint": {
-        "es": (
-            "Elimina todo lo del perfil: CV, puestos, balas, resúmenes, pistas, historias, "
-            "plantillas, análisis y las respuestas personales del registro de modelos. Tu "
-            "cuenta y tu fila de perfil se quedan, vacías."
-        ),
+        "es": "Elimina todo lo del perfil: CV, puestos, balas, resúmenes, líneas, historias, "
+        "plantillas, análisis y las respuestas personales del registro de modelos. Tu cuenta y tu "
+        "fila de perfil se quedan, vacías.",
         "en": (
             "Deletes everything in the profile: CVs, roles, bullets, summaries, tracks, "
             "stories, templates, analyses and the personal answers in the model-call ledger. "
@@ -1792,10 +1893,10 @@ STRINGS: dict[str, dict[str, str]] = {
         "es": "Tu CV puede estar en español o en inglés.",
         "en": "Your CV can be in Spanish or English.",
     },
-    "import.track": {"es": "Puesto objetivo (opcional)", "en": "Target track (optional)"},
+    "import.track": {"es": "Línea de carrera (opcional)", "en": "Target track (optional)"},
     "import.track_hint": {
-        "es": "La experiencia con la que piensas usar este currículum. Si lo dejas "
-        "vacío, la importación crea un puesto objetivo con el nombre del archivo.",
+        "es": "La experiencia con la que piensas usar este currículum. Si lo dejas vacío, la "
+        "importación crea una línea de carrera con el nombre del archivo.",
         "en": "The track you intend this résumé for. Leave it empty and the import "
         "creates a track named after the file.",
     },
@@ -2008,15 +2109,18 @@ STRINGS: dict[str, dict[str, str]] = {
         "es": "La fusión no escribió nada: tu base de datos queda como estaba.",
         "en": "The merge wrote nothing: your database is unchanged.",
     },
-    "import.track_label": {"es": "Puesto objetivo", "en": "Track"},
+    "import.track_label": {"es": "Línea de carrera", "en": "Track"},
     "import.merge_track_hint": {
-        "es": "El documento se guarda en un puesto objetivo con este nombre. Si ya está "
-        "asignado a un puesto, se une a ese y este nombre no se usa.",
+        "es": "El documento se guarda en una línea de carrera con este nombre. Si ya está "
+        "asignado a una línea, se une a esa y este nombre no se usa.",
         "en": "The document is saved in a track with this name. If it is already "
         "assigned to one, it joins that track and this name is not used.",
     },
-    "import.track_created": {"es": "Puesto objetivo creado: {name}", "en": "Track created: {name}"},
-    "import.track_view": {"es": "Ver el puesto objetivo", "en": "View the track"},
+    "import.track_created": {
+        "es": "Línea de carrera creada: {name}",
+        "en": "Track created: {name}",
+    },
+    "import.track_view": {"es": "Ver la línea de carrera", "en": "View the track"},
     "import.track_join": {
         "es": "Los bullets de este documento se unirán a «{name}».",
         "en": "The bullets from this document will join «{name}».",
@@ -2026,15 +2130,15 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "Bullets added to «{name}»: {count}.",
     },
     "import.track_of_document": {
-        "es": "Puesto objetivo de este documento: {name}",
+        "es": "Línea de carrera de este documento: {name}",
         "en": "This document's track: {name}",
     },
     "import.track_bullets_added": {
-        "es": "Bullets unidos al puesto",
+        "es": "Bullets unidos a la línea",
         "en": "Bullets joined to the track",
     },
     "import.track_skills_added": {
-        "es": "Habilidades unidas al puesto",
+        "es": "Habilidades unidas a la línea",
         "en": "Skills joined to the track",
     },
     "import.track_headline_filled": {
@@ -2042,7 +2146,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "Headline: filled in from this document.",
     },
     "import.track_headline_kept": {
-        "es": "Titular: sin tocar, el puesto objetivo ya tenía uno.",
+        "es": "Titular: sin tocar, la línea de carrera ya tenía uno.",
         "en": "Headline: left alone, the track already had one.",
     },
     "import.headline_not_set": {
@@ -2054,13 +2158,13 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "Summary: filled in from this document.",
     },
     "import.track_summary_kept": {
-        "es": "Resumen: sin tocar, el puesto objetivo ya tenía uno.",
+        "es": "Resumen: sin tocar, la línea de carrera ya tenía uno.",
         "en": "Summary: left alone, the track already had one.",
     },
     "import.merge_submit": {"es": "Importar la selección", "en": "Import the selection"},
     # F4.2: the same CV in the other language, imported as a translation.
     "import.translate_offer": {
-        "es": "Este CV parece la versión en el otro idioma de tu puesto objetivo",
+        "es": "Este CV parece la versión en el otro idioma de tu línea de carrera",
         "en": "This CV looks like the other-language version of your track",
     },
     "import.translate_offer_hint": {
@@ -2078,9 +2182,8 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "Import as translation",
     },
     "import.translate_intro": {
-        "es": "El documento está en {document} y tu puesto objetivo está en {track}. "
-        "Empareja los bullets que dicen lo mismo; lo que no empareje entra abajo como "
-        "candidato nuevo.",
+        "es": "El documento está en {document} y tu línea de carrera está en {track}. Empareja "
+        "los bullets que dicen lo mismo; lo que no empareje entra abajo como candidato nuevo.",
         "en": "The document is in {document} and your track is in {track}. Pair the "
         "bullets that say the same thing; whatever does not pair enters below as a new "
         "candidate.",
@@ -2355,7 +2458,7 @@ STRINGS: dict[str, dict[str, str]] = {
     # §12.1 item 6 (queue U5): the recommendations in one column, grouped under headings
     # with counts. `add_file` is the same group worded for a document (an attempt).
     "report.advice.group.promote": {"es": "Ordena tus bullets", "en": "Order your bullets"},
-    "report.advice.group.add": {"es": "Añade a este puesto", "en": "Add to this track"},
+    "report.advice.group.add": {"es": "Añade a esta línea", "en": "Add to this track"},
     "report.advice.group.add_file": {
         "es": "Añade a tu documento",
         "en": "Add to your document",
@@ -2365,8 +2468,7 @@ STRINGS: dict[str, dict[str, str]] = {
     "report.advice.group.language": {"es": "Idioma", "en": "Language"},
     "report.advice.group.other": {"es": "Otras", "en": "Other"},
     "report.advice.skills_card": {
-        "es": "Añade a las habilidades del puesto: la oferta las pide y las tienes "
-        "evidenciadas.",
+        "es": "Añade a las habilidades de la línea: la oferta las pide y las tienes evidenciadas.",
         "en": "Add to the track's skills: the posting asks for them and you have them "
         "evidenced.",
     },
@@ -2379,6 +2481,151 @@ STRINGS: dict[str, dict[str, str]] = {
     "report.advice.chip_position": {"es": "{position} → top 3", "en": "{position} → top 3"},
     "report.advice.see_more": {"es": "Ver más", "en": "See more"},
     "report.advice.see_all": {"es": "Ver todas ({n})", "en": "See all ({n})"},
+    # F7.5: the Keywords card. Every item names its basis and where it would go; the card
+    # writes nothing, and says it is computed from the material as it is now.
+    "report.keywords.title": {"es": "Palabras clave que faltan", "en": "Missing keywords"},
+    "report.keywords.intro": {
+        "es": "Palabras de la oferta que faltan en esta línea y dónde ponerlas, solo si es verdad.",
+        "en": "Keywords from the posting that this track lacks, and where to put them, only if "
+        "true.",
+    },
+    "report.keywords.intro_file": {
+        "es": "Palabras de la oferta que faltan en tu documento y dónde ponerlas, solo si es "
+        "verdad.",
+        "en": "Keywords from the posting that your document lacks, and where to put them, only "
+        "if true.",
+    },
+    "report.keywords.calculated": {
+        "es": "calculado con tu material actual",
+        "en": "calculated from your current material",
+    },
+    "report.keywords.basis.pool": {"es": "Lo tienes", "en": "You have it"},
+    "report.keywords.basis.bullet": {
+        "es": "Un bullet tuyo lo respalda",
+        "en": "One of your bullets backs it",
+    },
+    "report.keywords.basis.equivalent": {"es": "Equivalente", "en": "Equivalent"},
+    "report.keywords.basis.inferred": {
+        "es": "Probable — solo si es verdad",
+        "en": "Probable — only if true",
+    },
+    "report.keywords.priority.must_have": {"es": "Imprescindible", "en": "Must-have"},
+    "report.keywords.priority.nice_to_have": {"es": "Deseable", "en": "Nice-to-have"},
+    "report.keywords.priority.other": {"es": "Palabra clave", "en": "Keyword"},
+    "report.keywords.where.skills": {"es": "Habilidades", "en": "Skills"},
+    "report.keywords.where.skills_file": {
+        "es": "Tu sección Habilidades",
+        "en": "Your Skills section",
+    },
+    "report.keywords.where.bullet": {"es": "Un bullet tuyo", "en": "One of your bullets"},
+    "report.keywords.hint.pool": {
+        "es": "ya figura en tu material; añádela a tu lista de habilidades.",
+        "en": "it is already in your material; add it to your skills list.",
+    },
+    "report.keywords.hint.pool_file": {
+        "es": "ya figura en tu material; añádela a tu sección Habilidades.",
+        "en": "it is already in your material; add it to your Skills section.",
+    },
+    "report.keywords.hint.bullet_use": {
+        "es": "tu bullet «{text}» lo describe sin nombrarlo: usa la palabra de la oferta en él.",
+        "en": "your bullet “{text}” describes it without naming it: use the posting's word "
+        "in it.",
+    },
+    "report.keywords.hint.bullet_add": {
+        "es": "tu bullet «{text}» ya lo dice; inclúyelo en esta línea.",
+        "en": "your bullet “{text}” already says it; include it in this track.",
+    },
+    "report.keywords.hint.bullet_add_file": {
+        "es": "tu bullet «{text}» ya lo dice; añádelo a tu documento.",
+        "en": "your bullet “{text}” already says it; add it to your document.",
+    },
+    "report.keywords.hint.equivalent": {
+        "es": "tienes {sibling}; añádela solo si de verdad la has usado.",
+        "en": "you have {sibling}; add it only if you have really used it.",
+    },
+    "report.keywords.copy": {"es": "Copiar «{keyword}»", "en": "Copy “{keyword}”"},
+    # F7.5 probable keywords: the button, and the pop-up behind it.
+    "report.keywords.infer": {
+        "es": "Sugerir más palabras clave probables",
+        "en": "Suggest more probable keywords",
+    },
+    "report.keywords.infer_no_model": {
+        "es": "Para sugerir más palabras clave hace falta un modelo configurado.",
+        "en": "Suggesting more keywords needs a model to be configured.",
+    },
+    "report.keywords.infer_none": {
+        "es": "No queda ninguna palabra clave sin respaldo que sugerir.",
+        "en": "No keyword without backing is left to suggest.",
+    },
+    "keywords.infer.title": {
+        "es": "Sugerir más palabras clave probables",
+        "en": "Suggest more probable keywords",
+    },
+    "keywords.infer.sends": {
+        "es": "Se enviarán al modelo, sin tu nombre ni tus datos de contacto: las palabras "
+        "clave sin respaldo ({n}), tus habilidades, tus bullets y tus puestos. Solo propone lo "
+        "muy probable y no escribe nada en tu material.",
+        "en": "Sent to the model, without your name or contact details: the keywords with no "
+        "backing ({n}), your skills, your bullets and your roles. It only proposes what is highly "
+        "probable and writes nothing to your material.",
+    },
+    "keywords.infer.sends_file": {
+        "es": "Se enviarán al modelo, sin tu nombre ni tus datos de contacto: las palabras "
+        "clave de tu documento sin respaldo ({n}), tus habilidades, tus bullets y tus puestos. "
+        "Solo propone lo muy probable y no escribe nada en tu material.",
+        "en": "Sent to the model, without your name or contact details: the keywords of "
+        "your document with no backing ({n}), your skills, your bullets and your roles. It only "
+        "proposes what is highly probable and writes nothing to your material.",
+    },
+    "keywords.infer.cost": {
+        "es": "Es una llamada de pago, una sola por pulsación; si tu material no cambió, "
+        "repetirla no cuesta nada. Abrir esta ventana tampoco.",
+        "en": "It is one paid call per press; if your material has not changed, repeating it "
+        "costs nothing. Opening this window costs nothing either.",
+    },
+    "keywords.infer.run": {"es": "Generar", "en": "Generate"},
+    "keywords.infer.none_left": {
+        "es": "No queda ninguna palabra clave sin respaldo que sugerir.",
+        "en": "No keyword without backing is left to suggest.",
+    },
+    "keywords.infer.empty": {
+        "es": "El modelo no encontró ninguna palabra clave lo bastante probable.",
+        "en": "The model found no keyword probable enough.",
+    },
+    "keywords.infer.rests_on": {"es": "Se apoya en:", "en": "Rests on:"},
+    "keywords.infer.support.skill": {"es": "habilidad", "en": "skill"},
+    "keywords.infer.support.bullet": {"es": "bullet", "en": "bullet"},
+    "keywords.infer.where": {"es": "Dónde ponerla:", "en": "Where to put it:"},
+    "keywords.infer.where.existing": {
+        "es": "en tu bullet «{text}»",
+        "en": "in your bullet “{text}”",
+    },
+    "keywords.infer.where.new": {
+        "es": "un bullet nuevo en «{role}»",
+        "en": "a new bullet under “{role}”",
+    },
+    "keywords.infer.draft": {"es": "Borrador", "en": "Draft"},
+    "keywords.infer.copy_draft": {"es": "Copiar el borrador", "en": "Copy the draft"},
+    "keywords.infer.dropped_one": {
+        "es": "{n} sugerencia descartada por no poder comprobarse.",
+        "en": "{n} suggestion dropped because it could not be checked.",
+    },
+    "keywords.infer.dropped": {
+        "es": "{n} sugerencias descartadas por no poder comprobarse.",
+        "en": "{n} suggestions dropped because they could not be checked.",
+    },
+    "keywords.infer.writes_nothing": {
+        "es": "Nada de esto se guarda: edita tu propio archivo, y solo si es verdad.",
+        "en": "None of this is saved: edit your own file, and only if it is true.",
+    },
+    "report.keywords.unsupported_one": {
+        "es": "{n} palabra clave no tiene respaldo en tu material: está en tus brechas.",
+        "en": "{n} keyword has no backing in your material: it is in your gaps.",
+    },
+    "report.keywords.unsupported": {
+        "es": "{n} palabras clave no tienen respaldo en tu material: están en tus brechas.",
+        "en": "{n} keywords have no backing in your material: they are in your gaps.",
+    },
     # §12.1 item 10 (queue U6): the desktop action rail and the phone's bottom bar.
     "report.actions.label": {"es": "Acciones", "en": "Actions"},
     "report.actions.try_cv": {

@@ -460,6 +460,33 @@ body.rail-open .rail-body {
   }
 }
 
+/* §12.5: the proposal dialog. The same sheet as the attempt modal, written beside it rather
+   than shared with it, so the F10 modal's rules stay exactly as they were. */
+.dialog-sheet {
+  margin: auto;
+  width: min(42rem, 92vw);
+  max-height: 88vh;
+  overflow-y: auto;
+  border: 1px solid var(--color-card-border);
+  border-radius: var(--radius-card);
+  background: var(--color-surface-1);
+  color: var(--color-text);
+}
+.dialog-sheet::backdrop {
+  background: rgb(0 0 0 / 0.6);
+}
+@media (max-width: 640px) {
+  .dialog-sheet {
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    max-height: none;
+    inset: 0;
+    margin: 0;
+    border-radius: 0;
+  }
+}
+
 /* §12.1's disclosures: a native <details> whose <summary> is a 44px target with a
    chevron that turns when it is open. No script, nothing remembered — the page opens in
    its defaults and a blocker opens its own section. */

@@ -141,5 +141,5 @@ def test_the_new_icons_stay_decoration_and_the_links_keep_their_labels(client, c
 
     for link in (tracks, stories):
         assert 'aria-hidden="true"' in link
-    assert 'aria-label="Puestos objetivo"' in tracks
+    assert 'aria-label="Líneas de carrera"' in tracks
     assert 'aria-label="Historias"' in stories

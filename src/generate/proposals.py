@@ -13,6 +13,7 @@ already enforces.
 
 import uuid
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -22,8 +23,8 @@ from src.generate.validators import Sources, Violation, validate
 from src.models import Application, Bullet, BulletRevision, Profile, Story, Summary, Track
 from src.roles import get_role, list_roles
 from src.stories import get_story
-from src.summaries import create_summary
-from src.tracks import set_track_skills, set_track_summary, track_bullets
+from src.summaries import create_summary, get_summary, list_summaries
+from src.tracks import set_track_summary, track_bullets
 from src.vocabulary import alias_map
 
 
@@ -61,21 +62,87 @@ def grades_of(application: Application) -> list[dict[str, Any]]:
     ]
 
 
-def summary_sources(
+BASE_TRACK = "track"
+BASE_CV = "cv"
+BASE_OTHER_LANGUAGE = "other_language"
+
+
+@dataclass(frozen=True)
+class BaseSummary:
+    """The summary the user already has, which a proposal follows and improves (F7.3 rule 3)."""
+
+    text: str
+    summary_id: str
+    origin: str
+
+
+def base_summary(
     profile_id: uuid.UUID, session: Session, track: Track, language: str
+) -> BaseSummary | None:
+    """The base for a proposed summary: one choice, shared by the prompt and the validators.
+
+    In order: the track's summary in `language`; the most recent active pool summary in
+    `language` that came from an uploaded CV; the track's summary in the other language
+    (the prompt asks for a translation); else none.
+    """
+
+    def slot(lang: str) -> Summary | None:
+        slot_id = track.summary_en_id if lang == "en" else track.summary_es_id
+        entry = get_summary(profile_id, session, slot_id) if slot_id else None
+        return entry if entry is not None and entry.text.strip() else None
+
+    own = slot(language)
+    if own is not None:
+        return BaseSummary(own.text, str(own.id), BASE_TRACK)
+    uploaded = [
+        entry
+        for entry in list_summaries(profile_id, session, lang=language)
+        if entry.source_resume_id is not None and entry.text.strip()
+    ]
+    if uploaded:
+        # `list_summaries` is oldest first, so the most recent is the last.
+        return BaseSummary(uploaded[-1].text, str(uploaded[-1].id), BASE_CV)
+    other = slot("es" if language == "en" else "en")
+    if other is not None:
+        return BaseSummary(other.text, str(other.id), BASE_OTHER_LANGUAGE)
+    return None
+
+
+def posting_title(application: Application) -> str:
+    """The title the summary is written for: the user's copy of it, else the extracted one.
+
+    Never one of the user's own role titles (F7.3 rule 1).
+    """
+    typed = (application.title or "").strip()
+    if typed:
+        return typed
+    report = application.report or {}
+    return str((report.get("jd") or {}).get("title") or "").strip()
+
+
+def summary_sources(
+    profile_id: uuid.UUID,
+    session: Session,
+    track: Track,
+    language: str,
+    application: Application,
 ) -> Sources:
-    """The track's bullets, in the posting's language, and the profile's skills.
+    """The track's bullets, the base summary, and the profile's skills.
 
     The summary may name a title the user holds (F7.3), so the track's headlines in both
     languages and every stored role title travel as `titles`: they support proper nouns.
+    The posting's title joins them, because the summary opens with it. The base summary is
+    a source too: it supports the numbers and names the user already wrote.
     """
     bullets = track_bullets(profile_id, session, track.id)
     texts = {str(bullet.id): bullet_text(bullet, language) for bullet in bullets}
-    titles = [track.headline_es, track.headline_en]
+    titles = [track.headline_es, track.headline_en, posting_title(application)]
     for role in list_roles(profile_id, session):
         titles.extend((role.title, role.title_es, role.title_en))
+    base = base_summary(profile_id, session, track, language)
     return Sources(
         bullets=texts,
+        summaries={base.summary_id: base.text} if base is not None else {},
         skills=pool_skills(profile_id, session),
         aliases=alias_map(session),
         titles=tuple(title for title in titles if title),
@@ -118,7 +185,7 @@ def check_summary(
     language = report_language(application)
     return validate(
         output,
-        sources=summary_sources(profile_id, session, track, language),
+        sources=summary_sources(profile_id, session, track, language, application),
         profile_id=profile_id,
         session=session,
         kind="summary",
@@ -134,23 +201,20 @@ def accept_summary(
     *,
     text: str,
     cites: Sequence[str],
-    skills: Sequence[str],
     use_in_track: bool,
 ) -> tuple[Summary | None, list[Violation]]:
-    """Accept a summary: validate again, then write the pool row and the track's slots.
+    """Accept a summary: validate again, then write the pool row and, if asked, the slot.
 
     The form's text is never trusted. The summary joins the pool in the posting's
-    language; the skills replace the track's list (only pool canonicals can appear,
-    by closure); and with "usar en este puesto" the new pool row becomes the track's
-    summary for that language.
+    language; with "usar en esta línea" the new pool row becomes the track's summary for
+    that language. It never touches the track's skills (F7.5: skills are keywords now).
     """
-    output = {"summary": {"text": text, "cites": list(cites)}, "skills": list(skills)}
+    output = {"summary": {"text": text, "cites": list(cites)}}
     violations = check_summary(profile_id, session, application, track, output)
     if violations:
         return None, violations
     language = report_language(application)
     summary = create_summary(profile_id, session, text=text, lang=language)
-    set_track_skills(profile_id, session, track.id, list(skills))
     if use_in_track:
         set_track_summary(profile_id, session, track.id, lang=language, summary_id=summary.id)
     session.flush()
@@ -270,15 +334,21 @@ def accept_story_bullet(
 
 
 __all__ = [
+    "BASE_CV",
+    "BASE_OTHER_LANGUAGE",
+    "BASE_TRACK",
+    "BaseSummary",
     "accept_bullet",
     "accept_story_bullet",
     "accept_summary",
+    "base_summary",
     "bullet_sources",
     "check_bullet",
     "check_story_bullet",
     "check_summary",
     "grades_of",
     "pool_skills",
+    "posting_title",
     "report_language",
     "story_sources",
     "summary_sources",

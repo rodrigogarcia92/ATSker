@@ -16,7 +16,7 @@ from src.bullets import get_bullet, list_bullets
 from src.extract import client as extract_client
 from src.models import Bullet, BulletRevision, Summary, TrackBullet
 from src.stories import get_story
-from src.tracks import get_track
+from src.tracks import get_track, set_track_skills
 from tests.conftest import login
 
 
@@ -26,11 +26,7 @@ class Provider:
     def __init__(self, answers: dict | None = None):
         self.calls: list[dict] = []
         self.answers = {
-            "SummarySkills": {
-                "summary": "Automaticé el reporte con Python.",
-                "cites": [],
-                "skills": ["python"],
-            },
+            "SummaryOnly": {"summary": "Automaticé el reporte con Python.", "cites": []},
             "BulletRephrase": {"text": "Automaticé el reporte con Python.", "cites": []},
             "StoryBullets": {"bullets": []},
         }
@@ -49,10 +45,9 @@ class Provider:
 def provider(monkeypatch, test_settings, career) -> Provider:
     stub = Provider(
         {
-            "SummarySkills": {
-                "summary": "Automaticé el reporte con Python.",
+            "SummaryOnly": {
+                "summary": "Analista de datos que automatizó el reporte con Python.",
                 "cites": [str(career.first_bullet.id)],
-                "skills": ["python"],
             }
         }
     )
@@ -82,6 +77,7 @@ def stored_application(session, career, *, language: str = "es", grades: list | 
                 "requirement": "python",
                 "must_have": True,
                 "level": 3,
+                "basis": "direct",
                 "bullet_id": bullet_id,
                 "bullet_text": career.first_bullet.text_es,
             }
@@ -114,14 +110,13 @@ def stored_application(session, career, *, language: str = "es", grades: list | 
 
 
 def proposal_payload(
-    career, *, text: str, skills: list[str], cites: list[str] | None = None
+    career, *, text: str, skills: list[str] | None = None, cites: list[str] | None = None
 ) -> str:
-    return json.dumps(
-        {
-            "summary": {"text": text, "cites": cites or [str(career.first_bullet.id)]},
-            "skills": skills,
-        }
-    )
+    """A proposal as the form carries it. `skills` is what an older page still posts."""
+    payload: dict = {"summary": {"text": text, "cites": cites or [str(career.first_bullet.id)]}}
+    if skills is not None:
+        payload["skills"] = skills
+    return json.dumps(payload)
 
 
 def test_the_proposal_is_shown_as_a_diff(client, session, career, provider):
@@ -135,14 +130,16 @@ def test_the_proposal_is_shown_as_a_diff(client, session, career, provider):
 
     page = client.post(f"{url}/generate").text
     assert "Ahora" in page and "Propuesta" in page, "both sides of the diff"
-    assert "Automaticé el reporte con Python." in page
+    assert "Analista de datos que automatizó el reporte con Python." in page
     assert f'action="{url}/accept"' in page
 
 
-def test_accepting_writes_the_pool_row_the_track_skills_and_the_track_slot(
+def test_accepting_writes_the_pool_row_and_the_track_slot_and_never_the_skills(
     client, session, career, provider
 ):
     application = stored_application(session, career)
+    set_track_skills(career.first_profile.id, session, career.first_track.id, [])
+    session.commit()
     login(client, career.first.email)
 
     accepted = client.post(
@@ -162,7 +159,7 @@ def test_accepting_writes_the_pool_row_the_track_skills_and_the_track_slot(
     summary = session.query(Summary).filter_by(text="Automaticé el reporte con Python.").one()
     assert summary.lang == "es"
     track = get_track(career.first_profile.id, session, career.first_track.id)
-    assert track.skills == ["python"]
+    assert track.skills == [], "an old page's skills field is ignored: the list is not replaced"
     assert track.summary_es_id == summary.id
 
 
@@ -233,10 +230,9 @@ def test_a_generated_proposal_that_fails_a_validator_cannot_be_accepted(
     client, session, career, provider
 ):
     """The proposal is shown, marked, and there is no accept control (F7.3)."""
-    provider.answers["SummarySkills"] = {
+    provider.answers["SummaryOnly"] = {
         "summary": "Automaticé el reporte con Kubernetes.",
         "cites": [str(career.first_bullet.id)],
-        "skills": ["python", "kubernetes"],
     }
     application = stored_application(session, career)
     login(client, career.first.email)
@@ -519,11 +515,12 @@ def test_the_generate_posts_refuse_another_profiles_ids(client, session, career,
 def test_the_proposal_page_groups_violations_and_names_both_closure_failures(
     client, session, career, provider
 ):
-    """`python` is in the pool but ungraded (unevidenced); `kubernetes` is not (missing)."""
-    provider.answers["SummarySkills"] = {
-        "summary": "Automaticé el reporte con Python.",
+    """`python` is in the pool but ungraded (unevidenced); `machine learning` is not (missing).
+
+    The skills are named in the summary's own text: there is no skills block any more."""
+    provider.answers["SummaryOnly"] = {
+        "summary": "Automaticé el reporte con Python y machine learning.",
         "cites": [str(career.first_bullet.id)],
-        "skills": ["python", "kubernetes"],
     }
     application = stored_application(session, career, grades=[])
     login(client, career.first.email)
@@ -532,7 +529,7 @@ def test_the_proposal_page_groups_violations_and_names_both_closure_failures(
 
     assert "Habilidades que no están en tus datos (1)" in page
     assert "no se muestran con nivel 2 o mejor" in page
-    assert "«kubernetes»" in page and "«python»" in page
+    assert "«machine learning»" in page and "«python»" in page
 
 
 def test_the_summary_prompt_is_versioned_and_states_the_pool_rule():
@@ -545,10 +542,14 @@ def test_the_summary_prompt_is_versioned_and_states_the_pool_rule():
     assert SUMMARY_SKILLS_V2.template == SUMMARY_SKILLS_V1.template
 
 
-def test_generating_uses_the_v2_prompt(client, session, career, provider):
+def test_generating_uses_the_v4_prompt_and_asks_for_no_skills_list(
+    client, session, career, provider
+):
     application = stored_application(session, career)
     login(client, career.first.email)
 
     client.post(f"/applications/{application.id}/summary/generate")
 
-    assert "at most 15" in json.dumps(provider.calls[-1])
+    sent = json.dumps(provider.calls[-1])
+    assert "at most 15" not in sent, "V2's skills-list rule is gone"
+    assert "Never return a list of skills" in sent

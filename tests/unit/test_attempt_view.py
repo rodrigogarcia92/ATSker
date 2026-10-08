@@ -74,10 +74,10 @@ def test_each_delta_says_what_it_compares(client, session, career):
 
     later = _status(client, application, second)
     assert "-4 vs. intento 1" in later
-    assert "-10 vs. análisis del puesto" in later
+    assert "-10 vs. análisis de la línea" in later
 
     earlier = _status(client, application, first)
-    assert "vs. análisis del puesto" in earlier
+    assert "vs. análisis de la línea" in earlier
     assert "vs. intento" not in earlier, "the first attempt has no previous one"
 
 

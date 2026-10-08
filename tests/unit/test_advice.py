@@ -12,7 +12,7 @@ from src.advice import MAX_ITEMS, edit_advice
 from src.bullets import create_bullet
 from src.extract import client as extract_client
 from src.models import Skill
-from src.tracks import set_track_bullets, update_track
+from src.tracks import set_track_bullets
 from src.web.alerts import advice_line
 from tests.conftest import login
 from tests.unit.test_analysis import w3_report
@@ -206,7 +206,8 @@ def test_rule_two_does_not_fire_for_a_requirement_already_met(session, career):
     assert kinds(items) == []
 
 
-def test_rule_three_surfaces_a_pool_skill_evidenced_on_a_bullet(session, career):
+def test_rule_three_is_retired_and_a_new_analysis_emits_no_surface_skill(session, career):
+    """F7.5: the Keywords card says which skill to surface; this rule no longer does."""
     profile_id = career.first_profile.id
     career.first_profile.skills = ["python"]
     session.flush()
@@ -214,23 +215,7 @@ def test_rule_three_surfaces_a_pool_skill_evidenced_on_a_bullet(session, career)
 
     items = edit_advice(profile_id, session, report=only_in_the_track, track=career.first_track)
 
-    assert kinds(items) == ["surface_skill"]
-    assert items[0].canonical == "python"
-    assert items[0].evidence == "python"
-
-    # Already in the track's skills list: not advice.
-    update_track(
-        profile_id,
-        session,
-        career.first_track.id,
-        name=career.first_track.name,
-        skills=["python"],
-    )
-    session.flush()
-
-    assert (
-        edit_advice(profile_id, session, report=only_in_the_track, track=career.first_track) == []
-    )
+    assert items == [], "pool, evidenced, asked for, absent from the track's list: no item now"
 
 
 def test_rule_four_names_a_failing_query_the_user_can_evidence(session, career):
@@ -455,10 +440,10 @@ def test_the_rules_run_in_order_and_stop_at_eight(session, career):
         "add_bullet",  # excel
         "add_bullet",  # power bi
         "add_bullet",  # sql
-        "surface_skill",  # python
         "fix_query",  # machine learning
         "title_language",
-    ], "in F7.2's order, with the language item past the cap"
+        "language",
+    ], "in F7.2's order; with rule 3 retired the language item now fits under the cap"
 
 
 def test_the_rules_make_no_provider_call(session, career, monkeypatch, test_settings):
@@ -540,4 +525,10 @@ def test_a_stored_report_without_advice_renders_as_before(client, session, caree
     page = client.get(f"/applications/{stored.id}")
 
     assert page.status_code == 200
-    assert "Recomendaciones" not in page.text
+    # K4: a track-less analysis keeps the section for its disabled "Proponer resumen", and
+    # shows no advice item, no ranking and no error.
+    recommendations = page.text[page.text.index('id="recommendations"') :]
+    recommendations = recommendations[: recommendations.index("</section>")]
+    assert "Recomendaciones" in recommendations
+    assert "disabled" in recommendations and "advice-evidence" not in recommendations
+    assert 'id="track-ranking"' not in recommendations

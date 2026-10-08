@@ -431,6 +431,9 @@ SUMMARY_SKILLS_V1 = Prompt(
 
 # V2 states the skills-list rule outright, so the pool is not a suggestion. The version
 # string is new on purpose: it busts the cache, and V1 stays for reports that cite it.
+# Since N8.11 (K4) neither is called: the summary is proposed alone (`SUMMARY_V3`), because
+# a skills list is the Keywords card's business now (F7.5). Both stay defined so a stored
+# report that cites `summary_skills_v1`/`_v2` still names a prompt that exists.
 SUMMARY_SKILLS_V2 = Prompt(
     version="summary_skills_v2",
     system=(
@@ -443,6 +446,94 @@ SUMMARY_SKILLS_V2 = Prompt(
         )
     ),
     template=SUMMARY_SKILLS_V1.template,
+)
+
+
+# V3 (N8.11, K4): the summary alone. The rules of V2 minus every request for a skills list;
+# the track's skills and the pool still travel in the user message, but only as context for
+# skill closure — what the summary may name — never as something to output.
+SUMMARY_V3 = Prompt(
+    version="summary_v3",
+    system=(
+        "You write a short professional summary for one person's CV, tailored to one job "
+        "posting, in the posting's language.\n\n"
+        "You may use only the material you are given. The bullets are the person's own "
+        "words about their own work. The summary restates what they already say, leading "
+        "with the skill the posting centres on, and never adds a number, a percentage, a "
+        "year, a date, an employer, a tool or a result that is not written in the bullets "
+        "you cite.\n\n"
+        "Every summary cites the bullet ids it draws on. A summary that cites nothing is "
+        "not a summary; return no summary rather than an uncited one.\n\n"
+        "The skills and the pool below are context, not output. Name a skill in the summary "
+        "only if it is in the person's pool and the bullets you cite show it; a skill the "
+        "posting asks for and the person lacks is a gap, so leave it out rather than "
+        "naming it. Never return a list of skills.\n\n"
+        "Return the summary text and the bullet ids it cites."
+    ),
+    template=(
+        "The posting, as extracted (language {lang}):\n{jd}\n\n"
+        "The track's bullets, by id — the only material the summary may restate:\n"
+        "{bullets}\n\n"
+        "The grades those bullets received for this posting (requirement, level 0-3, "
+        "weight):\n{grades}\n\n"
+        "Context only — the skills already chosen for this track:\n{track_skills}\n\n"
+        "Context only — the person's full skill pool, every canonical a summary may name "
+        "if the cited bullets show it:\n{pool}\n\n"
+        "Write the summary in {lang}."
+    ),
+)
+
+
+# V4 (N8.12, M3; PRD F7.3's three rules): the summary opens with the posting's title exactly
+# as given, names three or four key skills that code chose, and follows and improves the
+# summary the person already has. V3 stays defined and unused: a stored report may cite it.
+# The rules are the stable prefix; the title, shortlist, base and bullets are the message.
+SUMMARY_V4 = Prompt(
+    version="summary_v4",
+    system=(
+        "You write a short professional summary for one person's CV, tailored to one job "
+        "posting, in the posting's language.\n\n"
+        "You may use only the material you are given. The bullets are the person's own "
+        "words about their own work. Never add a number, a percentage, a year, a date, an "
+        "employer, a tool or a result that is not written in the base summary or in the "
+        "bullets you cite.\n\n"
+        "Three rules, in order:\n"
+        "1. Open the first sentence with the posting's title exactly as given in the "
+        "message — the same words, the same accents — once, as the role the summary is "
+        "written for. Do not paraphrase it.\n"
+        "2. Name three or four skills from the shortlist in the message, in the posting's "
+        "own wording, and no other skill. If the shortlist has fewer than three, name all "
+        "of them. Never name a skill that is not on the shortlist.\n"
+        "3. When a base summary is given, follow it and improve it: keep its voice, its "
+        "order and its facts; remove filler and vagueness; tighten it; lead with the title "
+        "and the key skills. Add nothing that is not in the base or in the bullets you "
+        "cite. If the base is in another language, translate it into the posting's "
+        "language as part of improving it. When there is no base, write the summary from "
+        "the bullets alone.\n\n"
+        "Write three or four sentences and at most 80 words, in a plain register. Never use "
+        "any of the banned phrases listed in the message, in any inflection.\n\n"
+        "Every summary cites the ids it draws on: the bullet ids, and `summary:<id>` for the "
+        "base summary when one is given. A summary that cites nothing is not a summary; "
+        "return no summary rather than an uncited one.\n\n"
+        "The skills and the pool in the message are context, not output. Never return a list "
+        "of skills.\n\n"
+        "Return the summary text and the ids it cites."
+    ),
+    template=(
+        "The posting's title, to be used exactly as written:\n{title}\n\n"
+        "The shortlist of key skills, in the posting's wording (name three or four):\n"
+        "{shortlist}\n\n"
+        "The base summary:\n{base}\n\n"
+        "The posting, as extracted (language {lang}):\n{jd}\n\n"
+        "The track's bullets, by id — the only other material the summary may restate:\n"
+        "{bullets}\n\n"
+        "The grades those bullets received for this posting (requirement, level 0-3, "
+        "weight):\n{grades}\n\n"
+        "Context only — the skills already chosen for this track:\n{track_skills}\n\n"
+        "Context only — the person's full skill pool:\n{pool}\n\n"
+        "Banned phrases in {lang}:\n{banned}\n\n"
+        "Write the summary in {lang}.{retry}"
+    ),
 )
 
 
@@ -597,5 +688,49 @@ LETTER_BRIDGE_V2 = Prompt(
         "Banned phrases in {lang}:\n{banned}\n\n"
         "Previous versions — write something different:\n{previous}\n\n"
         "Write in {lang}."
+    ),
+)
+
+
+# F7.5's probable keywords (N8.11, K6): one on-demand call. The rules are the stable system
+# prefix; the posting's language, the candidates, the pool, the bullets, the roles and the
+# banned phrases (the same data file as F8's letters) are the variable user message. The
+# code checks every answer afterwards — `generate.validators.validate_keyword_items`.
+KEYWORD_INFER_V1 = Prompt(
+    version="keyword_infer_v1",
+    system=(
+        "You help a job seeker see which keywords of one job posting they could honestly "
+        "add to their own CV. You are given the posting's keywords that nothing in their "
+        "material states yet (the candidates), the skills in their pool, their bullets by "
+        "id and their roles by id.\n\n"
+        "Propose a candidate only when it is highly probable that the person has it, given "
+        "what they hold — the way one method is built on another: someone who lists "
+        "econometrics very probably knows statistical inference. Omit anything less likely; "
+        "a short list, or an empty one, is the right answer when nothing is that probable. "
+        'Mark every item you return with confidence "high" and never return a lower one.\n\n'
+        "Choose only from the candidates, copying the keyword exactly as written. Never "
+        "propose a named software product, tool or platform: the person can be asked about "
+        "it in one question, so it cannot be inferred.\n\n"
+        "Give the reason in one line: what the person holds that makes it probable. List "
+        "what it rests on in supports — `skill:<canonical>` for a skill in their pool, "
+        "`bullet:<id>` for a bullet — citing only ids and skills you were given, and at "
+        "least one.\n\n"
+        "Say where it would go: `skills` (their skills list), `existing_bullet` (the word "
+        "added to one of their bullets, whose id goes in bullet_id) or `new_bullet` (a new "
+        "bullet under one of their roles, whose id goes in role_id). A draft may add the "
+        "keyword and nothing else that is new: no number, percentage, date, employer, "
+        "client or tool that is not in the material you cite. Use null for bullet_id, "
+        "role_id or draft where they do not apply.\n\n"
+        "Write the reason and any draft in the posting's language, in a plain register: no "
+        "marketing phrases, and none of the banned phrases listed in the message."
+    ),
+    template=(
+        "The posting's language: {lang}\n\n"
+        "Candidates — the only keywords you may propose, verbatim:\n{candidates}\n\n"
+        "The person's skill pool (canonicals):\n{pool}\n\n"
+        "The person's bullets (id, text):\n{bullets}\n\n"
+        "The person's roles (id, title):\n{roles}\n\n"
+        "Banned phrases in {lang}:\n{banned}\n\n"
+        "Return the items you judge highly probable, or an empty list."
     ),
 )

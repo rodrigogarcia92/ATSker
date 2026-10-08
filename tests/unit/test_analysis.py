@@ -965,7 +965,7 @@ def test_the_analysis_form_records_the_track_and_the_report_names_it(
     application = session.query(Application).one()
     assert application.track_id == career.first_track.id
     assert application.report["track"]["name"] == "Analista de datos"
-    assert "Puesto objetivo: Analista de datos" in text_of(
+    assert "Línea de carrera: Analista de datos" in text_of(
         client.get(posted.headers["location"]).text
     )
 
@@ -981,7 +981,7 @@ def test_an_analysis_without_a_track_saves_no_track_and_says_so(client, session,
     application = session.query(Application).one()
     assert application.track_id is None
     page = text_of(client.get(posted.headers["location"]).text)
-    assert "Sin puesto objetivo: se puntuaron todos los bullets activos." in page
+    assert "Sin línea: se puntuaron todos los bullets activos." in page
 
 
 def test_a_track_from_another_profile_is_refused_by_the_form(client, session, career, provider):
@@ -1181,11 +1181,10 @@ def test_the_report_page_shows_the_edit_recommendations(client, session, career,
     page = text_of(client.get(posted.headers["location"]).text)
 
     assert "Recomendaciones" in page
-    # The rule that fires here: python is asked for, evidenced on a bullet, in the
-    # pool, and missing from the track's own skills list (F7.2's rule 3).
-    # U5: every skill to add is a tag in one card with one sentence.
-    assert "Añade a las habilidades del puesto: la oferta las pide" in page
-    assert "Habilidades · 1" in page and " python " in page
+    # F7.5 retired rule 3: python is asked for, evidenced and in the pool, but a new
+    # analysis no longer stores a `surface_skill` item or renders the old skills card.
+    assert "Añade a las habilidades de la línea: la oferta las pide" not in page
+    assert "Habilidades · 1" not in page
 
 
 def w3_report() -> dict:

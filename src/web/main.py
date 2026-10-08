@@ -24,6 +24,7 @@ from src.web.routes import bullets as bullet_routes
 from src.web.routes import cover_letter as cover_letter_routes
 from src.web.routes import generate as generate_routes
 from src.web.routes import ingest as ingest_routes
+from src.web.routes import keywords as keyword_routes
 from src.web.routes import letters as letter_routes
 from src.web.routes import pages as page_routes
 from src.web.routes import roles as role_routes
@@ -57,6 +58,7 @@ def create_app() -> FastAPI:
     app.include_router(analyze_routes.router)
     app.include_router(application_routes.router)
     app.include_router(attempt_routes.router)
+    app.include_router(keyword_routes.router)
     app.include_router(role_routes.router)
     app.include_router(track_routes.router)
     app.include_router(track_letter_routes.router)

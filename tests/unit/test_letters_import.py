@@ -98,7 +98,7 @@ def test_the_letters_page_shows_the_blocks_and_the_template_groups(client, sessi
     assert 'name="voice_notes"' in page and 'value="Hola,"' in page
     assert "Analista de datos" in page, "the linked track has its row"
     assert "Texto de la carta suelta." in page, "the unlinked template is listed"
-    assert page.index("Carta por puesto") < page.index("Texto de la carta suelta.")
+    assert page.index("Carta por línea") < page.index("Texto de la carta suelta.")
 
 
 def test_saving_the_blocks_persists_them(client, session, career):

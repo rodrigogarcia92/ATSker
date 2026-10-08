@@ -79,7 +79,7 @@ def test_the_delta_reads_flat_within_the_stability_band(client, session, career,
 
     text = plain(client.get(f"/applications/{application.id}/attempts/{attempt.id}").text)
 
-    assert "vs. análisis del puesto" in text
+    assert "vs. análisis de la línea" in text
     assert "sin cambio significativo" in text
 
 
@@ -96,7 +96,9 @@ def test_the_attempt_report_is_read_only(client, session, career, provider):
     assert "Proponer resumen" not in text
     assert "Carta de presentación" not in text
     assert 'id="attempt-open"' not in raw
-    assert "<dialog" not in raw
+    # K6: the read-only report may carry the shared proposal dialog for its keywords button;
+    # it never carries the F10 attempt modal.
+    assert 'id="attempt-modal"' not in raw
 
 
 # --- C.5: what a real browser showed ------------------------------------------------
@@ -190,7 +192,7 @@ def test_the_result_does_not_repeat_the_header_numbers(client, session, career, 
     text = plain(client.get(f"/applications/{application.id}/attempts/{attempt.id}").text)
 
     assert text.count("Techo con tu material") == 0
-    assert "vs. análisis del puesto" in text, "the delta line stays"
+    assert "vs. análisis de la línea" in text, "the delta line stays"
 
 
 def test_nothing_left_has_its_own_wording(client, session, career, provider):

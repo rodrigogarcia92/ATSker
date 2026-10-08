@@ -701,16 +701,33 @@ def test_the_candidate_list_matches_the_decided_set():
         "google/gemini-3.8-flash",
         "z-ai/glm-5.3",
         "openai/gpt-6.1-sol",
+        "anthropic/claude-haiku-5.5",
     ]
-    assert [candidate.reasoning_effort for candidate in CANDIDATES] == ["low"] * 4, (
+    assert [candidate.reasoning_effort for candidate in CANDIDATES] == ["low"] * 4 + ["high"], (
         "every candidate is pinned to the lowest effort its provider advertises: the run "
-        "compares models, not effort levels"
+        "compares models, not effort levels; Haiku 5.5 is the operator's trial at high"
     )
     assert [candidate.model for candidate in CANDIDATES if candidate.baseline] == [
         "google/gemini-3.8-flash"
     ], "exactly one baseline: the production model"
     assert GLM_REFERENCE.reference and GLM_REFERENCE.reasoning_effort == "max"
     assert all(candidate.model in PRICES for candidate in CANDIDATES)
+
+
+def test_haiku_5_5_is_a_candidate_but_not_the_baseline_and_runs_at_high():
+    from scripts.model_selection import candidate_selection
+
+    haiku = next(item for item in CANDIDATES if item.model == "anthropic/claude-haiku-5.5")
+
+    assert haiku.label == "haiku-5.5" and not haiku.baseline and not haiku.reference
+    assert haiku.reasoning_effort == "high"
+    assert PRICES[haiku.model].input_list == PRICES[haiku.model].current_input == 0.10
+    assert PRICES[haiku.model].output_list == PRICES[haiku.model].current_output == 0.50
+    assert [item.label for item in candidate_selection("haiku-5.5")] == ["haiku-5.5"]
+    assert [item.model for item in candidate_selection("gemini-3.8-flash,haiku-5.5")] == [
+        "google/gemini-3.8-flash",
+        "anthropic/claude-haiku-5.5",
+    ]
 
 
 def test_building_the_same_pair_twice_produces_the_same_ids(pairs):
@@ -876,9 +893,10 @@ def test_the_cli_runs_offline_against_the_synthetic_pairs(
         "deepseek-v4.1-flash",
         "glm-5.3",
         "gpt-6.1-sol",
+        "haiku-5.5",
     ], "the baseline runs first"
-    assert [entry["reasoning_effort"] for entry in payload["models"]] == ["low"] * 4
-    assert [entry["baseline"] for entry in payload["models"]] == [True, False, False, False]
+    assert [entry["reasoning_effort"] for entry in payload["models"]] == ["low"] * 4 + ["high"]
+    assert [entry["baseline"] for entry in payload["models"]] == [True, False, False, False, False]
     assert payload["models"][0]["metrics"]["stability"] is not None
     assert payload["models"][0]["drift"] is not None
     assert payload["models"][0]["drift"]["repeats"] == 2

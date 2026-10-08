@@ -93,3 +93,38 @@
   {{ t('progress.' ~ key, lang) }} <span data-progress-timer class="tabular-nums" aria-hidden="true"></span>
 </p>
 {%- endmacro %}
+
+{# §12.5: the shared proposal dialog. One native `<dialog>` per page — focus trapping and
+   Escape are the platform's, the shared script in base.html does the rest: it loads a
+   partial into `[data-dialog-body]`, posts a form that carries `data-dialog-form` in place
+   (with §12.3's progress line and counter) and swaps the body for the answer, asks before
+   closing over a proposal marked `data-dialog-dirty`, and returns focus to the opener. The
+   F10 attempt modal keeps its own markup and script (it polls, and its flow is its own);
+   its sheet's CSS is written beside this one, not shared. #}
+{% macro dialog(id) -%}
+<dialog id="{{ id }}" class="dialog-sheet" data-proposal-dialog role="dialog" aria-modal="true"
+        aria-labelledby="{{ id }}-title"
+        data-loading="{{ t('dialog.loading', lang) }}" data-error="{{ t('dialog.error', lang) }}"
+        data-confirm="{{ t('dialog.confirm_close', lang) }}">
+  <div class="p-4">
+    <div class="flex items-start justify-between gap-4">
+      <h2 id="{{ id }}-title" data-dialog-title class="text-lg font-semibold"></h2>
+      <button type="button" data-dialog-close aria-label="{{ t('dialog.close', lang) }}"
+              class="min-h-11 flex-none rounded-control border border-border px-3 text-sm">{{ t('dialog.close', lang) }}</button>
+    </div>
+    <p role="alert" hidden data-dialog-error class="mt-2 text-sm text-sev-warning"></p>
+    <div data-dialog-body tabindex="-1" aria-live="polite" class="mt-3"></div>
+  </div>
+</dialog>
+{%- endmacro %}
+
+{# The opener contract: a `<button type="button" data-dialog-url="…">`. Without script the
+   same control is a plain link to a full page, so both are rendered and the script swaps
+   them; with no dialog on the page the link stays. #}
+{% macro dialog_opener(dialog_url, page_url, label, classes='', title='') -%}
+<span data-dialog-opener class="inline-flex">
+  <a href="{{ page_url }}" data-dialog-fallback class="{{ classes }}">{{ label }}</a>
+  <button type="button" hidden data-dialog-url="{{ dialog_url }}"
+          data-dialog-title="{{ title or label }}" class="{{ classes }}">{{ label }}</button>
+</span>
+{%- endmacro %}
