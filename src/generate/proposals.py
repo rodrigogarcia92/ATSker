@@ -238,6 +238,8 @@ def accept_summary(
     language; with "usar en esta línea" the new pool row becomes the track's summary for
     that language. It never touches the track's skills (F7.5: skills are keywords now).
     """
+    if not text.strip():
+        return None, [Violation("shape", "summary", "", "the summary is empty")]
     output = {"summary": {"text": text, "cites": list(cites)}}
     violations = check_summary(profile_id, session, application, track, output)
     if violations:

@@ -66,11 +66,12 @@
 {% endif %}
 
 {% if output %}
-  {% if violations %}
-  {% include "generate/_violations.html" %}
-  {% else %}
-  {# A proposal on screen that was not accepted: closing the pop-up asks first (§12.5). #}
-  <div{% if dialog %} data-dialog-dirty{% endif %}>
+{# The proposal is text the user may edit (F7.3 amended (b)): the text area belongs to the accept
+   form by its `form` attribute, the findings stay a list under it, and a refusal brings the
+   same text back. The server validates whatever is posted; nothing typed here bypasses it. #}
+{% set rejected_key = 'generate.rejected_editable' %}
+{# A proposal on screen that was not accepted: closing the pop-up asks first (§12.5). #}
+<div{% if dialog %} data-dialog-dirty{% endif %}>
   {# The diff: what the track holds in this language today, beside the proposal. #}
   <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
     <div class="min-w-0 rounded-card border border-card-border bg-surface-1 p-4">
@@ -78,18 +79,20 @@
       <p class="mt-2 text-sm text-text-2">{{ current.summary or t('generate.empty_summary', lang) }}</p>
     </div>
     <div class="min-w-0 rounded-card border border-score-strong bg-surface-1 p-4">
-      <p class="text-xs uppercase tracking-wide text-text-3">{{ t('generate.proposed', lang) }}</p>
-      <p class="mt-2 text-sm" id="proposal-text">{{ output.summary.text }}</p>
+      <label for="proposal-text" class="block text-xs uppercase tracking-wide text-text-3">{{ t('generate.proposed', lang) }}</label>
+      <textarea id="proposal-text" name="text" form="summary-accept-form" rows="6"
+                class="mt-2 w-full rounded-control border border-border px-3 py-2 text-sm">{{ output.summary.text }}</textarea>
       <button type="button"
               class="mt-3 min-h-11 rounded-tag border border-border px-2 py-0.5 text-xs text-text-2 hover:bg-surface-2"
-              onclick="navigator.clipboard.writeText(document.getElementById('proposal-text').textContent.trim())">
+              onclick="navigator.clipboard.writeText(document.getElementById('proposal-text').value.trim())">
         {{ t('recall.copy', lang) }}
       </button>
     </div>
   </div>
-  {# Aceptar is an ordinary form POST. The payload is the summary and its citations only;
-     the accept route validates them again and never writes the track's skills. #}
-  <form method="post" action="/applications/{{ application.id }}/summary/accept" class="mt-4 space-y-3">
+  {% if violations %}{% include "generate/_violations.html" %}{% endif %}
+  {# Aceptar is an ordinary form POST (in the pop-up, posted in place). The payload carries the
+     citations; the accept route validates the text again and never writes the track's skills. #}
+  <form id="summary-accept-form" method="post" action="/applications/{{ application.id }}/summary/accept"{% if dialog %} data-dialog-form{% endif %} class="mt-4 space-y-3">
     <input type="hidden" name="payload" value="{{ proposal_json | e }}">
     {% if dialog %}<input type="hidden" name="dialog" value="1">{% endif %}
     <label class="flex min-h-11 items-center gap-2 text-sm">
@@ -100,6 +103,5 @@
       {{ t('generate.accept', lang) }}
     </button>
   </form>
-  </div>
-  {% endif %}
+</div>
 {% endif %}

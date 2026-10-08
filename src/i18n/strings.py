@@ -1101,6 +1101,10 @@ STRINGS: dict[str, dict[str, str]] = {
         "es": "La propuesta no pasó la validación y no se puede aceptar.",
         "en": "The proposal failed validation and cannot be accepted.",
     },
+    "generate.rejected_editable": {
+        "es": "La propuesta aún no pasa la validación: corrige el texto y vuelve a aceptar.",
+        "en": "The proposal does not pass validation yet: edit the text and accept again.",
+    },
     "generate.refused": {
         "es": "No se ha guardado nada: la propuesta enviada no pasó la validación.",
         "en": "Nothing was stored: the submitted proposal failed validation.",

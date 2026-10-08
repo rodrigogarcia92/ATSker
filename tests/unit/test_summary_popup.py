@@ -229,7 +229,7 @@ def test_the_dialog_and_the_full_page_both_work(client, session, career, provide
     assert 'name="dialog" value="1"' in popup.text.split(f'action="{base}/accept"')[1]
 
 
-def test_a_proposal_that_fails_a_validator_is_shown_without_an_accept_and_not_dirty(
+def test_a_proposal_that_fails_a_validator_is_shown_editable_and_dirty(
     client, session, career, provider
 ):
     provider.answers["SummaryOnly"] = {
@@ -241,9 +241,9 @@ def test_a_proposal_that_fails_a_validator_is_shown_without_an_accept_and_not_di
 
     popup = client.post(urls(application)[1], data={"dialog": "1"}).text
 
-    assert "no pasó la validación" in popup and "40%" in popup
-    assert "/summary/accept" not in popup
-    assert "<div data-dialog-dirty>" not in popup, "nothing to confirm: it cannot be accepted"
+    assert "no pasa la validación" in popup and "40%" in popup
+    assert "/summary/accept" in popup and "<textarea" in popup, "one edit away from acceptable"
+    assert "<div data-dialog-dirty>" in popup, "there is text to lose: closing asks first"
 
 
 @pytest.mark.parametrize("dialog", [{}, {"dialog": "1"}])
