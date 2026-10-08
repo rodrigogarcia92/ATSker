@@ -223,7 +223,9 @@ def test_the_dialog_and_the_full_page_both_work(client, session, career, provide
         assert "Ahora" in answer and "Propuesta" in answer, "current beside the proposal"
         assert f'action="{base}/accept"' in answer
         assert 'name="use_in_track"' in answer
-        assert "Habilidades" not in text_of(answer), "no skills block any more"
+        assert "Habilidades clave nombradas" in text_of(answer), "the checklist row, not a block"
+        form = answer.split("<form")[-1].replace("use_in_track", "")
+        assert "skills" not in form, "no skills field"
     assert 'name="dialog" value="1"' in popup.text.split(f'action="{base}/accept"')[1]
 
 

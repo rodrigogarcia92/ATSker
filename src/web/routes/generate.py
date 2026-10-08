@@ -30,7 +30,7 @@ from src.generate.proposals import (
     posting_title,
     report_language,
 )
-from src.generate.summary_rules import key_skill_shortlist
+from src.generate.summary_rules import key_skill_shortlist, title_is_unheld
 from src.generate.summary_rules import propose_summary as run_summary_proposal
 from src.generate.validators import Violation
 from src.i18n import t
@@ -87,6 +87,7 @@ def _page(
     checklist: list[dict[str, Any]] | None = None,
     base=None,
     shortlist_size: int | None = None,
+    unheld_title: str | None = None,
 ):
     """The summary flow, as the full page or — with `dialog` — as the pop-up's partial.
 
@@ -111,6 +112,7 @@ def _page(
         checklist=checklist or [],
         base=base,
         shortlist_size=shortlist_size,
+        unheld_title=unheld_title,
         refused=refused,
         current=_current(session, track, language),
         bullet_count=len(track_bullets(profile.id, session, track.id)),
@@ -250,6 +252,7 @@ def generate_summary_proposal(
         checklist=checklist,
         base=base,
         shortlist_size=len(shortlist),
+        unheld_title=title if title_is_unheld(profile.id, session, track, title, aliases) else None,
     )
 
 

@@ -8,6 +8,7 @@ one retry that names the failed rules. A style rule that still fails is shown, n
 """
 
 import re
+import uuid
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
@@ -16,8 +17,11 @@ from sqlalchemy.orm import Session
 
 from src.extract.generation import BaseLike, Proposal, generate_summary
 from src.jd import StructuredJD
+from src.models import Track
 from src.normalize.text import fold
 from src.normalize.vocabulary import match_text
+from src.roles import list_roles
+from src.score.title import FUNCTION_WORDS, title_tokens
 
 TITLE_RULE = "title"
 SKILLS_RULE = "skills"
@@ -123,6 +127,31 @@ def check_style(
     return [check_title(text, title), check_skills(text, shortlist, aliases), check_length(text)]
 
 
+def title_is_unheld(
+    profile_id: uuid.UUID,
+    session: Session,
+    track: Track,
+    title: str,
+    aliases: Mapping[str, str],
+) -> bool:
+    """True when no role title or headline the user holds shares a word with the posting's.
+
+    Compared as the Title sub-score compares: folded, alias-expanded tokens with the function
+    words of both languages removed. It is information for the pop-up, never a block.
+    """
+
+    def content(text: str) -> set[str]:
+        return {token for token in title_tokens(text, aliases) if token not in FUNCTION_WORDS}
+
+    wanted = content(title)
+    if not wanted:
+        return False
+    held = [track.headline_es, track.headline_en]
+    for role in list_roles(profile_id, session):
+        held.extend((role.title, role.title_es, role.title_en))
+    return not any(wanted & content(text) for text in held if text)
+
+
 def _text_of(proposal: Proposal) -> str:
     return str(proposal.output["summary"]["text"])
 
@@ -188,4 +217,5 @@ __all__ = [
     "check_title",
     "key_skill_shortlist",
     "propose_summary",
+    "title_is_unheld",
 ]

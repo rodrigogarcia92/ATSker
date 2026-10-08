@@ -34,6 +34,36 @@
 </form>
 {% endif %}
 
+{% if output and checklist %}
+{# What the proposal was based on, the title note and the three style rules (F7.3, §12.5).
+   Information only: a rule that is not met never blocks Aceptar. #}
+<div class="mt-4 space-y-2 text-sm text-text-2">
+  <p>
+    {% if base and base.origin == 'track' %}{{ t('generate.base.track', lang, name=track.name) }}
+    {% elif base and base.origin == 'cv' %}{{ t('generate.base.cv', lang) }}
+    {% elif base %}{{ t('generate.base.other_language', lang, other=t('generate.langname.' ~ ('es' if language == 'en' else 'en'), lang)) }}
+    {% else %}{{ t('generate.base.none', lang) }}{% endif %}
+  </p>
+  {% if unheld_title %}<p>{{ t('generate.title_note', lang, title=unheld_title) }}</p>{% endif %}
+  {% if shortlist_size is not none and shortlist_size < 3 %}<p>{{ t('generate.shortlist_short', lang, n=shortlist_size) }}</p>{% endif %}
+</div>
+<section class="mt-3" aria-label="{{ t('generate.check.heading', lang) }}">
+  <ul class="space-y-1 text-sm">
+    {% for row in checklist %}
+    {% if row.rule == 'title' %}{% set label = t('generate.check.title', lang) %}
+    {% elif row.rule == 'skills' %}{% set label = t('generate.check.skills', lang, n=(row.detail.split(', ') | select | list | length)) %}
+    {% else %}{% set label = t('generate.check.length', lang, n=row.detail) %}{% endif %}
+    <li data-check="{{ row.rule }}" class="flex flex-wrap gap-x-2">
+      {% if row.ok %}<span aria-hidden="true" class="text-score-strong">✓</span>{% else %}<span aria-hidden="true" class="text-score-weak">✗</span>{% endif %}
+      <span>{{ label }}{% if row.rule == 'skills' and row.detail %}: {{ row.detail }}{% endif %}</span>
+      <span class="sr-only">({{ t('generate.check.ok', lang) if row.ok else t('generate.check.fail', lang) }})</span>
+    </li>
+    {% endfor %}
+  </ul>
+  <p class="mt-1 text-xs text-text-3">{{ t('generate.check.note', lang) }}</p>
+</section>
+{% endif %}
+
 {% if output %}
   {% if violations %}
   {% include "generate/_violations.html" %}

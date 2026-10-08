@@ -1043,6 +1043,54 @@ STRINGS: dict[str, dict[str, str]] = {
         "es": "Usar en esta línea: {name}",
         "en": "Use in this track: {name}",
     },
+    "generate.check.title": {
+        "es": "Título exacto de la oferta",
+        "en": "Exact posting title",
+    },
+    "generate.check.skills": {
+        "es": "Habilidades clave nombradas ({n})",
+        "en": "Key skills named ({n})",
+    },
+    "generate.check.length": {
+        "es": "Máximo 80 palabras ({n})",
+        "en": "At most 80 words ({n})",
+    },
+    "generate.check.ok": {"es": "cumple", "en": "met"},
+    "generate.check.fail": {"es": "no cumple", "en": "not met"},
+    "generate.check.heading": {
+        "es": "Reglas de estilo de la propuesta",
+        "en": "The proposal's style rules",
+    },
+    "generate.check.note": {
+        "es": "Si una regla no se cumple puedes aceptar la propuesta igualmente.",
+        "en": "If a rule is not met you can still accept the proposal.",
+    },
+    "generate.base.track": {
+        "es": "Basado en el resumen de tu línea «{name}»",
+        "en": "Based on the summary of your track «{name}»",
+    },
+    "generate.base.cv": {
+        "es": "Basado en el resumen de tu CV subido",
+        "en": "Based on the summary of your uploaded CV",
+    },
+    "generate.base.other_language": {
+        "es": "Basado en tu resumen en {other}, traducido",
+        "en": "Based on your summary in {other}, translated",
+    },
+    "generate.base.none": {
+        "es": "No había un resumen base: escrito desde tus bullets",
+        "en": "There was no base summary: written from your bullets",
+    },
+    "generate.langname.es": {"es": "español", "en": "Spanish"},
+    "generate.langname.en": {"es": "inglés", "en": "English"},
+    "generate.title_note": {
+        "es": "«{title}» es el título de la oferta; no figura entre los que has tenido.",
+        "en": "«{title}» is the posting's title; it is not among the titles you have held.",
+    },
+    "generate.shortlist_short": {
+        "es": "Habilidades clave que tu CV respalda directamente en esta oferta: {n}.",
+        "en": "Key skills your CV directly backs for this posting: {n}.",
+    },
     "generate.accept": {"es": "Aceptar", "en": "Accept"},
     "generate.back": {"es": "Volver al informe", "en": "Back to the report"},
     "generate.rejected": {
