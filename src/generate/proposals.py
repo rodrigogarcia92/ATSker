@@ -14,17 +14,20 @@ already enforces.
 import uuid
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
+from types import SimpleNamespace
 from typing import Any
 
 from sqlalchemy.orm import Session
 
 from src.bullets import bullet_text, create_bullet, get_bullet, list_bullets, update_bullet
 from src.generate.validators import Sources, Violation, validate
+from src.jd import StructuredJD
 from src.models import Application, Bullet, BulletRevision, Profile, Story, Summary, Track
+from src.normalize.vocabulary import match_text, resolve_terms
 from src.roles import get_role, list_roles
 from src.stories import get_story
 from src.summaries import create_summary, get_summary, list_summaries
-from src.tracks import set_track_summary, track_bullets
+from src.tracks import get_track, set_track_summary, track_bullets
 from src.vocabulary import alias_map
 
 
@@ -55,13 +58,17 @@ def report_language(application: Application) -> str:
 
 def grades_of(application: Application) -> list[dict[str, Any]]:
     """The stored grades, in the shape the validator reads (level, cited bullet id)."""
-    report = application.report or {}
+    return grades_from_report(application.report or {})
+
+
+def grades_from_report(report: Mapping[str, Any]) -> list[dict[str, Any]]:
     return [
         {"level": grade.get("level", 0), "evidence_id": grade.get("bullet_id")}
         for grade in report.get("grades") or []
     ]
 
 
+BASE_FILE = "file"
 BASE_TRACK = "track"
 BASE_CV = "cv"
 BASE_OTHER_LANGUAGE = "other_language"
@@ -252,6 +259,114 @@ def accept_summary(
     return summary, []
 
 
+@dataclass(frozen=True)
+class AttemptSummaryMaterial:
+    """Everything `propose_summary` needs for a summary written for one attempt's file (F10.7).
+
+    Built from this profile's own rows and the attempt's stored report, before any provider
+    call. `validate` closes over the file's sources, so a cite of the file's own base
+    (`summary:attempt-<id>`) or of one of its temporary bullet ids is a supplied source.
+    """
+
+    jd: Any
+    language: str
+    title: str
+    bullets: list[tuple[str, str]]
+    prompt_grades: list[Mapping[str, Any]]
+    base: BaseSummary | None
+    pool: frozenset[str]
+    track_skills: list[str]
+    report: dict[str, Any]
+    sources: Sources
+    grades: list[dict[str, Any]]
+    track: Any
+
+    def validate(self, output: Mapping[str, Any]) -> list[Violation]:
+        return validate(
+            output,
+            sources=self.sources,
+            profile_id=None,
+            session=None,
+            kind="summary",
+            grades=self.grades,
+        )
+
+
+def attempt_summary_material(
+    profile_id: uuid.UUID,
+    session: Session,
+    application: Application,
+    attempt: Any,
+) -> AttemptSummaryMaterial:
+    """The sources for a summary of an attempt's file (PRD F10.7).
+
+    The bullets are the file's own (temporary ids included), the grades the attempt's, the base
+    the draft's summary when it has one (else F7.3's chain, the track's first) and the closure
+    set the profile's pool plus the canonicals of the draft's skills list and of the file's
+    bullets. It reads only this profile's rows; the route has already 404'd a foreign id.
+    """
+    report: dict[str, Any] = dict(attempt.report or {})
+    draft = report.get("draft") or {}
+    language = report_language(application)
+    aliases = alias_map(session)
+    title = posting_title(application)
+    bullets = [
+        (str(row.get("id")), str(row.get("text") or ""))
+        for row in report.get("bullets") or []
+        if row.get("id") and str(row.get("text") or "").strip()
+    ]
+
+    file_skills = set(resolve_terms([str(s) for s in draft.get("skills") or []], aliases)[0])
+    for _bullet_id, text in bullets:
+        file_skills.update(match_text(text, aliases, skip_ambiguous=True))
+    pool = frozenset(pool_skills(profile_id, session) | file_skills)
+
+    track = get_track(profile_id, session, application.track_id) if application.track_id else None
+    file_summary = str(draft.get("summary") or "").strip()
+    if file_summary:
+        base: BaseSummary | None = BaseSummary(
+            file_summary, f"attempt-{attempt.id}", BASE_FILE
+        )
+    else:
+        # Without a track the chain starts at the uploaded-CV summaries.
+        chain_track = track or SimpleNamespace(summary_es_id=None, summary_en_id=None)
+        base = base_summary(profile_id, session, chain_track, language)
+
+    titles = [draft.get("headline"), title]
+    if track is not None:
+        titles.extend((track.headline_es, track.headline_en))
+    titles.extend(str(role.get("title") or "") for role in draft.get("roles") or [])
+    for role in list_roles(profile_id, session):
+        titles.extend((role.title, role.title_es, role.title_en))
+    sources = Sources(
+        bullets=dict(bullets),
+        summaries={base.summary_id: base.text} if base is not None else {},
+        skills=pool,
+        aliases=aliases,
+        titles=tuple(str(item) for item in titles if item),
+    )
+    jd_report = {**report, "jd": report.get("jd") or (application.report or {}).get("jd") or {}}
+    return AttemptSummaryMaterial(
+        jd=StructuredJD.model_validate(jd_report["jd"]),
+        language=language,
+        title=title,
+        bullets=bullets,
+        prompt_grades=list(report.get("grades") or []),
+        base=base,
+        pool=pool,
+        track_skills=sorted(file_skills),
+        report=jd_report,
+        sources=sources,
+        grades=grades_from_report(report),
+        track=track
+        or SimpleNamespace(
+            name="",
+            headline_es=draft.get("headline"),
+            headline_en=draft.get("headline"),
+        ),
+    )
+
+
 def check_bullet(
     profile_id: uuid.UUID,
     session: Session,
@@ -365,18 +480,22 @@ def accept_story_bullet(
 
 
 __all__ = [
+    "AttemptSummaryMaterial",
     "BASE_CV",
+    "BASE_FILE",
     "BASE_OTHER_LANGUAGE",
     "BASE_TRACK",
     "BaseSummary",
     "accept_bullet",
     "accept_story_bullet",
     "accept_summary",
+    "attempt_summary_material",
     "base_summary",
     "bullet_sources",
     "check_bullet",
     "check_story_bullet",
     "check_summary",
+    "grades_from_report",
     "grades_of",
     "pool_skills",
     "posting_title",

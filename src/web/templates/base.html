@@ -276,7 +276,7 @@
     (function () {
       var dialog = document.querySelector('dialog[data-proposal-dialog]');
       var openers = document.querySelectorAll('[data-dialog-opener]');
-      if (!dialog || !openers.length || typeof dialog.showModal !== 'function') return;
+      if (!dialog || typeof dialog.showModal !== 'function') return;
       openers.forEach(function (box) {
         box.querySelector('[data-dialog-fallback]').hidden = true;
         box.querySelector('[data-dialog-url]').hidden = false;

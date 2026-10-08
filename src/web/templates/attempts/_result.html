@@ -103,6 +103,15 @@
       {{ t('attempt.actions.incorporate', lang) }}
     </a>
     {% endif %}
+    {# A summary for this file (F10.7): the shared pop-up, over the modal; copy-only, nothing is
+       stored. Offered on a finished attempt only. #}
+    {% if view.status == 'done' %}
+    <button type="button" class="rounded-control border border-border px-2 py-1 text-sm"
+            data-dialog-url="/applications/{{ application.id }}/attempts/{{ attempt.id }}/summary"
+            data-dialog-title="{{ t('attempt.actions.summary', lang) }}">
+      {{ t('attempt.actions.summary', lang) }}
+    </button>
+    {% endif %}
     <form method="post" action="/applications/{{ application.id }}/attempts/{{ attempt.id }}/discard">
       <button type="submit" class="rounded-control border border-border px-2 py-1 text-sm">
         {{ t('attempt.actions.discard', lang) }}

@@ -1095,6 +1095,32 @@ STRINGS: dict[str, dict[str, str]] = {
         "es": "{n} de los requisitos de la oferta y {m} relacionadas que muestras.",
         "en": "{n} from the posting's requirements and {m} related ones you show.",
     },
+    "generate.base.file": {
+        "es": "Basado en el resumen de tu documento",
+        "en": "Based on the summary of your document",
+    },
+    "generate.dialog.sends_file": {
+        "es": "Se enviarán al modelo, sin tu nombre ni tus datos de contacto: la oferta tal "
+        "como se extrajo, los bullets de tu documento ({n}) y las habilidades de tu documento "
+        "y de tu material como contexto. Solo se propone el resumen.",
+        "en": "Sent to the model, without your name or contact details: the posting as "
+        "extracted, your document's bullets ({n}) and the skills in your document and your "
+        "material as context. Only the summary is proposed.",
+    },
+    "generate.copy_only": {
+        "es": "Pégalo en tu documento; no se guarda en tu material.",
+        "en": "Paste it into your document; it is not saved to your material.",
+    },
+    "generate.rejected_copy": {
+        "es": "Esta propuesta incluye algo que no consta en tu documento ni en tu material: "
+        "revísalo antes de pegarla.",
+        "en": "This proposal includes something that is not in your document or your material: "
+        "check it before you paste it.",
+    },
+    "attempt.actions.summary": {
+        "es": "Proponer resumen para este documento",
+        "en": "Propose a summary for this document",
+    },
     "generate.accept": {"es": "Aceptar", "en": "Accept"},
     "generate.back": {"es": "Volver al informe", "en": "Back to the report"},
     "generate.rejected": {
