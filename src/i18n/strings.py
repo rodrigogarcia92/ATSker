@@ -1091,6 +1091,10 @@ STRINGS: dict[str, dict[str, str]] = {
         "es": "Habilidades clave que tu CV respalda directamente en esta oferta: {n}.",
         "en": "Key skills your CV directly backs for this posting: {n}.",
     },
+    "generate.shortlist_related": {
+        "es": "{n} de los requisitos de la oferta y {m} relacionadas que muestras.",
+        "en": "{n} from the posting's requirements and {m} related ones you show.",
+    },
     "generate.accept": {"es": "Aceptar", "en": "Accept"},
     "generate.back": {"es": "Volver al informe", "en": "Back to the report"},
     "generate.rejected": {

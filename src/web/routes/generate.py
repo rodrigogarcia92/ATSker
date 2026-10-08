@@ -87,6 +87,7 @@ def _page(
     checklist: list[dict[str, Any]] | None = None,
     base=None,
     shortlist_size: int | None = None,
+    shortlist_related: int = 0,
     unheld_title: str | None = None,
 ):
     """The summary flow, as the full page or — with `dialog` — as the pop-up's partial.
@@ -112,6 +113,7 @@ def _page(
         checklist=checklist or [],
         base=base,
         shortlist_size=shortlist_size,
+        shortlist_related=shortlist_related,
         unheld_title=unheld_title,
         refused=refused,
         current=_current(session, track, language),
@@ -203,7 +205,9 @@ def generate_summary_proposal(
     title = posting_title(application)
     base = base_summary(profile.id, session, track, language)
     aliases = alias_map(session)
-    shortlist = key_skill_shortlist(application.report or {}, pool_set, aliases)
+    shortlist = key_skill_shortlist(
+        application.report or {}, pool_set, aliases, bullet_texts=dict(bullets)
+    )
     banned = banned_phrases(language)
     session.commit()
     try:
@@ -252,6 +256,7 @@ def generate_summary_proposal(
         checklist=checklist,
         base=base,
         shortlist_size=len(shortlist),
+        shortlist_related=sum(1 for skill in shortlist if skill.step == "related"),
         unheld_title=title if title_is_unheld(profile.id, session, track, title, aliases) else None,
     )
 

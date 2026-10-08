@@ -9,6 +9,7 @@ one retry that names the failed rules. A style rule that still fails is shown, n
 
 import re
 import uuid
+from collections import Counter
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
@@ -18,8 +19,8 @@ from sqlalchemy.orm import Session
 from src.extract.generation import BaseLike, Proposal, generate_summary
 from src.jd import StructuredJD
 from src.models import Track
-from src.normalize.text import fold
-from src.normalize.vocabulary import match_text
+from src.normalize.text import fold, term_pattern
+from src.normalize.vocabulary import ambiguous_aliases, match_text
 from src.roles import list_roles
 from src.score.title import FUNCTION_WORDS, title_tokens
 
@@ -44,45 +45,109 @@ _FAILED = {
 }
 
 
+STEP_POSTING = "posting"
+STEP_RELATED = "related"
+
+
 @dataclass(frozen=True)
 class KeySkill:
-    """A shortlisted skill: the posting's wording and the canonical the vocabulary gives it."""
+    """A shortlisted skill: the wording to use and the canonical the vocabulary gives it.
+
+    `step` says where it came from: the posting's own requirement (`posting`, F7.3 rule 2) or a
+    skill the user shows in a bullet that carries a requirement (`related`, the fallback ladder).
+    """
 
     wording: str
     canonical: str
+    step: str = STEP_POSTING
+
+
+def _in_order_of_appearance(text: str, aliases: Mapping[str, str]) -> list[str]:
+    """The pool-agnostic canonicals matched in `text`, by where they first appear."""
+    found = match_text(text, aliases, skip_ambiguous=True)
+    haystack = fold(text)
+    ambiguous = ambiguous_aliases()
+    position: dict[str, int] = {}
+    for alias, canonical in aliases.items():
+        if canonical not in found or alias in ambiguous:
+            continue
+        hit = term_pattern(alias).search(haystack)
+        if hit is not None:
+            position[canonical] = min(hit.start(), position.get(canonical, hit.start()))
+    return sorted(found, key=lambda canonical: position.get(canonical, len(haystack)))
 
 
 def key_skill_shortlist(
-    report: Mapping[str, Any], pool: frozenset[str], aliases: Mapping[str, str]
+    report: Mapping[str, Any],
+    pool: frozenset[str],
+    aliases: Mapping[str, str],
+    *,
+    bullet_texts: Mapping[str, str] | None = None,
 ) -> list[KeySkill]:
-    """The posting's must-haves, then nice-to-haves, graded level >= 2 on a direct basis.
+    """Up to four key skills, in three steps that each add only canonicals not yet chosen.
 
-    Only a canonical in the profile's pool qualifies; equivalent and transferable credit
-    never does (F5.4.1). Posting order, one entry per canonical, at most four.
+    (a) The posting's must-haves, then nice-to-haves, graded level >= 2 on a direct basis and
+    in the pool, in the posting's order and wording. Equivalent and transferable credit never
+    qualifies (F5.4.1).
+    (b) The user's own skills that carry the requirements: for each grade at level >= 2,
+    must-haves first, the pool canonicals matched in that grade's bullet, in the order they
+    appear there, in the vocabulary's canonical wording.
+    (c) Other pool canonicals in any bullet graded >= 2 for this posting, the most evidenced
+    first, then alphabetically.
+
+    Every skill returned is one the closure validator accepts for a summary that cites the
+    bullet showing it.
     """
+    texts = bullet_texts or {}
     jd = report.get("jd") or {}
+    grade_list = [grade for grade in report.get("grades") or [] if isinstance(grade, Mapping)]
     grades: dict[str, Mapping[str, Any]] = {}
-    for grade in report.get("grades") or []:
+    for grade in grade_list:
         grades.setdefault(fold(str(grade.get("requirement") or "")), grade)
     chosen: list[KeySkill] = []
     seen: set[str] = set()
+
+    def full() -> bool:
+        return len(chosen) >= SHORTLIST_MAX
+
+    def add(wording: str, canonical: str, step: str) -> None:
+        if not full() and canonical not in seen and canonical in pool:
+            seen.add(canonical)
+            chosen.append(KeySkill(wording, canonical, step))
+
     for term in [*(jd.get("must_have") or []), *(jd.get("nice_to_have") or [])]:
         wording = str(term)
         grade = grades.get(fold(wording))
         canonical = aliases.get(fold(wording))
         if (
-            grade is None
-            or int(grade.get("level") or 0) < 2
-            or grade.get("basis") != "direct"
-            or not canonical
-            or canonical not in pool
-            or canonical in seen
+            grade is not None
+            and int(grade.get("level") or 0) >= 2
+            and grade.get("basis") == "direct"
+            and canonical
         ):
-            continue
-        seen.add(canonical)
-        chosen.append(KeySkill(wording, canonical))
-        if len(chosen) == SHORTLIST_MAX:
-            break
+            add(wording, canonical, STEP_POSTING)
+
+    evidenced = [
+        grade
+        for grade in grade_list
+        if int(grade.get("level") or 0) >= 2 and str(grade.get("bullet_id") or "") in texts
+    ]
+    for must in (True, False):
+        for grade in evidenced:
+            if bool(grade.get("must_have")) != must:
+                continue
+            for canonical in _in_order_of_appearance(texts[str(grade["bullet_id"])], aliases):
+                add(canonical, canonical, STEP_RELATED)
+
+    shown: Counter[str] = Counter()
+    for bullet_id in {str(grade["bullet_id"]) for grade in evidenced}:
+        shown.update(
+            canonical
+            for canonical in match_text(texts[bullet_id], aliases, skip_ambiguous=True)
+            if canonical in pool
+        )
+    for canonical in sorted(shown, key=lambda name: (-shown[name], name)):
+        add(canonical, canonical, STEP_RELATED)
     return chosen
 
 

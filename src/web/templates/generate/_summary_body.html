@@ -45,6 +45,7 @@
     {% else %}{{ t('generate.base.none', lang) }}{% endif %}
   </p>
   {% if unheld_title %}<p>{{ t('generate.title_note', lang, title=unheld_title) }}</p>{% endif %}
+  {% if shortlist_related %}<p>{{ t('generate.shortlist_related', lang, n=shortlist_size - shortlist_related, m=shortlist_related) }}</p>{% endif %}
   {% if shortlist_size is not none and shortlist_size < 3 %}<p>{{ t('generate.shortlist_short', lang, n=shortlist_size) }}</p>{% endif %}
 </div>
 <section class="mt-3" aria-label="{{ t('generate.check.heading', lang) }}">
