@@ -435,6 +435,18 @@ PRICES: dict[str, ModelPrice] = {
         current_output=10.00,
         note="OpenRouter list $2/$10 per M, read 2026-09-30; reasoning tokens bill as output",
     ),
+    "anthropic/claude-haiku-5.5": ModelPrice(
+        input_list=0.10,
+        output_list=0.50,
+        current_input=0.10,
+        current_output=0.50,
+        note=(
+            "OpenRouter list $0.10/$0.50 per M, read 2026-10-08, and the model's own page "
+            "showed the same; reasoning bills at the output rate; a prompt over 100k tokens "
+            "bills $0.50/$2.50, which no ATSker call reaches. This entry alone was re-read "
+            "on 2026-10-08: PRICES_READ_ON still dates the other rows"
+        ),
+    ),
 }
 
 CANDIDATES: tuple[Candidate, ...] = (
@@ -468,6 +480,12 @@ CANDIDATES: tuple[Candidate, ...] = (
         "gpt-6.1-sol",
         reasoning_effort="low",
         note="OpenAI, released 2026-09-29; operator's trial",
+    ),
+    Candidate(
+        "anthropic/claude-haiku-5.5",
+        "haiku-5.5",
+        reasoning_effort="high",
+        note="operator's live trial, 2026-10-08",
     ),
 )
 
