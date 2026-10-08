@@ -28,6 +28,8 @@ CLOSURE = "closure"
 CLOSURE_MISSING = "closure_missing"
 CLOSURE_UNEVIDENCED = "closure_unevidenced"
 CLOSURE_RULES = (CLOSURE_MISSING, CLOSURE_UNEVIDENCED)
+# A citation of the base summary: `summary:<uuid>` (F7.3 rule 3).
+SUMMARY_PREFIX = "summary:"
 
 # A short function-word list, both languages: words that begin a sentence or a title
 # without being a proper noun. Everything else capitalised mid-sentence is treated as
@@ -83,6 +85,9 @@ class Sources:
     bullets: Mapping[str, str] = field(default_factory=dict)
     stories: Mapping[str, str] = field(default_factory=dict)
     roles: Mapping[str, str] = field(default_factory=dict)
+    # The summary the user already has (F7.3 rule 3). Its ids are cited as `summary:<id>`
+    # and live in this table without the prefix.
+    summaries: Mapping[str, str] = field(default_factory=dict)
     skills: frozenset[str] = frozenset()
     aliases: Mapping[str, str] = field(default_factory=dict)
     # Titles the user holds (track headlines, role titles). A summary may name them;
@@ -91,9 +96,16 @@ class Sources:
 
     @property
     def ids(self) -> set[str]:
-        return {*self.bullets, *self.stories, *self.roles}
+        return {
+            *self.bullets,
+            *self.stories,
+            *self.roles,
+            *(f"{SUMMARY_PREFIX}{key}" for key in self.summaries),
+        }
 
     def text_of(self, source_id: str) -> str:
+        if source_id.startswith(SUMMARY_PREFIX):
+            return self.summaries.get(source_id[len(SUMMARY_PREFIX) :], "")
         for table in (self.bullets, self.stories, self.roles):
             if source_id in table:
                 return table[source_id]
