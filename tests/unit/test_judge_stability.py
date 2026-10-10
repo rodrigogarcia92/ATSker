@@ -11,13 +11,25 @@ import pytest
 
 from scripts import judge_stability
 from src.applications import create_application
+from src.config import get_settings
 from src.extract import client as extract_client
 from src.score.weights import STABILITY_BAND
 from tests.conftest import TEST_MODEL
 from tests.unit.test_analysis import POSTING, Provider
 
-PROD_URL = "postgresql://user:pw@REDACTED-PROD-ENDPOINT/atsker"
+FRAGMENT_VAR = "PROD_DB_HOST_FRAGMENT"
+FAKE_FRAGMENT = "ep-prod-fake"
+PROD_URL = "postgresql://user:pw@ep-prod-fake-0000.example.invalid/atsker"
 DEV_URL = "postgresql://user:pw@ep-example-100.us-east-1.aws.neon.tech/atsker"
+
+
+@pytest.fixture(autouse=True)
+def production_fragment(monkeypatch):
+    """The fragment is set for every test here; the unset cases override it with an empty value."""
+    monkeypatch.setenv(FRAGMENT_VAR, FAKE_FRAGMENT)
+    get_settings.cache_clear()
+    yield
+    get_settings.cache_clear()
 
 
 @pytest.fixture
@@ -64,6 +76,22 @@ def test_a_missing_url_is_refused():
         judge_stability.check_target(None, allow_prod=False)
     with pytest.raises(SystemExit):
         judge_stability.check_target("", allow_prod=False)
+
+
+def test_an_unset_fragment_refuses_a_non_local_host(monkeypatch):
+    # An empty value counts as unset, and it overrides any value in a developer's .env.
+    monkeypatch.setenv(FRAGMENT_VAR, "")
+    get_settings.cache_clear()
+    with pytest.raises(SystemExit) as refused:
+        judge_stability.check_target(DEV_URL, allow_prod=False)
+    assert FRAGMENT_VAR in str(refused.value)
+    assert "ep-example-100" not in str(refused.value)
+
+
+def test_an_unset_fragment_still_allows_a_local_host(monkeypatch):
+    monkeypatch.setenv(FRAGMENT_VAR, "")
+    get_settings.cache_clear()
+    judge_stability.check_target("postgresql://user:pw@localhost/atsker", allow_prod=False)
 
 
 def test_confirmation_is_required_before_paid_calls():

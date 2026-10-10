@@ -97,13 +97,13 @@ sys.path.insert(0, str(Path.cwd()))
 
 import golden_inputs  # noqa: E402
 from sqlalchemy import MetaData, Table, delete, inspect, or_, select  # noqa: E402
-from sqlalchemy.engine import make_url  # noqa: E402
 from sqlalchemy.orm import Session  # noqa: E402
 
+from scripts import _prod_guard  # noqa: E402
 from src.analysis import analyze  # noqa: E402
 from src.applications import create_application  # noqa: E402
 from src.config import get_settings  # noqa: E402
-from src.db import normalized_url, session_scope  # noqa: E402
+from src.db import session_scope  # noqa: E402
 from src.extract.client import (  # noqa: E402
     CallOptions,
     NoModelConfigured,
@@ -132,22 +132,20 @@ from src.models import (  # noqa: E402
 from src.resumes import create_resume  # noqa: E402
 from src.tracks import list_tracks  # noqa: E402
 
-# The endpoint the operator's production database lives on. Matching the host is
-# the whole guard: no flag, no environment variable and no override can turn it
-# off (queue A.3 step 1).
-PRODUCTION_HOST_MARK = "REDACTED-PROD-ENDPOINT"
 
-
-def resolve_database_host() -> str:
-    """The host of the URL exactly as `src.db` resolves it, or "" when there is none."""
+def configured_url() -> str:
+    """The database URL the app itself would use, or "" when none is configured."""
     settings = get_settings()
-    if settings.database_url is None:
-        return ""
-    raw = normalized_url(settings.database_url.get_secret_value())
-    try:
-        return make_url(raw).host or ""
-    except Exception:  # noqa: BLE001 - an unparseable URL fails later at engine creation
-        return ""
+    return settings.database_url.get_secret_value() if settings.database_url is not None else ""
+
+
+def production_guard() -> str | None:
+    """Why the configured database must not be used by a golden run, or None when it may.
+
+    Golden runs have no override: the production host is refused whatever the environment says,
+    except that an unset PROD_DB_HOST_FRAGMENT refuses every non-local database too.
+    """
+    return _prod_guard.refusal_reason(configured_url(), allow_prod=False, override=None)
 
 
 def configuration_error() -> str | None:
@@ -475,9 +473,9 @@ def main(argv: list[str] | None = None) -> int:
     if problem is not None:
         print(problem)
         return 2
-    host = resolve_database_host()
-    if PRODUCTION_HOST_MARK in host:
-        print(f"refusing to run: the database host is the production endpoint ({host})")
+    reason = production_guard()
+    if reason is not None:
+        print(f"refusing to run: {reason}")
         return 2
     if not golden_inputs.output_is_ignored(out_path):
         print(f"refusing to write outside a gitignored path: {out_path}")
@@ -513,7 +511,7 @@ def main(argv: list[str] | None = None) -> int:
         profiles = {name: check.profiles[name] for name, _ in wanted}
 
         if args.wipe:
-            print(f"database host: {host}")
+            print(f"database host: {_prod_guard.database_host(configured_url())}")
             if not args.yes:
                 answer = input("type DELETE to wipe the mapped profiles' career data: ")
                 if answer.strip() != "DELETE":

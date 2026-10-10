@@ -26,6 +26,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from sqlalchemy import select  # noqa: E402
 from sqlalchemy.orm import Session  # noqa: E402
 
+from scripts import _prod_guard  # noqa: E402
 from src.config import get_settings  # noqa: E402
 from src.db import session_scope  # noqa: E402
 from src.documents import (  # noqa: E402
@@ -43,26 +44,16 @@ from src.score.evidence import Level, evidence_coverage  # noqa: E402
 from src.score.weights import STABILITY_BAND, W4, WeightSet  # noqa: E402
 from src.tracks import get_track  # noqa: E402
 
-# The Neon production branch (A3). Named here, never read from a variable that could
-# be printed: a URL carries credentials and this script must not echo one.
-PROD_HOST = "REDACTED-PROD-ENDPOINT"
-
 DEFAULT_REPEATS = 5
 
 
-def is_prod(database_url: str | None) -> bool:
-    return bool(database_url) and PROD_HOST in (database_url or "")
-
-
 def check_target(database_url: str | None, *, allow_prod: bool) -> None:
-    """Refuse the production host unless the operator opted in with `--prod`."""
+    """Refuse the production database unless `--prod` opts in (see `scripts/_prod_guard.py`)."""
     if not database_url:
         raise SystemExit("DATABASE_URL is not set; point it at the development branch.")
-    if is_prod(database_url) and not allow_prod:
-        raise SystemExit(
-            f"refusing the production host ({PROD_HOST}); pass --prod to measure it "
-            "deliberately."
-        )
+    reason = _prod_guard.refusal_reason(database_url, allow_prod=allow_prod)
+    if reason is not None:
+        raise SystemExit(reason)
 
 
 def confirm(

@@ -7,9 +7,9 @@ into one profile's rows. It is deliberately boring:
   nothing.
 * **`--apply` requires typing `IMPORT`**, because the file is personal data going into
   a shared database and a typo is not undoable.
-* **The production database is refused** unless `--prod` is given: the fragment below
-  is the production endpoint, and an import there must be deliberate. A dev
-  import needs no flag.
+* **The production database is refused** unless `--prod` is given. The production host is
+  recognised by `PROD_DB_HOST_FRAGMENT` (see `scripts/_prod_guard.py`), and an unset
+  variable refuses every non-local database. A dev import needs no flag.
 * Settings upsert by (profile, language); templates upsert by (profile, name, language).
 * **One template per track (F8).** A template whose `track_name` matches a track is linked
   to it, in the track's language, when that track has no template yet. Otherwise it is
@@ -28,13 +28,13 @@ import sys
 from collections.abc import Callable, Iterator, Sequence
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from scripts import _prod_guard
 from src.auth.rate_limit import normalize
 from src.config import get_settings
 from src.db import session_scope
@@ -48,11 +48,6 @@ from src.letters import (
 )
 from src.models import Track, User
 from src.profiles import get_own_profile
-
-# The production database's host fragment (`scripts/golden_run.py`'s
-# PRODUCTION_HOST_MARK). Importing personal letters there is deliberate, so it needs an
-# explicit flag to confirm.
-PRODUCTION_HOST_FRAGMENT = "REDACTED-PROD-ENDPOINT"
 
 
 class ImportRefused(RuntimeError):
@@ -77,20 +72,9 @@ def load_payload(path: Path) -> dict[str, Any]:
     return payload
 
 
-def database_host(database_url: str) -> str:
-    """The host of a connection string, for the production-database refusal."""
-    return (urlparse(database_url).hostname or "").lower()
-
-
 def refusal_reason(database_url: str, *, prod: bool) -> str | None:
-    """Why this database must not be written to, or None when it may."""
-    host = database_host(database_url)
-    if PRODUCTION_HOST_FRAGMENT in host and not prod:
-        return (
-            f"refusing to import into the production database ({host}); "
-            "pass --prod to confirm"
-        )
-    return None
+    """Why this database must not be written to, or None when it may (see `_prod_guard`)."""
+    return _prod_guard.refusal_reason(database_url, allow_prod=prod)
 
 
 def _decide_link(

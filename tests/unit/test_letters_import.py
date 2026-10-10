@@ -14,6 +14,17 @@ from src.config import get_settings
 from src.letters import get_letter_settings, list_letters
 from tests.conftest import login
 
+
+@pytest.fixture(autouse=True)
+def _hermetic_settings(monkeypatch):
+    # A developer's .env may hold a real DATABASE_URL, and these tests never use it: the guard
+    # reads the cached settings, so each test starts and ends with a clean cache.
+    monkeypatch.setenv("DATABASE_URL", "")
+    get_settings.cache_clear()
+    yield
+    get_settings.cache_clear()
+
+
 PAYLOAD = {
     "settings": [
         {
@@ -190,8 +201,9 @@ def test_the_production_database_is_refused(
 ):
     monkeypatch.setenv(
         "DATABASE_URL",
-        "postgresql://user:secret@REDACTED-PROD-ENDPOINT/db",
+        "postgresql://user:secret@ep-prod-fake-0000.example.invalid/db",
     )
+    monkeypatch.setenv("PROD_DB_HOST_FRAGMENT", "ep-prod-fake")
     get_settings.cache_clear()
 
     code = letters_import.main(
@@ -205,17 +217,47 @@ def test_the_production_database_is_refused(
     assert get_letter_settings(career.first_profile.id, session, "es") is None
 
 
-def test_the_refusal_helper_is_a_string_check():
+def test_the_refusal_helper_is_a_string_check(monkeypatch):
+    monkeypatch.setenv("PROD_DB_HOST_FRAGMENT", "ep-prod-fake")
+    get_settings.cache_clear()
     assert letters_import.refusal_reason("sqlite:///x.db", prod=False) is None
     assert (
         letters_import.refusal_reason(
-            "postgresql://u:p@REDACTED-PROD-ENDPOINT/db", prod=False
+            "postgresql://u:p@ep-prod-fake-0000.example.invalid/db", prod=False
         )
         is not None
     )
     assert (
         letters_import.refusal_reason(
-            "postgresql://u:p@REDACTED-PROD-ENDPOINT/db", prod=True
+            "postgresql://u:p@ep-prod-fake-0000.example.invalid/db", prod=True
+        )
+        is None
+    )
+
+
+def test_an_unset_fragment_refuses_a_non_local_import_target(monkeypatch):
+    # An empty value counts as unset, and it overrides any value in a developer's .env.
+    monkeypatch.setenv("PROD_DB_HOST_FRAGMENT", "")
+    get_settings.cache_clear()
+    reason = letters_import.refusal_reason(
+        "postgresql://u:p@ep-dev-fake-0000.example.invalid/db", prod=False
+    )
+    assert reason is not None
+    assert "PROD_DB_HOST_FRAGMENT" in reason
+
+
+def test_an_unset_fragment_allows_a_local_import_target(monkeypatch):
+    monkeypatch.setenv("PROD_DB_HOST_FRAGMENT", "")
+    get_settings.cache_clear()
+    assert letters_import.refusal_reason("postgresql://u:p@localhost/db", prod=False) is None
+
+
+def test_a_set_fragment_allows_a_different_non_local_import_target(monkeypatch):
+    monkeypatch.setenv("PROD_DB_HOST_FRAGMENT", "ep-prod-fake")
+    get_settings.cache_clear()
+    assert (
+        letters_import.refusal_reason(
+            "postgresql://u:p@ep-dev-fake-0000.example.invalid/db", prod=False
         )
         is None
     )

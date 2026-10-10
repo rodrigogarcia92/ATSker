@@ -48,6 +48,7 @@ Settings are read from the environment. Values come from `.env` locally and from
 | `OPENROUTER_TIMEOUT_SECONDS` | Timeout per model request. Defaults to 60. |
 | `UI_DEFAULT_LANG` | Default interface language. |
 | `GCP_PROJECT_ID`, `GCP_REGION` | Deployment targets, used by the workflow. |
+| `PROD_DB_HOST_FRAGMENT` | Operator scripts only (not the app): a fragment of the production host name. Set it in your local `.env`. While it is unset or empty, the scripts refuse every non-local database. |
 
 ## 3. Deployment
 
@@ -111,7 +112,7 @@ uv run python scripts/llm_costs.py purge --hash <sha256> --confirm  # marks them
 
 `purge` marks the rows with that content hash so they are never served from the cache again. It is a dry run until `--confirm` is given. Use it for a wrong or unwanted answer.
 
-The evaluation scripts make paid model calls. Run them against the development database. `scripts/judge_stability.py` refuses the production host unless `--prod` is passed, and asks for confirmation before it spends anything.
+The evaluation scripts make paid model calls. Run them against the development database. `scripts/judge_stability.py` refuses the production host unless `--prod` is passed, and asks for confirmation before it spends anything. All three guarded scripts (`judge_stability.py`, `letters_import.py`, `golden_run.py`) recognise the production host by `PROD_DB_HOST_FRAGMENT`; without that variable they refuse every non-local database, so set it in your local `.env` before running them.
 
 ## 9. Rollback
 

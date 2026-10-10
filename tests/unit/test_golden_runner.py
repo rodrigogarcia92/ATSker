@@ -59,7 +59,14 @@ HEADER = [
     "commit",
 ]
 
-PRODUCTION_URL = "postgresql://user:pass@REDACTED-PROD-ENDPOINT/db"
+PRODUCTION_URL = "postgresql://user:pass@ep-prod-fake-0000.example.invalid/db"
+
+
+@pytest.fixture(autouse=True)
+def _settings_cache_reset():
+    # The guard reads cached settings, so a fragment set by one test must not leak into the next.
+    yield
+    get_settings.cache_clear()
 
 
 @pytest.fixture
@@ -91,6 +98,7 @@ def cv_file(tmp_path):
 def test_the_production_guard_refuses_before_an_engine_exists(monkeypatch, test_settings, capsys):
     """A.3 step 1: the production endpoint is refused with no flag to override it."""
     monkeypatch.setenv("DATABASE_URL", PRODUCTION_URL)
+    monkeypatch.setenv("PROD_DB_HOST_FRAGMENT", "ep-prod-fake")
     get_settings.cache_clear()
     engines: list[int] = []
 
@@ -106,6 +114,41 @@ def test_the_production_guard_refuses_before_an_engine_exists(monkeypatch, test_
     assert result != 0
     assert "production" in out
     assert engines == [], "no engine may be created when the host is production"
+
+
+def _golden_guard(monkeypatch, url: str, fragment: str) -> str | None:
+    monkeypatch.setenv("DATABASE_URL", url)
+    monkeypatch.setenv("PROD_DB_HOST_FRAGMENT", fragment)
+    get_settings.cache_clear()
+    return golden_run.production_guard()
+
+
+def test_the_golden_guard_refuses_a_host_containing_the_fragment(monkeypatch):
+    reason = _golden_guard(monkeypatch, PRODUCTION_URL, "ep-prod-fake")
+    assert reason is not None
+    assert "--prod" not in reason, "golden runs have no override"
+    assert "ep-prod-fake" not in reason
+
+
+def test_the_golden_guard_refuses_a_non_local_host_when_the_fragment_is_unset(monkeypatch):
+    # An empty value counts as unset, and it overrides any value in a developer's .env.
+    reason = _golden_guard(
+        monkeypatch, "postgresql://user:pass@ep-dev-fake-0000.example.invalid/db", ""
+    )
+    assert reason is not None
+    assert "PROD_DB_HOST_FRAGMENT" in reason
+
+
+def test_the_golden_guard_allows_a_local_host_when_the_fragment_is_unset(monkeypatch):
+    assert _golden_guard(monkeypatch, "sqlite://", "") is None
+    assert _golden_guard(monkeypatch, "postgresql://user:pass@localhost/db", "") is None
+
+
+def test_the_golden_guard_allows_a_different_non_local_host(monkeypatch):
+    reason = _golden_guard(
+        monkeypatch, "postgresql://user:pass@ep-dev-fake-0000.example.invalid/db", "ep-prod-fake"
+    )
+    assert reason is None
 
 
 def test_missing_configuration_names_the_variable_and_the_worktree(

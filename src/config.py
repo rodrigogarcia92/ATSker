@@ -40,6 +40,9 @@ class Settings(BaseSettings):
     # which can take minutes to answer a three-line posting (2026-09-25).
     openrouter_timeout_seconds: float = 60.0
     session_secret: SecretStr | None = None
+    # Read by the operator scripts only (`scripts/_prod_guard.py`), never by the app: a fragment
+    # of the production host name. Unset means those scripts refuse every non-local database.
+    prod_db_host_fragment: str | None = None
 
     @property
     def configured(self) -> dict[str, bool]:
