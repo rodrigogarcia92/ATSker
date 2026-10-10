@@ -37,42 +37,14 @@ Every number traces to a rule, and every generated sentence traces to something 
 | **Languages** | Spanish and English, both in the interface and in the documents |
 | **Score** | Job Match 0–100 = Skills 40% + Experience 25% + Title 20% + Keywords 15%, computed by plain code |
 | **Where AI is used** | Only at the edges: reading documents into structured data, grading evidence, and writing text on request |
+| **Prompt engineering** | Versioned prompts with strict JSON contracts, mandatory citations and a rubric that rewards saying *"none"*. All public, with [design notes](docs/prompt_design.md) |
 | **Anti-fabrication** | Generated text must pass 3 validators: it cites its source, keeps every number and name from that source, and names only skills you have |
 | **Evaluation** | Rank agreement with labelled CV/posting pairs (Kendall τ-b 0.65 on the dev split), plus an ablation of each score |
-| **Quality** | About 1,230 offline tests (no network, no Postgres) and lint on every push |
+| **Quality** | About 1,250 offline tests (no network, no Postgres) and lint on every push |
 
 ### Tech stack
 
-**Application**
-![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)
-![HTMX](https://img.shields.io/badge/HTMX-3366CC?style=for-the-badge&logo=htmx&logoColor=white)
-![Jinja](https://img.shields.io/badge/Jinja-B41717?style=for-the-badge&logo=jinja&logoColor=white)
-![Tailwind CSS](https://img.shields.io/badge/Tailwind%20CSS-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)
-![Pydantic](https://img.shields.io/badge/Pydantic-E92063?style=for-the-badge&logo=pydantic&logoColor=white)
-![pdfplumber](https://img.shields.io/badge/pdfplumber-4B5563?style=for-the-badge)
-
-**AI**
-![OpenRouter](https://img.shields.io/badge/OpenRouter-6566F1?style=for-the-badge)
-![Google Gemini](https://img.shields.io/badge/Gemini%203.8%20Flash-8E75B2?style=for-the-badge&logo=googlegemini&logoColor=white)
-![Claude](https://img.shields.io/badge/Claude%20Haiku%205.5-D97757?style=for-the-badge&logo=claude&logoColor=white)
-
-**Data**
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)
-![Neon](https://img.shields.io/badge/Neon-00E599?style=for-the-badge)
-![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-D71F00?style=for-the-badge&logo=sqlalchemy&logoColor=white)
-![Alembic](https://img.shields.io/badge/Alembic-6BA81E?style=for-the-badge)
-
-**Cloud and delivery**
-![Google Cloud](https://img.shields.io/badge/Google%20Cloud-4285F4?style=for-the-badge&logo=googlecloud&logoColor=white)
-![Cloud Run](https://img.shields.io/badge/Cloud%20Run-4285F4?style=for-the-badge&logo=googlecloud&logoColor=white)
-![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)
-![GitHub Actions](https://img.shields.io/badge/GitHub%20Actions-2088FF?style=for-the-badge&logo=githubactions&logoColor=white)
-
-**Quality**
-![pytest](https://img.shields.io/badge/pytest-0A9EDC?style=for-the-badge&logo=pytest&logoColor=white)
-![Ruff](https://img.shields.io/badge/Ruff-D7FF64?style=for-the-badge&logo=ruff&logoColor=black)
-![uv](https://img.shields.io/badge/uv-DE5FE9?style=for-the-badge&logo=uv&logoColor=white)
+![ATSker tech stack: Python, FastAPI, HTMX, Jinja, Tailwind CSS, Pydantic, pdfplumber; OpenRouter, Gemini 3.8 Flash, Claude Haiku 5.5; PostgreSQL, Neon, SQLAlchemy, Alembic; Cloud Run, Secret Manager, Docker, GitHub Actions; pytest, Ruff, uv](docs/figures/stack.svg)
 
 ---
 
@@ -94,10 +66,11 @@ Every number traces to a rule, and every generated sentence traces to something 
 2. [A tour of the app](#2-a-tour-of-the-app)
 3. [How the score works](#3-how-the-score-works)
 4. [Honest by design](#4-honest-by-design)
-5. [Architecture](#5-architecture)
-6. [Evaluation and model selection](#6-evaluation-and-model-selection)
-7. [Privacy](#7-privacy)
-8. [Limitations](#8-limitations)
+5. [Prompt engineering](#5-prompt-engineering)
+6. [Architecture](#6-architecture)
+7. [Evaluation and model selection](#7-evaluation-and-model-selection)
+8. [Privacy](#8-privacy)
+9. [Limitations](#9-limitations)
 
 ---
 
@@ -194,7 +167,38 @@ Two checks sit **beside** the number, never inside it, because a deal-breaker is
 
 ---
 
-## 5. Architecture
+## 5. Prompt engineering
+
+The model does four jobs in ATSker: reading documents into structured data, grading evidence, explaining gaps that code already found, and writing text on request. Each job has its own prompt, and **every prompt is public**, in [`src/extract/prompts.py`](src/extract/prompts.py). The reasoning behind them is in [`docs/prompt_design.md`](docs/prompt_design.md).
+
+**The prompt asks, and code enforces.** Each prompt is written so the honest answer is the easy one. Code then checks every answer without trusting the prompt.
+
+- **Contracts, not conversations.** Every call returns strict JSON against a schema generated from the same Pydantic model the code parses it with. Temperature is always 0.
+- **Cite or don't claim.** The model sees each bullet with an id and must cite one for any grade above zero. An id it wasn't given is rejected, retried once, then fails loudly.
+- **Make "none" a good answer.** The grading rubric says: *"an unsupported requirement is level 0, which is a normal and useful answer."* Models fill silence, so abstaining is framed as success.
+- **Judgement in the prompt, arithmetic in code.** The model grades evidence 0–3 and labels it *direct*, *equivalent* or *transferable*, using a three-question domain test. It never computes a score.
+- **Stable rules, variable data.** The rules sit in the system message, which is cached across postings at a fraction of the price. Only the data changes.
+- **Versioned like code.** A changed prompt gets a new version string, which busts the cache on purpose, so answers from different rules are never mixed. Old versions stay in the file, because saved reports name the prompt that produced them.
+
+Prompts are refined against real output. The summary generator went through five versions; the last three show how:
+
+| Version | What changed |
+|---|---|
+| v3 | The summary alone; the skills list moved to its own Keywords card |
+| v4 | Three ordered rules: open with the posting's exact title, name 3–4 skills from a shortlist chosen by code, and improve the user's own summary without adding facts |
+| v5 | Cite the bullet behind each skill named, and drop old-summary skills the posting doesn't ask for |
+
+```text
+For any level above 0 you must say where the evidence is: the source (bullet,
+summary or skills_list) and, for a bullet, the id of the bullet that supports it.
+Never cite an id you were not given, and never assume experience the CV does not
+show: an unsupported requirement is level 0, which is a normal and useful answer.
+                                        (evidence_grade_v4, from src/extract/prompts.py)
+```
+
+---
+
+## 6. Architecture
 
 ![ATSker architecture: browser, Cloud Run, OpenRouter, Neon, and the delivery pipeline](docs/figures/architecture.svg)
 
@@ -218,7 +222,7 @@ src/
 
 ---
 
-## 6. Evaluation and model selection
+## 7. Evaluation and model selection
 
 **Agreement, not absolute accuracy.** Scores are judged by whether they **rank** CV/posting pairs the way a careful reader would. On the development split (n = 12 pairs, 2,000 bootstrap resamples):
 
@@ -243,7 +247,7 @@ Earlier rounds ruled out models that timed out or cited bullets that didn't exis
 
 ---
 
-## 7. Privacy
+## 8. Privacy
 
 - **No personal data in this repository, except what I chose to show.** Tests use synthetic fixtures, and real CVs and reports never enter git. The screenshots in this README come from my own analysis, shared on purpose: names and employers are blurred wherever they appear, and no contact details are shown.
 - **Names, e-mails and phone numbers are removed** before any text is sent to a model provider.
@@ -253,7 +257,7 @@ Earlier rounds ruled out models that timed out or cited bullets that didn't exis
 
 ---
 
-## 8. Limitations
+## 9. Limitations
 
 - **Small evaluation set.** n = 12 on the development split, so the intervals are wide. Trust the ranking more than any single value.
 - **The automatic rater shares the grader's definition of transferable skills**, so its agreement is not proof that recruiters agree. The real test is outcome tracking ([Roadmap](#roadmap)).
@@ -271,5 +275,7 @@ Earlier rounds ruled out models that timed out or cited bullets that didn't exis
 **AI assistance:** this project was developed with [Claude](https://www.anthropic.com/claude) (Anthropic) as an AI assistant. It was used for code implementation (through Claude Code), design and code review, analysis support and documentation drafting. Every change was reviewed and accepted by the author. The public demo, in progress, will run on Claude Haiku 5.5.
 
 ---
+
+**Licence:** none. The code is public to read and learn from; all rights are reserved.
 
 *Portfolio project by Rodrigo García Sánchez. ATSker is not affiliated with any ATS vendor, job board or recruiter. Job Match estimates fit to a posting; it is not a prediction of being hired.*
