@@ -237,6 +237,8 @@ src/
 | Gemini 3.8 Flash | 22.3 s | $0.0100 | 0 | **private app** |
 | Claude Haiku 5.5 | 25.7 s | $0.0026 | 0 | **public demo** (in progress) |
 
+*Haiku row: measured on the generalised (strict) CV, where 3 of 3 runs succeeded. On the standard CV only 1 of 3 succeeded (2 connection resets).*
+
 Earlier rounds ruled out models that timed out or cited bullets that didn't exist. The full record is in [`docs/methodology.md`](docs/methodology.md).
 
 ---
