@@ -25,3 +25,13 @@ node_modules/
 # OS
 Thumbs.db
 desktop.ini
+
+# Internal documents and local tooling: kept on the owner's disk, never in git
+private_docs/
+_public_release/
+CLAUDE.md
+AGENTS.md
+.kilo/
+artifact_tmp_diff.txt
+llm_bench/
+*.local.toml

@@ -159,7 +159,7 @@ def test_three_tracks_are_ranked_with_a_margin(session, career, stub):
         session, career, "Débil", ["Cuidé plantas y ordené la oficina", "Toqué la guitarra"]
     )
 
-    analysis = recommend(profile_id, session, jd_text=POSTING, company="Banco Demo")
+    analysis = recommend(profile_id, session, jd_text=POSTING, company="Banco Demo 1")
 
     payload = recommendation_of(analysis)
     rows = payload["candidates"]
@@ -233,7 +233,7 @@ def test_the_organisation_axis_breaks_the_tie_when_the_company_names_it(session,
     payload = recommendation_payload(
         [(first, leading(analysis, 0.10)), (second, analysis)],
         not_graded=(),
-        company="Banco Demo, Lima",
+        company="Banco Demo 1, Lima",
         cost_usd=Decimal("0"),
     )
 
@@ -385,7 +385,7 @@ def test_the_route_recommends_and_stores_the_winner(client, session, career, stu
 
     posted = client.post(
         "/analyze",
-        data={"jd_text": POSTING, "company": "Banco Demo", "recommend": "on"},
+        data={"jd_text": POSTING, "company": "Banco Demo 1", "recommend": "on"},
         follow_redirects=False,
     )
 

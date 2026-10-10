@@ -128,7 +128,7 @@ def test_the_generate_and_letter_run_forms_render_the_status_line(
         career.first_profile.id,
         session,
         lang="es",
-        header="Ana\npersona@example.com",
+        header="Ana\npersona2@example.com",
         greeting="Estimado equipo,",
         closing="Quedo a su disposición.",
         sign_off="Ana",

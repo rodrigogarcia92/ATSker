@@ -54,7 +54,12 @@ def _application(profile_id, session, track_id):
 
 
 def _master(
-    career, session, *, start=date(2020, 3, 1), title="Especialista en datos", employer="Empresa Demo"
+    career,
+    session,
+    *,
+    start=date(2020, 3, 1),
+    title="Especialista en datos",
+    employer="Empresa Demo 0",
 ):
     role = create_role(
         career.first_profile.id,
@@ -83,7 +88,7 @@ def _draft(
     *,
     title="Data Analyst & RBF Specialist",
     start: str | None = "2020-03",
-    employer="Empresa Demo",
+    employer="Empresa Demo 0",
     texts=TEXTS,
 ):
     return ResumeDraft(
@@ -139,7 +144,10 @@ def test_another_start_month_is_another_job_scored_from_the_file(session, career
 
     assert [snapshot.temporary for snapshot in result.snapshots] == [True] * 3
     (transient,) = result.roles
-    assert (transient.employer, transient.title) == ("Empresa Demo", "Data Analyst & RBF Specialist")
+    assert (transient.employer, transient.title) == (
+        "Empresa Demo 0",
+        "Data Analyst & RBF Specialist",
+    )
     assert transient.start_date == date(2019, 7, 1) and transient.end_date is None
     assert {snapshot.role_id for snapshot in result.snapshots} == {str(transient.id)}
     assert transient not in session, "a transient role is never added to the session"
@@ -167,9 +175,9 @@ def test_two_master_roles_with_the_same_employer_and_month_are_ambiguous(session
 
 
 def test_employers_that_differ_only_in_punctuation_are_one_employer(session, career):
-    role, _bullets = _master(career, session, employer="Ministry of Education (Empresa Demo)")
+    role, _bullets = _master(career, session, employer="Ministry of Education (Empresa Demo 0)")
 
-    result = _run(career, session, _draft(employer="Ministry of Education Empresa Demo"))
+    result = _run(career, session, _draft(employer="Ministry of Education Empresa Demo 0"))
 
     assert result.role_matching == (
         {
@@ -232,7 +240,7 @@ def test_a_master_role_is_offered_to_one_file_role_only_in_the_merge_plan(sessio
         language="es",
         roles=[
             DraftRole(
-                employer="Empresa Demo",
+                employer="Empresa Demo 0",
                 title=title,
                 start_date="2020-03",
                 bullets=[DraftBullet(text=BRAND_NEW + suffix)],

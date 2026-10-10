@@ -26,15 +26,15 @@ from src.generate.letters import (
 from src.generate.validators import LITERAL, PROVENANCE, Sources
 from src.models import LlmCall
 
-JD = "Analista de datos — Banco Demo\nBuscamos un analista con Python y SQL."
+JD = "Analista de datos — Banco Demo 1\nBuscamos un analista con Python y SQL."
 TITLE = "Analista de datos"
-COMPANY = "Banco Demo"
+COMPANY = "Banco Demo 1"
 
 # Three plain sentences that cite the user's bullet and say nothing the sources do not.
 GOOD = (
     "El puesto pide Python y SQL para convertir datos en decisiones. "
     "Eso es lo que hago desde hace años. "
-    "Me interesa Banco Demo porque trabaja con datos de verdad."
+    "Me interesa Banco Demo 1 porque trabaja con datos de verdad."
 )
 
 TEMPLATE = SimpleNamespace(
@@ -147,8 +147,8 @@ def test_a_number_from_the_achievements_paragraph_is_hard(career):
 
 
 def test_an_unattributed_company_fact_is_hard(career):
-    invented = {"text": "Banco Demo es líder regional", "jd_quote": "es líder regional"}
-    attributed = {"text": "Banco Demo", "jd_quote": "Analista de datos — Banco Demo"}
+    invented = {"text": "Banco Demo 1 es líder regional", "jd_quote": "es líder regional"}
+    attributed = {"text": "Banco Demo 1", "jd_quote": "Analista de datos — Banco Demo 1"}
 
     bad_hard, _ = check(career, bridge(career, company_fact=invented))
     good_hard, _ = check(career, bridge(career, company_fact=attributed))

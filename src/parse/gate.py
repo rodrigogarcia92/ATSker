@@ -229,7 +229,7 @@ def inert_severity(texts: Sequence[str]) -> Severity:
 def _matched_words(words: list[Word], pattern: re.Pattern[str]) -> list[Word]:
     """The words a pattern's matches cover, against the band's joined text.
 
-    Words split "renglón@ejemplo.com | ++00 111 222 333" into separate tokens, so the
+    Words split "renglón@ejemplo.com | +00 111 222 333" into separate tokens, so the
     patterns run against the joined text and the offsets map each match back to the
     words that carry it.
     """
@@ -319,7 +319,7 @@ def check_document(document: DocumentText) -> ParseReport:
         findings.append(Finding("no_extractable_text", "blocker", {"pages": empty_pages}))
 
     for page in document.pages:
-        # Words split "renglón@ejemplo.com | ++00 111 222 333" into separate tokens, so
+        # Words split "renglón@ejemplo.com | +00 111 222 333" into separate tokens, so
         # the patterns run against each band's joined text (F5.1.1 wants the boxes of
         # the words they matched, so the offsets map back to words).
         for band, band_words in (

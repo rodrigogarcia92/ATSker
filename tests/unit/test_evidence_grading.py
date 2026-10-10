@@ -394,11 +394,11 @@ def test_regrading_the_same_pair_reuses_the_cache(session, test_settings, bullet
 
 def test_bullet_text_is_redacted_before_it_leaves(session, test_settings, bullets, monkeypatch):
     calls = stub(monkeypatch, [grading_payload(bullets)])
-    bullets.texts[0] = "Escribí a persona@example.com sobre el reporte de Python"
+    bullets.texts[0] = "Escribí a persona1@example.com sobre el reporte de Python"
 
     grade_evidence(session, jd(), list(bullets), basis_credit=W3.basis_credit)
 
-    assert "persona@example.com" not in str(calls[0]["messages"])
+    assert "persona1@example.com" not in str(calls[0]["messages"])
 
 
 def test_a_posting_without_requirements_makes_no_call(session, test_settings, bullets, monkeypatch):

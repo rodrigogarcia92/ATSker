@@ -34,7 +34,7 @@ from tests.conftest import PASSWORD, login
 DOCX_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
 POSTING = """
-Analista de datos — Banco Demo (híbrido, Lima)
+Analista de datos — Banco Demo 1 (híbrido, Lima)
 Buscamos un analista con 3 años de experiencia en Python y machine learning.
 Imprescindible: título universitario.
 """
@@ -282,12 +282,12 @@ def test_the_review_screen_shows_findings_before_the_draft(client, session, care
 
     uploaded = upload(
         client,
-        docx_bytes("Experiencia", header="persona@example.com | ++00 111 222 333"),
+        docx_bytes("Experiencia", header="persona2@example.com | +00 111 222 333"),
     )
 
     page = plain(client.get(uploaded.headers["location"]).text)
     assert "Bloqueante" in page
-    assert "persona@example.com" not in page, "findings never echo the text they matched"
+    assert "persona2@example.com" not in page, "findings never echo the text they matched"
 
 
 def test_an_overlong_headline_warns_on_review_and_is_not_set_by_the_merge(
@@ -385,7 +385,7 @@ def test_a_provider_call_slower_than_the_transaction_keeps_the_upload_and_the_ro
     Base.metadata.create_all(engine)
     factory = sessionmaker(bind=engine, expire_on_commit=False)
     with factory() as setup:
-        create_account(setup, "persona@example.com", PASSWORD, "Ana")
+        create_account(setup, "persona2@example.com", PASSWORD, "Ana")
         setup.commit()
 
     opened: list[object] = []
@@ -419,7 +419,7 @@ def test_a_provider_call_slower_than_the_transaction_keeps_the_upload_and_the_ro
     monkeypatch.setattr(extract_client, "_post", slow_provider)
 
     with TestClient(app) as slow_client:
-        login(slow_client, "persona@example.com")
+        login(slow_client, "persona2@example.com")
         uploaded = upload(
             slow_client, docx_bytes("Experiencia", "Reduje el cierre un 30% con Python")
         )
@@ -772,7 +772,7 @@ def test_a_tracks_analysis_is_capped_by_the_document_it_came_from(
     login(client, career.first.email)
     # A contact block parked in the header is a blocker: an ATS cannot read the page.
     data = docx_bytes(
-        "Experiencia", "Reduje el cierre un 30% con Python", header="persona@example.com"
+        "Experiencia", "Reduje el cierre un 30% con Python", header="persona2@example.com"
     )
     uploaded = upload(client, data)
     client.post(f"{uploaded.headers['location']}/review", data=REVIEWED_FORM)
@@ -784,7 +784,7 @@ def test_a_tracks_analysis_is_capped_by_the_document_it_came_from(
 
     posted = client.post(
         "/analyze",
-        data={"jd_text": POSTING, "company": "Banco Demo", "track_id": str(track.id)},
+        data={"jd_text": POSTING, "company": "Banco Demo 1", "track_id": str(track.id)},
         follow_redirects=False,
     )
 

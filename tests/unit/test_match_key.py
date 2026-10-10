@@ -49,7 +49,7 @@ def _role_draft(title: str, *bullets: str, start: str | None = None) -> ResumeDr
         headline="Analista",
         roles=[
             DraftRole(
-                employer="Empresa Demo",
+                employer="Empresa Demo 0",
                 title=title,
                 start_date=start,
                 bullets=[DraftBullet(text=text) for text in bullets],
@@ -62,7 +62,7 @@ def test_import_matches_the_hyphen_variant_to_the_stored_role(session, career):
     role = create_role(
         career.first_profile.id,
         session,
-        employer="Empresa Demo",
+        employer="Empresa Demo 0",
         title_es=STORED_TITLE,
         title_en=None,
     )
@@ -79,7 +79,7 @@ def test_import_labels_a_bullet_that_differs_only_in_punctuation_unchanged(sessi
     role = create_role(
         career.first_profile.id,
         session,
-        employer="Empresa Demo",
+        employer="Empresa Demo 0",
         title_es=STORED_TITLE,
         title_en=None,
     )
@@ -110,7 +110,7 @@ def test_the_title_flag_ignores_punctuation(session, career):
     create_role(
         career.first_profile.id,
         session,
-        employer="Empresa Demo",
+        employer="Empresa Demo 0",
         title_es=STORED_TITLE,
         title_en=None,
     )

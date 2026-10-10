@@ -26,10 +26,10 @@ promotional output price); a summary proposal $0.0007 against $0.0031; a keyword
 $0.0102. Haiku used more tokens per call (≈ 1.7× prompt, ≈ 2× completion in grading) and still cost less.
 Quality: close to Gemini, with no reliability failure recorded. **It was slower**, by an amount the ledger
 could not show (it had no latency; one Gemini posting was partly answered from cache, which also flatters
-Gemini's time). Decision (operator): **Gemini 3.8 Flash `low` stays the default** for the private app; the
+Gemini's time). Decision (author): **Gemini 3.8 Flash `low` stays the default** for the private app; the
 search for a faster model, for the planned free demo, continues, with latency as a first-class criterion.
 
-The ledger (the operator's dev ledger: model names and tokens only):
+The ledger (development calls, model names and tokens only):
 
 ```
 model                      purpose             calls purged  prompt tok  compl tok         cost    avg/call
@@ -51,4 +51,4 @@ google/gemini-3.8-flash    (all purposes)          7      0       16289       54
 ```
 
 - Haiku ran two analyses and Gemini one (the other posting's Gemini analysis came from the cache), so compare per analysis, not totals.
-- Latency was not recorded; queue P2 adds it (`llm_calls.latency_ms`, migration 0017).
+- Latency was not recorded in this ledger; each call now stores it (`llm_calls.latency_ms`).

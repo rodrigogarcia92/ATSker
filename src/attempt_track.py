@@ -119,8 +119,8 @@ def _role_by_start(
 ) -> Role | None:
     """The one master role with the file role's employer and start month, if any.
 
-    Employers compare on `match_key`, so "Ministry of Education Empresa Demo" and
-    "Ministry of Education (Empresa Demo)" are one employer. Two or more candidates are
+    Employers compare on `match_key`, so "Acme Labs" and "Acme Labs (Acme)" are one
+    employer. Two or more candidates are
     ambiguous and match nothing; a file role with no start date matches nothing; a
     master role another file role already took is not offered a second time.
     """

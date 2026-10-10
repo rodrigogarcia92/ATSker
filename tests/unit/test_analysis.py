@@ -32,7 +32,7 @@ from src.web.templating import short_years
 from tests.conftest import login
 
 POSTING = """
-Analista de datos — Banco Demo (híbrido, Lima)
+Analista de datos — Banco Demo 1 (híbrido, Lima)
 Buscamos un analista con 3 años de experiencia en Python y machine learning.
 Imprescindible: título universitario.
 """
@@ -132,7 +132,7 @@ def provider(monkeypatch, test_settings, career) -> Provider:
 
 
 def test_an_analysis_records_its_weights_prompts_and_cost(session, career, provider):
-    analysis = analyze(career.first_profile.id, session, jd_text=POSTING, company="Banco Demo")
+    analysis = analyze(career.first_profile.id, session, jd_text=POSTING, company="Banco Demo 1")
     score = analysis.report["score"]
 
     assert analysis.weights_version == "w4"
@@ -498,7 +498,7 @@ def test_the_report_page_shows_the_total_its_cost_and_its_components(
 
     posted = client.post(
         "/analyze",
-        data={"jd_text": POSTING, "company": "Banco Demo", "title": ""},
+        data={"jd_text": POSTING, "company": "Banco Demo 1", "title": ""},
         follow_redirects=False,
     )
 
@@ -508,7 +508,7 @@ def test_the_report_page_shows_the_total_its_cost_and_its_components(
     score = application.report["score"]
 
     assert application.profile_id == career.first_profile.id
-    assert "Banco Demo" in page
+    assert "Banco Demo 1" in page
     assert f"{score['capped']} / 100" in page
     assert "se renormaliza" not in page, "w2 has nothing to renormalise"
     assert "Habilidades" in page and "Palabras clave" in page
@@ -526,7 +526,7 @@ def test_the_report_page_renders_the_gap_summary_and_the_detail(client, session,
     login(client, career.first.email)
 
     posted = client.post(
-        "/analyze", data={"jd_text": POSTING, "company": "Banco Demo"}, follow_redirects=False
+        "/analyze", data={"jd_text": POSTING, "company": "Banco Demo 1"}, follow_redirects=False
     )
 
     page = text_of(client.get(posted.headers["location"]).text)
@@ -952,7 +952,7 @@ def test_the_analysis_form_records_the_track_and_the_report_names_it(
         "/analyze",
         data={
             "jd_text": POSTING,
-            "company": "Banco Demo",
+            "company": "Banco Demo 1",
             "title": "",
             "track_id": str(career.first_track.id),
         },
@@ -974,7 +974,7 @@ def test_an_analysis_without_a_track_saves_no_track_and_says_so(client, session,
     login(client, career.first.email)
 
     posted = client.post(
-        "/analyze", data={"jd_text": POSTING, "company": "Banco Demo", "title": ""},
+        "/analyze", data={"jd_text": POSTING, "company": "Banco Demo 1", "title": ""},
         follow_redirects=False,
     )
 
@@ -1749,7 +1749,7 @@ def test_the_form_prefills_from_an_application_and_refuses_another_profiles(
     login(client, career.first.email)
     posted = client.post(
         "/analyze",
-        data={"jd_text": POSTING, "company": "Banco Demo", "title": "Analista"},
+        data={"jd_text": POSTING, "company": "Banco Demo 1", "title": "Analista"},
         follow_redirects=False,
     )
     assert posted.status_code == 303
@@ -1757,7 +1757,7 @@ def test_the_form_prefills_from_an_application_and_refuses_another_profiles(
 
     form = client.get(f"/analyze?application={application.id}").text
 
-    assert "Banco Demo" in form and 'value="Analista"' in form
+    assert "Banco Demo 1" in form and 'value="Analista"' in form
     assert "machine learning" in form, "the posting is carried over"
 
     logout = client.post("/logout", follow_redirects=False)

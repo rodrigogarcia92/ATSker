@@ -44,7 +44,7 @@ def clean_body(pdf: canvas.Canvas) -> None:
         pdf,
         [
             (60, HEIGHT - 80, "Experience"),
-            (60, HEIGHT - 100, "Analista de datos, Banco Demo, 2022-2025"),
+            (60, HEIGHT - 100, "Analista de datos, Banco Demo 1, 2022-2025"),
         ],
     )
     y = HEIGHT - 130
@@ -75,21 +75,21 @@ def test_a_page_with_no_text_is_a_blocker(tmp_path):
 def test_contact_details_in_the_header_are_a_blocker(tmp_path):
     def draw(pdf: canvas.Canvas) -> None:
         clean_body(pdf)
-        _draw_lines(pdf, [(60, HEIGHT - 20, "persona@example.com | ++00 111 222 333")])
+        _draw_lines(pdf, [(60, HEIGHT - 20, "persona2@example.com | +00 111 222 333")])
 
     report = check_document(read_pdf(build(tmp_path, "header", draw)))
 
     finding = next(f for f in report.blockers if f.check == "contact_in_margin")
     assert finding.detail["band"] == "header"
     assert finding.detail["kinds"] == ["email", "phone"]
-    assert "persona@example.com" not in str(finding.detail)
+    assert "persona2@example.com" not in str(finding.detail)
     assert len(finding.detail["boxes"]) >= 2, "one box per matched word (F5.1.1)"
 
 
 def test_contact_details_in_the_footer_are_a_blocker(tmp_path):
     def draw(pdf: canvas.Canvas) -> None:
         clean_body(pdf)
-        _draw_lines(pdf, [(60, 20, "persona@example.com")])
+        _draw_lines(pdf, [(60, 20, "persona2@example.com")])
 
     finding = next(
         f
@@ -198,7 +198,7 @@ def test_missing_section_headings_warn(tmp_path):
     def draw(pdf: canvas.Canvas) -> None:
         _draw_lines(
             pdf,
-            [(60, HEIGHT - 80, "Analista de datos, Banco Demo, 2022-2025")]
+            [(60, HEIGHT - 80, "Analista de datos, Banco Demo 1, 2022-2025")]
             + [(60, HEIGHT - 120 - index * 20, f"Viñeta número {index}") for index in range(20)],
         )
 

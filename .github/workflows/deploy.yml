@@ -19,7 +19,7 @@ concurrency:
 
 permissions:
   contents: read
-  id-token: write # Workload Identity Federation, no downloadable key (build steps E8)
+  id-token: write # Workload Identity Federation, no downloadable key
 
 jobs:
   test:
@@ -41,7 +41,7 @@ jobs:
 
       - name: Test
         # Offline by construction: the suite stubs the provider and runs against an
-        # in-memory database, so it needs no DATABASE_URL and no OpenRouter key (G.2).
+        # in-memory database, so it needs no DATABASE_URL and no OpenRouter key.
         run: uv run pytest -q
 
   deploy:
@@ -71,8 +71,9 @@ jobs:
           docker push "$IMAGE"
 
       - name: Deploy to Cloud Run
-        # OPENROUTER_MODEL is a model name, not a secret, so it rides in the
-        # Chosen 2026-09-25 on the golden set (docs/ATSker_state.md); reasoning low; w4 was measured with exactly this.
+        # OPENROUTER_MODEL is a model name, not a secret, so it is set here rather
+        # than in Secret Manager. The model and reasoning effort were chosen by the
+        # evaluation in docs/methodology.md (section 8).
         run: |
           gcloud run deploy atsker \
             --image="$IMAGE" \

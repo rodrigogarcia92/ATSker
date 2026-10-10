@@ -280,7 +280,7 @@ def test_autogenerate_fills_the_empty_blocks_with_the_defaults(client, session, 
     page = client.post("/letters/settings/autogenerate", data={"lang": "es"}).text
 
     spanish = card(page, "es")
-    assert field(spanish, "header") == "Ana\npersona@example.com"
+    assert field(spanish, "header") == "Ana\npersona2@example.com"
     assert field(spanish, "greeting") == "Estimado equipo de selección de [EMPRESA]:"
     assert field(spanish, "closing").endswith("conversar sobre el puesto de [PUESTO].")
     assert field(spanish, "sign_off") == "Atentamente,\nAna"

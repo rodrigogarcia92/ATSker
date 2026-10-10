@@ -511,7 +511,7 @@ def test_a_stored_report_without_advice_renders_as_before(client, session, caree
     stored = create_application(
         career.first_profile.id,
         session,
-        company="Banco Demo",
+        company="Banco Demo 1",
         title="Analista de datos",
         jd_text="Analista de datos con Python",
         jd_hash="sha256:old",

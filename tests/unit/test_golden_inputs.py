@@ -13,7 +13,7 @@ from src.auth.accounts import create_account
 from tests.golden_support import row, write_map, write_sheet
 
 PASSWORD = "correct horse battery staple"  # noqa: S105 - synthetic fixture password
-KNOWN_EMAIL = "persona@example.com"
+KNOWN_EMAIL = "persona2@example.com"
 UNKNOWN_EMAIL = "cleo@example.com"
 
 
@@ -62,8 +62,8 @@ def test_a_test_only_profile_needs_no_mapping_without_include_test(session, tmp_
         tmp_path / "sheet.xlsx",
         [
             row(1, profile="Ana", cv_version="CV-1"),
-            row(2, profile="Persona Demo", cv_version="CV-9", split="test"),
-            row(3, profile="Persona Demo", cv_version="CV-9", split="test"),
+            row(2, profile="Persona Demo 3", cv_version="CV-9", split="test"),
+            row(3, profile="Persona Demo 3", cv_version="CV-9", split="test"),
         ],
     )
     mapping = inputs.load_mapping(
@@ -77,7 +77,7 @@ def test_a_test_only_profile_needs_no_mapping_without_include_test(session, tmp_
     with_test = inputs.read_pairs(sheet, include_test=True)
     problems = inputs.check_inputs(with_test, mapping, session).problems
     joined = "\n".join(problems)
-    assert "profile 'Persona Demo' has no entry in [profiles]" in joined
+    assert "profile 'Persona Demo 3' has no entry in [profiles]" in joined
     assert "cv_version 'CV-9' has no entry in [cvs]" in joined
 
 

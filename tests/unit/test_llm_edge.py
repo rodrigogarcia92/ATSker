@@ -329,11 +329,11 @@ def test_suggestions_drop_ids_and_skills_the_profile_cannot_justify(
 
 
 def test_redaction_strips_contact_details_and_known_names():
-    text = "Escribe a persona@example.com o al ++00 111 222 333. Persona Demo lideró el equipo."
+    text = "Escribe a persona2@example.com o al +00 111 222 333. Persona Demo 2 lideró el equipo."
 
-    cleaned = redact(text, known_names=["Persona Demo"])
+    cleaned = redact(text, known_names=["Persona Demo 2"])
 
-    assert "persona@example.com" not in cleaned
+    assert "persona2@example.com" not in cleaned
     assert "999" not in cleaned
     assert "Ana" not in cleaned
     assert "[email]" in cleaned and "[phone]" in cleaned and "[name]" in cleaned

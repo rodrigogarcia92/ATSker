@@ -212,7 +212,7 @@ def test_promotion_of_a_term_the_vocabulary_still_does_not_know_resolves_nothing
 def test_the_edit_screen_labels_the_pending_chip(client, career):
     """The screen the user edits on shows what is stored as pending, and the chip
     field carries it back so saving cannot lose it."""
-    login(client, "persona@example.com")
+    login(client, "persona2@example.com")
 
     response = client.get(f"/bullets/{career.first_bullet.id}/edit")
 
@@ -224,7 +224,7 @@ def test_the_edit_screen_labels_the_pending_chip(client, career):
 
 
 def test_the_role_screen_labels_the_pending_chip(client, career):
-    login(client, "persona@example.com")
+    login(client, "persona2@example.com")
 
     response = client.get(f"/roles/{career.first_role.id}")
 

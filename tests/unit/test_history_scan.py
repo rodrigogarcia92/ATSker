@@ -38,7 +38,7 @@ def test_a_planted_email_and_key_are_found_and_masked(repo, tmp_path):
     commit(
         repo,
         "notes.txt",
-        "contact: real.person@gmail.com\nOPENAI_API_KEY=sk-abcdef0123456789abcdef\n",
+        "contact: real.person@mail-fixture.io\nOPENAI_API_KEY=sk-abcdef0123456789abcdef\n",
     )
     out = tmp_path / "scan.md"
 
@@ -47,7 +47,7 @@ def test_a_planted_email_and_key_are_found_and_masked(repo, tmp_path):
     assert code == 1
     report = out.read_text(encoding="utf-8")
     assert "re…" in report and "sk…" in report
-    assert "real.person@gmail.com" not in report
+    assert "real.person@mail-fixture.io" not in report
     assert "sk-abcdef0123456789abcdef" not in report
     assert "email: 1" in report and "openai-key: 1" in report
 
@@ -61,7 +61,7 @@ def test_a_clean_repo_exits_zero(repo, tmp_path):
 
 
 def test_example_and_test_domains_are_not_personal_data(repo, tmp_path):
-    commit(repo, "notes.txt", "persona@example.com and bea@acme.test\n")
+    commit(repo, "notes.txt", "persona2@example.com and bea@acme.test\n")
     out = tmp_path / "scan.md"
 
     assert history_scan.main(["--repo", str(repo), "--out", str(out)]) == 0
@@ -98,7 +98,7 @@ def test_a_name_from_the_local_list_is_found_masked(repo, tmp_path):
 
 
 def test_the_scan_rewrites_nothing(repo, tmp_path):
-    commit(repo, "notes.txt", "real.person@gmail.com\n")
+    commit(repo, "notes.txt", "real.person@mail-fixture.io\n")
     before = git(repo, "rev-parse", "HEAD")
 
     history_scan.main(["--repo", str(repo), "--out", str(tmp_path / "scan.md")])
@@ -115,7 +115,7 @@ def test_an_iso_date_is_not_a_phone(repo, tmp_path):
 
 
 def test_a_human_formatted_phone_is_found(repo, tmp_path):
-    commit(repo, "notes.txt", "Call ++00 111 222 333 to confirm.\n")
+    commit(repo, "notes.txt", "Call +00 111 222 333 to confirm.\n")
     out = tmp_path / "scan.md"
 
     assert history_scan.main(["--repo", str(repo), "--out", str(out)]) == 1

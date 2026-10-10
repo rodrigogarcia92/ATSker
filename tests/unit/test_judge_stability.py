@@ -17,7 +17,7 @@ from tests.conftest import TEST_MODEL
 from tests.unit.test_analysis import POSTING, Provider
 
 PROD_URL = "postgresql://user:pw@REDACTED-PROD-ENDPOINT/atsker"
-DEV_URL = "postgresql://user:pw@ep-dev-branch.us-east-1.aws.neon.tech/atsker"
+DEV_URL = "postgresql://user:pw@ep-example-100.us-east-1.aws.neon.tech/atsker"
 
 
 @pytest.fixture

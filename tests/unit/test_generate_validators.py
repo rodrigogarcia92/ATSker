@@ -206,13 +206,13 @@ def test_a_number_matches_its_own_source_without_the_sign():
 
 
 def test_a_word_prefix_is_not_a_match():
-    base = Sources(bullets={"b1": "Trabajé en Banco Demo"}, aliases={})
-    assert literal("Trabajé en Ban Andino", source=base) == ["Ban"]
+    base = Sources(bullets={"b1": "Trabajé en Banco Demo 1"}, aliases={})
+    assert literal("Trabajé en Ban Demo 1", source=base) == ["Ban"]
 
 
 def test_a_word_the_source_has_passes():
-    base = Sources(bullets={"b1": "Trabajé en Banco Demo"}, aliases={})
-    assert literal("Trabajé en Banco Demo", source=base) == []
+    base = Sources(bullets={"b1": "Trabajé en Banco Demo 1"}, aliases={})
+    assert literal("Trabajé en Banco Demo 1", source=base) == []
 
 
 # --- D3: F7.3 as written — the skills block needs the pool, the prose needs level 2 ----

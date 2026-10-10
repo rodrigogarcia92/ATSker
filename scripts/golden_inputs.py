@@ -10,8 +10,7 @@ follows the same rule the runner enforces.
 Validation reports every problem at once and never prints a mapping value: the
 file holds one email and one filesystem path per row — personal data the
 operator typed, not output. Problems name the sheet's own keys (`profile`,
-`cv_version`, `pair_id`) and nothing else. (queue A.2, amended by
-`docs/omp_queue_runner_resume.md` §2: in-scope rows only, blank `cv_version` is
+`cv_version`, `pair_id`) and nothing else. (In-scope rows only: a blank `cv_version` is
 one error listing its `pair_id`s, and mapping entries no in-scope row uses are
 ignored entirely.)
 """

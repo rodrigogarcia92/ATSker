@@ -18,7 +18,7 @@ PAYLOAD = {
     "settings": [
         {
             "lang": "es",
-            "header": "Ana\npersona@example.com",
+            "header": "Ana\npersona2@example.com",
             "greeting": "Estimado equipo,",
             "closing": "Quedo a su disposición.",
             "sign_off": "Ana",

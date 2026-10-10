@@ -7,11 +7,11 @@ split = "dev"
 reason = "Strong on SQL, ETL and dbt, but the posting is built around Spark, which the profile never shows."
 
 [resume]
-display_name = "Persona Demo"
+display_name = "Persona Demo 1"
 headline = "Data analyst moving into pipelines"
 
 [[resume.roles]]
-employer = "Empresa Demo"
+employer = "Empresa Demo 2"
 title = "Data Analyst"
 start_date = "2021-06-01"
 end_date = ""

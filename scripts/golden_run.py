@@ -18,7 +18,7 @@ was written. Only APIs verified unchanged at `ebac5ca` (baseline-w2) with
 - `create_application(profile_id, session, *, jd_text, jd_hash, report, weights_version,
   prompt_versions, token_cost_usd, company, title, track_id, scan_readability, scan_boolean)`
 
-Operator notes (queue A.6, replaced by `docs/omp_queue_runner_resume.md` §6)::
+Operator notes::
 
     # once: the baseline worktree, with its own .env (both gitignored there)
     git worktree add ..\atsker-w2 baseline-w2

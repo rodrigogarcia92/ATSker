@@ -16,16 +16,16 @@ from src.extract import client as extract_client
 from src.letters import save_letter_settings, save_track_template
 from tests.conftest import login
 
-JD = "Analista de datos — Banco Demo\nBuscamos un analista con Python y SQL."
+JD = "Analista de datos — Banco Demo 1\nBuscamos un analista con Python y SQL."
 
 # Two plain sentences that cite the user's bullet and say nothing the sources do not.
 BRIDGE = (
     "El puesto pide Python y SQL para convertir datos en decisiones, y eso es "
-    "exactamente lo que hago. Banco Demo trabaja con carteras que se mueven rápido, "
+    "exactamente lo que hago. Banco Demo 1 trabaja con carteras que se mueven rápido, "
     "y eso me interesa."
 )
 
-HEADER = "Ana\npersona@example.com"
+HEADER = "Ana\npersona2@example.com"
 PRESENTATION = "Me presento: analista de datos."
 ACHIEVEMENTS = "Automaticé el reporte mensual un 30% con Python y SQL."
 MARKER = "[párrafo de interés]"
@@ -52,7 +52,7 @@ def bridge_payload(career, text: str = BRIDGE, **overrides) -> dict:
         "angle": "impacto",
         "text": text,
         "sources": [str(career.first_bullet.id)],
-        "company_fact": {"text": "Banco Demo", "jd_quote": "Analista de datos — Banco Demo"},
+        "company_fact": {"text": "Banco Demo 1", "jd_quote": "Analista de datos — Banco Demo 1"},
         "risk": "Salto hacia banca privada.",
     }
     payload.update(overrides)
@@ -74,7 +74,7 @@ def stored_application(
         session,
         jd_text=JD,
         jd_hash="sha256:letter-bridge",
-        company="Banco Demo",
+        company="Banco Demo 1",
         title=title,
         report={
             "jd": {"language": language, "title": title},
@@ -211,7 +211,7 @@ def test_the_chosen_track_is_the_one_the_letter_is_written_for(client, session, 
     page = generate(client, application, track=career.first_track).text
 
     assert len(provider.calls) == 1
-    assert "Banco Demo" in field(page, "letter-text")
+    assert "Banco Demo 1" in field(page, "letter-text")
     assert f'name="track_id" value="{career.first_track.id}"' in page
 
 

@@ -12,7 +12,7 @@ from src.analysis import analyze
 from src.applications import create_application
 
 POSTING = """
-Analista de datos — Banco Demo (híbrido, Lima)
+Analista de datos — Banco Demo 1 (híbrido, Lima)
 Buscamos un analista con 3 años de experiencia en Python y machine learning.
 Imprescindible: título universitario.
 """

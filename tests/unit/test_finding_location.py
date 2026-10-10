@@ -76,7 +76,7 @@ def white_text_pdf(text: str = HIDDEN) -> bytes:
 def email_header_docx() -> bytes:
     document = Document()
     document.add_paragraph("Experiencia: analista de datos con Python")
-    document.sections[0].header.paragraphs[0].text = "persona@example.com"
+    document.sections[0].header.paragraphs[0].text = "persona2@example.com"
     buffer = BytesIO()
     document.save(buffer)
     return buffer.getvalue()

@@ -13,7 +13,7 @@ from src.models import LlmCall
 from src.vocabulary import list_unmapped, seed_vocabulary
 
 POSTING = """
-Data Analyst Senior — Banco Demo (híbrido, Lima)
+Data Analyst Senior — Banco Demo 1 (híbrido, Lima)
 Buscamos un analista con 5 años de experiencia en Python y SQL. Se valorará Power BI.
 Imprescindible: título universitario y disponibilidad para ir a la oficina 3 días.
 Trabajarás con stakeholders de negocio y modelos de machine learning.
@@ -165,7 +165,7 @@ def test_redaction_runs_before_the_posting_leaves(
     session, vocabulary_with_python, test_settings, monkeypatch
 ):
     calls = stub(monkeypatch)
-    posting = POSTING + "\nEscribe a reclutamiento@banco.example.com o al ++00 111 222 333."
+    posting = POSTING + "\nEscribe a reclutamiento@banco.example.com o al +00 111 222 333."
 
     extract_jd(session, posting)
 

@@ -92,8 +92,8 @@ def client(session_factory, test_settings) -> TestClient:
 
 @pytest.fixture
 def two_accounts(session) -> tuple[tuple[User, Profile], tuple[User, Profile]]:
-    first = create_account(session, "persona@example.com", PASSWORD, "Ana")
-    second = create_account(session, "persona@example.com", PASSWORD, "Bea")
+    first = create_account(session, "persona2@example.com", PASSWORD, "Ana")
+    second = create_account(session, "persona3@example.com", PASSWORD, "Bea")
     session.commit()
     return first, second
 

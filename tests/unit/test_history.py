@@ -69,7 +69,7 @@ def history(session, career) -> list[Application]:
         application_fixture(
             career.first_profile.id,
             title="Analista de datos",
-            company="Banco Demo",
+            company="Banco Demo 1",
             score=34,
             created_at=base + timedelta(days=1),
             outcome="interview",
@@ -230,7 +230,7 @@ def test_the_history_carries_the_sub_scores_both_scans_prompts_and_cost(
     application = application_fixture(
         career.first_profile.id,
         title="Con todo",
-        company="Banco Demo",
+        company="Banco Demo 1",
         score=71,
         created_at=datetime(2026, 9, 20, 15, 0, tzinfo=UTC),
     )

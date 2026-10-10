@@ -24,7 +24,7 @@ from src.parse.gate import BLOCKER_CAP, WARNING_CAP, check_docx
 
 CLEAN_LINES = (
     "Experiencia",
-    "Analista de datos, Banco Demo, 2022-2025",
+    "Analista de datos, Banco Demo 1, 2022-2025",
     "Reduje el tiempo de cierre un 30% con Python y SQL",
     "Formación",
     "Bachiller en Ingeniería de Sistemas",
@@ -62,7 +62,7 @@ def test_a_document_without_text_is_a_blocker():
 def test_contact_details_in_a_header_are_a_blocker():
     document = Document()
     document.add_paragraph("Experiencia")
-    document.sections[0].header.paragraphs[0].text = "persona@example.com | ++00 111 222 333"
+    document.sections[0].header.paragraphs[0].text = "persona2@example.com | +00 111 222 333"
     buffer = BytesIO()
     document.save(buffer)
 
@@ -71,7 +71,7 @@ def test_contact_details_in_a_header_are_a_blocker():
     finding = next(f for f in report.blockers if f.check == "contact_in_margin")
     assert finding.detail["band"] == "header"
     assert finding.detail["kinds"] == ["email", "phone"]
-    assert "persona@example.com" not in str(finding.detail)
+    assert "persona2@example.com" not in str(finding.detail)
 
 
 def test_text_inside_a_table_is_a_blocker():
@@ -128,7 +128,7 @@ def test_declared_columns_warn_but_do_not_block():
 
 
 def test_missing_section_headings_warn():
-    report = report_for("Analista de datos, Banco Demo", "Reduje el cierre un 30%")
+    report = report_for("Analista de datos, Banco Demo 1", "Reduje el cierre un 30%")
 
     assert "unrecognised_headings" in [finding.check for finding in report.warnings]
 
@@ -144,7 +144,7 @@ def test_load_document_reads_a_docx_into_lines():
     loaded = load_document("cv.docx", build(*CLEAN_LINES))
 
     assert loaded.kind == "docx"
-    assert "Analista de datos, Banco Demo" in loaded.text
+    assert "Analista de datos, Banco Demo 1" in loaded.text
     assert loaded.gate.blockers == ()
 
 
