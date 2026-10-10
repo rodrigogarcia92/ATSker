@@ -45,6 +45,7 @@ jobs:
         run: uv run pytest -q
 
   deploy:
+    if: vars.DEPLOY_ENABLED == 'true'
     needs: test
     runs-on: ubuntu-latest
     env:
