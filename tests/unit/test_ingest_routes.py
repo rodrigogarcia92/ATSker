@@ -630,7 +630,7 @@ def test_a_plan_with_no_candidates_says_nothing_was_extracted_to_compare(
     assert "No se extrajo nada que comparar" in text
     assert "no hay nada que fusionar" not in text
     assert "Candidatos comparados · 0" in text
-    assert "open" in page.text.split("<details")[1][:40], "only the all-unchanged plan collapses"
+    assert "open" in page.text.split("</header>")[1].split("<details")[1][:40], "only the all-unchanged plan collapses"
 
 
 def test_a_merge_that_writes_nothing_says_the_database_is_unchanged(

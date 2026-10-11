@@ -1,27 +1,25 @@
-{# §12.1's shell: a 64px icon rail in three groups, expandable to labels, and a top bar
-   with a menu button under 640px. Icons are hand-written SVG, never an icon library. #}
-{% macro icon(name) -%}
-<svg class="rail-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
-     stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
-  {%- if name == 'home' -%}<path d="M4 11 12 4l8 7"/><path d="M6 10v9h12v-9"/>
-  {%- elif name == 'analyze' -%}<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/><path d="M9 11h6"/><path d="M9 14.5h4.5"/><path d="M9 18h3"/>
-  {%- elif name == 'history' -%}<circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/>
-  {%- elif name == 'import' -%}<path d="M12 16V4"/><path d="m7 9 5-5 5 5"/><path d="M5 20h14"/>
-  {#- A branch: one stem that splits into three paths ending in small nodes — one experience, several directions. -#}
-  {%- elif name == 'tracks' -%}<path d="M12 21v-6"/><path d="M12 15c0-4-6-4-6-7.2"/><path d="M12 15c0-4 6-4 6-7.2"/><path d="M12 15V7.8"/><circle cx="6" cy="6" r="1.8"/><circle cx="12" cy="6" r="1.8"/><circle cx="18" cy="6" r="1.8"/>
-  {%- elif name == 'roles' -%}<rect x="3" y="8" width="18" height="11" rx="2"/><path d="M9 8V6a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/>
-  {#- A quill: a feather laid diagonally, its shaft running out to the nib at the lower left. -#}
-  {%- elif name == 'stories' -%}<path d="M7.5 16.5C6.5 9 12 5 20 4c-.5 8-4.5 13-12.5 12.5z"/><path d="M4 20 15 9"/>
-  {%- elif name == 'letters' -%}<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m4 7 8 6 8-6"/>
-  {%- elif name == 'profile' -%}<circle cx="12" cy="8" r="4"/><path d="M4 20a8 8 0 0 1 16 0"/>
-  {%- elif name == 'logout' -%}<path d="M15 12H6"/><path d="m10 8-4 4 4 4"/><path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4"/>
-  {%- elif name == 'language' -%}<circle cx="12" cy="12" r="8"/><path d="M4 12h16"/><path d="M12 4c3 3 3 13 0 16"/><path d="M12 4c-3 3-3 13 0 16"/>
-  {%- elif name == 'menu' -%}<path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h16"/>
-  {%- endif -%}
-</svg>
+{# Design v3 §5: a white top bar — wordmark left, the main links in the centre, the avatar
+   menu on the right (Perfil, Vocabulario, idioma, Salir). Under 768px the links and the
+   avatar menu fold into one circular menu button that opens a full-width sheet. Both menus
+   are native <details>, so they work without script; the script below only adds Escape,
+   click-outside, a focus trap in the sheet and the return of focus. #}
+{% set nav_items = [
+  ('/dashboard', 'nav.dashboard'), ('/analyze', 'nav.analyze'), ('/applications', 'nav.applications'),
+  ('/import', 'nav.import'), ('/tracks', 'nav.tracks'), ('/roles', 'nav.roles'),
+  ('/stories', 'nav.stories'), ('/letters', 'nav.letters'),
+] %}
+{% set account_items = [('/profile', 'nav.profile'), ('/vocabulary', 'nav.vocabulary')] %}
+{% macro nav_link(href, label, extra='') -%}
+{%- set path = request.url.path if request is defined else '' -%}
+{%- set current = path == href or (href != '/dashboard' and path.startswith(href ~ '/')) -%}
+<a href="{{ href }}" class="nav-link {{ extra }}"{% if current %} aria-current="page"{% endif %}>{{ label }}</a>
 {%- endmacro %}
-{% macro rail_link(href, label, name) -%}
-<a href="{{ href }}" class="rail-link" aria-label="{{ label }}" title="{{ label }}">{{ icon(name) }}<span class="rail-label">{{ label }}</span></a>
+{% macro language_switch() -%}
+<form method="post" action="/settings/lang" class="lang-switch">
+  <span class="lang-label">{{ t('nav.language', lang) }}</span>
+  <button type="submit" name="lang" value="es" class="lang-option"{% if lang == 'es' %} aria-current="true"{% endif %}>ES</button>
+  <button type="submit" name="lang" value="en" class="lang-option"{% if lang == 'en' %} aria-current="true"{% endif %}>EN</button>
+</form>
 {%- endmacro %}
 <!doctype html>
 <html lang="{{ lang }}">
@@ -39,77 +37,80 @@
 </head>
 <body class="min-h-screen bg-bg font-sans text-text">
   {% if user %}
-  <div class="shell">
-    <aside class="rail">
-      <button type="button" id="rail-toggle" class="rail-toggle" aria-expanded="false"
-              aria-controls="rail-body" aria-label="{{ t('nav.menu', lang) }}" title="{{ t('nav.menu', lang) }}">
-        {{ icon('menu') }}<span class="rail-label">{{ t('nav.menu', lang) }}</span>
-      </button>
-      <nav id="rail-body" class="rail-body">
-        <div class="rail-group">
-          <p class="rail-group-title rail-label">{{ t('nav.group.apply', lang) }}</p>
-          {{ rail_link('/dashboard', t('nav.dashboard', lang), 'home') }}
-          {{ rail_link('/analyze', t('nav.analyze', lang), 'analyze') }}
-          {{ rail_link('/applications', t('nav.applications', lang), 'history') }}
-        </div>
-        <div class="rail-group">
-          <p class="rail-group-title rail-label">{{ t('nav.group.material', lang) }}</p>
-          {{ rail_link('/import', t('nav.import', lang), 'import') }}
-          {{ rail_link('/tracks', t('nav.tracks', lang), 'tracks') }}
-          {{ rail_link('/roles', t('nav.roles', lang), 'roles') }}
-          {{ rail_link('/stories', t('nav.stories', lang), 'stories') }}
-          {{ rail_link('/letters', t('nav.letters', lang), 'letters') }}
-        </div>
-        <div class="rail-group">
-          <p class="rail-group-title rail-label">{{ t('nav.group.account', lang) }}</p>
-          {{ rail_link('/profile', t('nav.profile', lang), 'profile') }}
-          {# The language control: a labelled select when the rail is expanded, and a
-             compact button posting the other language when it is collapsed. #}
-          <form method="post" action="/settings/lang" class="rail-label">
-            <label for="lang" class="sr-only">{{ t('nav.language', lang) }}</label>
-            <select id="lang" name="lang" onchange="this.form.submit()"
-                    class="w-full rounded-control border border-border bg-surface-2 px-2 py-1 text-sm text-text">
-              <option value="es" {% if lang == 'es' %}selected{% endif %}>ES</option>
-              <option value="en" {% if lang == 'en' %}selected{% endif %}>EN</option>
-            </select>
-            <noscript><button type="submit" class="text-sm underline">{{ t('nav.language', lang) }}</button></noscript>
-          </form>
-          <form method="post" action="/settings/lang" class="rail-collapsed">
-            <button type="submit" name="lang" value="{{ 'en' if lang == 'es' else 'es' }}"
-                    class="rail-icon-button" aria-label="{{ t('nav.language', lang) }}" title="{{ t('nav.language', lang) }}">
-              {{ icon('language') }}<span class="text-xs uppercase">{{ 'EN' if lang == 'es' else 'ES' }}</span>
-            </button>
-          </form>
-          <form method="post" action="/logout" class="rail-collapsed">
-            <button type="submit" class="rail-icon-button" aria-label="{{ t('nav.logout', lang) }}" title="{{ t('nav.logout', lang) }}">
-              {{ icon('logout') }}
-            </button>
-          </form>
-          <form method="post" action="/logout" class="rail-label">
-            <button type="submit" class="rail-icon-button">{{ icon('logout') }}<span class="rail-label">{{ t('nav.logout', lang) }}</span></button>
-          </form>
-        </div>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a href="/dashboard" class="wordmark">atsker</a>
+      <nav aria-label="{{ t('nav.main', lang) }}" class="topnav">
+        {% for href, key in nav_items %}{{ nav_link(href, t(key, lang)) }}{% endfor %}
       </nav>
-    </aside>
+      {# Desktop: the avatar menu. #}
+      <details class="menu avatar-menu" data-menu>
+        <summary class="avatar" aria-label="{{ t('nav.account', lang) }}" title="{{ t('nav.account', lang) }}">{{ (user.email or '?')[0] | upper }}</summary>
+        <div class="menu-panel">
+          {% for href, key in account_items %}{{ nav_link(href, t(key, lang), 'menu-link') }}{% endfor %}
+          {{ language_switch() }}
+          <form method="post" action="/logout"><button type="submit" class="menu-link menu-button">{{ t('nav.logout', lang) }}</button></form>
+        </div>
+      </details>
+      {# Phone: one circular button, one full-width sheet. #}
+      <details class="menu sheet-menu" data-menu data-sheet>
+        <summary class="menu-button-round" aria-label="{{ t('nav.menu', lang) }}" title="{{ t('nav.menu', lang) }}">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6"
+               stroke-linecap="round" aria-hidden="true" focusable="false"><path d="M4 8h16"/><path d="M4 16h16"/></svg>
+        </summary>
+        <div class="sheet" role="dialog" aria-label="{{ t('nav.menu', lang) }}">
+          <nav aria-label="{{ t('nav.main', lang) }}" class="sheet-links">
+            {% for href, key in nav_items %}{{ nav_link(href, t(key, lang), 'sheet-link') }}{% endfor %}
+          </nav>
+          <div class="sheet-links sheet-account">
+            {% for href, key in account_items %}{{ nav_link(href, t(key, lang), 'sheet-link') }}{% endfor %}
+            {{ language_switch() }}
+            <form method="post" action="/logout"><button type="submit" class="sheet-link menu-button">{{ t('nav.logout', lang) }}</button></form>
+          </div>
+        </div>
+      </details>
+    </div>
+  </header>
   {% endif %}
   <main class="main min-w-0">
     {# `min-w-0` on the flex child is what lets a wide table scroll inside its own box
        instead of stretching the page; the width block lets the report and the history
-       use a wider column than the forms (§12.1's two-column sections need it). #}
+       use a wider column than the forms. #}
     <div class="mx-auto w-full min-w-0 {% block width %}max-w-3xl{% endblock %}">
       {% block content %}{% endblock %}
     </div>
   </main>
   {% if user %}
-  </div>
   <script>
-    // A few lines, no storage: the button toggles the class the shell's CSS keys on.
+    // The menus are <details>: without script they open and close on their own. With it,
+    // Escape closes the open one and gives focus back to its button, a click elsewhere
+    // closes it, opening one closes the other, and the phone sheet traps Tab inside it.
     (function () {
-      var toggle = document.getElementById('rail-toggle');
-      if (!toggle) return;
-      toggle.addEventListener('click', function () {
-        var open = document.body.classList.toggle('rail-open');
-        toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+      var menus = Array.prototype.slice.call(document.querySelectorAll('[data-menu]'));
+      if (!menus.length) return;
+      function close(menu, restore) {
+        menu.open = false;
+        if (restore) menu.querySelector('summary').focus();
+      }
+      menus.forEach(function (menu) {
+        menu.addEventListener('toggle', function () {
+          if (menu.open) menus.forEach(function (other) { if (other !== menu) other.open = false; });
+          if (menu.hasAttribute('data-sheet')) document.body.classList.toggle('sheet-open', menu.open);
+        });
+        menu.addEventListener('keydown', function (event) {
+          if (event.key === 'Escape' && menu.open) { event.preventDefault(); close(menu, true); return; }
+          if (event.key !== 'Tab' || !menu.open || !menu.hasAttribute('data-sheet')) return;
+          var stops = menu.querySelectorAll('summary, a[href], button:not([disabled])');
+          if (!stops.length) return;
+          var first = stops[0], last = stops[stops.length - 1];
+          if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+          else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+        });
+      });
+      document.addEventListener('click', function (event) {
+        menus.forEach(function (menu) {
+          if (menu.open && !menu.contains(event.target)) menu.open = false;
+        });
       });
     })();
   </script>

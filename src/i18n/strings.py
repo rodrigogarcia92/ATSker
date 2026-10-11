@@ -34,6 +34,8 @@ STRINGS: dict[str, dict[str, str]] = {
     "nav.group.material": {"es": "Tu material", "en": "Your material"},
     "nav.group.account": {"es": "Cuenta", "en": "Account"},
     "nav.menu": {"es": "Menú", "en": "Menu"},
+    "nav.main": {"es": "Principal", "en": "Main"},
+    "nav.account": {"es": "Tu cuenta", "en": "Your account"},
     # Shared
     # §12.5: the shared proposal dialog.
     "dialog.close": {"es": "Cerrar", "en": "Close"},
