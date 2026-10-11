@@ -2496,6 +2496,28 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "Select one to see its evidence.",
     },
     "report.req.level_of": {"es": "nivel {level} de 3", "en": "level {level} of 3"},
+    # F11.5: the requirement note, and the section summary's count of them. "Estimado":
+    # it is the Skills ceiling's rule, not a grade, and it never moves the score.
+    "report.req.note": {
+        "es": "Con tu material: nivel {level} (estimado) — bullet «{text}» de {role}, "
+        "no está en este CV",
+        "en": "With your material: level {level} (estimated) — bullet “{text}” from {role}, "
+        "not in this CV",
+    },
+    "report.req.note_equivalent": {
+        "es": "Con tu material: nivel {level} (estimado, equivalente) — bullet «{text}» de "
+        "{role}, no está en este CV",
+        "en": "With your material: level {level} (estimated, equivalent) — bullet “{text}” "
+        "from {role}, not in this CV",
+    },
+    "report.req.could_rise_one": {
+        "es": "{n} podría subir con tu material",
+        "en": "{n} could rise with your material",
+    },
+    "report.req.could_rise": {
+        "es": "{n} podrían subir con tu material",
+        "en": "{n} could rise with your material",
+    },
     # §12.1 item 6 (queue U5): the recommendations in one column, grouped under headings
     # with counts. `add_file` is the same group worded for a document (an attempt).
     "report.advice.group.promote": {"es": "Ordena tus bullets", "en": "Order your bullets"},

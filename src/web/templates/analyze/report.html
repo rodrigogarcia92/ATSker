@@ -265,13 +265,27 @@
 {% set graded = report.grades | length %}
 {% set covered = report.grades | selectattr('level', 'ge', 2) | list | length %}
 {% set uncovered = graded - covered %}
+{# F11.5: on a CV analysis, the requirements the user's material outside the file would
+   raise, by the Skills ceiling's own rule. Estimated; never part of the score. #}
+{% set notes = {} %}
+{% for note in (report.requirement_notes or []) %}{% set _ = notes.update({note.requirement: note}) %}{% endfor %}
+{% macro requirement_note(grade) -%}
+{% set note = notes.get(grade.requirement) %}
+{% if note %}
+<p class="rounded-control border border-score-adequate px-3 py-2 text-xs text-text-2 line-clamp-2" data-requirement-note>
+  {{ t('report.req.note_equivalent' if note.basis == 'equivalent' else 'report.req.note', lang,
+        level=note.estimated_level, text=note.bullet_text, role=note.role) }}
+</p>
+{% endif %}
+{%- endmacro %}
 <section id="requirements">
 <h2 class="mt-8 text-lg font-semibold">{{ t('report.requirements', lang) }}</h2>
 {% if graded %}
 <p class="mt-1 text-sm text-text-2">
   {{ t('report.req.n_one' if graded == 1 else 'report.req.n', lang, n=graded) }}:
   {{ t('report.req.covered_one' if covered == 1 else 'report.req.covered', lang, n=covered) }},
-  {{ t('report.req.gaps_one' if uncovered == 1 else 'report.req.gaps', lang, n=uncovered) }}
+  {{ t('report.req.gaps_one' if uncovered == 1 else 'report.req.gaps', lang, n=uncovered) }}{% if notes %}
+  · {{ t('report.req.could_rise_one' if notes | length == 1 else 'report.req.could_rise', lang, n=notes | length) }}{% endif %}
 </p>
 <p class="mt-1 text-xs text-text-3">{{ t('report.grades_hint', lang) }}</p>
 <div id="req-chips" class="mt-3" hidden>
@@ -315,6 +329,7 @@
     {% else %}
     <p class="text-sm text-text-3">{{ t('report.no_citation', lang) }}</p>
     {% endif %}
+    {{ requirement_note(grade) }}
   </div>
 </template>
 {% endfor %}
@@ -339,6 +354,7 @@
     {% else %}
     <p class="mt-1 text-sm text-text-3">{{ t('report.no_citation', lang) }}</p>
     {% endif %}
+    <div class="mt-1">{{ requirement_note(grade) }}</div>
   </li>
   {% endfor %}
 </ul>

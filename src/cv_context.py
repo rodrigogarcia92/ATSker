@@ -64,6 +64,11 @@ class CvContext:
             "filename": self.filename,
             "chosen": self.chosen,
             "draft_sha": self.draft_sha,
+            # The master bullets the file carries: unchanged ones, and with the reworded
+            # ones. Stored so advice and the keywords card read "in the CV" from the
+            # report, without rebuilding the file (F7.2, F7.5, F11.5).
+            "matched_ids": list(self.matched_ids),
+            "represented_ids": list(self.represented_ids),
         }
 
 

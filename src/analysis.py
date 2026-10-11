@@ -55,7 +55,7 @@ from src.parse.gate import ParseReport
 from src.resumes import source_document_for_track
 from src.roles import list_roles, role_title
 from src.score.aggregate import SubScore, aggregate
-from src.score.ceiling import compute_ceiling
+from src.score.ceiling import compute_ceiling, requirement_notes
 from src.score.evidence import Level, evidence_coverage
 from src.score.experience import CitedLevel, RoleSpan, relevant_experience_score
 from src.score.gaps import Graded, detect_gaps, disqualifier_verdicts, location_requirements
@@ -640,11 +640,12 @@ def score_track(
     # F10.2/A10: the ceiling from the user's own material, computed here so the report
     # carries it. The page recomputes it only when the fingerprint below has moved. An
     # attempt replaces this with the analysis's own ceiling (F10.3, `run_pipeline`).
+    master = master_data(profile_id, session, track)
     report["ceiling"] = compute_ceiling(
         jd,
         report=report,
         document_texts=[unit.text for unit in document],
-        master=master_data(profile_id, session, track),
+        master=master,
         aliases=aliases,
         # A CV's fingerprint reads the master ids the file carries: a temporary bullet
         # gets a new id every run and would make every view look "recomputed".
@@ -659,6 +660,16 @@ def score_track(
         ),
         today=today,
     )
+    if cv is not None:
+        # F11.5: what the user's material outside this CV would raise, by the Skills
+        # ceiling's own rule. Beside the score, never in it.
+        report["requirement_notes"] = requirement_notes(
+            cast("list[dict[str, object]]", report["grades"]),
+            master,
+            aliases,
+            cv.represented_ids,
+            jd.language,
+        )
 
     return Analysis(
         report=report,
