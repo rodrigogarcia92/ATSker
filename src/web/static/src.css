@@ -4,83 +4,80 @@
 @source "../templates";
 @source "../routes";
 
-/* §12.6 — visual system v3, light by default. The raw values live once, here, as custom
+/* Visual system v3 (private_docs/q_design_v3.md §1): greys for everything, forest for what
+   matters, lime only as the highlighter. The raw values live once, here, as custom
    properties on :root; a dark set (pinned) is a second block of the same names under a
    selector, nothing else changes. tests/unit/test_contrast.py parses this block and holds
    the WCAG ratios, so edit a value only together with that test. */
 :root {
   /* Surfaces */
-  --canvas: #f6f2ea; /* page background (cream) */
-  --card: #fbf8f2; /* cards */
-  --sheet: #ffffff; /* the CV sheet */
-  --surface-2: #efe9dd; /* wells, hovers, field backgrounds */
-  --hairline: #e3ded4; /* borders and dividers (1px) */
-  /* Text: each at least 4.5:1 on canvas, card and surface-2 */
-  --ink: #1a1a1a;
-  --ink-2: #525252;
-  --ink-3: #686868;
+  --paper: #ffffff; /* page canvas, cards, the CV sheet */
+  --vellum: #f3f3f3; /* secondary surfaces, tertiary pills, wells, hover */
+  --hairline: #e5e7eb; /* every border and divider */
+  --stone: #c7c7c7; /* decorative fills only: never text, never a border that must be seen */
+  /* Text */
+  --ash: #a0a0a0; /* disabled text only (exempt): 2.6:1, not for text */
+  --slate: #6f6f6f; /* secondary text and metadata; never on lime */
+  --pewter: #5e5e5e; /* helper text needing more weight; text on lime when grey is needed */
+  --ink: #171717; /* primary text, icons, outlines that signal */
   /* Brand */
-  --forest: #1f4a3d; /* hero card, nav rail, dark bands; light text on it */
-  --lime: #c4f07a; /* primary buttons (dark text) and the highlighter; never text on light */
-  --highlight-base: #e7f9ca; /* lime at 40% on white (§12.7) */
-  --highlight-intense: #c4f07a; /* lime at 100% (§12.7) */
-  --soft-green: #a8dc8c; /* charts, positive deltas */
-  /* Score: a three-stop scale, fill and only on score surfaces; also text on light */
-  --score-strong: #1e6b47;
-  --score-adequate: #8a5a00;
-  --score-weak: #b3392b;
-  /* Severity: outlined tags only, never fill; a family apart from the score scale */
-  --sev-blocker: #b8115a;
-  --sev-warning: #6d3fc4;
-  --sev-info: #4b5d73;
-  /* Interactive */
-  --link: #1f4a3d;
-  --focus: #1f4a3d; /* 2px ring with offset on every interactive element */
+  --forest: #1f4a3d; /* primary button, score segments, focus ring; white text on it */
+  --lime: #c4f07a; /* the highlighter, intense; the selected requirement chip */
+  --highlight: #e7f9ca; /* the highlighter, base */
 }
 
-/* §12.1 named the tokens by meaning so a template says what a colour is for; the names are
-   kept, the values now point at the :root set above. */
+/* Names by meaning, kept from §12.1 so a template says what a colour is for; each now points
+   at the :root set above. Tertiary text merges into slate; ash and stone are deliberately
+   not exposed as colour utilities, so no template can set them as text. */
 @theme {
   /* Surfaces and text */
-  --color-bg: var(--canvas);
-  --color-surface-1: var(--card);
-  --color-surface-2: var(--surface-2);
+  --color-bg: var(--paper);
+  --color-surface-1: var(--paper);
+  --color-surface-2: var(--vellum);
   --color-border: var(--hairline);
   --color-card-border: var(--hairline);
   --color-text: var(--ink);
-  --color-text-2: var(--ink-2);
-  --color-text-3: var(--ink-3);
-  /* v3 additions */
-  --color-sheet: var(--sheet);
+  --color-text-2: var(--slate);
+  --color-text-3: var(--slate);
+  /* v3 names */
+  --color-paper: var(--paper);
+  --color-vellum: var(--vellum);
+  --color-hairline: var(--hairline);
+  --color-slate: var(--slate);
+  --color-pewter: var(--pewter);
+  --color-ink: var(--ink);
+  --color-sheet: var(--paper);
   --color-forest: var(--forest);
   --color-lime: var(--lime);
-  --color-highlight-base: var(--highlight-base);
-  --color-highlight-intense: var(--highlight-intense);
-  --color-soft-green: var(--soft-green);
-  /* Interactive: links and controls only */
-  --color-link: var(--link);
-  --color-focus: var(--focus);
-  /* Score: a three-stop scale, used as fill and only on score surfaces */
-  --color-score-strong: var(--score-strong);
-  --color-score-adequate: var(--score-adequate);
-  --color-score-weak: var(--score-weak);
-  /* Severity: outlined tags only, never fill */
-  --color-sev-blocker: var(--sev-blocker);
-  --color-sev-warning: var(--sev-warning);
-  --color-sev-info: var(--sev-info);
-  /* Radii */
-  --radius-card: 10px;
-  --radius-control: 6px;
-  --radius-tag: 4px;
-  /* Type (§12.6): Hedvig Letters Serif for titles and the Job Match number, Hedvig Letters
-     Sans for the interface and text, Geist Mono for queries and hashes. */
-  --font-display: "Hedvig Letters Serif", ui-serif, Georgia, "Times New Roman", serif;
-  --font-sans: "Hedvig Letters Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --color-highlight-base: var(--highlight);
+  --color-highlight-intense: var(--lime);
+  /* Interactive */
+  --color-link: var(--ink);
+  --color-focus: var(--forest);
+  /* Score: forest for the strong band, ink otherwise (shape and word carry the rest) */
+  --color-score-strong: var(--forest);
+  --color-score-adequate: var(--ink);
+  --color-score-weak: var(--ink);
+  /* Severity: outlined tags, told apart by shape and word, never by colour alone */
+  --color-sev-blocker: var(--ink);
+  --color-sev-warning: var(--slate);
+  --color-sev-info: var(--pewter);
+  /* Radii (§3): cards 20, large cards 24, small cards and code wells 8, controls pill */
+  --radius-card: 20px;
+  --radius-lg: 24px;
+  --radius-sm: 8px;
+  --radius-pill: 9999px;
+  --radius-control: var(--radius-pill);
+  --radius-tag: var(--radius-pill);
+  /* Type (§2): one family, Hanken Grotesk 400, for everything; Geist Mono for recruiter
+     queries, hashes and code-like strings only. */
+  --font-sans: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
-/* Every number is tabular (§12.1): scores, counts, dates and hashes line up. Hedvig Letters
-   ships one weight (400), so bold is never synthesised: hierarchy comes from size, ink and
+/* Every number is tabular (§12.1): scores, counts, dates and hashes line up. Hanken Grotesk
+   loads one weight (400), so bold is never synthesised: hierarchy comes from size, ink and
    spacing, and `font-semibold` and `font-medium` in a template change nothing visible. */
 body {
   font-variant-numeric: tabular-nums;

@@ -1,8 +1,9 @@
-"""WCAG contrast of the visual system's tokens (PRD §12.6).
+"""WCAG contrast of the visual system's tokens (design v3, `q_design_v3.md` §1 and §6).
 
 The values are parsed from the `:root` block of `src/web/static/src.css`, so the test fails
 when a token is edited to something unreadable. Ratios follow WCAG 2.x: 4.5:1 for text,
-3:1 for fills and outlines.
+3:1 for fills, outlines and dashed borders. Ash and stone are not text colours: ash is
+exempt (disabled text), stone is decorative, and no template may use them as text.
 """
 
 import re
@@ -10,7 +11,9 @@ from pathlib import Path
 
 import pytest
 
-SRC_CSS = Path(__file__).resolve().parents[2] / "src" / "web" / "static" / "src.css"
+ROOT = Path(__file__).resolve().parents[2]
+SRC_CSS = ROOT / "src" / "web" / "static" / "src.css"
+TEMPLATES = ROOT / "src" / "web" / "templates"
 
 TEXT = 4.5
 NON_TEXT = 3.0
@@ -40,74 +43,67 @@ def ratio(a: str, b: str) -> float:
     return (hi + 0.05) / (lo + 0.05)
 
 
-LIGHT_SURFACES = ["canvas", "card", "sheet", "surface-2"]
+PAGE_SURFACES = ["paper", "vellum"]
 
 
 def test_every_token_is_defined():
     expected = {
-        "canvas", "card", "sheet", "surface-2", "hairline", "ink", "ink-2", "ink-3",
-        "forest", "lime", "highlight-base", "highlight-intense", "soft-green",
-        "score-strong", "score-adequate", "score-weak",
-        "sev-blocker", "sev-warning", "sev-info", "link", "focus",
+        "paper", "vellum", "hairline", "stone", "ash", "slate", "pewter", "ink",
+        "forest", "lime", "highlight",
     }  # fmt: skip
     assert expected <= set(TOKENS)
 
 
-@pytest.mark.parametrize("surface", LIGHT_SURFACES)
-@pytest.mark.parametrize("text", ["ink", "ink-2", "ink-3"])
-def test_text_tiers_on_light_surfaces(text, surface):
-    # Tertiary text is used as text throughout (captions, hints), so it meets 4.5 too.
+def test_the_withdrawn_tokens_are_gone():
+    withdrawn = {
+        "canvas", "card", "sheet", "surface-2", "ink-2", "ink-3", "soft-green", "link", "focus",
+        "score-strong", "score-adequate", "score-weak", "sev-blocker", "sev-warning", "sev-info",
+        "highlight-base", "highlight-intense",
+    }  # fmt: skip
+    assert not withdrawn & set(TOKENS)
+
+
+@pytest.mark.parametrize("surface", PAGE_SURFACES)
+@pytest.mark.parametrize("text", ["ink", "pewter", "slate"])
+def test_text_tiers_on_paper_and_vellum(text, surface):
     assert ratio(text, surface) >= TEXT, (text, surface, ratio(text, surface))
 
 
-@pytest.mark.parametrize("surface", LIGHT_SURFACES)
-@pytest.mark.parametrize("text", ["link", "score-strong", "score-adequate", "score-weak"])
-def test_score_and_link_colours_as_text_on_light_surfaces(text, surface):
-    assert ratio(text, surface) >= TEXT, (text, surface, ratio(text, surface))
-
-
-@pytest.mark.parametrize("surface", LIGHT_SURFACES)
-@pytest.mark.parametrize("text", ["sev-blocker", "sev-warning", "sev-info"])
-def test_severity_colours_as_outline_and_label_on_light_surfaces(text, surface):
-    # Severity is an outlined tag whose label takes the same colour: text threshold.
-    assert ratio(text, surface) >= TEXT, (text, surface, ratio(text, surface))
-
-
-@pytest.mark.parametrize("fill", ["score-strong", "score-adequate", "score-weak"])
-@pytest.mark.parametrize("surface", ["canvas", "card", "sheet"])
-def test_score_fills_stand_out_from_the_page(fill, surface):
-    assert ratio(fill, surface) >= NON_TEXT
-
-
-@pytest.mark.parametrize("highlight", ["lime", "highlight-base", "highlight-intense"])
-def test_ink_on_lime_and_highlighter(highlight):
+@pytest.mark.parametrize("highlight", ["lime", "highlight"])
+def test_ink_on_the_highlighter(highlight):
     assert ratio("ink", highlight) >= TEXT, (highlight, ratio("ink", highlight))
 
 
-@pytest.mark.parametrize("text", ["canvas", "card", "sheet", "lime", "soft-green"])
-def test_text_on_forest(text):
-    assert ratio(text, "forest") >= TEXT, (text, ratio(text, "forest"))
+def test_pewter_on_lime():
+    assert ratio("pewter", "lime") >= TEXT, ratio("pewter", "lime")
 
 
-def test_focus_ring_is_visible_on_every_light_surface():
-    for surface in LIGHT_SURFACES:
-        assert ratio("focus", surface) >= NON_TEXT
+def test_white_on_forest():
+    assert ratio("paper", "forest") >= TEXT, ratio("paper", "forest")
 
 
-def test_score_and_severity_families_are_distinct():
-    # A weak score and a blocker must never look alike: the two hues sit apart.
-    def hue(token: str) -> float:
-        value = TOKENS[token].lstrip("#")
-        r, g, b = (int(value[i : i + 2], 16) / 255 for i in (0, 2, 4))
-        hi, lo = max(r, g, b), min(r, g, b)
-        d = hi - lo
-        if hi == r:
-            h = ((g - b) / d) % 6
-        elif hi == g:
-            h = (b - r) / d + 2
-        else:
-            h = (r - g) / d + 4
-        return h * 60
+@pytest.mark.parametrize("surface", PAGE_SURFACES)
+def test_forest_is_visible_as_focus_ring_and_segments(surface):
+    assert ratio("forest", surface) >= NON_TEXT, (surface, ratio("forest", surface))
 
-    gap = abs(hue("score-weak") - hue("sev-blocker"))
-    assert min(gap, 360 - gap) >= 25
+
+def test_slate_dashed_border_of_a_missing_term_is_visible_on_paper():
+    assert ratio("slate", "paper") >= NON_TEXT
+
+
+def test_ash_is_below_text_contrast():
+    # Documents why ash is for disabled text only: it must never be promoted to text.
+    assert ratio("ash", "paper") < TEXT
+
+
+def _template_text_classes() -> list[tuple[str, str]]:
+    pattern = re.compile(r"(?<![\w-])(?:[\w\[\]-]+:)*text-(?:ash|stone)(?![\w-])")
+    hits = []
+    for path in sorted(TEMPLATES.rglob("*.html")):
+        for match in pattern.finditer(path.read_text(encoding="utf-8")):
+            hits.append((str(path.relative_to(ROOT)), match.group(0)))
+    return hits
+
+
+def test_no_template_uses_ash_or_stone_as_text():
+    assert _template_text_classes() == []
