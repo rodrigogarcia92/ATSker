@@ -26,6 +26,7 @@ from typing import cast
 from sqlalchemy.orm import Session
 
 from src.advice import edit_advice
+from src.cv_context import CvContext, cv_document
 from src.documents import (
     DocumentUnit,
     document_bullets,
@@ -255,6 +256,7 @@ def score_track(
     document: Sequence[DocumentUnit] | None = None,
     interpret: bool = True,
     extra_roles: Sequence[Role] = (),
+    cv: CvContext | None = None,
 ) -> Analysis:
     """One track's analysis of a prepared posting: document, grading, score, gaps.
 
@@ -268,6 +270,12 @@ def score_track(
     detects gaps but does not pay for the prose about them. `extra_roles` are the file's
     jobs that match no master role (a transient `Role`, never stored): their bullets'
     citations count in Experience like any other role's. The analysis passes none.
+
+    `cv` marks the file as a stored CV (F11): the readability cap is the file's own gate
+    and is never borrowed from the track's latest upload, the F4.2 alert compares the
+    file's language with the posting's, the ceiling's fingerprint reads the master
+    bullets the file carries, and the report records which CV it scored. Scoring itself
+    is unchanged — what is scored is the file.
     """
     profile = session.get(Profile, profile_id)
     if profile is None:
@@ -280,10 +288,11 @@ def score_track(
     # selection or every one of them.
     if bullets is None:
         bullets = document_bullets(profile_id, session, track)
-    if track is not None:
+    if track is not None and cv is None:
         # F5.1: a track built from an upload is capped by the document that produced
         # it. No source document — or no track — means no gate and no cap, which is
-        # also what an analysis against the master database has always been.
+        # also what an analysis against the master database has always been. A CV
+        # carries its own findings (F11.2): another upload's never cap it.
         if gate is None:
             source = source_document_for_track(profile_id, session, track.id)
             if source is not None and source.gate:
@@ -492,6 +501,23 @@ def score_track(
         "fallback_titles": sum(1 for unit in title_units if unit.fallback),
         "titles": len(title_units),
     }
+    if cv is not None:
+        # F4.2 on a file (STOP 0, decision 1): the recruiter reads the CV's own words,
+        # so the alert compares the file's language with the posting's. A file in the
+        # posting's language raises none; one in the other language is entirely
+        # "the other language", and the counts say how much of it there is.
+        wrong = cv.language != jd.language
+        roles_in_file = len(cv.role_matching)
+        language.update(
+            {
+                "file": cv.language,
+                "fallback_headline": wrong and document_headline(document) is not None,
+                "fallback_summary": wrong and summary_unit is not None,
+                "fallback_bullets": len(bullet_units) if wrong else 0,
+                "titles": roles_in_file,
+                "fallback_titles": roles_in_file if wrong else 0,
+            }
+        )
     if (
         language["fallback_headline"]
         or language["fallback_summary"]
@@ -595,6 +621,11 @@ def score_track(
         "score": score.to_dict(),
         "llm": llm_section(calls, cost),
     }
+    if cv is not None:
+        # F11.3: which file this is, and how it was read (F10.3 step 3's snapshots).
+        report["cv"] = cv.header()
+        report["bullets"] = [dict(row) for row in cv.snapshots]
+        report["role_matching"] = [dict(row) for row in cv.role_matching]
     # F7.2: the six edit rules, computed from the report just built and the user's own
     # rows — deterministic, free, and made no provider call, so this runs after the
     # last one. A stored report keeps the items; the sentences are the page's.
@@ -615,11 +646,17 @@ def score_track(
         document_texts=[unit.text for unit in document],
         master=master_data(profile_id, session, track),
         aliases=aliases,
-        track_bullet_ids=[
-            unit.source_id
-            for unit in document
-            if unit.kind == "bullet" and unit.source_id is not None
-        ],
+        # A CV's fingerprint reads the master ids the file carries: a temporary bullet
+        # gets a new id every run and would make every view look "recomputed".
+        track_bullet_ids=(
+            list(cv.matched_ids)
+            if cv is not None
+            else [
+                unit.source_id
+                for unit in document
+                if unit.kind == "bullet" and unit.source_id is not None
+            ]
+        ),
         today=today,
     )
 
@@ -712,18 +749,28 @@ def ceiling_for_report(
     if not {"skills", "experience", "title", "keywords"} <= set(sub_scores):
         return None
     jd = StructuredJD(**jd_dict)
-    document = track_document(profile_id, session, track, jd.language)
+    if report.get("cv") is not None:
+        # F11.4: a CV analysis's ceiling is the whole master against the file, which is
+        # rebuilt from the stored draft. A file that is gone or changed has no ceiling
+        # to recompute, and the caller keeps the stored one.
+        rebuilt = cv_document(profile_id, session, report=report, track=track, lang=jd.language)
+        if rebuilt is None:
+            return None
+        document, matched_ids = rebuilt
+    else:
+        document = track_document(profile_id, session, track, jd.language)
+        matched_ids = [
+            unit.source_id
+            for unit in document
+            if unit.kind == "bullet" and unit.source_id is not None
+        ]
     return compute_ceiling(
         jd,
         report=report,
         document_texts=[unit.text for unit in document],
         master=master_data(profile_id, session, track),
         aliases=alias_map(session),
-        track_bullet_ids=[
-            unit.source_id
-            for unit in document
-            if unit.kind == "bullet" and unit.source_id is not None
-        ],
+        track_bullet_ids=matched_ids,
         today=today or date.today(),
     )
 
@@ -743,6 +790,8 @@ def shown_ceiling(
     """
     stored = report.get("ceiling")
     current = ceiling_for_report(profile_id, session, report=report, track=track)
+    if current is None and report.get("cv") is not None and isinstance(stored, dict):
+        return stored, False  # the CV is gone or was edited: what was computed stands
     if isinstance(stored, dict) and current and stored.get("fingerprint") == current.get(
         "fingerprint"
     ):
