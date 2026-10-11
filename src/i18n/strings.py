@@ -1805,8 +1805,8 @@ STRINGS: dict[str, dict[str, str]] = {
     "delete.title": {"es": "¿Eliminar para siempre?", "en": "Delete permanently?"},
     "delete.impact.resume": {
         "es": (
-            "Se eliminarán el archivo del CV y su borrador. Aportó {bullets} balas, que se "
-            "conservan salvo que marques la casilla. {bullets_unknown} balas tienen procedencia "
+            "Se eliminarán el archivo del CV y su borrador. Aportó {bullets} bullets, que se "
+            "conservan salvo que marques la casilla. {bullets_unknown} bullets tienen procedencia "
             "desconocida y la casilla nunca las elimina. {analyses} análisis hechos sobre este "
             "CV se conservan con el nombre del archivo, pero ya no se podrá volver a puntuar "
             "sobre él."
@@ -1820,7 +1820,7 @@ STRINGS: dict[str, dict[str, str]] = {
     },
     "delete.impact.role": {
         "es": (
-            "Se eliminarán el puesto, sus {bullets} balas y sus {revisions} revisiones. Quedan "
+            "Se eliminarán el puesto, sus {bullets} bullets y sus {revisions} revisiones. Quedan "
             "{stories} historias con el enlace al puesto vacío."
         ),
         "en": (
@@ -1829,7 +1829,7 @@ STRINGS: dict[str, dict[str, str]] = {
         ),
     },
     "delete.impact.bullet": {
-        "es": "La bala está en {tracks} líneas y citada por {analyses} análisis; los análisis "
+        "es": "El bullet está en {tracks} líneas y citada por {analyses} análisis; los análisis "
         "conservan su copia. Se eliminan además sus {story_links} enlaces a historias y sus "
         "{revisions} revisiones.",
         "en": (
@@ -1848,7 +1848,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "The pool summary will be deleted. {tracks} tracks lose that slot.",
     },
     "delete.impact.track": {
-        "es": "Se eliminarán la línea y su selección de {selection} balas. {analyses} análisis "
+        "es": "Se eliminarán la línea y su selección de {selection} bullets. {analyses} análisis "
         "conservan el nombre de la línea.",
         "en": (
             "The track and its selection of {selection} bullets will be deleted. {analyses} "
@@ -1856,7 +1856,7 @@ STRINGS: dict[str, dict[str, str]] = {
         ),
     },
     "delete.impact.story": {
-        "es": "Se eliminarán la historia y sus {links} enlaces a balas.",
+        "es": "Se eliminarán la historia y sus {links} enlaces a bullets.",
         "en": "The story and its {links} bullet links will be deleted.",
     },
     "delete.impact.letter": {
@@ -1874,7 +1874,7 @@ STRINGS: dict[str, dict[str, str]] = {
         ),
     },
     "delete.impact.everything": {
-        "es": "Se eliminará todo lo del perfil: {resumes} CV, {roles} puestos, {bullets} balas, "
+        "es": "Se eliminará todo lo del perfil: {resumes} CV, {roles} puestos, {bullets} bullets, "
         "{summaries} resúmenes, {tracks} líneas, {stories} historias, {letter_templates} "
         "plantillas, {applications} análisis, {application_attempts} intentos y {skills} "
         "habilidades del pool. Se vaciarán {ledger_redacted} respuestas personales del registro "
@@ -1900,7 +1900,7 @@ STRINGS: dict[str, dict[str, str]] = {
         ),
     },
     "delete.cv_option": {
-        "es": "Eliminar también las balas que solo aportó este CV.",
+        "es": "Eliminar también los bullets que solo aportó este CV.",
         "en": "Also delete the bullets only this CV contributed.",
     },
     "delete.typed_label": {
@@ -1915,7 +1915,7 @@ STRINGS: dict[str, dict[str, str]] = {
     "profile.skills_none": {"es": "El pool está vacío.", "en": "The pool is empty."},
     "profile.delete_all": {"es": "Eliminar todo", "en": "Delete everything"},
     "profile.delete_all_hint": {
-        "es": "Elimina todo lo del perfil: CV, puestos, balas, resúmenes, líneas, historias, "
+        "es": "Elimina todo lo del perfil: CV, puestos, bullets, resúmenes, líneas, historias, "
         "plantillas, análisis y las respuestas personales del registro de modelos. Tu cuenta y tu "
         "fila de perfil se quedan, vacías.",
         "en": (

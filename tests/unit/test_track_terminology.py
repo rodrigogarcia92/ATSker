@@ -50,3 +50,11 @@ def test_the_job_in_the_posting_keeps_puesto_and_its_placeholder():
 def test_the_users_own_roles_keep_puesto():
     assert t("roles.new", "es") == "Nuevo puesto"
     assert t("dashboard.roles", "es") == "Puestos"
+
+
+def test_no_spanish_value_says_bala_for_a_bullet():
+    offenders = [
+        key for key, value in STRINGS.items() if re.search(r"\bbalas?\b", value["es"], re.I)
+    ]
+
+    assert offenders == []
