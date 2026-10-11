@@ -333,6 +333,7 @@ def attempt_summary_material(
         report=report,
         draft=report.get("draft") or {},
         base_id=f"attempt-{attempt.id}",
+        closure="pool+file",
     )
 
 
@@ -344,7 +345,8 @@ def cv_summary_material(
     The same material as an attempt's, from the analysis: the bullets and grades are the
     CV's as the analysis read them (`report["bullets"]`, temporary ids included), the base
     is the CV's own summary — from its stored draft — before the F7.3 chain, and the
-    closure set is the pool plus what the file itself names. A CV that has since been
+    closure set is the pool only: accepting writes the pool and the track, so a skill the user
+    never confirmed (a CV saved from an attempt) cannot be named. A CV that has since been
     deleted leaves the report's bullets and grades, and the chain supplies the base.
     """
     resume = (
@@ -360,6 +362,7 @@ def cv_summary_material(
         report=dict(application.report or {}),
         draft=dict(resume.draft or {}) if resume is not None else {},
         base_id=f"cv-{cv.get('resume_id') or application.resume_id or 'deleted'}",
+        closure="pool",
     )
 
 
@@ -371,8 +374,14 @@ def file_summary_material(
     report: dict[str, Any],
     draft: Mapping[str, Any],
     base_id: str,
+    closure: str = "pool+file",
 ) -> AttemptSummaryMaterial:
-    """The material for a summary written for a file: an attempt's or a CV's (F10.7, F11.9)."""
+    """The material for a summary written for a file: an attempt's or a CV's (F10.7, F11.9).
+
+    `closure` is the skill-closure set: an attempt's proposal is copy-only, so it may name what
+    the file names ("pool+file"); a CV's summary can be accepted into the pool and the track, so
+    it may name only what the user confirmed ("pool").
+    """
     language = report_language(application)
     aliases = alias_map(session)
     title = posting_title(application)
@@ -385,7 +394,9 @@ def file_summary_material(
     file_skills = set(resolve_terms([str(s) for s in draft.get("skills") or []], aliases)[0])
     for _bullet_id, text in bullets:
         file_skills.update(match_text(text, aliases, skip_ambiguous=True))
-    pool = frozenset(pool_skills(profile_id, session) | file_skills)
+    pool = pool_skills(profile_id, session)
+    if closure == "pool+file":
+        pool = frozenset(pool | file_skills)
 
     track = get_track(profile_id, session, application.track_id) if application.track_id else None
     file_summary = str(draft.get("summary") or "").strip()

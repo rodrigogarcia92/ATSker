@@ -82,7 +82,7 @@ def test_the_material_is_the_cvs(session, career):
     assert material.base.origin == "file" and material.base.summary_id == f"cv-{cv.id}"
     assert material.bullets == [(TEMP_ID, TEMP_TEXT)], "the CV's bullets, not the track's"
     assert material.grades == [{"level": 3, "evidence_id": TEMP_ID}]
-    assert "machine learning" in material.pool, "a skill only the CV's skills list names"
+    assert "machine learning" not in material.pool, "a skill only the CV names is not confirmed"
     assert material.title == "Analista de datos" and material.language == "es"
 
 
@@ -134,6 +134,33 @@ def test_accepting_checks_the_cvs_sources_and_writes_the_pool(client, session, c
     saved = session.query(Summary).filter(Summary.text == GOOD).one()
     assert saved.lang == "es"
     assert career.first_track.summary_es_id != saved.id, "the track only when ticked"
+
+
+UNCONFIRMED = "Analista de datos con Python y machine learning."
+
+
+def test_a_skill_outside_the_pool_is_refused_on_propose_and_on_accept(
+    client, session, career, queue
+):
+    """A CV saved from an attempt never went through the merge review (M1)."""
+    application, cv = cv_application(session, career)
+    stub = queue(UNCONFIRMED, cites=[TEMP_ID, f"summary:cv-{cv.id}"])
+    login(client, career.first.email)
+
+    page = generate(client, application).text
+
+    assert len(stub.calls) >= 1
+    assert "Habilidades que no están en tus datos" in page and "«machine learning»" in page
+
+    payload = json.dumps(
+        {"summary": {"text": UNCONFIRMED, "cites": [TEMP_ID, f"summary:cv-{cv.id}"]}}
+    )
+    response = client.post(
+        f"/applications/{application.id}/summary/accept",
+        data={"payload": payload, "dialog": "1"},
+    )
+    assert response.status_code == 200 and "no pasa la validación" in response.text
+    assert session.query(Summary).filter(Summary.text == UNCONFIRMED).count() == 0
 
 
 def test_a_cite_outside_the_cvs_sources_is_still_refused(client, session, career):
