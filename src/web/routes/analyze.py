@@ -254,7 +254,12 @@ def application_report(
     ceiling, ceiling_recomputed = shown_ceiling(
         profile.id, session, report=application.report, track=track
     )
-    keywords = keyword_advice(profile.id, session, report=application.report, track=track)
+    # F11.4: an analysis of a CV is of a file, so its advice and its Keywords card are
+    # worded for one ("en tu documento"), as an attempt's are.
+    cv_report = bool(application.report.get("cv"))
+    keywords = keyword_advice(
+        profile.id, session, report=application.report, track=track, for_file=cv_report
+    )
     return render(
         request,
         "analyze/report.html",
@@ -265,6 +270,7 @@ def application_report(
         ceiling=ceiling,
         ceiling_recomputed=ceiling_recomputed,
         ceiling_remainder=ceiling_remainder(ceiling, user.ui_lang) if ceiling else None,
+        advice_for_file=cv_report,
         # F10.1: the modal lists the attempts this analysis already has.
         attempts=application_attempts_report(attempt_rows),
         open_attempt=open_attempt,
