@@ -6,12 +6,14 @@ when `merged_at` is stamped; `draft` and `gate` are what the review screen rende
 in the meantime.
 """
 
+import hashlib
 import uuid
 from datetime import UTC, datetime
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from src.models import Resume
+from src.models import Application, ApplicationAttempt, Resume
 from src.scoping import owned_row, owned_rows, parse_id
 
 
@@ -169,3 +171,47 @@ def resolve_cv(
     if key is None:
         return None
     return next((resume for resume in cvs if resume.id == key), None)
+
+
+def save_attempt_as_cv(
+    profile_id: uuid.UUID,
+    session: Session,
+    *,
+    application: Application,
+    attempt: ApplicationAttempt,
+    filename: str,
+) -> tuple[Resume | None, bool]:
+    """"Subir a esta línea": a finished attempt becomes a CV of the application's track (F11.7).
+
+    The CV is the attempt's draft and gate findings, the file's SHA-256 and `source_attempt_id`
+    — and **no file bytes**, because attempts never store them. It is merged now, so it is the
+    track's newest CV; it merges no material (that is the separate F2.5 review). Idempotent:
+    an attempt already saved returns its CV with `created=False`. `(None, False)` when the
+    attempt cannot be saved: it is not finished, its draft was discarded, or the application's
+    track is gone.
+    """
+    existing = session.scalar(
+        select(Resume).where(
+            Resume.profile_id == profile_id, Resume.source_attempt_id == attempt.id
+        )
+    )
+    if existing is not None:
+        return existing, False
+    report = attempt.report or {}
+    draft = report.get("draft")
+    if attempt.status != "done" or not draft or application.track_id is None:
+        return None, False
+    resume = create_resume(
+        profile_id,
+        session,
+        filename=filename[:255],
+        data=None,
+        sha256=attempt.file_sha256 or hashlib.sha256(repr(sorted(draft)).encode()).hexdigest(),
+        track_id=application.track_id,
+        gate=report.get("gate"),
+        draft=draft,
+    )
+    resume.source_attempt_id = attempt.id
+    resume.merged_at = datetime.now(UTC)
+    session.flush()
+    return resume, True

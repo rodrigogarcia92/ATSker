@@ -92,12 +92,26 @@ class EphemeralTrack:
     represented_ids: tuple[str, ...] = ()
 
 
+def _transient_id(profile_id: uuid.UUID, text: str, occurrence: int) -> uuid.UUID:
+    """The temporary id of a file bullet that is not a master row.
+
+    Derived from the profile and the text, not drawn at random: the same file read twice
+    gives the same ids, so the grading input — which names its bullets — is the same and
+    the content-hash cache answers it. That is what lets a CV saved from an attempt score
+    exactly as the attempt did with no new grading call (F11.11 criterion 4), and what
+    keeps a re-analysis of a CV with new bullets free. `occurrence` tells apart a line the
+    file repeats.
+    """
+    return uuid.uuid5(profile_id, f"file-bullet:{occurrence}:{text}")
+
+
 def _transient_bullet(
     profile_id: uuid.UUID,
     role_id: uuid.UUID,
     column: str,
     text: str,
     chips: Sequence[str],
+    occurrence: int = 0,
 ) -> Bullet:
     """A bullet that exists only for this run: never added to a session, never stored.
 
@@ -107,7 +121,7 @@ def _transient_bullet(
     """
     values: dict[str, object] = {"text_en": None, "text_es": None, column: text}
     return Bullet(
-        id=uuid.uuid4(),
+        id=_transient_id(profile_id, text, occurrence),
         profile_id=profile_id,
         role_id=role_id,
         skills=list(chips),
@@ -256,6 +270,7 @@ def build_ephemeral(
     transient_roles: list[Role] = []
     role_matching: list[dict[str, object]] = []
     represented: dict[str, None] = {}
+    repeats: dict[str, int] = {}
     for matched in matches:
         role, by = matched.plan, matched.by
         candidates: Sequence[BulletCandidate] = role.bullets
@@ -298,8 +313,10 @@ def build_ephemeral(
                     )
                 )
             else:
+                occurrence = repeats.get(candidate.text, 0)
+                repeats[candidate.text] = occurrence + 1
                 fresh = _transient_bullet(
-                    profile_id, role_id, column, candidate.text, candidate.chips
+                    profile_id, role_id, column, candidate.text, candidate.chips, occurrence
                 )
                 bullets.append(fresh)
                 snapshots.append(

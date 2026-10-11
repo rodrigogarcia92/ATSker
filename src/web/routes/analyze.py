@@ -268,6 +268,27 @@ def analyze_submit(
             return _form(request, user, session, profile, values=values, error=message)
         raise HTTPException(status_code=404)
 
+    return _run_analysis(
+        request,
+        user,
+        session,
+        profile,
+        values=values,
+        track=track,
+        resume=resume,
+        choice=choice,
+    )
+
+
+def _run_analysis(request, user, session, profile, *, values, track, resume, choice):
+    """Analyse `values["jd_text"]` on `resume` and store it; the page, or the form again.
+
+    Shared by the form (F11.3) and by "Analizar con este CV" / the report's CV selector
+    (`/applications/{id}/reanalyze`, F11.3, F11.7), which differ only in where the posting
+    comes from. The calls that did succeed before a failure were paid for and are valid cache
+    entries, so the ledger keeps them even though no application was produced.
+    """
+    jd_text = values["jd_text"]
     try:
         # F2.8: the ledger rows of every call this analysis makes record whose call
         # they were — attribution rides `options`.
@@ -275,8 +296,8 @@ def analyze_submit(
             profile.id,
             session,
             jd_text=jd_text,
-            company=company,
-            title=title,
+            company=values["company"] or None,
+            title=values["title"] or None,
             track=track,
             resume=resume,
             chosen="latest" if choice == LATEST else "explicit",
@@ -286,8 +307,6 @@ def analyze_submit(
         message = t("analyze.no_model", user.ui_lang)
         return _form(request, user, session, profile, values=values, error=message)
     except (ProviderUnavailable, StructuredOutputError, CitationViolation):
-        # The calls that did succeed were paid for and are valid cache entries, so
-        # the ledger keeps them even though no application was produced.
         session.commit()
         message = t("analyze.failed", user.ui_lang)
         return _form(request, user, session, profile, values=values, error=message)
@@ -315,6 +334,48 @@ def analyze_submit(
     )
     session.commit()
     return RedirectResponse(f"/applications/{application.id}", status_code=303)
+
+
+@router.post("/applications/{application_id}/reanalyze")
+def application_reanalyze(
+    application_id: str,
+    request: Request,
+    user: SignedInUser,
+    session: DbSession,
+    profile: OwnProfile,
+    resume_id: Annotated[str | None, Form()] = None,
+):
+    """The same posting, on another CV of the same track: a new application (F11.3).
+
+    JD extraction and the recruiter's queries are cached; grading costs one call unless the
+    cache has it, and the gap prose usually one more ("hasta 2 llamadas"). The CV id is as
+    untrusted as any other: not this profile's, or not of this application's track, is a
+    404. An analysis made before F11 had no CV; the form is shown again to choose one.
+    """
+    previous = get_application(profile.id, session, application_id)
+    if previous is None:
+        return render(request, "not_found.html", user=user, status_code=404)
+    choice = (resume_id or "").strip() or LATEST
+    track = get_track(profile.id, session, previous.track_id) if previous.track_id else None
+    values = _submitted(
+        previous.jd_text or "",
+        previous.company,
+        previous.title,
+        str(track.id) if track is not None else "",
+        choice,
+    )
+    if track is None:
+        message = t("analyze.reanalyse_no_track", user.ui_lang)
+        return _form(request, user, session, profile, values=values, error=message)
+    resume = resolve_cv(profile.id, session, track.id, choice)
+    if resume is None:
+        if choice == LATEST and not track_cvs(profile.id, session, track.id):
+            message = t("analyze.no_cv", user.ui_lang)
+            return _form(request, user, session, profile, values=values, error=message)
+        raise HTTPException(status_code=404)
+    return _run_analysis(
+        request, user, session, profile, values=values, track=track, resume=resume, choice=choice
+    )
 
 
 @router.get("/applications/{application_id}")

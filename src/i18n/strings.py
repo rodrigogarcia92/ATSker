@@ -2068,6 +2068,50 @@ STRINGS: dict[str, dict[str, str]] = {
     },
     "import.location_title": {"es": "Dónde está", "en": "Where it is"},
     # F11.7: a CV saved from an attempt has no file, so there is no page to show.
+    # F11.7: "Subir a esta línea", the CV an attempt becomes, and what to do next.
+    "attempt.save_cv": {"es": "Subir a esta línea", "en": "Save to this track"},
+    "attempt.save_cv.name": {
+        "es": "Intento {n} — {title}",
+        "en": "Attempt {n} — {title}",
+    },
+    "attempt.save_cv.title": {"es": "CV guardado en la línea", "en": "CV saved to the track"},
+    "attempt.save_cv.done": {
+        "es": "«{name}» es ahora un CV de la línea «{track}», el más reciente.",
+        "en": "“{name}” is now a CV of the track “{track}”, the newest one.",
+    },
+    "attempt.save_cv.exists": {
+        "es": "Este intento ya estaba guardado como CV de la línea «{track}»: «{name}».",
+        "en": "This attempt was already saved as a CV of the track “{track}”: “{name}”.",
+    },
+    "attempt.save_cv.no_file": {
+        "es": "El archivo no se conservó (los intentos nunca lo guardan). «Archivo original» "
+        "lo dirá; si quieres verlo, impórtalo con Importar CV.",
+        "en": "The file was not kept (attempts never store it). “Original file” will say so; "
+        "to see it, import it with Import CV.",
+    },
+    "attempt.save_cv.incorporate": {
+        "es": "Incorporar también su contenido a mi material",
+        "en": "Also incorporate its content into my material",
+    },
+    "attempt.save_cv.incorporate_hint": {
+        "es": "Guardar el CV no cambia tu material: eso es la revisión de siempre.",
+        "en": "Saving the CV does not change your material: that is the usual review.",
+    },
+    "attempt.save_cv.analyse": {"es": "Analizar con este CV", "en": "Analyse with this CV"},
+    "attempt.save_cv.analyse_hint": {
+        "es": "Una nueva puntuación de la misma oferta (hasta 2 llamadas).",
+        "en": "A new analysis of the same posting (up to 2 calls).",
+    },
+    "attempt.save_cv.unavailable": {
+        "es": "Este intento no se puede subir a una línea: no está terminado, su borrador se "
+        "descartó o la línea ya no existe.",
+        "en": "This attempt cannot be saved to a track: it is not finished, its draft was "
+        "discarded or the track no longer exists.",
+    },
+    "analyze.reanalyse_no_track": {
+        "es": "Esta oferta se analizó sin línea de carrera: elige una línea y uno de sus CV.",
+        "en": "This posting was analysed without a track: choose a track and one of its CVs.",
+    },
     "import.file_not_kept": {
         "es": "Este CV se guardó desde un intento: el archivo no se conservó, así que no "
         "hay página que mostrar. Impórtalo con Importar CV si quieres verlo.",

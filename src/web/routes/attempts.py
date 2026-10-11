@@ -58,6 +58,7 @@ from src.i18n import t
 from src.ingest.documents import SUPPORTED_SUFFIXES, UnreadableDocument
 from src.keyword_advice import keyword_advice
 from src.parse.gate import checks_not_run
+from src.resumes import save_attempt_as_cv
 from src.tracks import get_track, list_tracks
 from src.web.alerts import ceiling_remainder
 from src.web.deps import DbSession, OwnProfile, SignedInUser
@@ -315,6 +316,55 @@ def attempt_sent(
     application.sent_attempt_id = attempt.id
     session.commit()
     return _modal_action_response(request, user, application, attempt, session)
+
+
+@router.post("/applications/{application_id}/attempts/{attempt_id}/save-cv")
+def attempt_save_cv(
+    request: Request,
+    user: SignedInUser,
+    session: DbSession,
+    profile: OwnProfile,
+    application_id: str,
+    attempt_id: str,
+):
+    """"Subir a esta línea": save a finished attempt as the application's track's newest CV.
+
+    Another profile's application or attempt is a 404. The attempt must be finished with its
+    draft kept (a discarded one is not offered, and a forced POST is a 409). Pressing it
+    again shows the CV already saved instead of making a second one (F11.7).
+    """
+    application, attempt = _owned(profile.id, session, application_id, attempt_id)
+    if attempt is None:
+        return render(request, "not_found.html", user=user, status_code=404)
+    resume, created = save_attempt_as_cv(
+        profile.id,
+        session,
+        application=application,
+        attempt=attempt,
+        filename=(
+            t(
+                "attempt.save_cv.name",
+                user.ui_lang,
+                n=attempt.attempt_no,
+                title=application.title or application.company or t("report.title", user.ui_lang),
+            )
+            + f".{attempt.file_format or 'docx'}"
+        ),
+    )
+    if resume is None:
+        raise HTTPException(status_code=409, detail=t("attempt.save_cv.unavailable", user.ui_lang))
+    session.commit()
+    return render(
+        request,
+        "attempts/saved_cv.html",
+        user=user,
+        application=application,
+        attempt=attempt,
+        resume=resume,
+        created=created,
+        track=get_track(profile.id, session, resume.track_id) if resume.track_id else None,
+        can_incorporate=bool((attempt.report or {}).get("draft")),
+    )
 
 
 @router.get("/applications/{application_id}/attempts/{attempt_id}/incorporate")
