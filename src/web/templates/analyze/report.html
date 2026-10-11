@@ -118,7 +118,7 @@
    opens the attempt modal (same id as it always had); "Proponer resumen" opens the shared
    dialog, or says why it cannot. The jump links sit under them. #}
 <aside aria-label="{{ t('report.actions.label', lang) }}" class="mt-8">
-  <div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
+  <div class="hidden gap-2 md:grid md:grid-cols-3">
     <button type="button" id="attempt-open" data-attempt-open class="btn btn-tertiary">
       {{ t('report.actions.try_cv', lang) }}
     </button>
@@ -1017,13 +1017,20 @@
      style="padding-bottom: max(0.75rem, env(safe-area-inset-bottom))">
   <div class="flex gap-2">
     <button type="button" id="attempt-open-bar" data-attempt-open
-            class="btn btn-tertiary flex-1">
+            class="btn btn-tertiary flex-1 px-2">
       {{ t('report.actions.try_cv_short', lang) }}
     </button>
     <a href="/applications/{{ application.id }}/letter"
-       class="btn btn-tertiary flex-1">
+       class="btn btn-tertiary flex-1 px-2">
       {{ t('report.actions.letter_short', lang) }}
     </a>
+    {% if application.track_id %}
+    {{ ui.dialog_opener('/applications/' ~ application.id ~ '/summary?dialog=1',
+          '/applications/' ~ application.id ~ '/summary', t('generate.propose_summary', lang),
+          'btn btn-tertiary flex-1 px-2', wrap='contents') }}
+    {% else %}
+    <button type="button" disabled aria-describedby="summary-no-track" class="btn btn-tertiary flex-1 px-2">{{ t('generate.propose_summary', lang) }}</button>
+    {% endif %}
   </div>
 </div>
 <div class="md:hidden" aria-hidden="true" style="height: calc(5rem + env(safe-area-inset-bottom))"></div>

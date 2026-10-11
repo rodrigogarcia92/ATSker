@@ -145,7 +145,7 @@ def test_the_layout_is_one_760_column_with_the_actions_as_a_row_of_tertiary_butt
     assert "lg:sticky" not in page and "lg:flex" not in page
     # The summary opener is a button and its no-script link twin, so four elements, three actions.
     assert toolbar.count("btn btn-tertiary") == 4, "Probar nuevo CV, Carta, Proponer resumen"
-    assert "sm:grid-cols-3" in toolbar
+    assert "md:grid-cols-3" in toolbar
     assert "score-number" not in toolbar, "the Job Match is the card below, not a compact copy"
 
 
