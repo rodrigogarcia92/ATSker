@@ -540,6 +540,9 @@ def import_retry(
 
     filename = resume.filename
     data = resume.file_bytes
+    if data is None:
+        # A CV saved from an attempt has no file to read again (F11.7).
+        return RedirectResponse(f"/import/{resume_id}", status_code=303)
     gate = resume.gate or {}
     kind = document_kind(filename)
     try:
@@ -888,6 +891,15 @@ def finding_location(
     if page is None or not is_locatable(str(finding.get("check"))):
         # A DOCX finding, or a check with no geometry to point at.
         return render(request, "not_found.html", user=user, status_code=404)
+    if resume.file_bytes is None:
+        # A CV saved from an attempt: say the file was not kept (F11.7).
+        return render(
+            request,
+            "not_found.html",
+            user=user,
+            status_code=404,
+            message=t("import.file_not_kept", user.ui_lang),
+        )
     if not page_exists(resume.file_bytes, page):
         return render(request, "not_found.html", user=user, status_code=404)
     boxes = finding_boxes(finding)
@@ -930,7 +942,7 @@ def finding_page_png(
     page = finding_page(finding)
     if page is None or not is_locatable(str(finding.get("check"))):
         return Response(status_code=404)
-    if not page_exists(resume.file_bytes, page):
+    if resume.file_bytes is None or not page_exists(resume.file_bytes, page):
         # An out-of-range page is not found, never a traceback (N6.6).
         return Response(status_code=404)
     png = render_page_png(

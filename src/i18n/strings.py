@@ -2031,6 +2031,13 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "The location view is only available for PDF.",
     },
     "import.location_title": {"es": "Dónde está", "en": "Where it is"},
+    # F11.7: a CV saved from an attempt has no file, so there is no page to show.
+    "import.file_not_kept": {
+        "es": "Este CV se guardó desde un intento: el archivo no se conservó, así que no "
+        "hay página que mostrar. Impórtalo con Importar CV si quieres verlo.",
+        "en": "This CV was saved from an attempt: the file was not kept, so there is no "
+        "page to show. Import it with Import CV if you want to see it.",
+    },
     "import.location_hint": {
         "es": "Los recuadros marcan lo que el chequeo señaló. Se lee del archivo "
         "original al abrir esta página; no se guarda en ningún sitio.",

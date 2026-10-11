@@ -20,7 +20,7 @@ def create_resume(
     session: Session,
     *,
     filename: str,
-    data: bytes,
+    data: bytes | None,
     sha256: str,
     track_id: uuid.UUID | None = None,
     gate: dict | None = None,

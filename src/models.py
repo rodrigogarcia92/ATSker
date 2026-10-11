@@ -381,11 +381,17 @@ class Resume(Base):
         ForeignKey("profiles.id", ondelete="CASCADE"), index=True
     )
     filename: Mapped[str] = mapped_column(String(255))
-    file_bytes: Mapped[bytes] = mapped_column(LargeBinary)
+    # NULL for a CV saved from an attempt, which never stores a file (F11.7, 0018).
+    file_bytes: Mapped[bytes | None] = mapped_column(LargeBinary)
     sha256: Mapped[str] = mapped_column(String(64), index=True)
     track_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("tracks.id", ondelete="SET NULL"))
     draft: Mapped[dict | None] = mapped_column(_JsonDoc)
     gate: Mapped[dict | None] = mapped_column(_JsonDoc)
+    # The attempt this CV was saved from, if any (F11.7, 0018). SET NULL, so deleting
+    # the attempt cannot take the CV with it.
+    source_attempt_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("application_attempts.id", ondelete="SET NULL"), index=True
+    )
     uploaded_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
@@ -487,6 +493,12 @@ class Application(Base):
     # track cannot take an analysis with it; the report names the track it used.
     track_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("tracks.id", ondelete="SET NULL"), index=True
+    )
+    # The CV the analysis scored (F11.3, migration 0018). SET NULL, so deleting a CV
+    # cannot take an analysis with it; `report["cv"]` keeps the file name. NULL on an
+    # analysis made before F11 (F11.8).
+    resume_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("resumes.id", ondelete="SET NULL"), index=True
     )
     company: Mapped[str | None] = mapped_column(String(200))
     title: Mapped[str | None] = mapped_column(String(200))
