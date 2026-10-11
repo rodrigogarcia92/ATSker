@@ -11,7 +11,15 @@ from src.extract import client as extract_client
 from src.i18n import t
 from src.models import Application
 from tests.conftest import login
+from tests.unit.cv_support import ensure_first_cv
 from tests.unit.test_analysis import POSTING, Provider, text_of
+
+
+@pytest.fixture(autouse=True)
+def _the_first_track_has_a_cv(request):
+    """F11.3: an analysis is of a CV, so a test that runs one finds the first track's."""
+    ensure_first_cv(request)
+
 
 
 @pytest.fixture

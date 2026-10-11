@@ -14,16 +14,23 @@ ceiling, the requirement note and the recommendations compare the file with.
 """
 
 import uuid
+from dataclasses import dataclass
 
 from sqlalchemy.orm import Session
 
 from src.analysis import Analysis, Preparation, prepare, score_track
 from src.attempt_track import build_ephemeral
 from src.cv_context import cv_context
+from src.documents import document_headline
 from src.extract.client import CallOptions
 from src.ingest.draft import ResumeDraft
 from src.models import Resume, Track
 from src.parse.gate import ParseReport
+from src.resumes import latest_cv
+from src.roles import list_roles, role_title
+from src.score.keywords import keyword_context
+from src.score.title import title_alignment
+from src.tracks import list_tracks
 
 
 def analyze_cv(
@@ -75,3 +82,56 @@ def analyze_cv(
         extra_roles=ephemeral.roles,
         cv=cv_context(resume, ephemeral, chosen=chosen),
     )
+
+
+@dataclass(frozen=True)
+class TrackProposal:
+    """One track's cheap score on its latest CV (F11.6): Title and Keywords, 0 to 1."""
+
+    track: Track
+    resume: Resume
+    title: float
+    keywords: float
+
+    @property
+    def total(self) -> float:
+        return self.title + self.keywords
+
+
+def rank_tracks(
+    profile_id: uuid.UUID, session: Session, *, prepared: Preparation
+) -> list[TrackProposal]:
+    """Rank the active tracks that have a CV by Title + Keywords on their latest CV.
+
+    F7.1's pre-ranking, moved from the track's whole material to the file (F11.6): the
+    two `w4` sub-scores that need no provider, so there is no grading call and the answer
+    is the same every time. A track without a CV is not ranked — it cannot be analysed.
+    The tie-break is the track's name.
+    """
+    jd = prepared.jd
+    roles = list_roles(profile_id, session, active_only=True)
+    ranked: list[TrackProposal] = []
+    for track in list_tracks(profile_id, session, active_only=True):
+        resume = latest_cv(profile_id, session, track.id)
+        if resume is None or not resume.draft:
+            continue
+        ephemeral = build_ephemeral(
+            profile_id,
+            session,
+            track=track,
+            lang=jd.language,
+            draft=ResumeDraft.model_validate(resume.draft),
+        )
+        document = ephemeral.document
+        title = title_alignment(
+            jd,
+            headline=document_headline(document),
+            roles=[
+                (role_title(role, jd.language)[0], role.start_date, role.end_date)
+                for role in roles
+            ],
+            aliases=prepared.aliases,
+        )
+        keywords = keyword_context(jd, [unit.text for unit in document], aliases=prepared.aliases)
+        ranked.append(TrackProposal(track, resume, title.value, keywords.value))
+    return sorted(ranked, key=lambda row: (-row.total, row.track.name))

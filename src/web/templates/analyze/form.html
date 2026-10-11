@@ -21,6 +21,62 @@
 
 <form method="post" action="/analyze" data-progress="analyze"
       class="mt-6 space-y-4 rounded-card border border-card-border bg-surface-1 p-5">
+  {# F11.3: the form asks track → CV → posting. The track decides which CVs are offered;
+     choosing it reloads the list (GET /analyze/cvs, no provider call), and without script
+     the "Ver los CV" button submits the track first. #}
+  <div>
+    <label for="track_id" class="mb-1 block text-sm font-medium">{{ t('analyze.track', lang) }}</label>
+    <select id="track_id" name="track_id"
+            class="w-full rounded-control border border-border bg-surface-1 px-3 py-2 text-sm">
+      {% if tracks | length != 1 %}
+      <option value="">{{ t('analyze.track_pick', lang) }}</option>
+      {% endif %}
+      {% for track in tracks %}
+      <option value="{{ track.id }}" {% if values.track_id == track.id|string %}selected{% endif %}>
+        {{ track.name }}{% if track.applies_when %} — {{ track.applies_when }}{% endif %}
+      </option>
+      {% endfor %}
+    </select>
+    <p class="mt-1 text-xs text-text-3">{{ t('analyze.track_hint', lang) }}</p>
+    <noscript>
+      <button type="submit" formaction="/analyze/track" formnovalidate
+              class="mt-2 min-h-11 rounded-control border border-border px-3 py-2 text-sm">
+        {{ t('analyze.load_cvs', lang) }}
+      </button>
+    </noscript>
+  </div>
+  {% include "analyze/_cvs.html" %}
+  {% if tracks | length >= 2 %}
+  {# F11.6: "Proponer línea" — a cheap ranking. A POST, because it extracts the posting
+     (one call, cached: the analysis that follows reuses it, and a repeat costs nothing). #}
+  <div>
+    <button type="submit" formaction="/analyze/propose-track"
+            class="min-h-11 rounded-control border border-border px-3 py-2 text-sm font-medium hover:bg-surface-2">
+      {{ t('analyze.propose', lang) }}
+    </button>
+    <p class="mt-1 text-xs text-text-3">{{ t('analyze.propose_hint', lang) }}</p>
+  </div>
+  {% endif %}
+  {% if proposal is not none %}
+  <div id="track-proposal" class="rounded-control border border-card-border bg-bg p-3" role="status">
+    {% if proposal.rows %}
+    <p class="text-sm font-medium">{{ t('analyze.propose_result', lang) }}</p>
+    <ul class="mt-2 space-y-1 text-sm">
+      {% for row in proposal.rows %}
+      <li class="flex flex-wrap items-baseline gap-x-3">
+        <span class="font-medium">{{ row.name }}</span>
+        {% if loop.first %}<span class="tag">{{ t('analyze.propose_first', lang) }}</span>{% endif %}
+        <span class="text-xs text-text-2">{{ t('analyze.propose_title', lang) }} {{ row.title }} · {{ t('analyze.propose_keywords', lang) }} {{ row.keywords }}</span>
+        <span class="text-xs text-text-3">{{ row.cv }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+    <p class="mt-2 text-xs text-text-3">{{ t('analyze.propose_estimate', lang) }}</p>
+    {% else %}
+    <p class="text-sm text-text-2">{{ t('analyze.propose_none', lang) }}</p>
+    {% endif %}
+  </div>
+  {% endif %}
   <div>
     <label for="jd_text" class="mb-1 block text-sm font-medium">{{ t('analyze.jd', lang) }}</label>
     <textarea id="jd_text" name="jd_text" rows="14" required
@@ -39,78 +95,29 @@
              class="w-full rounded-control border border-border px-3 py-2 text-sm">
     </div>
   </div>
-  <div>
-    <label for="track_id" class="mb-1 block text-sm font-medium">{{ t('analyze.track', lang) }}</label>
-    <select id="track_id" name="track_id"
-            class="w-full rounded-control border border-border bg-surface-1 px-3 py-2 text-sm">
-      <option value="">{{ t('analyze.track_none', lang) }}</option>
-      {% for track in tracks %}
-      <option value="{{ track.id }}" {% if values.track_id == track.id|string %}selected{% endif %}>
-        {{ track.name }}{% if track.applies_when %} — {{ track.applies_when }}{% endif %}
-      </option>
-      {% endfor %}
-    </select>
-    <p class="mt-1 text-xs text-text-3">{{ t('analyze.track_hint', lang) }}</p>
-  </div>
-  {% if tracks | length >= 2 %}
-  {# F7.1: for the user who has not decided which track to apply with. It is on whenever
-     no track is chosen, and it costs one grading call per candidate. Choosing a track
-     turns it off and disables it (the script below; without script the server's rule
-     holds: a chosen track wins over the box). The route decides the default; the form
-     renders what it was given, so an untick survives a re-render. With one active
-     track that track is preselected and there is no box. #}
-  {% set chosen = values.track_id | string | length > 0 %}
-  <div>
-    <label class="flex min-h-11 items-start gap-2 text-sm">
-      <input type="checkbox" id="recommend" name="recommend" value="on" class="mt-0.5"
-             {% if chosen %}disabled{% elif values.recommend == 'on' %}checked{% endif %}>
-      <span>
-        {{ t('analyze.recommend', lang) }}
-        <span class="mt-1 block text-xs text-text-3">{{ t('analyze.recommend_hint', lang) }}</span>
-      </span>
-    </label>
-    <p id="recommend-na" class="mt-1 text-xs text-text-3" role="status" {% if not chosen %}hidden{% endif %}>
-      {{ t('analyze.recommend_na', lang) }}
-    </p>
-    <p id="recommend-off" class="mt-1 text-xs text-text-3" role="status"
-       {% if chosen or values.recommend == 'on' %}hidden{% endif %}>
-      {{ t('analyze.recommend_off', lang) }}
-    </p>
-  </div>
-  {% endif %}
   <p class="text-xs text-text-3">{{ t('analyze.optional_hint', lang) }}</p>
   <button type="submit" class="rounded-control bg-link px-3 py-2 text-sm font-medium text-bg hover:opacity-90">
     {{ t('analyze.submit', lang) }}
   </button>
   {{ ui.progress('analyze') }}
 </form>
-{% if tracks | length >= 2 %}
 <script>
-  // F7.1: "Recomendar línea de carrera" follows the track select. Choosing a track unchecks and
-  // disables the box and says it does not apply; clearing the track enables and checks
-  // it again. On load nothing is changed: a re-rendered form keeps what was submitted.
+  // F11.3: changing the track reloads the CV list from the server (a GET, no provider call).
+  // Without script the form still works: "Ver los CV" submits the track first.
   (function () {
     var select = document.getElementById('track_id');
-    var box = document.getElementById('recommend');
-    var notApplicable = document.getElementById('recommend-na');
-    var noTrackHint = document.getElementById('recommend-off');
-    if (!select || !box) return;
-    function hints() {
-      notApplicable.hidden = !select.value;
-      noTrackHint.hidden = !!select.value || box.checked;
-    }
+    if (!select || !window.fetch) return;
     select.addEventListener('change', function () {
-      if (select.value) {
-        box.checked = false;
-        box.disabled = true;
-      } else {
-        box.disabled = false;
-        box.checked = true;
-      }
-      hints();
+      var picker = document.getElementById('cv-picker');
+      if (!picker) return;
+      fetch('/analyze/cvs?track_id=' + encodeURIComponent(select.value), {
+        credentials: 'same-origin'
+      }).then(function (response) {
+        return response.ok ? response.text() : Promise.reject(new Error('status'));
+      }).then(function (html) {
+        picker.outerHTML = html;
+      }).catch(function () { /* the list stays as it was; the submit still validates */ });
     });
-    box.addEventListener('change', hints);
   })();
 </script>
-{% endif %}
 {% endblock %}

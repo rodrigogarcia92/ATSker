@@ -35,7 +35,7 @@ def test_the_agreement_around_the_track_is_feminine():
     assert t("attempt.incorporate.este", "es") == "Esta línea"
     assert t("attempt.incorporate.nuevo", "es") == "Nueva línea"
     assert t("letters.assign", "es") == "Asignar a una línea"
-    assert t("analyze.recommend", "es") == "Recomendar línea de carrera"
+    assert t("analyze.propose", "es") == "Proponer línea"
     assert t("letters.unlinked_title", "es") == "Sin línea"
     assert t("report.recommendation.track", "es") == "Línea"
     assert t("attempt.delta", "es", delta="+3") == "+3 vs. análisis de la línea"

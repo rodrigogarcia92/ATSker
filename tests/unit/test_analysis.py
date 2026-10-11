@@ -30,6 +30,7 @@ from src.tracks import create_track, set_track_bullets, update_track
 from src.vocabulary import vocabulary_hash
 from src.web.templating import short_years
 from tests.conftest import login
+from tests.unit.cv_support import analysis_form, ensure_first_cv
 
 POSTING = """
 Analista de datos — Banco Demo 1 (híbrido, Lima)
@@ -67,6 +68,13 @@ QUERIES = json.dumps(
         ]
     }
 )
+
+
+@pytest.fixture(autouse=True)
+def _the_first_track_has_a_cv(request):
+    """F11.3: an analysis is of a CV, so a test that runs one finds the first track's."""
+    ensure_first_cv(request)
+
 
 
 class Provider:
@@ -286,7 +294,11 @@ def test_the_report_shows_relevant_years_the_roles_and_the_tasks(client, session
     session.commit()
     login(client, career.first.email)
 
-    posted = client.post("/analyze", data={"jd_text": POSTING}, follow_redirects=False)
+    posted = client.post(
+        "/analyze",
+        data=analysis_form(session, career, jd_text=POSTING),
+        follow_redirects=False,
+    )
 
     assert posted.status_code == 303
     detail = session.query(Application).one().report["score"]["sub_scores"]["experience"]["detail"]
@@ -406,7 +418,11 @@ def test_sub_scores_are_shown_as_integers_out_of_100(client, session, career, pr
     """PRD §12.1: what sits under a sub-score is a percentage, never a fraction —
     the page shows 29, not 0.29. The stored value is untouched."""
     login(client, career.first.email)
-    posted = client.post("/analyze", data={"jd_text": POSTING}, follow_redirects=False)
+    posted = client.post(
+        "/analyze",
+        data=analysis_form(session, career, jd_text=POSTING),
+        follow_redirects=False,
+    )
 
     application = session.query(Application).one()
     raw = client.get(posted.headers["location"]).text
@@ -498,7 +514,7 @@ def test_the_report_page_shows_the_total_its_cost_and_its_components(
 
     posted = client.post(
         "/analyze",
-        data={"jd_text": POSTING, "company": "Banco Demo 1", "title": ""},
+        data=analysis_form(session, career, jd_text=POSTING, company="Banco Demo 1", title=""),
         follow_redirects=False,
     )
 
@@ -526,7 +542,9 @@ def test_the_report_page_renders_the_gap_summary_and_the_detail(client, session,
     login(client, career.first.email)
 
     posted = client.post(
-        "/analyze", data={"jd_text": POSTING, "company": "Banco Demo 1"}, follow_redirects=False
+        "/analyze",
+        data=analysis_form(session, career, jd_text=POSTING, company="Banco Demo 1"),
+        follow_redirects=False,
     )
 
     page = text_of(client.get(posted.headers["location"]).text)
@@ -560,7 +578,11 @@ def test_the_report_page_says_when_no_stories_were_available(
     monkeypatch.setattr("src.analysis.list_stories", lambda *args, **kwargs: [])
     login(client, career.first.email)
 
-    posted = client.post("/analyze", data={"jd_text": POSTING}, follow_redirects=False)
+    posted = client.post(
+        "/analyze",
+        data=analysis_form(session, career, jd_text=POSTING),
+        follow_redirects=False,
+    )
 
     application = session.query(Application).one()
     assert application.report["gaps"]["stories_used"] == 0
@@ -703,7 +725,7 @@ def test_analysis_without_a_model_says_so_and_saves_nothing(client, session, car
     get_settings.cache_clear()
     try:
         login(client, career.first.email)
-        response = client.post("/analyze", data={"jd_text": POSTING})
+        response = client.post("/analyze", data=analysis_form(session, career, jd_text=POSTING))
     finally:
         get_settings.cache_clear()
 
@@ -740,7 +762,7 @@ def test_a_provider_failure_is_reported_and_the_ledger_keeps_what_was_spent(
     monkeypatch.setattr(extract_client, "_post", failing)
 
     login(client, career.first.email)
-    response = client.post("/analyze", data={"jd_text": POSTING})
+    response = client.post("/analyze", data=analysis_form(session, career, jd_text=POSTING))
 
     assert response.status_code == 200
     assert "no se pudo completar" in text_of(response.text)
@@ -970,17 +992,29 @@ def test_the_analysis_form_records_the_track_and_the_report_names_it(
     )
 
 
-def test_an_analysis_without_a_track_saves_no_track_and_says_so(client, session, career, provider):
+def test_an_analysis_without_a_track_saves_no_track_and_says_so(
+    client, session, career, provider
+):
+    """The engine still scores a posting against every active bullet; since F11 the form
+    cannot ask for it, so the report is stored the way the engine hands it over."""
+    analysis = analyze(career.first_profile.id, session, jd_text=POSTING, company="Banco Demo 1")
+    application = create_application(
+        career.first_profile.id,
+        session,
+        jd_text=POSTING,
+        jd_hash=analysis.jd_hash,
+        company=analysis.company,
+        title=analysis.title,
+        report=analysis.report,
+        weights_version=analysis.weights_version,
+        prompt_versions=analysis.prompt_versions,
+        token_cost_usd=analysis.cost_usd,
+    )
+    session.commit()
     login(client, career.first.email)
 
-    posted = client.post(
-        "/analyze", data={"jd_text": POSTING, "company": "Banco Demo 1", "title": ""},
-        follow_redirects=False,
-    )
-
-    application = session.query(Application).one()
     assert application.track_id is None
-    page = text_of(client.get(posted.headers["location"]).text)
+    page = text_of(client.get(f"/applications/{application.id}").text)
     assert "Sin línea: se puntuaron todos los bullets activos." in page
 
 
@@ -1539,7 +1573,11 @@ def test_the_boolean_scan_does_not_change_the_job_match_number(
 
 def test_the_report_page_shows_the_recall_panel(client, session, career, provider):
     login(client, career.first.email)
-    posted = client.post("/analyze", data={"jd_text": POSTING}, follow_redirects=False)
+    posted = client.post(
+        "/analyze",
+        data=analysis_form(session, career, jd_text=POSTING),
+        follow_redirects=False,
+    )
     application = session.query(Application).one()
 
     page = text_of(client.get(posted.headers["location"]).text)
@@ -1559,7 +1597,11 @@ def test_the_report_page_shows_the_recall_panel(client, session, career, provide
 def test_a_stored_recall_without_query_text_still_renders(client, session, career, provider):
     """A.9.2: the field is new; a report stored without it renders from its clauses."""
     login(client, career.first.email)
-    posted = client.post("/analyze", data={"jd_text": POSTING}, follow_redirects=False)
+    posted = client.post(
+        "/analyze",
+        data=analysis_form(session, career, jd_text=POSTING),
+        follow_redirects=False,
+    )
     application = session.query(Application).one()
 
     application.scan_boolean = {
@@ -1582,7 +1624,11 @@ def test_the_recall_rows_carry_their_verdict_colours(client, session, career, pr
     for a fail — the same pair the section's summary verdict already uses. The words
     Pasa/Falla and the ✓/✗ glyphs stay, so colour is never the only signal."""
     login(client, career.first.email)
-    posted = client.post("/analyze", data={"jd_text": POSTING}, follow_redirects=False)
+    posted = client.post(
+        "/analyze",
+        data=analysis_form(session, career, jd_text=POSTING),
+        follow_redirects=False,
+    )
 
     page = client.get(posted.headers["location"]).text
 
@@ -1640,7 +1686,11 @@ def test_the_report_sections_follow_the_approved_order_with_a_recall_scan(
     client, session, career, provider
 ):
     login(client, career.first.email)
-    posted = client.post("/analyze", data={"jd_text": POSTING}, follow_redirects=False)
+    posted = client.post(
+        "/analyze",
+        data=analysis_form(session, career, jd_text=POSTING),
+        follow_redirects=False,
+    )
 
     page = text_of(client.get(posted.headers["location"]).text)
 
@@ -1663,7 +1713,11 @@ def test_the_report_sections_follow_the_approved_order_with_a_recall_scan(
 def test_no_weight_word_appears_on_the_report_page(client, session, career, provider):
     """§12.1: the page shows no weights, so nothing reads as the employer's priorities."""
     login(client, career.first.email)
-    posted = client.post("/analyze", data={"jd_text": POSTING}, follow_redirects=False)
+    posted = client.post(
+        "/analyze",
+        data=analysis_form(session, career, jd_text=POSTING),
+        follow_redirects=False,
+    )
     url = posted.headers["location"]
 
     spanish = client.get(url).text
@@ -1678,7 +1732,11 @@ def test_no_weight_word_appears_on_the_report_page(client, session, career, prov
 
 def test_every_score_on_the_report_page_is_an_integer(client, session, career, provider):
     login(client, career.first.email)
-    posted = client.post("/analyze", data={"jd_text": POSTING}, follow_redirects=False)
+    posted = client.post(
+        "/analyze",
+        data=analysis_form(session, career, jd_text=POSTING),
+        follow_redirects=False,
+    )
 
     page = client.get(posted.headers["location"]).text
     numbers = re.findall(r'class="score-number">([^<]*)', page)
@@ -1693,7 +1751,11 @@ def test_the_report_page_uses_the_wider_column_and_a_two_by_two_grid(
     """N6.6: §12.1's phone rule is 2 × 2 at every width, and the two-column sections
     need the wider desktop column."""
     login(client, career.first.email)
-    posted = client.post("/analyze", data={"jd_text": POSTING}, follow_redirects=False)
+    posted = client.post(
+        "/analyze",
+        data=analysis_form(session, career, jd_text=POSTING),
+        follow_redirects=False,
+    )
 
     page = client.get(posted.headers["location"]).text
 
@@ -1705,7 +1767,11 @@ def test_the_report_page_uses_the_wider_column_and_a_two_by_two_grid(
 def test_unbroken_strings_on_the_report_page_can_wrap(client, session, career, provider):
     """N6.6: a 64-character hash and a copyable query line must not set the page width."""
     login(client, career.first.email)
-    posted = client.post("/analyze", data={"jd_text": POSTING}, follow_redirects=False)
+    posted = client.post(
+        "/analyze",
+        data=analysis_form(session, career, jd_text=POSTING),
+        follow_redirects=False,
+    )
 
     page = client.get(posted.headers["location"]).text
 
@@ -1749,7 +1815,9 @@ def test_the_form_prefills_from_an_application_and_refuses_another_profiles(
     login(client, career.first.email)
     posted = client.post(
         "/analyze",
-        data={"jd_text": POSTING, "company": "Banco Demo 1", "title": "Analista"},
+        data=analysis_form(
+            session, career, jd_text=POSTING, company="Banco Demo 1", title="Analista"
+        ),
         follow_redirects=False,
     )
     assert posted.status_code == 303

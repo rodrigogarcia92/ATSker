@@ -117,10 +117,12 @@ STRINGS: dict[str, dict[str, str]] = {
     # Analysis (M5b) — the form, and the report the analysis leaves behind
     "analyze.title": {"es": "Analizar una oferta", "en": "Analyse a posting"},
     "analyze.intro": {
-        "es": "Pega el texto de la oferta. Se extraen los requisitos, se contrastan "
-        "con tus bullets y el informe queda guardado.",
-        "en": "Paste the posting. Its requirements are extracted, graded against your "
-        "bullets, and the report is kept.",
+        "es": "Elige una línea de carrera y uno de sus CV, y pega la oferta. Se puntúa ese "
+        "archivo: se extraen los requisitos, se contrastan con sus bullets y el informe "
+        "queda guardado.",
+        "en": "Choose a track and one of its CVs, and paste the posting. That file is "
+        "scored: the requirements are extracted, graded against its bullets, and the "
+        "report is kept.",
     },
     "analyze.jd": {"es": "Descripción del puesto", "en": "Job description"},
     "analyze.jd_hint": {
@@ -152,32 +154,66 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "No active bullets: without them there is no evidence to cite and "
         "coverage will be zero.",
     },
-    "analyze.track": {"es": "Línea de carrera (opcional)", "en": "Track (optional)"},
-    "analyze.track_none": {
-        "es": "Sin línea: todos los bullets activos",
-        "en": "No track: every active bullet",
-    },
+    "analyze.track": {"es": "Línea de carrera", "en": "Track"},
+    "analyze.track_pick": {"es": "Elige una línea de carrera", "en": "Choose a track"},
     "analyze.track_hint": {
-        "es": "Con una línea de carrera, la puntuación usa solo sus bullets y, si la tiene, su "
-        "titular.",
-        "en": "With a track, the score uses only its bullets and, when set, its headline.",
+        "es": "La línea decide qué CV puedes elegir y de qué material sacan consejos las "
+        "recomendaciones.",
+        "en": "The track decides which CVs you can choose and which material the "
+        "recommendations draw on.",
     },
-    # F7.1: the recommendation, for the user who has not decided which track to apply
-    # with. It only acts when no track is chosen.
-    "analyze.recommend": {"es": "Recomendar línea de carrera", "en": "Recommend a track"},
-    "analyze.recommend_hint": {
-        "es": "Puntúa la oferta contra tus líneas de carrera, hasta seis, y te dice cuál gana y "
-        "por qué. Solo se usa si no eliges una línea arriba.",
-        "en": "Scores the posting against up to six of your tracks and says which one "
-        "wins and why. Used only when no track is chosen above.",
+    "analyze.need_track": {
+        "es": "Elige una línea de carrera y uno de sus CV.",
+        "en": "Choose a track and one of its CVs.",
     },
-    "analyze.recommend_na": {
-        "es": "No aplica: elegiste una línea.",
-        "en": "Not applicable: you chose a track.",
+    "analyze.load_cvs": {"es": "Ver los CV de esta línea", "en": "Show this track's CVs"},
+    # F11.3: the CV picker, its first option and the track with no CV.
+    "analyze.cv": {"es": "CV", "en": "CV"},
+    "analyze.cv_pick_track": {
+        "es": "Elige una línea de carrera para ver sus CV.",
+        "en": "Choose a track to see its CVs.",
     },
-    "analyze.recommend_off": {
-        "es": "Sin línea, al escribir la carta tendrás que elegir una.",
-        "en": "Without a target role, you'll pick one when you write the cover letter.",
+    "analyze.no_cv": {
+        "es": "Esta línea de carrera no tiene ningún CV. Importa uno para poder analizar.",
+        "en": "This track has no CV. Import one to be able to analyse.",
+    },
+    "analyze.no_cv_link": {
+        "es": "Importar CV con esta línea",
+        "en": "Import a CV into this track",
+    },
+    "analyze.cv_latest": {
+        "es": "Último CV de la línea ({name})",
+        "en": "Latest CV of the track ({name})",
+    },
+    "analyze.cv_option": {"es": "{name} — {date}", "en": "{name} — {date}"},
+    "analyze.cv_hint": {
+        "es": "Se puntúa este archivo, no toda la línea. «Último CV de la línea» se "
+        "resuelve al analizar.",
+        "en": "This file is scored, not the whole track. “Latest CV of the track” is "
+        "resolved when you analyse.",
+    },
+    # F11.6: "Proponer línea", a cheap ranking before the analysis.
+    "analyze.propose": {"es": "Proponer línea", "en": "Suggest a track"},
+    "analyze.propose_hint": {
+        "es": "Ordena tus líneas por el título y las palabras clave de su último CV. "
+        "Extrae la oferta (una llamada que el análisis reutiliza); no puntúa evidencia.",
+        "en": "Ranks your tracks by the title and keywords of their latest CV. It "
+        "extracts the posting (one call the analysis reuses); it does not grade evidence.",
+    },
+    "analyze.propose_result": {
+        "es": "Tus líneas, según su último CV",
+        "en": "Your tracks, by their latest CV",
+    },
+    "analyze.propose_first": {"es": "Propuesta", "en": "Suggested"},
+    "analyze.propose_title": {"es": "Título", "en": "Title"},
+    "analyze.propose_keywords": {"es": "Palabras clave", "en": "Keywords"},
+    "analyze.propose_estimate": {
+        "es": "estimación sin evaluar tu evidencia",
+        "en": "estimate without grading your evidence",
+    },
+    "analyze.propose_none": {
+        "es": "Ninguna de tus líneas tiene un CV todavía.",
+        "en": "None of your tracks has a CV yet.",
     },
     # Application history (F9)
     "applications.title": {"es": "Historial", "en": "History"},

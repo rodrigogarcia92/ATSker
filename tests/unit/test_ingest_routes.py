@@ -30,6 +30,7 @@ from src.tracks import track_bullets
 from src.web.deps import get_db
 from src.web.main import create_app
 from tests.conftest import PASSWORD, login
+from tests.unit.cv_support import add_first_cv
 
 DOCX_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
@@ -810,12 +811,15 @@ def test_a_tracks_analysis_is_capped_by_the_document_it_came_from(
     assert "No se ejecutaron para este formato" in page, "a DOCX cannot answer every check"
 
 
-def test_an_analysis_without_a_track_is_not_capped(client, session, career, provider):
-    """No track means no source document, which is exactly the behaviour until now."""
+def test_an_analysis_of_a_cv_with_no_stored_gate_is_not_capped(client, session, career, provider):
+    """A CV carries its own findings (F11.2): one without any is not capped."""
     login(client, career.first.email)
+    add_first_cv(session, career)
 
     posted = client.post(
-        "/analyze", data={"jd_text": POSTING}, follow_redirects=False
+        "/analyze",
+        data={"jd_text": POSTING, "track_id": str(career.first_track.id)},
+        follow_redirects=False,
     )
 
     application = session.query(Application).one()

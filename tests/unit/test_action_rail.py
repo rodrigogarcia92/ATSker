@@ -15,6 +15,7 @@ from src.i18n import t
 from src.models import ApplicationAttempt
 from tests.conftest import login
 from tests.unit.attempt_support import AttemptProvider, analyzed_application, resume_payload
+from tests.unit.cv_support import ensure_first_cv
 from tests.unit.test_analysis import POSTING, Provider
 from tests.unit.test_ingest_routes import DOCX_TYPE, docx_bytes
 from tests.unit.test_report_layout import stored
@@ -28,6 +29,13 @@ ANCHORS = (
     "#ats",
     "#before",
 )
+
+
+@pytest.fixture(autouse=True)
+def _the_first_track_has_a_cv(request):
+    """F11.3: an analysis is of a CV, so a test that runs one finds the first track's."""
+    ensure_first_cv(request)
+
 
 
 @pytest.fixture

@@ -72,3 +72,30 @@ def make_cv(
     resume.active = active
     session.commit()
     return resume
+
+
+def add_first_cv(session, career, **changes):
+    """A CV of the first track holding its one master bullet, as an unchanged export would.
+
+    The route tests that analyse a posting need a CV to analyse (F11.3); the provider
+    stubs cite `career.first_bullet`, which this file carries unchanged.
+    """
+    changes.setdefault("draft", draft_dict(career.first_bullet.text_es))
+    return make_cv(session, career.first_profile, career.first_track, **changes)
+
+
+def analysis_form(session, career, **fields) -> dict:
+    """The fields a POST /analyze needs: the first track and (made on first use) its CV."""
+    from src.resumes import track_cvs
+
+    if not track_cvs(career.first_profile.id, session, career.first_track.id):
+        add_first_cv(session, career)
+    return {"track_id": str(career.first_track.id), **fields}
+
+
+def ensure_first_cv(request) -> None:
+    """Give the first track a CV when the test is about to analyse (it asks for a provider
+    stub, which `career` backs): the route tests post `/analyze`, which needs a CV (F11.3)."""
+    wanted = {"provider", "stub"}
+    if wanted & set(request.fixturenames) and "career" in request.fixturenames:
+        add_first_cv(request.getfixturevalue("session"), request.getfixturevalue("career"))

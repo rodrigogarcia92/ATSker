@@ -33,6 +33,7 @@ def create_application(
     company: str | None = None,
     title: str | None = None,
     track_id: uuid.UUID | None = None,
+    resume_id: uuid.UUID | None = None,
     scan_readability: dict | None = None,
     scan_boolean: dict | None = None,
 ) -> Application:
@@ -48,6 +49,7 @@ def create_application(
         prompt_versions=prompt_versions,
         token_cost_usd=token_cost_usd,
         track_id=track_id,
+        resume_id=resume_id,
         scan_readability=scan_readability,
         scan_boolean=scan_boolean,
     )

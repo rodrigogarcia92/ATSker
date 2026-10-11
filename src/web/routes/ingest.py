@@ -349,8 +349,18 @@ def _upload_page(
 
 
 @router.get("/import")
-def import_index(request: Request, user: SignedInUser, session: DbSession, profile: OwnProfile):
-    return _upload_page(request, user, session, profile)
+def import_index(
+    request: Request,
+    user: SignedInUser,
+    session: DbSession,
+    profile: OwnProfile,
+    track_id: str | None = None,
+):
+    """The upload page. `?track_id=` preselects a track: the analysis form links here when
+    the track it chose has no CV (F11.3). Another profile's track is simply not preselected."""
+    track = get_track(profile.id, session, track_id) if track_id else None
+    values = {**EMPTY_FORM, "track_id": str(track.id)} if track is not None else None
+    return _upload_page(request, user, session, profile, values=values)
 
 
 @router.post("/import")

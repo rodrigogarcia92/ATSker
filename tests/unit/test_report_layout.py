@@ -14,6 +14,7 @@ import pytest
 from src.extract import client as extract_client
 from src.i18n import t
 from tests.conftest import login
+from tests.unit.cv_support import analysis_form, ensure_first_cv
 from tests.unit.test_analysis import POSTING, Provider, store_flagged, text_of
 
 SECTION_IDS = (
@@ -28,6 +29,13 @@ SECTION_IDS = (
 )
 
 DETAILS_TAG = re.compile(r"<details\b[^>]*>")
+
+
+@pytest.fixture(autouse=True)
+def _the_first_track_has_a_cv(request):
+    """F11.3: an analysis is of a CV, so a test that runs one finds the first track's."""
+    ensure_first_cv(request)
+
 
 
 @pytest.fixture
@@ -76,7 +84,9 @@ def test_the_sections_appear_in_the_approved_order(client, career, provider):
 
 def test_the_fit_definition_renders_in_both_languages(client, session, career, provider):
     login(client, career.first.email)
-    posted = client.post("/analyze", data={"jd_text": POSTING}, follow_redirects=False)
+    posted = client.post(
+        "/analyze", data=analysis_form(session, career, jd_text=POSTING), follow_redirects=False
+    )
     url = posted.headers["location"]
 
     spanish = text_of(client.get(url).text)

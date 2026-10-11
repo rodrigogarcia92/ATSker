@@ -15,16 +15,16 @@ import pytest
 from src.analysis import analyze
 from src.bullets import create_bullet
 from src.extract import client as extract_client
-from src.models import Application, LlmCall
+from src.models import LlmCall
 from src.recommend import MAX_GRADED, recommend, recommendation_payload
 from src.tracks import (
     create_track,
-    get_track,
     list_tracks,
     set_track_active,
     set_track_bullets,
 )
 from tests.conftest import login
+from tests.unit.cv_support import draft_dict, ensure_first_cv, make_cv
 from tests.unit.test_analysis import POSTING, PROPOSAL, QUERIES
 
 # The stub grades `python` by what the track's own bullets say: a line with this in
@@ -33,6 +33,13 @@ from tests.unit.test_analysis import POSTING, PROPOSAL, QUERIES
 STRONG = "con resultados medibles"
 
 ID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
+
+
+@pytest.fixture(autouse=True)
+def _the_first_track_has_a_cv(request):
+    """F11.3: an analysis is of a CV, so a test that runs one finds the first track's."""
+    ensure_first_cv(request)
+
 
 
 class Ranking:
@@ -373,64 +380,10 @@ def test_a_recommendation_without_tracks_is_a_no_track_analysis(session, career,
     assert "track" not in analysis.report
 
 
-def test_the_route_recommends_and_stores_the_winner(client, session, career, stub):
-    """F7.1 over HTTP: no track chosen, the box ticked, the winner stored."""
-    profile_id = career.first_profile.id
-    retire(session, career)
-    winner = make_track(
-        session, career, "Fuerte", [f"Python {STRONG}", f"Análisis {STRONG}"]
-    )
-    make_track(session, career, "Débil", ["Reportes semanales"])
-    login(client, career.first.email)
-
-    posted = client.post(
-        "/analyze",
-        data={"jd_text": POSTING, "company": "Banco Demo 1", "recommend": "on"},
-        follow_redirects=False,
-    )
-
-    assert posted.status_code == 303
-    page = client.get(posted.headers["location"]).text
-    assert "Recomendación de línea de carrera" in page
-    assert "Elegido" in page
-    assert "Fuerte" in page
-    application = session.query(Application).one()
-    assert application.track_id == winner.id
-    assert application.report["recommendation"]["margin"] is not None
-    assert get_track(profile_id, session, application.track_id).name == "Fuerte"
-
-
-def test_the_route_without_the_box_analyses_without_a_track(client, session, career, stub):
-    """Unticked, the page is the analysis the app has always produced."""
-    make_track(session, career, "Fuerte", [f"Python {STRONG}", f"Análisis {STRONG}"])
-    login(client, career.first.email)
-
-    posted = client.post(
-        "/analyze", data={"jd_text": POSTING, "recommend": "off"}, follow_redirects=False
-    )
-
-    assert posted.status_code == 303
-    page = client.get(posted.headers["location"]).text
-    assert "Recomendación de línea de carrera" not in page
-    assert stub.turns("EvidenceGrading") == 1
-
-
 def recommend_box(html: str) -> str | None:
     """The `recommend` checkbox's own tag, or None when the form does not draw it."""
     match = re.search(r"<input[^>]*name=\"recommend\"[^>]*>", html)
     return match.group(0) if match else None
-
-
-def test_a_fresh_form_ticks_the_box_with_two_active_tracks(client, session, career, stub):
-    """D.7.2: two tracks is a choice to make, so the default is on."""
-    retire(session, career)
-    make_track(session, career, "Uno", ["Python con resultados medibles"])
-    make_track(session, career, "Dos", ["Reportes semanales"])
-    login(client, career.first.email)
-
-    box = recommend_box(client.get("/analyze").text)
-
-    assert box is not None and "checked" in box
 
 
 def selected_option(html: str, track_id) -> bool:
@@ -456,8 +409,13 @@ def test_a_fresh_form_preselects_the_only_active_track_and_draws_no_box(
 def test_the_prefilled_form_also_preselects_the_only_active_track(client, session, career, stub):
     retire(session, career)
     only = make_track(session, career, "Único", ["Python con resultados medibles"])
+    make_cv(
+        session, career.first_profile, only, draft=draft_dict("Python con resultados medibles")
+    )
     login(client, career.first.email)
-    posted = client.post("/analyze", data={"jd_text": POSTING}, follow_redirects=False)
+    posted = client.post(
+        "/analyze", data={"jd_text": POSTING, "track_id": str(only.id)}, follow_redirects=False
+    )
     application = posted.headers["location"].rsplit("/", 1)[1]
 
     page = client.get(f"/analyze?application={application}").text
@@ -465,94 +423,11 @@ def test_the_prefilled_form_also_preselects_the_only_active_track(client, sessio
     assert selected_option(page, only.id)
 
 
-def test_a_chosen_track_renders_the_box_unticked_disabled_with_its_hint(
-    client, session, career, stub
-):
-    """F7.1: a re-rendered form with a track keeps the track; the box does not apply."""
-    retire(session, career)
-    first = make_track(session, career, "Uno", ["Python con resultados medibles"])
-    make_track(session, career, "Dos", ["Reportes semanales"])
-    login(client, career.first.email)
-
-    page = client.post("/analyze", data={"jd_text": "  ", "track_id": str(first.id)}).text
-
-    box = recommend_box(page)
-    assert box is not None and "disabled" in box and "checked" not in box
-    assert selected_option(page, first.id)
-    assert "No aplica: elegiste una línea." in page
-    assert "hidden" not in re.search(r'<p id="recommend-na"[^>]*>', page).group(0)
-
-
-def test_the_hint_for_no_track_shows_under_an_unticked_box(client, session, career, stub):
-    retire(session, career)
-    make_track(session, career, "Uno", ["Python con resultados medibles"])
-    make_track(session, career, "Dos", ["Reportes semanales"])
-    login(client, career.first.email)
-
-    unticked = client.post("/analyze", data={"jd_text": "  ", "recommend": "off"}).text
-    fresh = client.get("/analyze").text
-
-    hint = "Sin línea, al escribir la carta tendrás que elegir una."
-    assert hint in unticked and hint in fresh
-    assert "hidden" not in re.search(r'<p id="recommend-off"[^>]*>', unticked).group(0)
-    assert "hidden" in re.search(r'<p id="recommend-off"[^>]*>', fresh).group(0)
-
-
-def test_the_form_script_follows_the_track_select(client, session, career, stub):
-    """Markup test: choosing a track unchecks and disables the box, clearing re-checks it."""
-    retire(session, career)
-    make_track(session, career, "Uno", ["Python con resultados medibles"])
-    make_track(session, career, "Dos", ["Reportes semanales"])
-    login(client, career.first.email)
-
-    page = client.get("/analyze").text
-    script = page[page.index("// F7.1: \"Recomendar línea de carrera\" follows") :]
-    chosen, cleared = script.split("} else {", 1)
-
-    assert "if (select.value) {" in chosen
-    assert "box.checked = false;" in chosen and "box.disabled = true;" in chosen
-    assert "box.disabled = false;" in cleared and "box.checked = true;" in cleared
-    assert "addEventListener('change'" in script
-
-
 def test_a_fresh_form_draws_no_box_without_tracks(client, session, career, stub):
     retire(session, career)
     login(client, career.first.email)
 
     assert recommend_box(client.get("/analyze").text) is None
-
-
-def test_an_unticked_box_survives_a_re_render(client, session, career, stub):
-    """D.7.2: the default never overrides a decision the user already made."""
-    retire(session, career)
-    make_track(session, career, "Uno", ["Python con resultados medibles"])
-    make_track(session, career, "Dos", ["Reportes semanales"])
-    login(client, career.first.email)
-
-    page = client.post("/analyze", data={"jd_text": "  ", "recommend": "off"}).text
-
-    box = recommend_box(page)
-    assert box is not None and "checked" not in box, "the error came back, the untick too"
-
-
-def test_an_unticked_box_with_two_tracks_runs_the_plain_analysis(client, session, career, stub):
-    """D.7.2: unticked and no track chosen is the no-track analysis, not a ranking."""
-    retire(session, career)
-    make_track(session, career, "Uno", ["Python con resultados medibles"])
-    make_track(session, career, "Dos", ["Reportes semanales"])
-    login(client, career.first.email)
-
-    posted = client.post(
-        "/analyze", data={"jd_text": POSTING, "recommend": "off"}, follow_redirects=False
-    )
-
-    assert posted.status_code == 303
-    page = client.get(posted.headers["location"]).text
-    assert "Recomendación de línea de carrera" not in page
-    application = session.query(Application).one()
-    assert "recommendation" not in application.report
-    assert application.track_id is None
-    assert stub.turns("EvidenceGrading") == 1
 
 
 # D.7.3's tie fixture: two tracks that tie on Job Match, in the order the pre-rank
