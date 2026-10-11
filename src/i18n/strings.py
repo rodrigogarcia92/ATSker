@@ -817,7 +817,7 @@ STRINGS: dict[str, dict[str, str]] = {
     },
     "report.grades": {"es": "Requisitos evaluados", "en": "Graded requirements"},
     "report.grades_hint": {
-        "es": "0 ausente · 1 mencionado · 2 aplicado · 3 demostrado. Cada nivel cita la "
+        "es": "0 ausente · 1 mencionado · 2 aplicado · 3 demostrado. Cada nivel cita el "
         "bullet que lo sostiene.",
         "en": "0 absent · 1 mentioned · 2 applied · 3 demonstrated. Every level cites "
         "the bullet that supports it.",
@@ -1829,7 +1829,7 @@ STRINGS: dict[str, dict[str, str]] = {
         ),
     },
     "delete.impact.bullet": {
-        "es": "El bullet está en {tracks} líneas y citada por {analyses} análisis; los análisis "
+        "es": "El bullet está en {tracks} líneas y citado por {analyses} análisis; los análisis "
         "conservan su copia. Se eliminan además sus {story_links} enlaces a historias y sus "
         "{revisions} revisiones.",
         "en": (
