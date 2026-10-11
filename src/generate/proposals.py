@@ -22,9 +22,19 @@ from sqlalchemy.orm import Session
 from src.bullets import bullet_text, create_bullet, get_bullet, list_bullets, update_bullet
 from src.generate.validators import Sources, Violation, validate
 from src.jd import StructuredJD
-from src.models import Application, Bullet, BulletRevision, Profile, Story, Summary, Track
+from src.models import (
+    Application,
+    Bullet,
+    BulletRevision,
+    Profile,
+    Resume,
+    Story,
+    Summary,
+    Track,
+)
 from src.normalize.vocabulary import match_text, resolve_terms
 from src.roles import get_role, list_roles
+from src.scoping import owned_row
 from src.stories import get_story
 from src.summaries import create_summary, get_summary, list_summaries
 from src.tracks import get_track, set_track_summary, track_bullets
@@ -216,8 +226,17 @@ def check_summary(
     application: Application,
     track: Track,
     output: Mapping[str, Any],
+    *,
+    material: "AttemptSummaryMaterial | None" = None,
 ) -> list[Violation]:
-    """The three validators over a Tier-1 proposal, against this application's grades."""
+    """The three validators over a Tier-1 proposal, against this application's grades.
+
+    With `material` (an analysis of a CV, F11.9) the sources are the CV's: a citation of its
+    own summary or of one of its bullets — a temporary id included — is a supplied source,
+    where the track's sources would refuse it.
+    """
+    if material is not None:
+        return material.validate(output)
     language = report_language(application)
     return validate(
         output,
@@ -238,6 +257,7 @@ def accept_summary(
     text: str,
     cites: Sequence[str],
     use_in_track: bool,
+    material: "AttemptSummaryMaterial | None" = None,
 ) -> tuple[Summary | None, list[Violation]]:
     """Accept a summary: validate again, then write the pool row and, if asked, the slot.
 
@@ -248,7 +268,7 @@ def accept_summary(
     if not text.strip():
         return None, [Violation("shape", "summary", "", "the summary is empty")]
     output = {"summary": {"text": text, "cites": list(cites)}}
-    violations = check_summary(profile_id, session, application, track, output)
+    violations = check_summary(profile_id, session, application, track, output, material=material)
     if violations:
         return None, violations
     language = report_language(application)
@@ -306,7 +326,53 @@ def attempt_summary_material(
     bullets. It reads only this profile's rows; the route has already 404'd a foreign id.
     """
     report: dict[str, Any] = dict(attempt.report or {})
-    draft = report.get("draft") or {}
+    return file_summary_material(
+        profile_id,
+        session,
+        application,
+        report=report,
+        draft=report.get("draft") or {},
+        base_id=f"attempt-{attempt.id}",
+    )
+
+
+def cv_summary_material(
+    profile_id: uuid.UUID, session: Session, application: Application
+) -> AttemptSummaryMaterial:
+    """The sources for a summary of an analysed CV (PRD F7.3 rule 3 amended, F11.9).
+
+    The same material as an attempt's, from the analysis: the bullets and grades are the
+    CV's as the analysis read them (`report["bullets"]`, temporary ids included), the base
+    is the CV's own summary — from its stored draft — before the F7.3 chain, and the
+    closure set is the pool plus what the file itself names. A CV that has since been
+    deleted leaves the report's bullets and grades, and the chain supplies the base.
+    """
+    resume = (
+        owned_row(Resume, session, profile_id, application.resume_id)
+        if application.resume_id
+        else None
+    )
+    cv = (application.report or {}).get("cv") or {}
+    return file_summary_material(
+        profile_id,
+        session,
+        application,
+        report=dict(application.report or {}),
+        draft=dict(resume.draft or {}) if resume is not None else {},
+        base_id=f"cv-{cv.get('resume_id') or application.resume_id or 'deleted'}",
+    )
+
+
+def file_summary_material(
+    profile_id: uuid.UUID,
+    session: Session,
+    application: Application,
+    *,
+    report: dict[str, Any],
+    draft: Mapping[str, Any],
+    base_id: str,
+) -> AttemptSummaryMaterial:
+    """The material for a summary written for a file: an attempt's or a CV's (F10.7, F11.9)."""
     language = report_language(application)
     aliases = alias_map(session)
     title = posting_title(application)
@@ -324,9 +390,7 @@ def attempt_summary_material(
     track = get_track(profile_id, session, application.track_id) if application.track_id else None
     file_summary = str(draft.get("summary") or "").strip()
     if file_summary:
-        base: BaseSummary | None = BaseSummary(
-            file_summary, f"attempt-{attempt.id}", BASE_FILE
-        )
+        base: BaseSummary | None = BaseSummary(file_summary, base_id, BASE_FILE)
     else:
         # Without a track the chain starts at the uploaded-CV summaries.
         chain_track = track or SimpleNamespace(summary_es_id=None, summary_en_id=None)
@@ -495,6 +559,8 @@ __all__ = [
     "check_bullet",
     "check_story_bullet",
     "check_summary",
+    "cv_summary_material",
+    "file_summary_material",
     "grades_from_report",
     "grades_of",
     "pool_skills",

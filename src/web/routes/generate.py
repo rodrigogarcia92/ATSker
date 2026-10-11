@@ -24,6 +24,7 @@ from src.generate.proposals import (
     base_summary,
     check_bullet,
     check_story_bullet,
+    cv_summary_material,
     grades_of,
     pool_skills,
     posting_title,
@@ -63,6 +64,18 @@ def _target(application_id: str, session, profile):
     return application, get_track(profile.id, session, application.track_id)
 
 
+def _cv_material(profile, session, application):
+    """The CV's own sources when this analysis is of a CV (F11.9), else None.
+
+    Proponer resumen reads the file that was analysed — its bullets, its grades, its own
+    summary as the base — not the track's selection. An analysis stored before F11 has no
+    `cv` in its report and takes the track path unchanged.
+    """
+    if not (application.report or {}).get("cv"):
+        return None
+    return cv_summary_material(profile.id, session, application)
+
+
 def _current(session, track, language: str) -> dict[str, Any]:
     """What the track holds in this language today — the other side of the diff."""
     slot = track.summary_en_id if language == "en" else track.summary_es_id
@@ -89,6 +102,7 @@ def _page(
     shortlist_size: int | None = None,
     shortlist_related: int = 0,
     unheld_title: str | None = None,
+    material=None,
 ):
     """The summary flow, as the full page or — with `dialog` — as the pop-up's partial.
 
@@ -121,7 +135,11 @@ def _page(
         unheld_title=unheld_title,
         refused=refused,
         current=_current(session, track, language),
-        bullet_count=len(track_bullets(profile.id, session, track.id)),
+        bullet_count=(
+            len(material.bullets)
+            if material is not None
+            else len(track_bullets(profile.id, session, track.id))
+        ),
         # The call costs money, so it is a button on a POST, never a GET (F.0). After a
         # failure the same button comes back, except when no model is configured.
         run_url=(
@@ -150,6 +168,7 @@ def propose_summary(
     if application is None or track is None:
         return render(request, "not_found.html", user=user, status_code=404)
     popup = dialog == "1"
+    material = _cv_material(profile, session, application)
     if not model_configured():
         return _page(
             request,
@@ -160,8 +179,11 @@ def propose_summary(
             session,
             error=no_model(SUMMARY, user.ui_lang),
             dialog=popup,
+            material=material,
         )
-    return _page(request, user, profile, application, track, session, dialog=popup)
+    return _page(
+        request, user, profile, application, track, session, dialog=popup, material=material
+    )
 
 
 @router.post("/applications/{application_id}/summary/generate")
@@ -181,6 +203,7 @@ def generate_summary_proposal(
     if application is None or track is None:
         return render(request, "not_found.html", user=user, status_code=404)
     popup = dialog == "1"
+    material = _cv_material(profile, session, application)
     if not model_configured():
         return _page(
             request,
@@ -191,29 +214,42 @@ def generate_summary_proposal(
             session,
             error=no_model(SUMMARY, user.ui_lang),
             dialog=popup,
+            material=material,
         )
 
     language = report_language(application)
     # Everything the prompt needs is read first, then the reads are ended: a live
     # transaction must not be held across the provider call (the client refuses).
-    jd = StructuredJD.model_validate(application.report.get("jd") or {})
-    bullets = [
-        (str(bullet.id), bullet_text(bullet, language))
-        for bullet in track_bullets(profile.id, session, track.id)
-    ]
-    track_skills = list(track.skills)
-    pool_set = pool_skills(profile.id, session)
-    pool = list(pool_set)
-    grades = grades_of(application)
-    # F7.3's three rules: the title, the key skills and the base are decided by code, here.
-    title = posting_title(application)
-    base = base_summary(profile.id, session, track, language)
-    aliases = alias_map(session)
+    if material is not None:
+        # F11.9: the CV's bullets and grades, its own summary first as the base.
+        jd = material.jd
+        bullets = material.bullets
+        track_skills = material.track_skills
+        pool_set = material.pool
+        grades = material.prompt_grades
+        title = material.title
+        base = material.base
+        aliases = material.sources.aliases
+        validator = material.validate
+    else:
+        jd = StructuredJD.model_validate(application.report.get("jd") or {})
+        bullets = [
+            (str(bullet.id), bullet_text(bullet, language))
+            for bullet in track_bullets(profile.id, session, track.id)
+        ]
+        track_skills = list(track.skills)
+        pool_set = pool_skills(profile.id, session)
+        grades = grades_of(application)
+        # F7.3's three rules: the title, the key skills and the base are decided by code, here.
+        title = posting_title(application)
+        base = base_summary(profile.id, session, track, language)
+        aliases = alias_map(session)
+        validator = summary_validator(profile.id, session, application, track)
+    pool = sorted(pool_set) if material is not None else list(pool_set)
     shortlist = key_skill_shortlist(
         application.report or {}, pool_set, aliases, bullet_texts=dict(bullets)
     )
     banned = banned_phrases(language)
-    validator = summary_validator(profile.id, session, application, track)
     unheld = title_is_unheld(profile.id, session, track, title, aliases)
     session.commit()
     try:
@@ -246,6 +282,7 @@ def generate_summary_proposal(
             error=failed(exc, SUMMARY, user.ui_lang),
             retry=not isinstance(exc, NoModelConfigured),
             dialog=popup,
+            material=material,
         )
 
     session.commit()
@@ -264,6 +301,7 @@ def generate_summary_proposal(
         shortlist_size=len(shortlist),
         shortlist_related=sum(1 for skill in shortlist if skill.step == "related"),
         unheld_title=title if unheld else None,
+        material=material,
     )
 
 
@@ -298,6 +336,9 @@ def accept_summary_proposal(
     summary = data.get("summary") or {}
     edited = text if text is not None else str(summary.get("text") or "")
     cites = list(summary.get("cites") or [])
+    # F11.9: on an analysis of a CV the proposal is checked against the CV's sources, so a
+    # citation of its own summary or of one of its (temporary-id) bullets is accepted.
+    material = _cv_material(profile, session, application)
     _, violations = accept_summary(
         profile.id,
         session,
@@ -306,6 +347,7 @@ def accept_summary_proposal(
         text=edited,
         cites=cites,
         use_in_track=is_checked(use_in_track),
+        material=material,
     )
     if violations:
         # Refused: shown with the rule that failed, and nothing was written. Everything the
@@ -315,12 +357,16 @@ def accept_summary_proposal(
         title = posting_title(application)
         shortlist = key_skill_shortlist(
             application.report or {},
-            pool_skills(profile.id, session),
+            pool_skills(profile.id, session) if material is None else material.pool,
             aliases,
-            bullet_texts={
-                str(bullet.id): bullet_text(bullet, language)
-                for bullet in track_bullets(profile.id, session, track.id)
-            },
+            bullet_texts=(
+                dict(material.bullets)
+                if material is not None
+                else {
+                    str(bullet.id): bullet_text(bullet, language)
+                    for bullet in track_bullets(profile.id, session, track.id)
+                }
+            ),
         )
         return _page(
             request,
@@ -334,7 +380,12 @@ def accept_summary_proposal(
             error=t("generate.refused", user.ui_lang),
             dialog=dialog == "1",
             checklist=check_style(edited, title=title, shortlist=shortlist, aliases=aliases),
-            base=base_summary(profile.id, session, track, language),
+            base=(
+                material.base
+                if material is not None
+                else base_summary(profile.id, session, track, language)
+            ),
+            material=material,
             shortlist_size=len(shortlist),
             shortlist_related=sum(1 for skill in shortlist if skill.step == "related"),
             unheld_title=title
