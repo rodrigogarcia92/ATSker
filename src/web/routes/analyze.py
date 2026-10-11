@@ -374,6 +374,9 @@ def application_reanalyze(
             message = t("analyze.no_cv", user.ui_lang)
             return _form(request, user, session, profile, values=values, error=message)
         raise HTTPException(status_code=404)
+    if resume.id == previous.resume_id:
+        # The report already scored this CV on this posting: no duplicate, no second payment.
+        return RedirectResponse(f"/applications/{previous.id}", status_code=303)
     return _run_analysis(
         request, user, session, profile, values=values, track=track, resume=resume, choice=choice
     )

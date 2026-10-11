@@ -150,6 +150,29 @@ def test_reanalysing_makes_a_new_application_for_the_same_posting_on_another_cv(
     assert second.report["cv"]["filename"] == "vieja.docx"
 
 
+def test_reanalysing_on_the_cv_the_report_already_scored_goes_back_to_that_report(
+    client, session, career, provider
+):
+    make_cv(session, career.first_profile, career.first_track, name="nueva.docx", age_days=1,
+            draft=own(career))
+    login(client, career.first.email)
+    first = analyse(client, session, career)
+    calls_before = len(provider.calls)
+
+    explicit = client.post(
+        f"/applications/{first.id}/reanalyze", data={"resume_id": str(first.resume_id)},
+        follow_redirects=False,
+    )
+    latest = client.post(
+        f"/applications/{first.id}/reanalyze", data={}, follow_redirects=False
+    )
+
+    assert explicit.status_code == latest.status_code == 303
+    assert explicit.headers["location"] == latest.headers["location"] == f"/applications/{first.id}"
+    assert session.query(Application).count() == 1, "no duplicate"
+    assert len(provider.calls) == calls_before, "no provider call"
+
+
 def test_an_edited_cv_is_said_to_differ_from_the_analysis(client, session, career, provider):
     cv = make_cv(session, career.first_profile, career.first_track, draft=own(career))
     login(client, career.first.email)
