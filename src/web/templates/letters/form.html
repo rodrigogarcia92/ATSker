@@ -16,18 +16,18 @@
   <div>
     <label for="applies_when" class="mb-1 block text-sm font-medium">{{ t('letters.applies_when', lang) }}</label>
     <textarea id="applies_when" name="applies_when" rows="3" required
-              class="w-full rounded-control border border-border px-3 py-2 text-sm">{{ letter.applies_when }}</textarea>
+              class="w-full rounded-card border border-border px-3 py-2 text-sm">{{ letter.applies_when }}</textarea>
     <p class="mt-1 text-xs text-text-3">{{ t('letters.applies_when_hint', lang) }}</p>
   </div>
   <div>
     <label for="presentation" class="mb-1 block text-sm font-medium">{{ t('letters.presentation', lang) }}</label>
     <textarea id="presentation" name="presentation" rows="5" required
-              class="w-full rounded-control border border-border px-3 py-2 text-sm">{{ letter.presentation }}</textarea>
+              class="w-full rounded-card border border-border px-3 py-2 text-sm">{{ letter.presentation }}</textarea>
   </div>
   <div>
     <label for="achievements" class="mb-1 block text-sm font-medium">{{ t('letters.achievements', lang) }}</label>
     <textarea id="achievements" name="achievements" rows="5" required
-              class="w-full rounded-control border border-border px-3 py-2 text-sm">{{ letter.achievements }}</textarea>
+              class="w-full rounded-card border border-border px-3 py-2 text-sm">{{ letter.achievements }}</textarea>
   </div>
   <div>
     <label for="lang" class="mb-1 block text-sm font-medium">{{ t('stories.lang', lang) }}</label>
@@ -38,7 +38,7 @@
   </div>
   {% include "letters/_placeholders.html" %}
   <div class="flex items-center gap-4">
-    <button type="submit" class="rounded-control bg-link px-3 py-2 text-sm font-medium text-bg hover:opacity-90">
+    <button type="submit" class="btn btn-primary">
       {{ t('common.save', lang) }}
     </button>
     <a href="/letters" class="text-sm underline">{{ t('common.cancel', lang) }}</a>

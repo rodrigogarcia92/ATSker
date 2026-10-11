@@ -18,12 +18,12 @@
   <div>
     <label for="text_es" class="mb-1 block text-sm font-medium">{{ t('bullets.text_es', lang) }}</label>
     <textarea id="text_es" name="text_es" rows="2"
-              class="w-full rounded-control border border-border px-3 py-2 text-sm">{{ bullet.text_es if bullet and bullet.text_es else '' }}</textarea>
+              class="w-full rounded-card border border-border px-3 py-2 text-sm">{{ bullet.text_es if bullet and bullet.text_es else '' }}</textarea>
   </div>
   <div>
     <label for="text_en" class="mb-1 block text-sm font-medium">{{ t('bullets.text_en', lang) }}</label>
     <textarea id="text_en" name="text_en" rows="2"
-              class="w-full rounded-control border border-border px-3 py-2 text-sm">{{ bullet.text_en if bullet and bullet.text_en else '' }}</textarea>
+              class="w-full rounded-card border border-border px-3 py-2 text-sm">{{ bullet.text_en if bullet and bullet.text_en else '' }}</textarea>
   </div>
   <div>
     <label for="chips" class="mb-1 block text-sm font-medium">{{ t('bullets.skills', lang) }}</label>
@@ -49,7 +49,7 @@
   {% endif %}
 
   <div class="flex flex-wrap items-center gap-4">
-    <button type="submit" class="rounded-control bg-link px-3 py-2 text-sm font-medium text-bg hover:opacity-90">
+    <button type="submit" class="btn btn-primary">
       {{ t('common.save', lang) }}
     </button>
     <button type="submit" formaction="/bullets/detect" formnovalidate

@@ -8,7 +8,7 @@
   <p id="attempt-new-limit" class="text-sm text-text-2">{{ t('attempt.limit', lang, max=max_attempts) }}</p>
   {% else %}
   <button type="button" id="attempt-new"
-          class="min-h-11 rounded-control bg-link px-4 text-sm font-semibold text-bg hover:opacity-90">
+          class="btn btn-primary">
     {{ t('attempt.new', lang, n=next_no, max=max_attempts) }}
   </button>
   {% endif %}

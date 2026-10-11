@@ -177,17 +177,19 @@ def test_a_promote_item_has_its_position_chip_and_clamped_evidence(client, sessi
     assert LONG in details and " open" not in details[: details.index(">")]
 
 
-def test_the_proposal_link_closes_the_section(client, session, career):
+def test_the_proposal_link_is_the_third_button_of_the_actions_row(client, session, career):
+    """Design v3 §5: Probar nuevo CV · Carta · Proponer resumen are one row of tertiary buttons."""
     application = stored(session, career, advice=[promote()])
     application.track_id = career.first_track.id
     session.commit()
     login(client, career.first.email)
 
-    page = section(client.get(f"/applications/{application.id}").text, "recommendations")
+    raw = client.get(f"/applications/{application.id}").text
+    toolbar = re.search(r'<aside\b[^>]*aria-label="Acciones".*?</aside>', raw, re.S).group(0)
 
     link = f'href="/applications/{application.id}/summary"'
-    assert link in page
-    assert page.index(link) > page.rindex(ITEM_ROW), "after the last item"
+    assert link in toolbar and "btn btn-tertiary" in toolbar
+    assert link not in section(raw, "recommendations"), "it left the collapsed row"
 
 
 def test_the_layout_splits_after_three_items_and_keeps_group_order():

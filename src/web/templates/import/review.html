@@ -20,7 +20,7 @@
 {# F2.3.1: the file and its findings are archived, so a failed extraction is retried
    from the stored bytes instead of asking for the upload again. #}
 <form method="post" action="/import/{{ resume.id }}/retry" data-progress="import" class="mt-4">
-  <button type="submit" class="rounded-control bg-link px-3 py-2 text-sm font-medium text-bg hover:opacity-90">
+  <button type="submit" class="btn btn-primary">
     {{ t('import.retry', lang) }}
   </button>
   {{ ui.progress('import') }}
@@ -48,7 +48,7 @@
     <div>
       <label for="summary" class="mb-1 block text-sm font-medium">{{ t('import.summary', lang) }}</label>
       <textarea id="summary" name="summary" rows="3"
-                class="w-full rounded-control border border-border px-3 py-2 text-sm">{{ draft.summary or '' }}</textarea>
+                class="w-full rounded-card border border-border px-3 py-2 text-sm">{{ draft.summary or '' }}</textarea>
     </div>
     <div>
       <label for="skills" class="mb-1 block text-sm font-medium">{{ t('import.skills', lang) }}</label>
@@ -97,7 +97,7 @@
           <div class="rounded-control border border-card-border bg-surface-1 p-3">
             <label for="bullet-{{ ri }}-{{ loop.index0 }}" class="sr-only">{{ t('import.bullets_of', lang) }}</label>
             <textarea id="bullet-{{ ri }}-{{ loop.index0 }}" name="bullet_{{ ri }}_{{ loop.index0 }}_text" rows="2"
-                      class="w-full rounded-control border border-border px-3 py-2 text-sm">{{ bullet.text }}</textarea>
+                      class="w-full rounded-card border border-border px-3 py-2 text-sm">{{ bullet.text }}</textarea>
             <label for="chips-{{ ri }}-{{ loop.index0 }}" class="sr-only">{{ t('bullets.skills', lang) }}</label>
             <input id="chips-{{ ri }}-{{ loop.index0 }}" name="bullet_{{ ri }}_{{ loop.index0 }}_chips"
                    value="{{ bullet.chips | join(', ') }}"
@@ -204,7 +204,7 @@
     </div>
   </section>
 
-  <button type="submit" class="rounded-control bg-link px-3 py-2 text-sm font-medium text-bg hover:opacity-90">
+  <button type="submit" class="btn btn-primary">
     {{ t('import.to_diff', lang) }}
   </button>
 </form>

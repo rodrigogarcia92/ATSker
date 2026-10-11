@@ -14,7 +14,7 @@
   <div>
     <label for="text" class="mb-1 block text-sm font-medium">{{ t('summaries.text', lang) }}</label>
     <textarea id="text" name="text" rows="5" required
-              class="w-full rounded-control border border-border px-3 py-2 text-sm">{{ summary.text }}</textarea>
+              class="w-full rounded-card border border-border px-3 py-2 text-sm">{{ summary.text }}</textarea>
   </div>
   <div>
     <label for="lang" class="mb-1 block text-sm font-medium">{{ t('tracks.lang', lang) }}</label>
@@ -25,7 +25,7 @@
   </div>
 
   <div class="flex flex-wrap items-center gap-4">
-    <button type="submit" class="rounded-control bg-link px-3 py-2 text-sm font-medium text-bg hover:opacity-90">
+    <button type="submit" class="btn btn-primary">
       {{ t('common.save', lang) }}
     </button>
     <a href="/profile" class="text-sm underline">{{ t('common.cancel', lang) }}</a>

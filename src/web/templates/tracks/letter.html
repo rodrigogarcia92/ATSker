@@ -100,7 +100,7 @@
     <label for="presentation" class="mb-1 block text-sm font-medium">{{ t('letters.presentation', lang) }}</label>
     <textarea id="presentation" name="presentation" rows="5"
               aria-describedby="presentation-hint"
-              class="w-full rounded-control border border-border px-3 py-2 text-sm">{{ values.presentation }}</textarea>
+              class="w-full rounded-card border border-border px-3 py-2 text-sm">{{ values.presentation }}</textarea>
     <p id="presentation-hint" class="mt-1 text-xs text-text-3">{{ t('letters.presentation_hint', lang) }}</p>
     {% set item_text = values.presentation %}
     {% set rejected_key = 'letters.draft_violations' %}
@@ -111,7 +111,7 @@
     <label for="achievements" class="mb-1 block text-sm font-medium">{{ t('letters.achievements', lang) }}</label>
     <textarea id="achievements" name="achievements" rows="9"
               aria-describedby="achievements-hint"
-              class="w-full rounded-control border border-border px-3 py-2 text-sm">{{ values.achievements }}</textarea>
+              class="w-full rounded-card border border-border px-3 py-2 text-sm">{{ values.achievements }}</textarea>
     <p id="achievements-hint" class="mt-1 text-xs text-text-3">{{ t('letters.achievements_hint', lang) }}</p>
     {% set item_text = values.achievements %}
     {% set rejected_key = 'letters.draft_violations' %}
@@ -120,7 +120,7 @@
   </div>
   {% include "letters/_placeholders.html" %}
   <div class="flex flex-wrap items-center gap-4">
-    <button type="submit" class="min-h-11 rounded-control bg-link px-4 py-2 text-sm font-medium text-bg hover:opacity-90">
+    <button type="submit" class="btn btn-primary">
       {{ t('common.save', lang) }}
     </button>
     <a href="/letters" class="inline-flex min-h-11 items-center text-sm underline">{{ t('common.cancel', lang) }}</a>

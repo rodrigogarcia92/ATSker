@@ -131,5 +131,5 @@ def test_the_zone_has_an_alert_line_and_a_change_control(client, session, career
         assert re.search(r'<p role="alert" hidden data-dropzone-error', raw)
         change = re.search(r"<button[^>]*data-dropzone-change[^>]*>.*?</button>", raw, re.S)
         assert change and 'type="button"' in change.group(0)
-        assert "min-h-11" in change.group(0), "a 44 px target"
+        assert "btn " in change.group(0), "a .btn is a 44 px target"
         assert "Cambiar" in change.group(0)

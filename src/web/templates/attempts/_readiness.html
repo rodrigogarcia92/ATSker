@@ -1,7 +1,7 @@
 {# F10.6 (C.2): the deterministic checklist, the message when it all holds, and the
    personal target (stored on the application, capped at the ceiling's high end). #}
-<section class="mt-3 rounded-control border border-card-border bg-surface-1 p-3 text-sm">
-  <h3 class="font-semibold">{{ t('attempt.ready.title', lang) }}</h3>
+<section class="mt-3 rounded-card border border-card-border bg-surface-1 p-3 text-sm">
+  <h3>{{ t('attempt.ready.title', lang) }}</h3>
   {% if readiness.ready %}
   <p class="mt-1 text-score-strong">
     {% if readiness.unreachable %}
@@ -45,7 +45,7 @@
              value="{{ readiness.target if readiness.target is not none else '' }}"
              class="ml-1 w-16 rounded-control border border-border px-2 py-1 text-sm">
     </label>
-    <button type="submit" class="rounded-control border border-border px-2 py-1 text-sm">
+    <button type="submit" class="btn btn-secondary">
       {{ t('attempt.ready.target_save', lang) }}
     </button>
     <span class="text-xs text-text-3">{{ t('attempt.ready.target_hint', lang) }}</span>

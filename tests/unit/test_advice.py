@@ -525,10 +525,12 @@ def test_a_stored_report_without_advice_renders_as_before(client, session, caree
     page = client.get(f"/applications/{stored.id}")
 
     assert page.status_code == 200
-    # K4: a track-less analysis keeps the section for its disabled "Proponer resumen", and
-    # shows no advice item, no ranking and no error.
+    # K4: a track-less analysis keeps the row, and shows no advice item, no ranking and no
+    # error; its disabled "Proponer resumen" now sits in the actions row (design v3 §5).
     recommendations = page.text[page.text.index('id="recommendations"') :]
     recommendations = recommendations[: recommendations.index("</section>")]
     assert "Recomendaciones" in recommendations
-    assert "disabled" in recommendations and "advice-evidence" not in recommendations
+    assert "Sin recomendaciones" in recommendations and "advice-evidence" not in recommendations
+    toolbar = page.text[page.text.index('aria-label="Acciones"') :]
+    assert "disabled" in toolbar[: toolbar.index("</aside>")]
     assert 'id="track-ranking"' not in recommendations

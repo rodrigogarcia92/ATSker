@@ -3,18 +3,17 @@
    `cv_track` is the chosen track or None; `cvs` its CVs, newest first; `cv_choice` is
    "latest" or a résumé id. A track with no CV cannot be analysed: the message says so and
    links to Importar CV with that track chosen. #}
-<div id="cv-picker" data-cv-picker>
-  <label for="resume_id" class="mb-1 block text-sm font-medium">{{ t('analyze.cv', lang) }}</label>
+<div id="cv-picker" data-cv-picker class="field-label">
+  <label for="resume_id">{{ t('analyze.cv', lang) }}</label>
   {% if cv_track is none %}
-  <p class="rounded-control border border-card-border bg-bg px-3 py-2 text-sm text-text-2">{{ t('analyze.cv_pick_track', lang) }}</p>
+  <p class="rounded-card border border-border px-4 py-3 text-sm text-text-2">{{ t('analyze.cv_pick_track', lang) }}</p>
   {% elif not cvs %}
-  <p class="rounded-control border border-sev-warning bg-bg px-3 py-2 text-sm text-sev-warning" role="status">
+  <p class="rounded-card border border-ink px-4 py-3 text-sm" role="status">
     {{ t('analyze.no_cv', lang) }}
     <a href="/import?track_id={{ cv_track.id }}" class="ml-1 underline">{{ t('analyze.no_cv_link', lang) }}</a>
   </p>
   {% else %}
-  <select id="resume_id" name="resume_id"
-          class="w-full rounded-control border border-border bg-surface-1 px-3 py-2 text-sm">
+  <select id="resume_id" name="resume_id" class="min-h-12 px-4 text-[0.9375rem]">
     <option value="latest" {% if cv_choice in ('', 'latest') %}selected{% endif %}>
       {{ t('analyze.cv_latest', lang, name=cvs[0].filename) }}
     </option>
@@ -24,6 +23,6 @@
     </option>
     {% endfor %}
   </select>
-  <p class="mt-1 text-xs text-text-3">{{ t('analyze.cv_hint', lang) }}</p>
+  <p class="field-hint">{{ t('analyze.cv_hint', lang) }}</p>
   {% endif %}
 </div>

@@ -1635,17 +1635,17 @@ def test_the_recall_rows_carry_their_verdict_colours(client, session, career, pr
     # The row's label, then its verdict chip. Only the rows carry this exact shape;
     # the summary verdict sits in its own `<p>` and the copy button keeps bg-surface-2.
     rows = re.findall(
-        r'<span class="font-medium">(.*?)</span>\s*'
-        r'<span class="rounded-tag border px-2 py-0\.5 text-xs (.*?)">',
+        r'<span class="text-text-2">(\w+)</span>\s*'
+        r'<span class="(chip|tag tag-danger)">',
         page,
         re.S,
     )
     assert dict(rows) == {
-        "amplia": "border-score-strong text-score-strong",
-        "estricta": "border-score-weak text-score-weak",
-    }, "a pass row is green, a fail row red, with no fill"
-    assert 'class="text-score-strong">✓</span>' in page, "the met clause's mark is green"
-    assert 'class="text-score-weak">✗</span>' in page, "the missing clause's mark is red"
+        "amplia": "chip",
+        "estricta": "tag tag-danger",
+    }, "a pass row is a vellum chip, a fail row an ink outline (design v3 §4)"
+    assert '<span aria-hidden="true">✓</span>' in page, "the met clause keeps its mark"
+    assert '<span aria-hidden="true">✕</span>' in page, "the missing clause keeps its mark"
 
 
 # --- N6.3: the result page's order, its numbers and its missing words -------------
@@ -1759,8 +1759,8 @@ def test_the_report_page_uses_the_wider_column_and_a_two_by_two_grid(
 
     page = client.get(posted.headers["location"]).text
 
-    assert "max-w-6xl" in page
-    assert "grid grid-cols-2 gap-3" in page, "the four sub-score cards are a 2 × 2 grid"
+    assert "max-w-[760px]" in page, "design v3: an old report is one 760px column"
+    assert "grid grid-cols-2 gap-x-6 gap-y-8" in page, "the four sub-score stats are a 2 × 2 grid"
     assert "grid-cols-1 gap-3 sm:grid-cols-2" not in page, "never one column on the phone"
 
 
@@ -1777,7 +1777,7 @@ def test_unbroken_strings_on_the_report_page_can_wrap(client, session, career, p
 
     assert 'class="break-all font-mono"' in page, "the posting hash wraps"
     assert 'class="break-all"' in page, "the prompt versions and calculation hash wrap"
-    assert 'class="break-all font-mono text-xs text-text-2"' in page, "the query line wraps"
+    assert 'class="break-all font-mono text-[0.8125rem] text-text"' in page, "the query line wraps"
 
 
 def test_the_readability_question_is_always_on_the_report_page(client, session, career, provider):

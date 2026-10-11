@@ -198,6 +198,10 @@ STRINGS: dict[str, dict[str, str]] = {
     },
     # F11.6: "Proponer línea", a cheap ranking before the analysis.
     "analyze.propose": {"es": "Proponer línea", "en": "Suggest a track"},
+    "analyze.propose_prompt": {
+        "es": "¿No sabes qué línea usar?",
+        "en": "Not sure which track to use?",
+    },
     "analyze.propose_hint": {
         "es": "Ordena tus líneas por el título y las palabras clave de su último CV. "
         "Extrae la oferta (una llamada que el análisis reutiliza); no puntúa evidencia.",
@@ -657,18 +661,32 @@ STRINGS: dict[str, dict[str, str]] = {
     "report.legend.sample": {"es": "término", "en": "term"},
     "report.legend.found": {"es": "aparece en tu CV", "en": "appears in your CV"},
     "report.legend.missing": {"es": "falta en tu CV", "en": "missing from your CV"},
-    "report.legend.toggle": {"es": "Cómo leer los colores", "en": "How to read the colours"},
+    "report.legend.toggle": {"es": "Cómo leer las marcas", "en": "How to read the marks"},
     "report.legend.scores": {
-        "es": "Puntuaciones: verde desde 75, ámbar de 50 a 74, rojo por debajo de 50.",
-        "en": "Scores: green from 75, amber 50 to 74, red below 50.",
+        "es": "Puntuaciones: «Fuerte» desde 75, «Adecuado» de 50 a 74, «Débil» por debajo "
+        "de 50; cada segmento vale 20 puntos.",
+        "en": "Scores: “Strong” from 75, “Adequate” 50 to 74, “Weak” below 50; each "
+        "segment is worth 20 points.",
     },
-    "report.legend.purple": {
-        "es": "Morado: algo falta o necesita atención "
+    "report.legend.dashed": {
+        "es": "Borde discontinuo con ✕: algo falta o necesita atención "
         "(un término que falta, una brecha decisiva, una advertencia).",
-        "en": "Purple: something is missing or needs attention "
+        "en": "Dashed outline with ✕: something is missing or needs attention "
         "(a missing term, a blocking gap, a warning).",
     },
-    "report.legend.gray": {"es": "Gris: está presente.", "en": "Gray: it is present."},
+    "report.legend.filled": {
+        "es": "Fondo gris con ✓: está presente.",
+        "en": "Grey fill with ✓: it is present.",
+    },
+    "report.divider.screens": {"es": "Las dos pantallas", "en": "The two screens"},
+    "report.row.keywords": {"es": "{n} palabras clave", "en": "{n} keywords"},
+    "report.row.keywords_one": {"es": "1 palabra clave", "en": "1 keyword"},
+    "report.row.advice": {"es": "{n} recomendaciones", "en": "{n} recommendations"},
+    "report.row.advice_none": {
+        "es": "Sin recomendaciones para este análisis.",
+        "en": "No recommendations for this analysis.",
+    },
+    "report.row.advice_one": {"es": "1 recomendación", "en": "1 recommendation"},
     "report.legend.severity": {
         "es": "Los iconos de octágono, triángulo y círculo son del análisis de legibilidad.",
         "en": "The octagon, triangle and circle icons are for the readability scan.",

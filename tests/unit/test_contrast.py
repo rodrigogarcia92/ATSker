@@ -107,3 +107,18 @@ def _template_text_classes() -> list[tuple[str, str]]:
 
 def test_no_template_uses_ash_or_stone_as_text():
     assert _template_text_classes() == []
+
+
+def test_no_template_uses_the_withdrawn_button_and_severity_fills():
+    """Design v3 §4: buttons are .btn variants; a destructive one is an ink outline, never
+    a `bg-link text-bg` or `bg-sev-*` fill (S2b)."""
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[2] / "src" / "web"
+    offenders = [
+        path.name
+        for path in root.rglob("*.html")
+        if "bg-link" in path.read_text(encoding="utf-8")
+        or "bg-sev-" in path.read_text(encoding="utf-8")
+    ]
+    assert not offenders, offenders

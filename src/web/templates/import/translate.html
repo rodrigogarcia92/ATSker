@@ -53,7 +53,7 @@
   {% include "import/_candidates.html" %}
 
   <div class="flex flex-wrap items-center gap-4">
-    <button type="submit" class="rounded-control bg-link px-3 py-2 text-sm font-medium text-bg hover:opacity-90">
+    <button type="submit" class="btn btn-primary">
       {{ t('import.translate_apply', lang) }}
     </button>
     <a href="/import/{{ resume.id }}" class="text-sm underline">{{ t('common.cancel', lang) }}</a>

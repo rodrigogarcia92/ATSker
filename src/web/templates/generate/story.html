@@ -22,7 +22,7 @@
 {# The provider call costs money, so it is a button on a POST, never a GET (F.0). #}
 <form method="post" action="{{ run_url }}" data-progress="generate" class="mt-4">
   <input type="hidden" name="lang" value="{{ language }}">
-  <button type="submit" class="rounded-control bg-link px-3 py-2 text-sm font-medium text-bg hover:opacity-90">
+  <button type="submit" class="btn btn-primary">
     {{ t('generate.run', lang) }}
   </button>
   {{ ui.progress('generate') }}
@@ -43,7 +43,7 @@
       <div>
         <label for="bullet-text-{{ loop.index }}" class="mb-1 block text-sm font-medium">{{ t('generate.bullet_text', lang) }}</label>
         <textarea id="bullet-text-{{ loop.index }}" name="text" rows="3"
-                  class="w-full rounded-control border border-border px-3 py-2 text-sm">{{ candidate.text }}</textarea>
+                  class="w-full rounded-card border border-border px-3 py-2 text-sm">{{ candidate.text }}</textarea>
       </div>
       <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
@@ -64,7 +64,7 @@
           <p class="mt-1 text-xs text-text-3">{{ t('generate.chips_hint', lang) }}</p>
         </div>
       </div>
-      <button type="submit" class="rounded-control bg-link px-3 py-2 text-sm font-medium text-bg hover:opacity-90">
+      <button type="submit" class="btn btn-primary">
         {{ t('generate.accept', lang) }}
       </button>
     </form>

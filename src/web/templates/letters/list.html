@@ -22,7 +22,7 @@
       <label for="header-{{ row.lang }}" class="mb-1 block text-sm font-medium">{{ t('letters.blocks_header', lang) }}</label>
       <textarea id="header-{{ row.lang }}" name="header" rows="2"
                 aria-describedby="header-hint-{{ row.lang }}"
-                class="w-full rounded-control border border-border px-3 py-2 text-sm">{{ row.entry.header if row.entry else '' }}</textarea>
+                class="w-full rounded-card border border-border px-3 py-2 text-sm">{{ row.entry.header if row.entry else '' }}</textarea>
       <p id="header-hint-{{ row.lang }}" class="mt-1 text-xs text-text-3">{{ t('letters.blocks_header_hint', lang) }}</p>
     </div>
     <div>
@@ -33,22 +33,22 @@
     <div>
       <label for="closing-{{ row.lang }}" class="mb-1 block text-sm font-medium">{{ t('letters.blocks_closing', lang) }}</label>
       <textarea id="closing-{{ row.lang }}" name="closing" rows="2"
-                class="w-full rounded-control border border-border px-3 py-2 text-sm">{{ row.entry.closing if row.entry else '' }}</textarea>
+                class="w-full rounded-card border border-border px-3 py-2 text-sm">{{ row.entry.closing if row.entry else '' }}</textarea>
     </div>
     <div>
       <label for="sign-off-{{ row.lang }}" class="mb-1 block text-sm font-medium">{{ t('letters.blocks_sign_off', lang) }}</label>
       {# Two lines ("Atentamente," and the name), so a textarea: an <input> drops the break. #}
       <textarea id="sign-off-{{ row.lang }}" name="sign_off" rows="2"
-                class="w-full rounded-control border border-border px-3 py-2 text-sm">{{ row.entry.sign_off if row.entry else '' }}</textarea>
+                class="w-full rounded-card border border-border px-3 py-2 text-sm">{{ row.entry.sign_off if row.entry else '' }}</textarea>
     </div>
     <div>
       <label for="voice-{{ row.lang }}" class="mb-1 block text-sm font-medium">{{ t('letters.blocks_voice', lang) }}</label>
       <textarea id="voice-{{ row.lang }}" name="voice_notes" rows="2"
-                class="w-full rounded-control border border-border px-3 py-2 text-sm">{{ row.entry.voice_notes if row.entry else '' }}</textarea>
+                class="w-full rounded-card border border-border px-3 py-2 text-sm">{{ row.entry.voice_notes if row.entry else '' }}</textarea>
       <p class="mt-1 text-xs text-text-3">{{ t('letters.blocks_voice_hint', lang) }}</p>
     </div>
     <div class="flex flex-wrap items-center gap-3">
-      <button type="submit" class="min-h-11 rounded-control bg-link px-4 py-2 text-sm font-medium text-bg hover:opacity-90">
+      <button type="submit" class="btn btn-primary">
         {{ t('letters.save_blocks', lang) }}
       </button>
       {# F8: fills only the empty fields, by code, and does not save. #}

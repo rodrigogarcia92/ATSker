@@ -24,7 +24,7 @@
   <div>
     <label for="body" class="mb-1 block text-sm font-medium">{{ t('stories.body', lang) }}</label>
     <textarea id="body" name="body" rows="10" required
-              class="w-full rounded-control border border-border px-3 py-2 text-sm">{{ values.body }}</textarea>
+              class="w-full rounded-card border border-border px-3 py-2 text-sm">{{ values.body }}</textarea>
     <p class="mt-1 text-xs text-text-3">{{ t('stories.body_hint', lang) }}</p>
   </div>
   <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -70,7 +70,7 @@
   </fieldset>
 
   <div class="flex flex-wrap items-center gap-4">
-    <button type="submit" class="rounded-control bg-link px-3 py-2 text-sm font-medium text-bg hover:opacity-90">
+    <button type="submit" class="btn btn-primary">
       {{ t('common.save', lang) }}
     </button>
     {% if story and can_suggest %}

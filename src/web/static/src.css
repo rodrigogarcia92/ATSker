@@ -84,21 +84,159 @@ body {
   font-synthesis-weight: none;
 }
 
-/* Controls take the theme by default, so a field added without a class still reads in it. */
-input,
-textarea,
-select {
-  background: var(--color-surface-2);
-  color: var(--color-text);
-  border-color: var(--color-border);
+/* Element defaults (design v3 §4), in the base layer so any utility class still wins:
+   pill inputs and selects, a 20px textarea, hairline borders, one focus ring everywhere. */
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--forest);
+    outline-offset: 3px;
+  }
+  input,
+  select,
+  textarea {
+    background: var(--paper);
+    color: var(--ink);
+    border: 1px solid var(--hairline);
+    font: inherit;
+  }
+  select,
+  input:not([type="checkbox"], [type="radio"], [type="file"], [type="hidden"], [type="submit"]) {
+    min-height: 2.75rem;
+    padding: 0 1rem;
+    border-radius: var(--radius-pill);
+  }
+  textarea {
+    padding: 0.75rem 1rem;
+    border-radius: var(--radius-card);
+  }
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--slate);
+  }
+  input[type="checkbox"],
+  input[type="radio"] {
+    accent-color: var(--forest);
+  }
+  a.underline {
+    text-underline-offset: 3px;
+  }
 }
-input::placeholder,
-textarea::placeholder {
-  color: var(--color-text-3);
+
+/* Buttons and cards (design v3 §3–§4). Four buttons, one shape: primary is the forest pill
+   (at most one per view), secondary is white with a hairline, tertiary is vellum, and
+   destructive is white with an ink outline. Never a red or a severity fill. */
+@layer components {
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 2.75rem;
+    padding: 0 1.25rem;
+    border: 1px solid transparent;
+    border-radius: var(--radius-pill);
+    font-size: 0.875rem;
+    line-height: 1.2;
+    text-align: center;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .btn-lg {
+    min-height: 3rem;
+    padding: 0 1.75rem;
+    font-size: 0.9375rem;
+  }
+  .btn-primary {
+    background: var(--forest);
+    color: #fff;
+  }
+  .btn-primary:hover {
+    background: color-mix(in srgb, var(--forest) 88%, #000);
+  }
+  .btn-secondary {
+    background: var(--paper);
+    border-color: var(--hairline);
+    color: var(--ink);
+  }
+  .btn-secondary:hover {
+    background: var(--vellum);
+  }
+  .btn-tertiary {
+    background: var(--vellum);
+    color: var(--ink);
+  }
+  .btn-tertiary:hover {
+    background: color-mix(in srgb, var(--vellum) 92%, #000);
+  }
+  .btn-danger {
+    background: var(--paper);
+    border-color: var(--ink);
+    color: var(--ink);
+  }
+  .btn-danger:hover {
+    background: var(--vellum);
+  }
+  .btn:disabled,
+  .btn[aria-disabled="true"] {
+    background: var(--vellum);
+    border-color: transparent;
+    color: var(--ash); /* disabled text is exempt from contrast */
+    cursor: not-allowed;
+  }
+  .link {
+    color: var(--ink);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .card {
+    background: var(--paper);
+    border: 1px solid var(--hairline);
+    border-radius: var(--radius-card);
+    padding: 1.5rem;
+  }
+  .well {
+    background: var(--vellum);
+    border-radius: var(--radius-card);
+    padding: 1.5rem;
+  }
+  .code-well {
+    background: var(--vellum);
+    border-radius: var(--radius-sm);
+    padding: 0.625rem 0.75rem;
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;
+  }
+  .field-label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    color: var(--ink);
+  }
+  .field-hint {
+    font-size: 0.75rem;
+    color: var(--slate);
+  }
+  /* A labelled divider: a hairline with its label centred in a gap. */
+  .divider-label {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    color: var(--slate);
+    font-size: 0.875rem;
+  }
+  .divider-label::before,
+  .divider-label::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--hairline);
+  }
 }
-input[type="checkbox"],
-input[type="radio"] {
-  accent-color: var(--color-link);
+@media (min-width: 768px) {
+  .card {
+    padding: 2rem;
+  }
 }
 
 /* The shell (design v3 §5): a white top bar with a hairline under it. Wordmark left, the
@@ -294,32 +432,44 @@ body.sheet-open {
   }
 }
 
-/* The score component (§12.1): fill on the number and the segments, a band word beside
-   them, and never colour alone. Band colours are keyed on the band, not a utility, so a
-   threshold change is one edit here. */
+/* The score component (design v3 §4): a 12px slate label above, the number in ink, the band
+   word beside it (Fuerte in forest, the others in ink), five segments below — filled ones
+   forest, empty ones hairline. The word carries the band; colour is never the only signal. */
 .score-head {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.75rem;
+  flex-direction: column;
+  gap: 0.25rem;
 }
 .score-label {
-  color: var(--color-text-2);
-  font-size: 0.875rem;
+  color: var(--slate);
+  font-size: 0.75rem;
+}
+.score-line {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
 }
 .score-number {
-  font-size: 1.75rem;
-  font-weight: 600;
-  line-height: 1.1;
+  font-size: 2.25rem;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
 }
-.score[data-band="strong"] .score-number {
-  color: var(--color-score-strong);
+.score-hero .score-number {
+  font-size: 4.5rem;
+  line-height: 1;
+  letter-spacing: -0.03em;
 }
-.score[data-band="adequate"] .score-number {
-  color: var(--color-score-adequate);
+.score-scale {
+  font-size: 0.875rem;
+  color: var(--slate);
 }
-.score[data-band="weak"] .score-number {
-  color: var(--color-score-weak);
+.score-band {
+  margin: 0;
+  color: var(--ink);
+  font-size: 1rem;
+}
+.score[data-band="strong"] .score-band {
+  color: var(--forest);
 }
 .score-segments {
   display: flex;
@@ -328,33 +478,26 @@ body.sheet-open {
 }
 .score-segment {
   height: 0.375rem;
-  flex: 1;
-  border-radius: var(--radius-tag);
-  background: var(--color-surface-2);
-}
-.score-band {
-  margin: 0.375rem 0 0;
-  color: var(--color-text-3);
-  font-size: 0.75rem;
+  width: 2.25rem;
+  border-radius: var(--radius-pill);
+  background: var(--hairline);
 }
 .score-caption {
-  margin: 0.25rem 0 0;
-  color: var(--color-text-2);
-  font-size: 0.8125rem;
+  margin: 0.375rem 0 0;
+  color: var(--slate);
+  font-size: 0.75rem;
 }
-.score-scale {
-  font-size: 0.875rem;
-  font-weight: 400;
-  color: var(--color-text-3);
+.is-on {
+  background: var(--forest);
 }
 /* The Job Match bar: the score it would have without the cap, the score it has, and the
-   cap marked only as a tick (§12.1's item 2). */
+   cap marked only as a tick. Fills are grey; the one forest element is the segment row. */
 .match {
   position: relative;
-  height: 0.5rem;
-  margin-top: 0.75rem;
-  border-radius: var(--radius-tag);
-  background: var(--color-surface-2);
+  height: 0.375rem;
+  margin-top: 1rem;
+  border-radius: var(--radius-pill);
+  background: var(--vellum);
   overflow: hidden;
 }
 .match-uncapped,
@@ -365,110 +508,110 @@ body.sheet-open {
   left: 0;
 }
 .match-uncapped {
-  background: var(--color-border);
+  background: var(--stone);
 }
 .match-fill {
-  background: var(--color-text-3);
-}
-.match[data-band="strong"] .match-fill {
-  background: var(--color-score-strong);
-}
-.match[data-band="adequate"] .match-fill {
-  background: var(--color-score-adequate);
-}
-.match[data-band="weak"] .match-fill {
-  background: var(--color-score-weak);
+  background: var(--forest);
 }
 .match-tick {
   position: absolute;
-  top: -0.125rem;
-  bottom: -0.125rem;
+  top: 0;
+  bottom: 0;
   width: 2px;
-  background: var(--color-text);
+  background: var(--ink);
 }
 /* The Skills split: direct against transfer, two segments of one bar. */
 .split-bar {
   display: flex;
-  height: 0.5rem;
+  height: 0.375rem;
   margin-top: 0.5rem;
-  border-radius: var(--radius-tag);
+  border-radius: var(--radius-pill);
   overflow: hidden;
-  background: var(--color-surface-2);
+  background: var(--vellum);
 }
 .split-direct {
-  background: var(--color-score-strong);
+  background: var(--forest);
 }
 .split-transfer {
-  background: var(--color-score-adequate);
+  background: var(--stone);
 }
 
-.band-strong.is-on {
-  background: var(--color-score-strong);
-}
-.band-adequate.is-on {
-  background: var(--color-score-adequate);
-}
-.band-weak.is-on {
-  background: var(--color-score-weak);
-}
-
-/* Shared tags: outlined, never a fill, so a tag reads as a label and not as a state. */
+/* Tags and chips: pills. A tag is a hairline label; a chip says whether a term is in the
+   file — present is vellum with a ✓, missing is a dashed slate outline with a ✕ (shape and
+   mark, never colour alone). */
 .tag {
   display: inline-block;
-  padding: 0.125rem 0.5rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-tag);
+  padding: 0.125rem 0.625rem;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-pill);
   font-size: 0.75rem;
-  color: var(--color-text-2);
+  color: var(--slate);
 }
 .tag-strong {
-  border-color: var(--color-score-strong);
-  color: var(--color-score-strong);
+  border-color: var(--forest);
+  color: var(--forest);
 }
 .tag-warning {
-  border-color: var(--color-sev-warning);
-  color: var(--color-sev-warning);
+  border-color: var(--slate);
+  color: var(--slate);
 }
 .tag-danger {
-  border-color: var(--color-sev-blocker);
-  color: var(--color-sev-blocker);
+  border-color: var(--ink);
+  color: var(--ink);
+}
+.tag-proposal {
+  border-color: var(--lime);
+  background: var(--lime);
+  color: var(--ink);
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.75rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  background: var(--vellum);
+  color: var(--ink);
+  font-size: 0.75rem;
+}
+.chip-missing {
+  background: none;
+  border: 1px dashed var(--slate);
+  color: var(--pewter);
 }
 
-/* Severity (§12.1): outlined, never filled, and in its own palette. */
+/* Severity: told apart by shape and word — Bloqueo an ink outline with an octagon, Aviso a
+   slate outline with a triangle, Info a vellum fill with a circle. No uppercase, no fill
+   colour beyond vellum. */
 .sev-tag {
   display: inline-flex;
   align-items: center;
   gap: 0.375rem;
-  padding: 0.125rem 0.5rem;
-  border: 1px solid; /* colour set per level below */
-  border-radius: var(--radius-tag);
-  font-size: 0.6875rem;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  background: none;
+  padding: 0.125rem 0.625rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  font-size: 0.75rem;
 }
 .sev-icon {
-  width: 0.875rem;
-  height: 0.875rem;
+  width: 0.75rem;
+  height: 0.75rem;
   flex: none;
 }
-.sev-label {
-  font-weight: 500;
-}
 .sev-blocker {
-  border-color: var(--color-sev-blocker);
-  color: var(--color-sev-blocker);
+  border-color: var(--ink);
+  color: var(--ink);
 }
 .sev-warning {
-  border-color: var(--color-sev-warning);
-  color: var(--color-sev-warning);
+  border-color: var(--slate);
+  color: var(--ink);
 }
 .sev-info {
-  border-color: var(--color-sev-info);
-  color: var(--color-sev-info);
+  background: var(--vellum);
+  color: var(--pewter);
 }
 
-/* Evidence levels 0–3: three bars, filled to the level, with the number. */
+/* Evidence levels 0–3: three bars, filled forest to the level, with the number. */
 .level-bars {
   display: inline-flex;
   align-items: center;
@@ -477,12 +620,12 @@ body.sheet-open {
 .level-bar {
   width: 0.75rem;
   height: 0.375rem;
-  border-radius: var(--radius-tag);
-  background: var(--color-surface-2);
+  border-radius: var(--radius-pill);
+  background: var(--hairline);
 }
 .level-number {
   margin-left: 0.25rem;
-  color: var(--color-text-2);
+  color: var(--slate);
   font-size: 0.75rem;
 }
 
@@ -493,26 +636,26 @@ body.sheet-open {
 }
 
 /* F10.1 (C.1): the attempt modal. A native `<dialog>` — focus trapping, Escape and the
-   backdrop are the platform's — sized for a desktop panel and a full-screen sheet on a
-   phone (≤ 640 px, the width the design review uses). */
+   backdrop are the platform's — a white sheet over a 25 % ink scrim, no heavy shadow (design
+   v3 §3); a full-screen sheet on a phone (≤ 640 px). */
 .attempt-modal {
   /* Preflight zeroes every margin, which drops the UA's `margin: auto` centring. */
   margin: auto;
   width: min(42rem, 92vw);
   max-height: 88vh;
   overflow-y: auto;
-  border: 1px solid var(--color-card-border);
-  border-radius: var(--radius-card);
-  background: var(--color-surface-1);
-  color: var(--color-text);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
+  background: var(--paper);
+  color: var(--ink);
 }
 .attempt-modal::backdrop {
-  background: rgb(0 0 0 / 0.6);
+  background: rgb(23 23 23 / 0.25);
 }
 
 /* §12.4: the document drop zone. A dashed card that is a <label> for a visually hidden but
    focusable file input, so the keyboard ring is drawn on the card. Dragging a file over it
-   turns the outline to the interactive colour (never the score palette). */
+   turns the outline forest. The dash is slate (3:1 on paper), so the edge can be seen. */
 .dropzone {
   display: flex;
   flex-direction: column;
@@ -521,15 +664,15 @@ body.sheet-open {
   gap: 0.25rem;
   width: 100%;
   min-height: 5.5rem;
-  padding: 1rem;
+  padding: 1.25rem 1rem;
   text-align: center;
   cursor: pointer;
-  color: var(--color-text-2);
-  border: 2px dashed var(--color-border);
+  color: var(--ink);
+  border: 1px dashed var(--slate);
   border-radius: var(--radius-card);
 }
 .dropzone:hover {
-  border-color: var(--color-text-3);
+  background: var(--vellum);
 }
 .dropzone-icon {
   width: 1.5rem;
@@ -537,11 +680,11 @@ body.sheet-open {
 }
 .dropzone-formats {
   font-size: 0.75rem;
-  color: var(--color-text-3);
+  color: var(--slate);
 }
-.dropzone-input:focus + .dropzone {
-  outline: 2px solid var(--color-link);
-  outline-offset: 2px;
+.dropzone-input:focus-visible + .dropzone {
+  outline: 2px solid var(--forest);
+  outline-offset: 3px;
 }
 .dropzone-input:disabled + .dropzone {
   cursor: not-allowed;
@@ -553,13 +696,13 @@ body.sheet-open {
   align-items: center;
   gap: 0.25rem 0.75rem;
   padding: 0.5rem 1rem;
-  border: 2px dashed var(--color-border);
+  border: 1px dashed var(--slate);
   border-radius: var(--radius-card);
 }
 [data-dropzone-root][data-over] .dropzone,
 [data-dropzone-root][data-over] .dropzone-chosen {
-  border-color: var(--color-link);
-  color: var(--color-link);
+  border-color: var(--forest);
+  background: var(--vellum);
 }
 
 @media (max-width: 640px) {
@@ -583,13 +726,13 @@ body.sheet-open {
   width: min(42rem, 92vw);
   max-height: 88vh;
   overflow-y: auto;
-  border: 1px solid var(--color-card-border);
-  border-radius: var(--radius-card);
-  background: var(--color-surface-1);
-  color: var(--color-text);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
+  background: var(--paper);
+  color: var(--ink);
 }
 .dialog-sheet::backdrop {
-  background: rgb(0 0 0 / 0.6);
+  background: rgb(23 23 23 / 0.25);
 }
 @media (max-width: 640px) {
   .dialog-sheet {
@@ -625,7 +768,7 @@ body.sheet-open {
   margin: 0 0.25rem;
   border-right: 1.6px solid currentColor;
   border-bottom: 1.6px solid currentColor;
-  color: var(--color-text-2);
+  color: var(--slate);
   transform: rotate(-45deg);
   transition: transform 0.15s;
 }
@@ -633,51 +776,75 @@ body.sheet-open {
   transform: rotate(45deg);
 }
 .disclosure > summary:focus-visible {
-  outline: 2px solid var(--color-link);
-  outline-offset: 2px;
-  border-radius: var(--radius-control);
+  border-radius: var(--radius-pill);
 }
 
-/* §12.1 item 5: a requirement is a button outlined in its level's score colour; the
-   selected one gets a fill and an underline in the same colour, and aria-pressed is the
-   state — there is no class for a script to forget. */
+/* Collapsed sections (design v3 §4): a full-width row between hairlines — the title at 18px
+   on the left, a 14px slate summary on the right with a ▾ that turns when it is open. A
+   `.row-section` is also a `.disclosure`, so the chevron on the left is switched off. */
+.row-section {
+  border-top: 1px solid var(--hairline);
+}
+.row-section.row-last {
+  border-bottom: 1px solid var(--hairline);
+}
+.disclosure.row-section > summary {
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-height: 3.5rem;
+  padding: 0.75rem 0;
+  font-size: 1.125rem;
+}
+.disclosure.row-section > summary::before {
+  display: none;
+}
+.row-summary {
+  margin-left: auto;
+  color: var(--slate);
+  font-size: 0.875rem;
+  text-align: right;
+}
+.disclosure.row-section > summary::after {
+  content: "▾";
+  flex: none;
+  color: var(--slate);
+  font-size: 0.875rem;
+  transition: transform 0.15s;
+}
+.disclosure.row-section[open] > summary::after {
+  transform: rotate(180deg);
+}
+
+/* Requirement chips (design v3 §4): a pill with a hairline border and `Name · n/3`; level 0
+   has a dashed slate border; the selected one is lime-filled and aria-pressed is the state —
+   there is no class for a script to forget. */
 .req-chip {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
   min-height: 2.75rem;
-  padding: 0 0.875rem;
-  border: 1px solid var(--req-color, var(--color-border));
-  border-radius: var(--radius-control);
-  background: transparent;
-  color: var(--color-text);
+  padding: 0 1rem;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-pill);
+  background: var(--paper);
+  color: var(--ink);
   font-size: 0.875rem;
   text-align: left;
   cursor: pointer;
 }
 .req-chip:hover {
-  background: var(--color-surface-2);
+  background: var(--vellum);
 }
-.req-chip:focus-visible {
-  outline: 2px solid var(--color-link);
-  outline-offset: 2px;
+.req-chip[data-level="0"] {
+  border: 1px dashed var(--slate);
 }
 .req-chip[aria-pressed="true"] {
-  background: var(--color-surface-2);
-  box-shadow: inset 0 -2px 0 var(--req-color, var(--color-border));
+  background: var(--lime);
+  border-color: var(--lime);
 }
 .req-level {
-  color: var(--color-text-2);
+  color: var(--pewter);
   font-size: 0.75rem;
-}
-.req-strong {
-  --req-color: var(--color-score-strong);
-}
-.req-adequate {
-  --req-color: var(--color-score-adequate);
-}
-.req-weak {
-  --req-color: var(--color-score-weak);
 }
 
 /* §12.1 item 6: an advice item's evidence is clamped to two lines, and "Ver más" opens

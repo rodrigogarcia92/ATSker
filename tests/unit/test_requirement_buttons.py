@@ -36,7 +36,7 @@ GRADES = [
 
 BUTTON = re.compile(
     r'<button type="button" class="req-chip req-(\w+)" aria-pressed="(\w+)"\s+'
-    r'aria-controls="req-detail" data-template="(req-tpl-\d+)">\s*'
+    r'aria-controls="req-detail" data-template="(req-tpl-\d+)"[^>]*>\s*'
     r"<span>(.*?)</span>\s*<span class=\"req-level\">(\d)/3</span>",
     re.S,
 )
@@ -93,7 +93,7 @@ def test_the_old_compact_list_is_the_noscript_fallback(client, session, career):
     for grade in GRADES:
         assert grade["requirement"] in text
     assert "Automaticé los reportes con Python y SQL." in text
-    assert 'id="req-chips" class="mt-3" hidden' in page, "the buttons wait for the script"
+    assert 'id="req-chips" class="mt-4" hidden' in page, "the buttons wait for the script"
 
 
 def test_the_summary_counts_match_the_grades(client, session, career):

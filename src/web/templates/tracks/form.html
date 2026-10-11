@@ -85,7 +85,7 @@
     </select>
     <label for="summary_{{ code }}_new" class="mt-2 block text-sm font-medium">{{ t('tracks.summary_new', lang) }}</label>
     <textarea id="summary_{{ code }}_new" name="summary_{{ code }}_new" rows="3"
-              class="w-full rounded-control border border-border px-3 py-2 text-sm"></textarea>
+              class="w-full rounded-card border border-border px-3 py-2 text-sm"></textarea>
   </div>
   {% endmacro %}
 
@@ -125,7 +125,7 @@
   {% endif %}
 
   <div class="flex items-center gap-4">
-    <button type="submit" class="rounded-control bg-link px-3 py-2 text-sm font-medium text-bg hover:opacity-90">
+    <button type="submit" class="btn btn-primary">
       {{ t('common.save', lang) }}
     </button>
     <a href="{{ '/tracks' if not track else '/tracks/' ~ track.id }}" class="text-sm underline">

@@ -68,10 +68,11 @@ def test_profile_page_shows_only_the_signed_in_user(client, career):
 
     # A.9.1: F2.8's "Eliminar todo" link needs its background in the committed build or
     # its text disappears into the page. `test_css_classes` checks every template class;
-    # this checks the link itself still renders with the danger style (§12.1's tokens).
+    # this checks the link itself still renders with the destructive style (design v3 §4:
+    # a white pill with an ink outline, never a red or severity fill).
     link = re.search(r'<a href="/profile/delete"\s+class="([^"]+)"', page, re.S)
     assert link is not None, "the profile page carries the delete-everything link"
-    assert {"bg-sev-blocker", "text-bg"} <= set(link.group(1).split())
+    assert {"btn", "btn-danger"} <= set(link.group(1).split())
 
 
 def test_another_users_track_is_404_on_every_route(client, session, career):

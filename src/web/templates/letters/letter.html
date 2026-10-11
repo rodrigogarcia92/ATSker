@@ -29,7 +29,7 @@
         {% endfor %}
       </select>
     </div>
-    <button type="submit" class="min-h-11 rounded-control bg-link px-4 py-2 text-sm font-medium text-bg hover:opacity-90">
+    <button type="submit" class="btn btn-primary">
       {{ t('letters.picker_submit', lang) }}
     </button>
   </form>
@@ -93,10 +93,10 @@
     <div class="min-w-0 space-y-3 lg:col-span-2">
       <label for="bridge-text" class="block text-sm font-medium">{{ t('letters.bridge_label', lang) }}</label>
       <textarea id="bridge-text" name="bridge" rows="6"
-                class="w-full rounded-control border border-border px-3 py-2 text-sm">{{ bridge_field }}</textarea>
+                class="w-full rounded-card border border-border px-3 py-2 text-sm">{{ bridge_field }}</textarea>
       <div class="flex flex-wrap items-center gap-3">
         <button type="submit" {% if at_limit %}disabled{% endif %}
-                class="min-h-11 rounded-control bg-link px-4 py-2 text-sm font-medium text-bg hover:opacity-90 disabled:opacity-50">
+                class="btn btn-primary  disabled:opacity-50">
           {% if at_limit %}{{ t('letters.bridge_another_plain', lang) }}
           {% elif versions %}{{ t('letters.bridge_another', lang, n=versions + 1) }}
           {% else %}{{ t('letters.bridge_generate', lang) }}{% endif %}
@@ -132,9 +132,9 @@
       </button>
     </p>
     <textarea id="letter-text" name="text" rows="18"
-              class="w-full rounded-control border border-border px-3 py-2 text-sm">{{ full_text }}</textarea>
+              class="w-full rounded-card border border-border px-3 py-2 text-sm">{{ full_text }}</textarea>
     <div class="flex flex-wrap items-center gap-3">
-      <button type="submit" class="min-h-11 rounded-control bg-link px-4 py-2 text-sm font-medium text-bg hover:opacity-90">
+      <button type="submit" class="btn btn-primary">
         {{ t('letters.letter_save', lang) }}
       </button>
       <button type="button" id="copy-letter" class="min-h-11 rounded-control border border-border px-4 py-2 text-sm hover:bg-surface-2">

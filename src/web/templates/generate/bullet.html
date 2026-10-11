@@ -20,7 +20,7 @@
 {% if run_url and not output %}
 {# The provider call costs money, so it is a button on a POST, never a GET (F.0). #}
 <form method="post" action="{{ run_url }}" data-progress="generate" class="mt-4">
-  <button type="submit" class="rounded-control bg-link px-3 py-2 text-sm font-medium text-bg hover:opacity-90">
+  <button type="submit" class="btn btn-primary">
     {{ t('generate.run', lang) }}
   </button>
   {{ ui.progress('generate') }}
@@ -55,7 +55,7 @@
         action="/applications/{{ application.id }}/bullets/{{ bullet.id }}/rephrase/accept"
         class="mt-4">
     <input type="hidden" name="payload" value="{{ proposal_json | e }}">
-    <button type="submit" class="rounded-control bg-link px-3 py-2 text-sm font-medium text-bg hover:opacity-90">
+    <button type="submit" class="btn btn-primary">
       {{ t('generate.accept', lang) }}
     </button>
   </form>

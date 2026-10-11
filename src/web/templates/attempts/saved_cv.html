@@ -6,7 +6,7 @@
 {# F11.7: the confirmation after "Subir a esta línea". The CV joined the track; nothing of
    the user's material changed. Two next steps: the usual merge review, and a new analysis
    of the same posting on this CV. #}
-<h1 class="text-2xl font-semibold tracking-tight">{{ t('attempt.save_cv.title', lang) }}</h1>
+<h1 class="text-4xl leading-tight tracking-[-0.02em] md:text-5xl">{{ t('attempt.save_cv.title', lang) }}</h1>
 <p class="mt-2 text-sm text-text-2" role="status">
   {% if created %}
   {{ t('attempt.save_cv.done', lang, name=resume.filename, track=track.name if track else '') }}
@@ -22,7 +22,7 @@
   <form method="post" action="/applications/{{ application.id }}/reanalyze" data-progress="analyze"
         class="rounded-card border border-card-border bg-surface-1 p-4">
     <input type="hidden" name="resume_id" value="{{ resume.id }}">
-    <button type="submit" class="rounded-control bg-link px-3 py-2 text-sm font-medium text-bg hover:opacity-90">
+    <button type="submit" class="btn btn-primary">
       {{ t('attempt.save_cv.analyse', lang) }}
     </button>
     <p class="mt-2 text-xs text-text-3">{{ t('attempt.save_cv.analyse_hint', lang) }}</p>
@@ -30,7 +30,7 @@
   </form>
   {% if can_incorporate %}
   <div class="rounded-card border border-card-border bg-surface-1 p-4">
-    <a class="rounded-control border border-border px-3 py-2 text-sm font-medium"
+    <a class="btn btn-secondary"
        href="/applications/{{ application.id }}/attempts/{{ attempt.id }}/incorporate">
       {{ t('attempt.save_cv.incorporate', lang) }}
     </a>

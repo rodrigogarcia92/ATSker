@@ -134,16 +134,19 @@ def test_the_mid_page_block_and_the_bottom_letter_link_are_gone(client, career, 
     assert "(.docx)" not in page, "the note that sat under the mid-page button"
 
 
-def test_the_desktop_layout_is_a_760_column_beside_a_sticky_rail(client, career, provider):
+def test_the_layout_is_one_760_column_with_the_actions_as_a_row_of_tertiary_buttons(
+    client, career, provider
+):
+    """Design v3: the sticky rail is gone; the three CV actions sit in a row under the header."""
     _id, page = full_page(client, career)
-    rail = re.search(r'<aside\b[^>]*aria-label="Acciones"[^>]*class="([^"]*)"', page, re.S).group(1)
+    toolbar = part(page, "aside", "aria-label")
 
-    assert "lg:max-w-[760px]" in page
-    assert "lg:flex" in page
-    for needed in ("hidden", "lg:sticky", "lg:top-6", "lg:block"):
-        assert needed in rail.split(), f"the rail is {needed}"
-    assert "Ajuste general" in part(page, "aside", "aria-label"), "the compact Job Match"
-    assert "techo " in part(page, "aside", "aria-label"), "and its ceiling"
+    assert "max-w-[760px]" in page
+    assert "lg:sticky" not in page and "lg:flex" not in page
+    # The summary opener is a button and its no-script link twin, so four elements, three actions.
+    assert toolbar.count("btn btn-tertiary") == 4, "Probar nuevo CV, Carta, Proponer resumen"
+    assert "sm:grid-cols-3" in toolbar
+    assert "score-number" not in toolbar, "the Job Match is the card below, not a compact copy"
 
 
 def test_the_phone_bar_is_fixed_safe_area_aware_and_padded_for(client, career, provider):
@@ -151,7 +154,7 @@ def test_the_phone_bar_is_fixed_safe_area_aware_and_padded_for(client, career, p
     bar_tag = re.search(r'<div id="action-bar"[^>]*>', page, re.S).group(0)
 
     assert "fixed" in bar_tag and "bottom-0" in bar_tag
-    assert "lg:hidden" in bar_tag, "the bar is a phone control"
+    assert "md:hidden" in bar_tag, "the bar is a phone control"
     assert "padding-bottom: max(0.75rem, env(safe-area-inset-bottom))" in bar_tag
     assert 'calc(5rem + env(safe-area-inset-bottom))' in page, "the page is padded by the bar"
     assert "viewport-fit=cover" in page, "env() means something on a notched phone"
@@ -208,4 +211,4 @@ def test_the_attempt_view_has_no_rail_and_no_bar(
     assert 'aria-label="Acciones"' not in raw, "the shell's own <aside> is not the actions rail"
     assert 'id="action-bar"' not in raw
     assert "data-attempt-open" not in raw
-    assert "lg:flex" in raw, "the layout wrapper is the same; only the actions are gone"
+    assert "max-w-[760px]" in raw, "the column is the same; only the actions are gone"
