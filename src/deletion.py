@@ -202,6 +202,13 @@ def delete_resume(
         .where(BulletRevision.resume_id == resume.id)
         .values(resume_id=None)
     )
+    # F11.10: the analyses of this CV keep their report, which names the file; SQLite does
+    # not enforce `ON DELETE SET NULL`, so the pointer is cleared here.
+    session.execute(
+        update(Application)
+        .where(Application.profile_id == profile_id, Application.resume_id == resume.id)
+        .values(resume_id=None)
+    )
     session.execute(
         update(Summary).where(Summary.source_resume_id == resume.id).values(source_resume_id=None)
     )
@@ -224,6 +231,13 @@ def impact_resume(
         return None
     return {
         "resumes": 1,
+        # F11.10: the analyses made on this CV, which keep their report and its file name.
+        "analyses": _count(
+            session,
+            select(Application.id).where(
+                Application.profile_id == profile_id, Application.resume_id == resume.id
+            ),
+        ),
         "bullets": _count(
             session,
             select(Bullet.id).where(
@@ -564,6 +578,16 @@ def delete_application(
             )
         )
     )
+    if attempts:
+        # F11.10: a CV saved from one of these attempts keeps living; it only forgets which.
+        session.execute(
+            update(Resume)
+            .where(
+                Resume.profile_id == profile_id,
+                Resume.source_attempt_id.in_([attempt.id for attempt in attempts]),
+            )
+            .values(source_attempt_id=None)
+        )
     for attempt in attempts:
         session.delete(attempt)
     session.delete(application)

@@ -76,7 +76,7 @@ STALE_DAYS = 14
 
 # What the history table can be sorted by, and the default when the value is unknown:
 # a bad `?sort=` is a fallback, not an error (F9's table is a view, not an API).
-HISTORY_SORTS = ("date", "score", "company", "title", "track", "outcome")
+HISTORY_SORTS = ("date", "score", "company", "title", "track", "cv", "outcome")
 
 
 def set_application_outcome(
@@ -165,6 +165,10 @@ def list_applications(
         score = report.get("score") or {}
         snapshot = report.get("track") or {}
         track = session.get(Track, application.track_id) if application.track_id else None
+        # F11.3/F11.8: the file the analysis scored. The report keeps its name, so a deleted
+        # CV (`resume_id` NULL, `report.cv` present) is still named; an analysis made before
+        # F11 has neither and shows a dash.
+        cv = report.get("cv") or {}
         rows.append(
             {
                 "id": application.id,
@@ -175,6 +179,8 @@ def list_applications(
                 # track has since been renamed or deactivated (F4).
                 "track": track.name if track is not None else str(snapshot.get("name") or ""),
                 "score": score.get("capped"),
+                "cv": str(cv.get("filename") or ""),
+                "cv_deleted": bool(cv) and application.resume_id is None,
                 "weights_version": application.weights_version,
                 "outcome": application.outcome,
                 # F9's other columns. Each is absent on an analysis stored before the

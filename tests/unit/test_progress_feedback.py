@@ -23,6 +23,9 @@ FORM_TAG = re.compile(r"<form\b[^>]*>", re.S)
 # The forms that call a model, by template, and the key each one carries.
 RUN_FORMS = {
     "analyze/form.html": "analyze",
+    # F11.3, F11.7: re-analysing a posting on another CV is a paid run too.
+    "analyze/report.html": "analyze",
+    "attempts/saved_cv.html": "analyze",
     "import/upload.html": "import",
     "import/review.html": "import",
     "generate/_summary_body.html": "generate",

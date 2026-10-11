@@ -58,6 +58,42 @@
     <span class="text-text-3">{{ t('report.no_track', lang) }}</span>
     {% endif %}
   </p>
+  {# F11.3, F11.8: the file this analysis scored — or, for one made before F11, that it
+     scored the track — and the selector that re-analyses the same posting on another CV
+     (a new application). A deleted CV keeps its name in the report. #}
+  {% if not attempt_view %}
+  <p class="mt-1 text-sm" data-cv-label>
+    {% if report.cv %}
+      {% if application.resume_id %}
+      <span class="text-text-2">{{ t('report.cv', lang, name=report.cv.filename) }}</span>
+      {% else %}
+      <span class="text-sev-warning">{{ t('report.cv_deleted', lang, name=report.cv.filename) }}</span>
+      {% endif %}
+      {% if cv_edited %}<span class="block text-xs text-text-3">{{ t('report.cv_edited', lang) }}</span>{% endif %}
+    {% else %}
+    <span class="text-text-3">{{ t('report.cv_legacy', lang) }}</span>
+    {% endif %}
+  </p>
+  {% if cv_choices %}
+  <form method="post" action="/applications/{{ application.id }}/reanalyze"
+        class="mt-2 flex flex-wrap items-center gap-2 text-sm" data-progress="analyze">
+    <label for="reanalyze-cv" class="sr-only">{{ t('report.reanalyse_label', lang) }}</label>
+    <select id="reanalyze-cv" name="resume_id"
+            class="rounded-control border border-border bg-surface-1 px-2 py-1 text-sm">
+      {% for cv in cv_choices %}
+      <option value="{{ cv.id }}" {% if cv.id == application.resume_id %}selected{% endif %}>
+        {{ t('analyze.cv_option', lang, name=cv.filename, date=(cv.merged_at or cv.uploaded_at).strftime('%Y-%m-%d')) }}
+      </option>
+      {% endfor %}
+    </select>
+    <button type="submit" class="min-h-11 rounded-control border border-border px-3 py-1 text-sm">
+      {{ t('report.reanalyse', lang) }}
+    </button>
+    <span class="text-xs text-text-3">{{ t('report.reanalyse_hint', lang) }}</span>
+    {{ ui.progress('analyze') }}
+  </form>
+  {% endif %}
+  {% endif %}
   <dl class="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-xs text-text-3">
     <div class="flex gap-1"><dt>{{ t('report.analysed_on', lang) }}</dt>
       <dd>{{ application.created_at.strftime('%Y-%m-%d %H:%M') }}</dd></div>

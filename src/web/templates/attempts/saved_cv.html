@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_ui.html" as ui with context %}
 {% block title %}{{ t('attempt.save_cv.title', lang) }} — {{ t('app.name', lang) }}{% endblock %}
 {% block width %}max-w-2xl{% endblock %}
 {% block content %}
@@ -18,13 +19,14 @@
 {% endif %}
 
 <div class="mt-6 space-y-4">
-  <form method="post" action="/applications/{{ application.id }}/reanalyze"
+  <form method="post" action="/applications/{{ application.id }}/reanalyze" data-progress="analyze"
         class="rounded-card border border-card-border bg-surface-1 p-4">
     <input type="hidden" name="resume_id" value="{{ resume.id }}">
     <button type="submit" class="rounded-control bg-link px-3 py-2 text-sm font-medium text-bg hover:opacity-90">
       {{ t('attempt.save_cv.analyse', lang) }}
     </button>
     <p class="mt-2 text-xs text-text-3">{{ t('attempt.save_cv.analyse_hint', lang) }}</p>
+    {{ ui.progress('analyze') }}
   </form>
   {% if can_incorporate %}
   <div class="rounded-card border border-card-border bg-surface-1 p-4">

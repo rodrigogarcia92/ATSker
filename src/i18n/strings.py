@@ -154,6 +154,8 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "No active bullets: without them there is no evidence to cite and "
         "coverage will be zero.",
     },
+    "applications.cv": {"es": "CV", "en": "CV"},
+    "applications.cv_deleted": {"es": "eliminado", "en": "deleted"},
     "analyze.track": {"es": "Línea de carrera", "en": "Track"},
     "analyze.track_pick": {"es": "Elige una línea de carrera", "en": "Choose a track"},
     "analyze.track_hint": {
@@ -1805,12 +1807,15 @@ STRINGS: dict[str, dict[str, str]] = {
         "es": (
             "Se eliminarán el archivo del CV y su borrador. Aportó {bullets} balas, que se "
             "conservan salvo que marques la casilla. {bullets_unknown} balas tienen procedencia "
-            "desconocida y la casilla nunca las elimina."
+            "desconocida y la casilla nunca las elimina. {analyses} análisis hechos sobre este "
+            "CV se conservan con el nombre del archivo, pero ya no se podrá volver a puntuar "
+            "sobre él."
         ),
         "en": (
             "The archived CV file and its draft will be deleted. It contributed {bullets} "
             "bullets, which are kept unless you tick the box. {bullets_unknown} bullets have "
-            "unknown provenance and the box never deletes those."
+            "unknown provenance and the box never deletes those. {analyses} analyses made on "
+            "this CV are kept with the file's name, but nothing can be scored on it again."
         ),
     },
     "delete.impact.role": {
@@ -2576,6 +2581,23 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "Select one to see its evidence.",
     },
     "report.req.level_of": {"es": "nivel {level} de 3", "en": "level {level} of 3"},
+    # F11.3/F11.8: which file an analysis scored, and the old analyses that scored a track.
+    "report.cv": {"es": "CV analizado: {name}", "en": "Analysed CV: {name}"},
+    "report.cv_deleted": {"es": "CV eliminado: {name}", "en": "CV deleted: {name}"},
+    "report.cv_legacy": {
+        "es": "Analizado sobre la línea (antes de elegir CV)",
+        "en": "Analysed on the track (before choosing a CV)",
+    },
+    "report.cv_edited": {
+        "es": "El CV se editó después de este análisis; las cifras son las de entonces.",
+        "en": "The CV was edited after this analysis; the figures are the ones from then.",
+    },
+    "report.reanalyse_label": {"es": "Analizar con otro CV", "en": "Analyse with another CV"},
+    "report.reanalyse": {"es": "Re-analizar", "en": "Re-analyse"},
+    "report.reanalyse_hint": {
+        "es": "re-analizar (hasta 2 llamadas)",
+        "en": "re-analyse (up to 2 calls)",
+    },
     # F11.5: the requirement note, and the section summary's count of them. "Estimado":
     # it is the Skills ceiling's rule, not a grade, and it never moves the score.
     "report.req.note": {

@@ -16,6 +16,7 @@ from src.attempts import application_attempts_report
 from src.attempts import list_attempts as list_attempt_rows
 from src.bullets import list_bullets
 from src.cv_analysis import analyze_cv, rank_tracks
+from src.cv_context import draft_digest
 from src.extract.client import (
     CallOptions,
     NoModelConfigured,
@@ -433,6 +434,21 @@ def application_report(
     # F11.4: an analysis of a CV is of a file, so its advice and its Keywords card are
     # worded for one ("en tu documento"), as an attempt's are.
     cv_report = bool(application.report.get("cv"))
+    cv_header = application.report.get("cv") or {}
+    # F11.3: the report's selector offers the track's CVs; F11.8: an analysis made before F11
+    # offers them too, since re-analysing it is a new analysis on a CV.
+    cv_choices = (
+        track_cvs(profile.id, session, application.track_id) if application.track_id else []
+    )
+    # Decision 5 of STOP 0: the analysis scored the draft as it was; if the CV's draft has
+    # been edited since, the page says the figures are the old ones.
+    cv_edited = bool(
+        source is not None
+        and application.resume_id
+        and cv_header.get("draft_sha")
+        and source.draft
+        and draft_digest(source.draft) != cv_header["draft_sha"]
+    )
     keywords = keyword_advice(
         profile.id, session, report=application.report, track=track, for_file=cv_report
     )
@@ -447,6 +463,8 @@ def application_report(
         ceiling_recomputed=ceiling_recomputed,
         ceiling_remainder=ceiling_remainder(ceiling, user.ui_lang) if ceiling else None,
         advice_for_file=cv_report,
+        cv_choices=cv_choices,
+        cv_edited=cv_edited,
         # F10.1: the modal lists the attempts this analysis already has.
         attempts=application_attempts_report(attempt_rows),
         open_attempt=open_attempt,

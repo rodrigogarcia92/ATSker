@@ -40,6 +40,7 @@
         {{ header('company', t('applications.company', lang)) }}
         {{ header('title', t('applications.position', lang)) }}
         {{ header('track', t('applications.track', lang)) }}
+        {{ header('cv', t('applications.cv', lang)) }}
         {{ header('score', t('applications.score', lang)) }}
         {% for name in ['skills', 'experience', 'title', 'keywords'] %}
         <th class="px-2 py-2 text-right text-xs font-medium uppercase tracking-wide text-text-3">
@@ -83,6 +84,11 @@
           {% endif %}
         </td>
         <td class="px-2 py-2 text-text-2">{{ row.track or t('common.none', lang) }}</td>
+        {# F11.3/F11.8: the file the analysis scored; a deleted CV keeps its name, and an
+           analysis made before F11 scored the track and shows a dash. #}
+        <td class="px-2 py-2 text-text-2">
+          {% if row.cv %}{{ row.cv }}{% if row.cv_deleted %} <span class="text-xs text-text-3">({{ t('applications.cv_deleted', lang) }})</span>{% endif %}{% else %}{{ t('common.none', lang) }}{% endif %}
+        </td>
         <td class="whitespace-nowrap px-2 py-2">
           {% if row.score is not none %}
           <span class="font-semibold">{{ row.score }}</span>
