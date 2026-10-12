@@ -13,6 +13,16 @@
 {% set cap = report.score.cap %}
 {% set binding = cap is not none and report.score.capped < report.score.uncapped %}
 {% set match_band = 'strong' if report.score.capped >= 75 else ('adequate' if report.score.capped >= 50 else 'weak') %}
+{# §12.7's phone links: "Ver en mi CV (N)" in each section that has marks, opening the CV as
+   a bottom sheet at the section (S3c wires the dialog). The inline pane is desktop-only, so
+   this is the phone's way back to the CV. `cv_links` is set only by report_cv.html. #}
+{% macro cv_link(section) -%}
+{% if cv_links is defined and cv_links and cv_pane.counts[section] %}
+<p class="mt-2 min-[768px]:hidden">
+  <a href="#cv-sheet" data-cv-sheet="{{ section }}" class="link inline-flex min-h-11 items-center">{{ t('report.cv_pane.see_in_cv', lang, n=cv_pane.counts[section]) }}</a>
+</p>
+{% endif %}
+{%- endmacro %}
 {# 2 — Job Match: one number, its band, the capped/uncapped bar, and what it means.
    No weights are shown anywhere on this page, so nothing here reads as the employer's
    priorities. #}
@@ -163,6 +173,7 @@
   </div>
   {% endfor %}
 </div>
+{{ cv_link('components') }}
 </section>
 
 {# The labelled divider (design v3 §4) between the score and the two screens it is read on. #}
@@ -171,6 +182,7 @@
 {# 4 — Recruiter search (F5.2): the question, the count, one closed row per search. #}
 {% if application.scan_boolean %}
   {% include "_recall.html" %}
+  {{ cv_link('recruiter') }}
 {% endif %}
 
 {# 5 — Requirements and evidence (§12.1 item 5). Each graded requirement is a button
@@ -224,6 +236,7 @@
   · {{ t('report.req.could_rise_one' if notes | length == 1 else 'report.req.could_rise', lang, n=notes | length) }}{% endif %}
 </p>
 <p class="field-hint">{{ t('report.grades_hint', lang) }}</p>
+{{ cv_link('requirements') }}
 <div id="req-chips" class="mt-4" hidden>
   <p class="text-xs text-text-2">{{ t('report.req.hint', lang) }}</p>
   <div class="mt-3 flex flex-wrap gap-2">
@@ -574,6 +587,7 @@
 
 </div>
 </details>
+{{ cv_link('recommendations') }}
 </section>
 {% endif %}
 

@@ -1,0 +1,19 @@
+{# §12.7's section legend: what the sheet shows and how many marks it has, with the two
+   steps between marks. It carries no ids, so it can sit both inside the inline pane and
+   inside the drawer/sheet fragment. S3c feeds the section on screen from the observer;
+   until then it names the first section §12.1's order that has any mark. #}
+{% set section_labels = {
+  'components': t('report.sub_scores', lang),
+  'recruiter': t('recall.title', lang),
+  'requirements': t('report.requirements', lang),
+  'recommendations': t('report.advice', lang),
+} %}
+<div class="flex flex-wrap items-center justify-between gap-3 text-[0.8125rem] text-text-2">
+  <div class="flex items-center gap-2">
+    <span class="cv-swatch" aria-hidden="true"></span>
+    <span data-cv-legend>{{ t('report.cv_pane.showing_one' if cv_pane.counts[cv_pane.default_section] == 1 else 'report.cv_pane.showing',
+          lang, section=section_labels[cv_pane.default_section], n=cv_pane.counts[cv_pane.default_section]) }}</span>
+    <button type="button" data-cv-step="prev" aria-label="{{ t('report.cv_pane.previous', lang) }}" class="cv-step">↑</button>
+    <button type="button" data-cv-step="next" aria-label="{{ t('report.cv_pane.next', lang) }}" class="cv-step">↓</button>
+  </div>
+</div>

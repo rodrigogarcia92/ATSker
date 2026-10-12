@@ -1,0 +1,7 @@
+{# §12.7's CV pane as a fragment: what GET /applications/{id}/cv returns for the tablet
+   drawer and the phone sheet. The legend and the sheet — no toolbar and no Texto /
+   Archivo original toggle, which carry ids and would clash with the inline pane's. #}
+<section class="cv-pane" data-cv-pane aria-label="{{ t('report.cv_pane.aria', lang) }}">
+  <div class="mb-4">{% include "analyze/_cv_legend.html" %}</div>
+  {% include "analyze/_cv_sheet.html" %}
+</section>

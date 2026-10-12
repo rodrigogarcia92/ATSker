@@ -25,6 +25,10 @@ RUN_FORMS = {
     "analyze/form.html": "analyze",
     # F11.3, F11.7: re-analysing a posting on another CV is a paid run too.
     "analyze/report.html": "analyze",
+    # §12.7: the two-pane CV report carries the same re-analyse form, twice — in the header
+    # strip (report_cv.html) and in the pane's CV switcher (_cv_pane.html).
+    "analyze/report_cv.html": "analyze",
+    "analyze/_cv_pane.html": "analyze",
     "attempts/saved_cv.html": "analyze",
     "import/upload.html": "import",
     "import/review.html": "import",

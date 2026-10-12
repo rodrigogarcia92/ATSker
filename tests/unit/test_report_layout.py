@@ -297,16 +297,17 @@ def test_the_page_stores_nothing_about_what_was_opened(client, career, provider)
 # --- V5: "Ajuste general" and the warning count (§12.1) ---
 
 
-def test_the_score_is_called_ajuste_general_in_the_section_the_rail_and_the_nav(
+def test_the_score_is_called_ajuste_general_in_the_section_the_header_and_the_nav(
     client, career, provider
 ):
     page = analysed_page(client, career)
 
     assert "Encaje total" not in text_of(page)
     assert "Ajuste general" in text_of(section(page, "fit"))
-    rail = re.search(r'<aside\b[^>]*aria-label="Acciones".*?</aside>', page, re.S).group(0)
-    assert "Ajuste general" in text_of(rail), "the compact Job Match in the rail"
-    nav = re.search(r"<nav\b[^>]*aria-label=\"En esta página\".*?</nav>", rail, re.S).group(0)
+    # §12.7: a CV report drops §12.1 item 10's rail, and its jump links move to the header.
+    rail = re.search(r'<aside\b[^>]*aria-label="Acciones"', page)
+    assert rail is None, "no action rail on a CV report"
+    nav = re.search(r"<nav\b[^>]*aria-label=\"En esta página\".*?</nav>", page, re.S).group(0)
     assert re.search(r'href="#fit"[^>]*>\s*Ajuste general\s*<', nav), "and its jump link"
     assert t("report.total", "en") == "Overall fit", "the key keeps its name; English is unchanged"
 

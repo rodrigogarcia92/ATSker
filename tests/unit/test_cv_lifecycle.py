@@ -117,7 +117,8 @@ def test_a_cv_report_names_its_file_and_offers_the_tracks_other_cvs(
     application = analyse(client, session, career)
     page = client.get(f"/applications/{application.id}").text
 
-    assert "CV analizado: nueva.docx" in page
+    # §12.7: the pane's toolbar chip, and the header's selector, name the analysed file.
+    assert 'class="chip cv-chip">nueva.docx' in page
     assert "Analizado sobre la línea (antes de elegir CV)" not in page
     selector = re.search(r'<select id="reanalyze-cv".*?</select>', page, re.S).group(0)
     assert "vieja.docx" in selector and "nueva.docx" in selector

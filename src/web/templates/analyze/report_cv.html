@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% import "_ui.html" as ui with context %}
+{% block title %}{{ application.title or t('report.title', lang) }} — {{ t('app.name', lang) }}{% endblock %}
+{% block width %}max-w-[1360px]{% endblock %}
+{% block content %}
+{# §12.7: the report on a CV. Two panes ≥ 1280 px — the CV on the left, sticky with its own
+   scroll, the commentary on the right — the same blocks restyled as one column below, a
+   drawer on a tablet and a bottom sheet on a phone. Availability is decided by the route;
+   this template only lays out a CV analysis. #}
+{% set advice_for_file = true %}
+{% set attempt_view = false %}
+{# The right pane's sections carry the phone's "Ver en mi CV (N)" links. #}
+{% set cv_links = true %}
+<div class="min-w-0">
+
+  {# 1 — Header strip: what was posted, the Track ▸ CV selector (a re-analysis is a new
+     application, F11.3) and the Job Match as a pill. #}
+  <header class="flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
+    <div class="flex min-w-0 flex-col gap-2">
+      <p class="text-[0.8125rem] text-text-2">
+        {% if application.company %}{{ application.company }} · {% endif %}{{ application.created_at.strftime('%Y-%m-%d') }}
+      </p>
+      <h1 class="text-4xl leading-[1.11] tracking-[-0.02em] md:text-5xl">{{ application.title or t('report.title', lang) }}</h1>
+      {% if cv_edited %}
+      <p class="text-xs text-text-2">{{ t('report.cv_edited', lang) }}</p>
+      {% endif %}
+    </div>
+    <div class="flex flex-wrap items-center gap-3">
+      {% if cv_choices %}
+      <form method="post" action="/applications/{{ application.id }}/reanalyze"
+            class="flex flex-wrap items-center gap-3 text-sm" data-progress="analyze">
+        <label for="reanalyze-cv" class="sr-only">{{ t('report.cv_pane.selector', lang) }}</label>
+        <select id="reanalyze-cv" name="resume_id" class="min-h-10 max-w-full">
+          {% for cv in cv_choices %}
+          <option value="{{ cv.id }}" {% if report.cv and cv.id | string == report.cv.resume_id %}selected{% endif %}>
+            {% if report.track %}{{ report.track.name }} ▸ {% endif %}{{ cv.filename }}
+          </option>
+          {% endfor %}
+        </select>
+        <button type="submit" class="btn btn-secondary">{{ t('report.reanalyse', lang) }}</button>
+        <span class="field-hint">{{ t('report.reanalyse_hint', lang) }}</span>
+        {{ ui.progress('analyze') }}
+      </form>
+      {% endif %}
+      <span class="job-pill">
+        <span class="job-pill-dot" aria-hidden="true"></span>{{ t('report.job_match', lang) }} {{ report.score.capped }}
+      </span>
+    </div>
+  </header>
+
+  {# §12.1 item 1: the run's metadata, the same fields the single column shows. #}
+  <dl class="mt-4 flex flex-wrap gap-x-6 gap-y-1 text-xs text-text-2">
+    <div class="flex gap-1"><dt>{{ t('report.analysed_on', lang) }}</dt>
+      <dd>{{ application.created_at.strftime('%Y-%m-%d %H:%M') }}</dd></div>
+    <div class="flex gap-1"><dt>{{ t('report.calculation', lang) }}</dt>
+      <dd>{{ application.weights_version }}</dd></div>
+    <div class="flex gap-1"><dt>{{ t('report.model', lang) }}</dt>
+      <dd>{{ report.llm.calls | map(attribute='model') | unique | join(', ') or t('common.none', lang) }}</dd></div>
+    <div class="flex gap-1"><dt>{{ t('report.calls_cost', lang) }}</dt>
+      <dd>{{ report.llm.calls | length }} · ${{ '%.6f'|format(application.token_cost_usd) }}</dd></div>
+    <div class="flex gap-1"><dt>{{ t('report.evidence_language', lang) }}</dt>
+      <dd>{{ report.jd.language or t('common.none', lang) }}</dd></div>
+  </dl>
+
+  {# §12.7: the rail is gone on a CV report, and its jump links move up here. #}
+  <nav aria-label="{{ t('report.on_this_page', lang) }}" class="mt-4 flex flex-wrap gap-x-5 text-sm text-text-2">
+    <span class="sr-only">{{ t('report.on_this_page', lang) }}</span>
+    <a href="#fit" class="flex min-h-11 items-center hover:text-text">{{ t('report.total', lang) }}</a>
+    <a href="#components" class="flex min-h-11 items-center hover:text-text">{{ t('report.sub_scores', lang) }}</a>
+    {% if application.scan_boolean %}
+    <a href="#recruiter" class="flex min-h-11 items-center hover:text-text">{{ t('recall.title', lang) }}</a>
+    {% endif %}
+    <a href="#requirements" class="flex min-h-11 items-center hover:text-text">{{ t('report.requirements', lang) }}</a>
+    <a href="#recommendations" class="flex min-h-11 items-center hover:text-text">{{ t('report.advice', lang) }}</a>
+    <a href="#ats" class="flex min-h-11 items-center hover:text-text">{{ t('report.scan_readability_question', lang) }}</a>
+    <a href="#before" class="flex min-h-11 items-center hover:text-text">{{ t('report.before_applying', lang) }}</a>
+  </nav>
+
+  <div class="mt-8 min-[1280px]:grid min-[1280px]:grid-cols-[minmax(0,45fr)_minmax(0,55fr)] min-[1280px]:items-start min-[1280px]:gap-8">
+    {# Left: the CV pane. Hidden below 1280 px, where the drawer and the sheet
+       (GET /applications/{id}/cv) take over. #}
+    <section class="cv-column hidden min-w-0 min-[1280px]:block">
+      {% include "analyze/_cv_pane.html" %}
+    </section>
+    {# Right: §12.1's items 2–9, the same partial the single column renders. #}
+    <section class="min-w-0">
+      {% include "analyze/_report_sections.html" %}
+    </section>
+  </div>
+
+  {# Tablet (768–1279 px): a sticky "Ver CV" button opens the pane as a drawer from the
+     left; the fragment is loaded into it, and the open/close behaviour is S3c. #}
+  <button type="button" data-cv-drawer class="cv-drawer-open hidden min-[768px]:flex min-[1280px]:hidden">
+    {{ t('report.cv_pane.open', lang) }}
+  </button>
+  <dialog id="cv-drawer" class="cv-drawer-dialog" data-cv-dialog="drawer"
+          data-cv-url="/applications/{{ application.id }}/cv"></dialog>
+
+  {# Phone (< 768 px): each section's "Ver en mi CV (N)" opens the sheet at its first mark,
+     with previous / next. Also S3c. #}
+  <dialog id="cv-sheet" class="cv-sheet-dialog" data-cv-dialog="sheet"
+          data-cv-url="/applications/{{ application.id }}/cv"></dialog>
+</div>
+
+{# Phone: the three toolbar buttons, short, in a fixed bottom bar. #}
+<div id="action-bar" role="group" aria-label="{{ t('report.actions.label', lang) }}"
+     class="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-surface-1 px-3 pt-3 min-[768px]:hidden"
+     style="padding-bottom: max(0.75rem, env(safe-area-inset-bottom))">
+  <div class="flex gap-2">
+    <button type="button" id="attempt-open-bar" data-attempt-open class="btn btn-tertiary flex-1 px-2">
+      {{ t('report.actions.try_cv_bar', lang) }}
+    </button>
+    <a href="/applications/{{ application.id }}/letter" class="btn btn-tertiary flex-1 px-2">
+      {{ t('report.actions.letter_bar', lang) }}
+    </a>
+    {% if application.track_id %}
+    {{ ui.dialog_opener('/applications/' ~ application.id ~ '/summary?dialog=1',
+          '/applications/' ~ application.id ~ '/summary', t('report.actions.summary_bar', lang),
+          'btn btn-tertiary flex-1 px-2', wrap='contents') }}
+    {% else %}
+    <button type="button" disabled aria-describedby="summary-no-track" class="btn btn-tertiary flex-1 px-2">{{ t('report.actions.summary_bar', lang) }}</button>
+    {% endif %}
+  </div>
+</div>
+<div class="min-[768px]:hidden" aria-hidden="true" style="height: calc(5rem + env(safe-area-inset-bottom))"></div>
+
+{% include "analyze/_attempt_modal.html" %}
+{{ ui.dialog('proposal-dialog') }}
+{% endblock %}

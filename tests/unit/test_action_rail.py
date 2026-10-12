@@ -68,16 +68,17 @@ def test_one_opener_in_the_rail_and_one_in_the_phone_bar_for_the_same_modal(
     client, career, provider
 ):
     _id, page = full_page(client, career)
-    rail = part(page, "aside", "aria-label")
+    # §12.7: on a CV report the rail is gone; the toolbar inside the CV pane holds the opener.
+    pane = part(page, "section", "data-cv-pane")
     bar = part(page, "div", 'id="action-bar"')
 
-    assert rail.count("data-attempt-open") == 1
+    assert pane.count("data-attempt-open") == 1
     assert bar.count("data-attempt-open") == 1
     assert page.count("data-attempt-open") == 2, "no third opener anywhere"
     assert page.count('<dialog id="attempt-modal"') == 1, "one modal for both"
-    assert 'id="attempt-open"' in rail and 'id="attempt-open-bar"' in bar
-    assert t("report.actions.try_cv", "es") in rail
-    assert t("report.actions.try_cv_short", "es") in bar
+    assert 'id="attempt-open"' in pane and 'id="attempt-open-bar"' in bar
+    assert t("report.cv_pane.try", "es") in pane
+    assert t("report.actions.try_cv_bar", "es") in bar
     script = page[page.index('document.getElementById("attempt-modal")') :]
     assert 'getElementById("attempt-open")' in script
     assert 'getElementById("attempt-open-bar")' in script
@@ -86,13 +87,13 @@ def test_one_opener_in_the_rail_and_one_in_the_phone_bar_for_the_same_modal(
 
 def test_both_letter_links_point_to_the_applications_letter(client, career, provider):
     application_id, page = full_page(client, career)
-    rail = part(page, "aside", "aria-label")
+    pane = part(page, "section", "data-cv-pane")
     bar = part(page, "div", 'id="action-bar"')
 
     link = f'href="/applications/{application_id}/letter"'
-    assert link in rail and link in bar
-    assert t("report.actions.letter", "es") in rail
-    assert t("report.actions.letter_short", "es") in bar
+    assert link in pane and link in bar
+    assert t("report.cv_pane.letter", "es") in pane
+    assert t("report.actions.letter_bar", "es") in bar
     assert page.count(link) == 2, "the old bottom link is gone"
 
 
@@ -134,19 +135,20 @@ def test_the_mid_page_block_and_the_bottom_letter_link_are_gone(client, career, 
     assert "(.docx)" not in page, "the note that sat under the mid-page button"
 
 
-def test_the_layout_is_one_760_column_with_the_actions_as_a_row_of_tertiary_buttons(
+def test_a_cv_report_is_two_panes_with_the_actions_as_a_row_of_tertiary_buttons(
     client, career, provider
 ):
-    """Design v3: the sticky rail is gone; the three CV actions sit in a row under the header."""
+    """§12.7: the sticky rail is gone; the CV pane's toolbar holds the three tertiary buttons."""
     _id, page = full_page(client, career)
-    toolbar = part(page, "aside", "aria-label")
+    pane = part(page, "section", "data-cv-pane")
 
-    assert "max-w-[760px]" in page
+    assert "max-w-[1360px]" in page, "the two panes use the wide column"
+    assert "min-[1280px]:grid-cols-[minmax(0,45fr)_minmax(0,55fr)]" in page, "≈ 45 % and ≈ 55 %"
     assert "lg:sticky" not in page and "lg:flex" not in page
     # The summary opener is a button and its no-script link twin, so four elements, three actions.
-    assert toolbar.count("btn btn-tertiary") == 4, "Probar nuevo CV, Carta, Proponer resumen"
-    assert "md:grid-cols-3" in toolbar
-    assert "score-number" not in toolbar, "the Job Match is the card below, not a compact copy"
+    assert pane.count("btn btn-tertiary") == 4, "Probar nuevo CV, Carta, Proponer resumen"
+    assert "sm:grid-cols-3" in pane
+    assert "score-number" not in pane, "the Job Match is a pill, not a compact card"
 
 
 def test_the_phone_bar_is_fixed_safe_area_aware_and_padded_for(client, career, provider):
@@ -154,7 +156,7 @@ def test_the_phone_bar_is_fixed_safe_area_aware_and_padded_for(client, career, p
     bar_tag = re.search(r'<div id="action-bar"[^>]*>', page, re.S).group(0)
 
     assert "fixed" in bar_tag and "bottom-0" in bar_tag
-    assert "md:hidden" in bar_tag, "the bar is a phone control"
+    assert "min-[768px]:hidden" in bar_tag, "the bar is a phone control (< 768 px, §12.7)"
     assert "padding-bottom: max(0.75rem, env(safe-area-inset-bottom))" in bar_tag
     assert 'calc(5rem + env(safe-area-inset-bottom))' in page, "the page is padded by the bar"
     assert "viewport-fit=cover" in page, "env() means something on a notched phone"
@@ -179,11 +181,21 @@ def test_every_new_string_exists_in_both_languages():
         "report.actions.letter_short",
         "report.on_this_page",
         "report.actions.label",
+        # §12.7: the CV pane's toolbar and the phone bar's short labels.
+        "report.cv_pane.try",
+        "report.cv_pane.letter",
+        "report.cv_pane.summary",
+        "report.actions.try_cv_bar",
+        "report.actions.letter_bar",
+        "report.actions.summary_bar",
     ):
         assert t(key, "es") != key and t(key, "en") != key
     assert t("report.actions.try_cv_short", "es") == "Probar nuevo CV"
     assert t("report.actions.try_cv_short", "en") == "Try a new CV"
     assert t("report.actions.letter_short", "es") == "Escribir carta"
+    assert t("report.cv_pane.try", "es") == "Probar nuevo CV"
+    assert t("report.actions.try_cv_bar", "es") == "Probar CV"
+    assert t("report.actions.summary_bar", "es") == "Resumen"
     assert t("report.on_this_page", "es") == "En esta página"
 
 

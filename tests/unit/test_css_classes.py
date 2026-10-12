@@ -52,9 +52,14 @@ def class_tokens() -> set[str]:
 
 
 def selector(token: str) -> str:
-    """The class selector Tailwind writes for a token — `hover:bg-red-600` is escaped."""
+    """The class selector Tailwind writes for a token — `hover:bg-red-600` is escaped.
+
+    Tailwind escapes the arbitrary-value punctuation too, so `grid-cols-[minmax(0,45fr)]`
+    is written `.grid-cols-\\[minmax\\(0\\,45fr\\)\\]`; the commas and parentheses are part
+    of the class name the browser matches, not of the selector grammar.
+    """
     escaped = token
-    for char in ":/.[]":
+    for char in ":/.[](),":
         escaped = escaped.replace(char, f"\\{char}")
     return f".{escaped}"
 

@@ -7,7 +7,7 @@ drift from it.
 
 from typing import Annotated
 
-from fastapi import APIRouter, Form, HTTPException, Request
+from fastapi import APIRouter, Form, HTTPException, Request, Response
 from fastapi.responses import RedirectResponse
 
 from src.analysis import prepare, shown_ceiling
@@ -31,9 +31,12 @@ from src.keyword_advice import keyword_advice
 from src.parse.gate import checks_not_run
 from src.resumes import LATEST, get_resume, resolve_cv, source_document_for_track, track_cvs
 from src.tracks import get_track, list_tracks
+from src.vocabulary import alias_map
 from src.web.alerts import ceiling_remainder
+from src.web.cv_pane import pane_view
 from src.web.deps import DbSession, OwnProfile, SignedInUser
 from src.web.findings import document_kind, finding_rows
+from src.web.locations import page_count, page_exists, render_page_png
 from src.web.recall import query_rows
 from src.web.routes.ingest import MAX_UPLOAD_BYTES
 from src.web.templating import render
@@ -452,12 +455,31 @@ def application_report(
         and source.draft
         and draft_digest(source.draft) != cv_header["draft_sha"]
     )
+    # §12.7: with a CV that still exists and still carries its draft, the report is the
+    # two-pane page. The route builds the pane's view data — `render_cv`'s elements and the
+    # highlight map over them — once, and the template only prints it. A report whose CV was
+    # deleted (F11.3 sets `resume_id` to NULL) or an old track analysis keeps the single
+    # column (decision 4).
+    has_cv = bool(application.resume_id and source is not None and source.draft)
+    cv_pane = (
+        pane_view(application.report, source.draft, alias_map(session)) if has_cv else None
+    )
+    # The Archivo original view lists the file's pages when it is a PDF that kept its
+    # bytes; a DOCX or an attempt-saved CV has none (F11.7).
+    cv_original = (
+        list(range(1, page_count(source.file_bytes) + 1))
+        if has_cv
+        and source is not None
+        and source.file_bytes is not None
+        and document_kind(source.filename) == "pdf"
+        else None
+    )
     keywords = keyword_advice(
         profile.id, session, report=application.report, track=track, for_file=cv_report
     )
     return render(
         request,
-        "analyze/report.html",
+        "analyze/report_cv.html" if cv_pane is not None else "analyze/report.html",
         user=user,
         profile=profile,
         application=application,
@@ -468,6 +490,13 @@ def application_report(
         advice_for_file=cv_report,
         cv_choices=cv_choices,
         cv_edited=cv_edited,
+        # §12.7: the CV pane's elements, marks and per-section counts, and the original's
+        # page numbers for the Archivo original view.
+        cv_pane=cv_pane,
+        cv_original=cv_original,
+        # The CV itself, so the pane's Archivo original view can say whether the file kept
+        # its bytes (F11.7). None for an old report or a deleted CV.
+        source=source,
         # F10.1: the modal lists the attempts this analysis already has.
         attempts=application_attempts_report(attempt_rows),
         open_attempt=open_attempt,
@@ -501,3 +530,70 @@ def application_report(
             else ()
         ),
     )
+
+
+def _cv_source(profile, session, application_id):
+    """The application and its CV, or None when there is no CV to show (F11.3).
+
+    A report with no `cv` block is an old track analysis; one whose `resume_id` is NULL
+    scored a CV that has since been deleted; one whose résumé lost its draft has nothing
+    to print. All three are "no CV pane" and the caller answers 404.
+    """
+    application = get_application(profile.id, session, application_id)
+    if application is None or not application.resume_id or not application.report.get("cv"):
+        return None
+    source = get_resume(profile.id, session, application.resume_id)
+    if source is None or not source.draft:
+        return None
+    return application, source
+
+
+@router.get("/applications/{application_id}/cv")
+def application_cv_pane(
+    application_id: str,
+    request: Request,
+    user: SignedInUser,
+    session: DbSession,
+    profile: OwnProfile,
+):
+    """The CV pane as a fragment (§12.7), for the tablet drawer and the phone sheet.
+
+    The legend and the sheet with the static marks — no toolbar and no toggle, which carry
+    ids and belong to the inline pane. Owner-scoped: another profile's analysis is a 404.
+    """
+    found = _cv_source(profile, session, application_id)
+    if found is None:
+        raise HTTPException(status_code=404)
+    application, source = found
+    return render(
+        request,
+        "analyze/cv_pane.html",
+        user=user,
+        profile=profile,
+        application=application,
+        report=application.report,
+        cv_pane=pane_view(application.report, source.draft, alias_map(session)),
+    )
+
+
+@router.get("/applications/{application_id}/cv/page/{page}.png")
+def application_cv_page(
+    application_id: str,
+    page: int,
+    session: DbSession,
+    profile: OwnProfile,
+) -> Response:
+    """One page of the CV's original file, for the Archivo original view (F5.1.1).
+
+    The same in-memory renderer the "show me where" view uses, with no boxes: the pane
+    already draws its own marks over the text, so this is only the file behind them. A
+    DOCX has no page geometry and an out-of-range page is not found, never a traceback.
+    """
+    found = _cv_source(profile, session, application_id)
+    if found is None:
+        return Response(status_code=404)
+    _, source = found
+    if source.file_bytes is None or not page_exists(source.file_bytes, page):
+        return Response(status_code=404)
+    png = render_page_png(source.file_bytes, page_number=page, boxes=[], severity="info")
+    return Response(content=png, media_type="image/png", headers={"Cache-Control": "no-store"})

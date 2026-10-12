@@ -138,6 +138,20 @@ def box_characters(
     return readings
 
 
+def page_count(data: bytes) -> int:
+    """How many pages the archived file has, 0 when it will not open (N6.6).
+
+    The CV pane's Archivo original view reads this to list the original's pages; a file
+    that is not a PDF (a DOCX, F11) has none, and one that will not open is treated the
+    same rather than raising.
+    """
+    try:
+        with pdfplumber.open(io.BytesIO(data)) as pdf:
+            return len(pdf.pages)
+    except Exception:  # noqa: BLE001 - any parse failure means "no pages to show"
+        return 0
+
+
 def page_exists(data: bytes, page_number: int) -> bool:
     """Whether the archived file really has a page `page_number` (N6.6).
 

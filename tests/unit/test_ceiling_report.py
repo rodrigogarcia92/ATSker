@@ -82,7 +82,8 @@ def test_the_try_new_cv_button_opens_the_attempt_modal(client, session, career, 
 
     raw = client.get(url).text
 
-    assert "Probar nueva versión del CV" in raw
+    # §12.7: on a CV report the toolbar's button reads "Probar nuevo CV".
+    assert t("report.cv_pane.try", "es") in raw
     assert ".docx" in raw
     assert 'id="attempt-open"' in raw
     assert "<dialog id=\"attempt-modal\"" in raw

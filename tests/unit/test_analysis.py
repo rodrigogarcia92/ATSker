@@ -987,9 +987,8 @@ def test_the_analysis_form_records_the_track_and_the_report_names_it(
     application = session.query(Application).one()
     assert application.track_id == career.first_track.id
     assert application.report["track"]["name"] == "Analista de datos"
-    assert "Línea de carrera: Analista de datos" in text_of(
-        client.get(posted.headers["location"]).text
-    )
+    # §12.7: the CV report's header strip names the track in its Track ▸ CV selector.
+    assert "Analista de datos ▸" in text_of(client.get(posted.headers["location"]).text)
 
 
 def test_an_analysis_without_a_track_saves_no_track_and_says_so(
@@ -1759,7 +1758,9 @@ def test_the_report_page_uses_the_wider_column_and_a_two_by_two_grid(
 
     page = client.get(posted.headers["location"]).text
 
-    assert "max-w-[760px]" in page, "design v3: an old report is one 760px column"
+    # §12.7: a CV report is the two-pane page, so it uses the 1360px column; an old report
+    # keeps 760px (test_an_old_stored_report_still_renders).
+    assert "max-w-[1360px]" in page, "the two panes need the wider desktop column"
     assert "grid grid-cols-2 gap-x-6 gap-y-8" in page, "the four sub-score stats are a 2 × 2 grid"
     assert "grid-cols-1 gap-3 sm:grid-cols-2" not in page, "never one column on the phone"
 

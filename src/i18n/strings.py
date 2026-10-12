@@ -3047,6 +3047,47 @@ STRINGS: dict[str, dict[str, str]] = {
     },
     "report.actions.letter_short": {"es": "Escribir carta", "en": "Write letter"},
     "report.on_this_page": {"es": "En esta página", "en": "On this page"},
+    # §12.7 — the CV pane: its toolbar, the section legend, the two views and the marks.
+    "report.cv_pane.aria": {"es": "Tu CV", "en": "Your CV"},
+    "report.cv_pane.controls": {"es": "Tú controlas tu CV", "en": "You control your CV"},
+    "report.cv_pane.selector": {"es": "Línea y CV", "en": "Track and CV"},
+    "report.cv_pane.view": {"es": "Vista del CV", "en": "CV view"},
+    "report.cv_pane.text": {"es": "Texto", "en": "Text"},
+    "report.cv_pane.file": {"es": "Archivo original", "en": "Original file"},
+    "report.cv_pane.no_file": {"es": "archivo no guardado", "en": "file not saved"},
+    "report.cv_pane.no_pages": {
+        "es": "Sin imagen de página para este formato",
+        "en": "No page image for this format",
+    },
+    "report.cv_pane.showing_one": {
+        "es": "Mostrando: {section} · {n} marca",
+        "en": "Showing: {section} · {n} mark",
+    },
+    "report.cv_pane.showing": {
+        "es": "Mostrando: {section} · {n} marcas",
+        "en": "Showing: {section} · {n} marks",
+    },
+    "report.cv_pane.previous": {"es": "Marca anterior", "en": "Previous mark"},
+    "report.cv_pane.next": {"es": "Marca siguiente", "en": "Next mark"},
+    "report.cv_pane.open": {"es": "Ver CV", "en": "View CV"},
+    "report.cv_pane.see_in_cv": {"es": "Ver en mi CV ({n})", "en": "See in my CV ({n})"},
+    "report.cv_pane.sheet_marks": {
+        "es": "{section} · marca {index} de {n}",
+        "en": "{section} · mark {index} of {n}",
+    },
+    "report.cv_pane.try": {"es": "Probar nuevo CV", "en": "Try a new CV"},
+    "report.cv_pane.letter": {"es": "Carta de presentación", "en": "Cover letter"},
+    "report.cv_pane.summary": {"es": "Proponer resumen", "en": "Propose a summary"},
+    "report.cv_pane.section.experience": {"es": "Experiencia", "en": "Experience"},
+    "report.cv_pane.section.skills": {"es": "Habilidades", "en": "Skills"},
+    "report.cv_pane.section.education": {"es": "Formación", "en": "Education"},
+    "report.cv_pane.section.certifications": {"es": "Certificaciones", "en": "Certifications"},
+    "report.cv_pane.mark": {"es": "evidencia: {term}", "en": "evidence: {term}"},
+    "report.job_match": {"es": "Job Match", "en": "Job Match"},
+    # §12.7's phone bottom bar: the three toolbar buttons, short.
+    "report.actions.try_cv_bar": {"es": "Probar CV", "en": "Try CV"},
+    "report.actions.letter_bar": {"es": "Carta", "en": "Letter"},
+    "report.actions.summary_bar": {"es": "Resumen", "en": "Summary"},
     # §12.3 — the line under a paid form's button while the provider works. Honest
     # ranges and a live counter; no invented steps.
     "progress.analyze": {
