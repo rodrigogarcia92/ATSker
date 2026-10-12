@@ -319,7 +319,8 @@ def test_cartas_marks_a_ready_track_and_collapses_inactive_ones(client, session,
 
     page = client.get("/letters").text
 
-    assert "✓ Lista" in page and "Editar carta" in page
+    # The ready state is a vellum chip with a ✓ before the word (design v3 §4).
+    assert 'class="chip"><span aria-hidden="true">✓</span> Lista' in page and "Editar carta" in page
     assert "Líneas inactivas (1)" in page
     assert page.index("Líneas inactivas") < page.index("Archivado")
 
@@ -468,8 +469,10 @@ def test_the_track_list_and_detail_show_the_letter_status_and_its_link(
 
     assert "Carta:" in missing_list and "Falta" in missing_list
     assert "Crear carta" in missing_detail and "Falta" in missing_detail
-    assert "✓ Lista" in ready_list
-    assert "✓ Lista" in ready_detail and "Editar carta" in ready_detail
+    # The ready state is a vellum chip with a ✓ before the word (design v3 §4).
+    ready_chip = 'class="chip"><span aria-hidden="true">✓</span> Lista'
+    assert ready_chip in ready_list
+    assert ready_chip in ready_detail and "Editar carta" in ready_detail
     assert f'href="/tracks/{track.id}/letter"' in ready_detail
     shown = long_text.strip()[:120]
     assert shown in ready_detail and long_text.strip()[:121] not in ready_detail
