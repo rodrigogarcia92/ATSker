@@ -97,7 +97,10 @@ def test_the_sheet_is_centred_and_full_screen_on_a_phone_and_f10_css_is_untouche
 
 
 def test_the_f10_modal_keeps_its_own_markup_and_script():
+    # §12.7: the modal is now one partial both layouts include, so the two cannot drift.
     report = (WEB / "templates" / "analyze" / "report.html").read_text(encoding="utf-8")
+    modal = (WEB / "templates" / "analyze" / "_attempt_modal.html").read_text(encoding="utf-8")
 
-    assert '<dialog id="attempt-modal" class="attempt-modal"' in report
-    assert "dialog-sheet" not in report, "K3 does not rebuild the F10 modal"
+    assert "analyze/_attempt_modal.html" in report, "the single column still includes it"
+    assert '<dialog id="attempt-modal" class="attempt-modal"' in modal
+    assert "dialog-sheet" not in modal, "K3 does not rebuild the F10 modal"
