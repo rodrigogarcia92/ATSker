@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ t('common.not_found', lang) }} — {{ t('app.name', lang) }}{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-semibold tracking-tight">{{ t('common.not_found', lang) }}</h1>
+<h1 class="text-4xl leading-[1.11] tracking-[-0.02em] md:text-5xl">{{ t('common.not_found', lang) }}</h1>
 {% if message %}<p class="mt-2 text-sm text-text-2">{{ message }}</p>{% endif %}
 <p class="mt-4"><a href="/dashboard" class="text-sm underline">{{ t('nav.dashboard', lang) }}</a></p>
 {% endblock %}

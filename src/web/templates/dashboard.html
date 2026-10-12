@@ -1,16 +1,16 @@
 {% extends "base.html" %}
 {% block title %}{{ t('dashboard.title', lang) }} — {{ t('app.name', lang) }}{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-semibold tracking-tight">
+<h1 class="text-4xl leading-[1.11] tracking-[-0.02em] md:text-5xl">
   {{ t('dashboard.welcome', lang, name=profile.display_name) }}
 </h1>
 {% if profile.headline %}<p class="mt-1 text-text-2">{{ profile.headline }}</p>{% endif %}
 
-<dl class="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
+<dl class="card mt-6 grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-3">
   {% for key, value in counts.items() %}
-  <div class="rounded-card border border-card-border bg-surface-1 p-4">
-    <dt class="text-xs uppercase tracking-wide text-text-3">{{ t('dashboard.' + key, lang) }}</dt>
-    <dd class="mt-1 text-2xl font-semibold">{{ value }}</dd>
+  <div>
+    <dt class="text-[13px] text-slate">{{ t('dashboard.' + key, lang) }}</dt>
+    <dd class="mt-1 text-4xl leading-tight tracking-[-0.01em]">{{ value }}</dd>
   </div>
   {% endfor %}
 </dl>
@@ -19,10 +19,10 @@
   <a href="/import" class="btn btn-primary">
     {{ t('import.title', lang) }}
   </a>
-  <a href="/analyze" class="rounded-control border border-border px-3 py-2 text-sm">{{ t('nav.analyze', lang) }}</a>
-  <a href="/roles" class="rounded-control border border-border px-3 py-2 text-sm">{{ t('nav.roles', lang) }}</a>
-  <a href="/stories/new" class="rounded-control border border-border px-3 py-2 text-sm">{{ t('stories.new', lang) }}</a>
-  <a href="/letters" class="rounded-control border border-border px-3 py-2 text-sm">{{ t('nav.letters', lang) }}</a>
+  <a href="/analyze" class="btn btn-secondary">{{ t('nav.analyze', lang) }}</a>
+  <a href="/roles" class="btn btn-secondary">{{ t('nav.roles', lang) }}</a>
+  <a href="/stories/new" class="btn btn-secondary">{{ t('stories.new', lang) }}</a>
+  <a href="/letters" class="btn btn-secondary">{{ t('nav.letters', lang) }}</a>
 </div>
 
 <p class="mt-6 text-sm text-text-2">
@@ -30,7 +30,7 @@
 </p>
 {% if stale %}
 {# F.1: the outcome habit — a nudge, never an e-mail or a scheduler. #}
-<p class="mt-4 rounded-control border border-sev-warning px-3 py-2 text-sm text-sev-warning">
+<p class="mt-4 rounded-card border border-ink px-4 py-3 text-sm text-ink">
   <a href="/applications?outcome=none&sort=date&dir=asc" class="underline">
     {{ t('dashboard.stale', lang, count=stale) }}
   </a>

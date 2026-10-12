@@ -2,23 +2,23 @@
 {% block title %}{{ t('login.title', lang) }} — {{ t('app.name', lang) }}{% endblock %}
 {% block content %}
 <div class="mx-auto max-w-sm">
-  <h1 class="text-2xl font-semibold tracking-tight">{{ t('app.name', lang) }}</h1>
+  <h1 class="text-4xl leading-[1.11] tracking-[-0.02em] md:text-5xl">{{ t('app.name', lang) }}</h1>
   <p class="mb-6 mt-1 text-sm text-text-2">{{ t('app.tagline', lang) }}</p>
 
   {% if error %}
-  <p class="mb-4 rounded-control border border-sev-blocker bg-surface-1 px-3 py-2 text-sm text-sev-blocker">{{ error }}</p>
+  <p class="mb-4 rounded-card border border-ink bg-surface-1 px-4 py-3 text-sm text-ink">{{ error }}</p>
   {% endif %}
 
   <form method="post" action="/login" class="space-y-4 rounded-card border border-card-border bg-surface-1 p-5">
     <div>
-      <label for="email" class="mb-1 block text-sm font-medium">{{ t('login.email', lang) }}</label>
+      <label for="email" class="field-label">{{ t('login.email', lang) }}</label>
       <input id="email" name="email" type="email" required autofocus autocomplete="username"
-             class="w-full rounded-control border border-border px-3 py-2 focus:border-link focus:outline-none">
+             class="w-full">
     </div>
     <div>
-      <label for="password" class="mb-1 block text-sm font-medium">{{ t('login.password', lang) }}</label>
+      <label for="password" class="field-label">{{ t('login.password', lang) }}</label>
       <input id="password" name="password" type="password" required autocomplete="current-password"
-             class="w-full rounded-control border border-border px-3 py-2 focus:border-link focus:outline-none">
+             class="w-full">
     </div>
     <button type="submit"
             class="btn btn-primary w-full">

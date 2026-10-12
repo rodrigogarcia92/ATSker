@@ -1,79 +1,79 @@
 {% extends "base.html" %}
 {% block title %}{{ t('profile.title', lang) }} — {{ t('app.name', lang) }}{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-semibold tracking-tight">{{ t('profile.title', lang) }}</h1>
+<h1 class="text-4xl leading-[1.11] tracking-[-0.02em] md:text-5xl">{{ t('profile.title', lang) }}</h1>
 
 <form method="post" action="/profile" class="mt-6 space-y-4 rounded-card border border-card-border bg-surface-1 p-5">
   <div>
-    <label for="display_name" class="mb-1 block text-sm font-medium">{{ t('profile.display_name', lang) }}</label>
+    <label for="display_name" class="field-label">{{ t('profile.display_name', lang) }}</label>
     <input id="display_name" name="display_name" required value="{{ profile.display_name }}"
-           class="w-full rounded-control border border-border px-3 py-2 text-sm">
+           class="w-full">
   </div>
   <div>
-    <label for="headline" class="mb-1 block text-sm font-medium">
+    <label for="headline" class="field-label">
       {{ t('profile.headline', lang) }} <span class="text-text-3">({{ t('common.optional', lang) }})</span>
     </label>
     <input id="headline" name="headline" value="{{ profile.headline or '' }}"
-           class="w-full rounded-control border border-border px-3 py-2 text-sm">
+           class="w-full">
   </div>
   <div>
-    <label for="summary" class="mb-1 block text-sm font-medium">
+    <label for="summary" class="field-label">
       {{ t('profile.summary', lang) }} <span class="text-text-3">({{ t('common.optional', lang) }})</span>
     </label>
     <textarea id="summary" name="summary" rows="4"
-              class="w-full rounded-card border border-border px-3 py-2 text-sm">{{ profile.summary or '' }}</textarea>
+              class="w-full">{{ profile.summary or '' }}</textarea>
   </div>
   <div>
-    <label for="standing_risks" class="mb-1 block text-sm font-medium">
+    <label for="standing_risks" class="field-label">
       {{ t('profile.standing_risks', lang) }} <span class="text-text-3">({{ t('common.optional', lang) }})</span>
     </label>
     <textarea id="standing_risks" name="standing_risks" rows="3"
-              class="w-full rounded-card border border-border px-3 py-2 text-sm">{{ profile.standing_risks | join('\n') }}</textarea>
-    <p class="mt-1 text-xs text-text-3">{{ t('profile.standing_risks_hint', lang) }}</p>
+              class="w-full">{{ profile.standing_risks | join('\n') }}</textarea>
+    <p class="field-hint">{{ t('profile.standing_risks_hint', lang) }}</p>
   </div>
   <button type="submit" class="btn btn-primary">
     {{ t('common.save', lang) }}
   </button>
 </form>
 
-<h2 class="mt-10 text-lg font-semibold">{{ t('profile.education', lang) }}</h2>
+<h2 class="mt-10 text-3xl leading-tight tracking-[-0.01em] md:text-4xl">{{ t('profile.education', lang) }}</h2>
 
 {% for entry in educations %}
 <form method="post" action="/profile/education/{{ entry.id }}"
       class="mt-3 grid grid-cols-1 gap-3 rounded-card border border-card-border bg-surface-1 p-4 sm:grid-cols-2">
   <div class="sm:col-span-2">
-    <label class="mb-1 block text-sm font-medium" for="institution-{{ entry.id }}">{{ t('profile.institution', lang) }}</label>
+    <label class="field-label" for="institution-{{ entry.id }}">{{ t('profile.institution', lang) }}</label>
     <input id="institution-{{ entry.id }}" name="institution" required value="{{ entry.institution }}"
-           class="w-full rounded-control border border-border px-3 py-2 text-sm">
+           class="w-full">
   </div>
   <div>
-    <label class="mb-1 block text-sm font-medium" for="degree-{{ entry.id }}">{{ t('profile.degree', lang) }}</label>
+    <label class="field-label" for="degree-{{ entry.id }}">{{ t('profile.degree', lang) }}</label>
     <input id="degree-{{ entry.id }}" name="degree" value="{{ entry.degree or '' }}"
-           class="w-full rounded-control border border-border px-3 py-2 text-sm">
+           class="w-full">
   </div>
   <div>
-    <label class="mb-1 block text-sm font-medium" for="field-{{ entry.id }}">{{ t('profile.field', lang) }}</label>
+    <label class="field-label" for="field-{{ entry.id }}">{{ t('profile.field', lang) }}</label>
     <input id="field-{{ entry.id }}" name="field" value="{{ entry.field or '' }}"
-           class="w-full rounded-control border border-border px-3 py-2 text-sm">
+           class="w-full">
   </div>
   <div>
-    <label class="mb-1 block text-sm font-medium" for="start-{{ entry.id }}">{{ t('profile.start', lang) }}</label>
+    <label class="field-label" for="start-{{ entry.id }}">{{ t('profile.start', lang) }}</label>
     <input id="start-{{ entry.id }}" name="start_date" type="date"
            value="{{ entry.start_date.isoformat() if entry.start_date else '' }}"
-           class="w-full rounded-control border border-border px-3 py-2 text-sm">
+           class="w-full">
   </div>
   <div>
-    <label class="mb-1 block text-sm font-medium" for="end-{{ entry.id }}">{{ t('profile.end', lang) }}</label>
+    <label class="field-label" for="end-{{ entry.id }}">{{ t('profile.end', lang) }}</label>
     <input id="end-{{ entry.id }}" name="end_date" type="date"
            value="{{ entry.end_date.isoformat() if entry.end_date else '' }}"
-           class="w-full rounded-control border border-border px-3 py-2 text-sm">
+           class="w-full">
   </div>
   <div class="flex items-center gap-4 sm:col-span-2">
     <button type="submit" class="btn btn-primary">
       {{ t('common.save', lang) }}
     </button>
     <button type="submit" formaction="/profile/education/{{ entry.id }}/delete"
-            class="text-sm text-sev-blocker underline">{{ t('common.delete', lang) }}</button>
+            class="text-sm text-ink underline">{{ t('common.delete', lang) }}</button>
   </div>
 </form>
 {% else %}
@@ -83,28 +83,28 @@
 <form method="post" action="/profile/education"
       class="mt-6 grid grid-cols-1 gap-3 rounded-card border border-dashed border-border bg-surface-1 p-4 sm:grid-cols-2">
   <div class="sm:col-span-2">
-    <label class="mb-1 block text-sm font-medium" for="new-institution">{{ t('profile.institution', lang) }}</label>
+    <label class="field-label" for="new-institution">{{ t('profile.institution', lang) }}</label>
     <input id="new-institution" name="institution" required
-           class="w-full rounded-control border border-border px-3 py-2 text-sm">
+           class="w-full">
   </div>
   <div>
-    <label class="mb-1 block text-sm font-medium" for="new-degree">{{ t('profile.degree', lang) }}</label>
-    <input id="new-degree" name="degree" class="w-full rounded-control border border-border px-3 py-2 text-sm">
+    <label class="field-label" for="new-degree">{{ t('profile.degree', lang) }}</label>
+    <input id="new-degree" name="degree" class="w-full">
   </div>
   <div>
-    <label class="mb-1 block text-sm font-medium" for="new-field">{{ t('profile.field', lang) }}</label>
-    <input id="new-field" name="field" class="w-full rounded-control border border-border px-3 py-2 text-sm">
+    <label class="field-label" for="new-field">{{ t('profile.field', lang) }}</label>
+    <input id="new-field" name="field" class="w-full">
   </div>
   <div>
-    <label class="mb-1 block text-sm font-medium" for="new-start">{{ t('profile.start', lang) }}</label>
-    <input id="new-start" name="start_date" type="date" class="w-full rounded-control border border-border px-3 py-2 text-sm">
+    <label class="field-label" for="new-start">{{ t('profile.start', lang) }}</label>
+    <input id="new-start" name="start_date" type="date" class="w-full">
   </div>
   <div>
-    <label class="mb-1 block text-sm font-medium" for="new-end">{{ t('profile.end', lang) }}</label>
-    <input id="new-end" name="end_date" type="date" class="w-full rounded-control border border-border px-3 py-2 text-sm">
+    <label class="field-label" for="new-end">{{ t('profile.end', lang) }}</label>
+    <input id="new-end" name="end_date" type="date" class="w-full">
   </div>
   <div class="sm:col-span-2">
-    <button type="submit" class="rounded-control border border-border px-3 py-2 text-sm">
+    <button type="submit" class="btn btn-secondary">
       {{ t('profile.add_education', lang) }}
     </button>
   </div>
@@ -115,13 +115,13 @@
   {{ t('profile.vocabulary_hint', lang) }}
 </p>
 
-<h2 class="mt-10 text-lg font-semibold">{{ t('profile.skills_pool', lang) }}</h2>
+<h2 class="mt-10 text-3xl leading-tight tracking-[-0.01em] md:text-4xl">{{ t('profile.skills_pool', lang) }}</h2>
 {% if profile.skills %}
 <div class="mt-3 flex flex-wrap gap-2">
   {% for skill in profile.skills %}
   <span class="rounded-control bg-surface-2 px-2 py-0.5 text-sm text-text">
     {{ skill }}
-    <a href="/profile/skills/delete?skill={{ skill | urlencode }}" class="ml-1 text-xs text-sev-blocker underline">{{ t('common.delete', lang) }}</a>
+    <a href="/profile/skills/delete?skill={{ skill | urlencode }}" class="ml-1 text-xs text-ink underline">{{ t('common.delete', lang) }}</a>
   </span>
   {% endfor %}
 </div>
@@ -129,7 +129,7 @@
 <p class="mt-1 text-sm text-text-2">{{ t('profile.skills_none', lang) }}</p>
 {% endif %}
 
-<h2 class="mt-10 text-lg font-semibold">{{ t('profile.delete_all', lang) }}</h2>
+<h2 class="mt-10 text-3xl leading-tight tracking-[-0.01em] md:text-4xl">{{ t('profile.delete_all', lang) }}</h2>
 <p class="mt-1 text-sm text-text-2">{{ t('profile.delete_all_hint', lang) }}</p>
 <a href="/profile/delete"
    class="btn btn-danger mt-3">

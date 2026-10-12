@@ -2,7 +2,7 @@
 {% macro header(key, label) -%}
 {% set natural = 'desc' if key in ('date', 'score') else 'asc' %}
 {% set next_dir = ('asc' if direction == 'desc' else 'desc') if sort == key else natural %}
-<th class="px-2 py-2 text-left text-xs font-medium uppercase tracking-wide text-text-3">
+<th class="px-2 py-2 text-left text-[13px] text-text-3">
   {# The filter is part of the view, so a sort link keeps it (F.1). #}
   <a href="/applications?sort={{ key }}&dir={{ next_dir }}{% if outcome %}&outcome={{ outcome }}{% endif %}" class="hover:underline">
     {{ label }}{% if sort == key %}<span aria-hidden="true"> {{ '↑' if direction == 'asc' else '↓' }}</span>{% endif %}
@@ -13,13 +13,13 @@
 {% block width %}max-w-5xl{% endblock %}
 {% block content %}
 <div class="flex items-center justify-between gap-4">
-  <h1 class="text-2xl font-semibold tracking-tight">{{ t('applications.title', lang) }}</h1>
+  <h1 class="text-4xl leading-[1.11] tracking-[-0.02em] md:text-5xl">{{ t('applications.title', lang) }}</h1>
   <a href="/analyze" class="btn btn-primary">
     {{ t('applications.new', lang) }}
   </a>
 </div>
 <p class="mt-1 text-sm text-text-2">{{ t('applications.intro', lang) }}</p>
-<p class="mt-1 text-xs text-text-3">{{ t('applications.weights_hint', lang) }}</p>
+<p class="field-hint">{{ t('applications.weights_hint', lang) }}</p>
 {% if outcome %}
 <p class="mt-2 text-sm text-text-2">
   {{ t('applications.filtered', lang,
@@ -43,20 +43,20 @@
         {{ header('cv', t('applications.cv', lang)) }}
         {{ header('score', t('applications.score', lang)) }}
         {% for name in ['skills', 'experience', 'title', 'keywords'] %}
-        <th class="px-2 py-2 text-right text-xs font-medium uppercase tracking-wide text-text-3">
+        <th class="px-2 py-2 text-right text-[13px] text-text-3">
           {{ t('report.sub.' ~ name, lang) }}
         </th>
         {% endfor %}
-        <th class="px-2 py-2 text-left text-xs font-medium uppercase tracking-wide text-text-3">
+        <th class="px-2 py-2 text-left text-[13px] text-text-3">
           {{ t('applications.readability', lang) }}
         </th>
-        <th class="px-2 py-2 text-left text-xs font-medium uppercase tracking-wide text-text-3">
+        <th class="px-2 py-2 text-left text-[13px] text-text-3">
           {{ t('applications.boolean', lang) }}
         </th>
-        <th class="px-2 py-2 text-left text-xs font-medium uppercase tracking-wide text-text-3">
+        <th class="px-2 py-2 text-left text-[13px] text-text-3">
           {{ t('applications.prompts', lang) }}
         </th>
-        <th class="px-2 py-2 text-right text-xs font-medium uppercase tracking-wide text-text-3">
+        <th class="px-2 py-2 text-right text-[13px] text-text-3">
           {{ t('applications.cost', lang) }}
         </th>
         {{ header('outcome', t('applications.outcome', lang)) }}
@@ -70,7 +70,7 @@
         </td>
         <td class="px-2 py-2">{{ row.company or '—' }}</td>
         <td class="px-2 py-2">
-          <a href="/applications/{{ row.id }}" class="font-medium hover:underline">
+          <a href="/applications/{{ row.id }}" class="hover:underline">
             {{ row.title or t('report.title', lang) }}
           </a>
           {% if row.attempt_count %}
@@ -80,7 +80,7 @@
           {% endif %}
           {% if row.has_letter %}
           {# F8/N8.5: this application has a saved letter. #}
-          <span class="rounded-tag border border-score-strong px-2 py-0.5 text-xs text-score-strong">{{ t('applications.letter_mark', lang) }}</span>
+          <span class="rounded-tag border border-forest px-2 py-0.5 text-xs text-forest">{{ t('applications.letter_mark', lang) }}</span>
           {% endif %}
         </td>
         <td class="px-2 py-2 text-text-2">{{ row.track or t('common.none', lang) }}</td>
@@ -91,7 +91,7 @@
         </td>
         <td class="whitespace-nowrap px-2 py-2">
           {% if row.score is not none %}
-          <span class="font-semibold">{{ row.score }}</span>
+          <span >{{ row.score }}</span>
           <span class="text-xs text-text-3">{{ row.weights_version }}</span>
           {% else %}
           <span class="text-text-3">{{ t('common.none', lang) }}</span>
@@ -133,7 +133,7 @@
           <form method="post" action="/applications/{{ row.id }}/outcome" class="flex items-center gap-2">
             <label class="sr-only" for="outcome-{{ row.id }}">{{ t('applications.outcome', lang) }}</label>
             <select id="outcome-{{ row.id }}" name="outcome" onchange="this.form.submit()"
-                    class="rounded-control border border-border bg-surface-1 px-2 py-1 text-xs">
+                    >
               {% for value in outcomes %}
               <option value="{{ value }}" {% if row.outcome == value %}selected{% endif %}>
                 {{ t('applications.outcome.' + value, lang) }}
@@ -144,7 +144,7 @@
               <button type="submit" class="text-xs underline">{{ t('common.save', lang) }}</button>
             </noscript>
           </form>
-          <a href="/applications/{{ row.id }}/delete" class="ml-2 text-xs text-sev-blocker underline">{{ t('common.delete', lang) }}</a>
+          <a href="/applications/{{ row.id }}/delete" class="ml-2 text-xs text-ink underline">{{ t('common.delete', lang) }}</a>
         </td>
       </tr>
       {% endfor %}
