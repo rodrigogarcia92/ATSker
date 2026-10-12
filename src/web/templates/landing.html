@@ -51,8 +51,7 @@
          hreflang="{{ 'en' if lang == 'es' else 'es' }}"
          aria-label="{{ t('nav.language', lang) }}"
          class="text-slate hover:text-ink">{{ 'EN' if lang == 'es' else 'ES' }}</a>
-      <a href="/login"
-         class="inline-flex min-h-11 items-center rounded-pill bg-forest px-4 text-paper">{{ t('landing.login', lang) }}</a>
+      <a href="/login" class="btn btn-primary">{{ t('landing.login', lang) }}</a>
     </div>
   </header>
 
@@ -81,11 +80,9 @@
       <h1 class="m-0 max-w-[980px] text-[40px] leading-none tracking-[-0.03em] sm:text-[56px] lg:text-[72px]">{{ t('landing.hero.headline', lang) }}</h1>
       <p class="m-0 max-w-[640px] text-[18px] leading-[1.38] text-slate">{{ t('landing.hero.subline', lang) }}</p>
       <div class="flex flex-wrap items-center justify-center gap-5 pt-2">
-        <a href="/login"
-           class="inline-flex min-h-12 items-center rounded-pill bg-forest px-6 text-[15px] text-paper">{{ t('landing.login', lang) }}</a>
+        <a href="/login" class="btn btn-lg btn-primary">{{ t('landing.login', lang) }}</a>
         {% if demo_enabled %}
-        <a href="/demo"
-           class="inline-flex min-h-12 items-center rounded-pill border border-hairline px-6 text-[15px]">{{ t('landing.demo', lang) }}</a>
+        <a href="/demo" class="btn btn-lg btn-secondary">{{ t('landing.demo', lang) }}</a>
         {% endif %}
         <a href="https://github.com/rodrigogarcia92/ATSker"
            class="text-[15px] underline underline-offset-[3px]">{{ t('landing.github', lang) }}</a>

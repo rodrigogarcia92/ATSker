@@ -103,6 +103,19 @@ def test_the_language_link_switches_the_page_to_english(client):
     assert 'href="/?lang=es"' in page
 
 
+def test_the_document_language_follows_the_language_link(client):
+    assert '<html lang="en">' in client.get("/?lang=en").text
+    assert '<html lang="es">' in client.get("/?lang=es").text
+    assert '<html lang="es">' in client.get("/?lang=de").text
+
+
+def test_the_login_button_uses_the_shared_button_classes(client):
+    page = client.get("/").text
+
+    assert 'href="/login" class="btn btn-primary"' in page
+    assert 'href="/login" class="btn btn-lg btn-primary"' in page
+
+
 def test_an_unknown_language_falls_back_to_the_default(client):
     page = client.get("/?lang=de").text
 
