@@ -2,7 +2,7 @@
 {% from "letters/_status.html" import status_tag %}
 {% block title %}{{ t('letters.title', lang) }} — {{ t('app.name', lang) }}{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-semibold tracking-tight">{{ t('letters.title', lang) }}</h1>
+<h1 class="text-4xl leading-[1.11] tracking-[-0.02em] md:text-5xl">{{ t('letters.title', lang) }}</h1>
 <p class="mt-1 text-sm text-text-2">{{ t('letters.intro', lang) }}</p>
 
 {% if notice %}
@@ -10,42 +10,42 @@
 {% endif %}
 
 {# F8: the blocks every letter shares, per language (N8.2). #}
-<h2 class="mt-8 text-lg font-semibold">{{ t('letters.settings_title', lang) }}</h2>
-<p class="mt-1 text-xs text-text-3">{{ t('letters.settings_hint', lang) }}</p>
+<h2 class="mt-8 text-3xl leading-tight tracking-[-0.01em] md:text-4xl">{{ t('letters.settings_title', lang) }}</h2>
+<p class="field-hint">{{ t('letters.settings_hint', lang) }}</p>
 <div class="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
   {% for row in settings %}
   <form method="post" action="/letters/settings"
         class="min-w-0 space-y-3 rounded-card border border-card-border bg-surface-1 p-4">
     <input type="hidden" name="lang" value="{{ row.lang }}">
-    <p class="text-sm font-semibold uppercase tracking-wide text-text-3">{{ t('lang.' ~ row.lang, lang) }}</p>
+    <p class="text-sm text-text-3">{{ t('lang.' ~ row.lang, lang) }}</p>
     <div>
-      <label for="header-{{ row.lang }}" class="mb-1 block text-sm font-medium">{{ t('letters.blocks_header', lang) }}</label>
+      <label for="header-{{ row.lang }}" class="field-label">{{ t('letters.blocks_header', lang) }}</label>
       <textarea id="header-{{ row.lang }}" name="header" rows="2"
                 aria-describedby="header-hint-{{ row.lang }}"
-                class="w-full rounded-card border border-border px-3 py-2 text-sm">{{ row.entry.header if row.entry else '' }}</textarea>
-      <p id="header-hint-{{ row.lang }}" class="mt-1 text-xs text-text-3">{{ t('letters.blocks_header_hint', lang) }}</p>
+                class="w-full">{{ row.entry.header if row.entry else '' }}</textarea>
+      <p id="header-hint-{{ row.lang }}" class="field-hint">{{ t('letters.blocks_header_hint', lang) }}</p>
     </div>
     <div>
-      <label for="greeting-{{ row.lang }}" class="mb-1 block text-sm font-medium">{{ t('letters.blocks_greeting', lang) }}</label>
+      <label for="greeting-{{ row.lang }}" class="field-label">{{ t('letters.blocks_greeting', lang) }}</label>
       <input id="greeting-{{ row.lang }}" name="greeting" value="{{ row.entry.greeting if row.entry else '' }}"
-             class="w-full rounded-control border border-border px-3 py-2 text-sm">
+             class="w-full btn btn-secondary">
     </div>
     <div>
-      <label for="closing-{{ row.lang }}" class="mb-1 block text-sm font-medium">{{ t('letters.blocks_closing', lang) }}</label>
+      <label for="closing-{{ row.lang }}" class="field-label">{{ t('letters.blocks_closing', lang) }}</label>
       <textarea id="closing-{{ row.lang }}" name="closing" rows="2"
-                class="w-full rounded-card border border-border px-3 py-2 text-sm">{{ row.entry.closing if row.entry else '' }}</textarea>
+                class="w-full">{{ row.entry.closing if row.entry else '' }}</textarea>
     </div>
     <div>
-      <label for="sign-off-{{ row.lang }}" class="mb-1 block text-sm font-medium">{{ t('letters.blocks_sign_off', lang) }}</label>
+      <label for="sign-off-{{ row.lang }}" class="field-label">{{ t('letters.blocks_sign_off', lang) }}</label>
       {# Two lines ("Atentamente," and the name), so a textarea: an <input> drops the break. #}
       <textarea id="sign-off-{{ row.lang }}" name="sign_off" rows="2"
-                class="w-full rounded-card border border-border px-3 py-2 text-sm">{{ row.entry.sign_off if row.entry else '' }}</textarea>
+                class="w-full">{{ row.entry.sign_off if row.entry else '' }}</textarea>
     </div>
     <div>
-      <label for="voice-{{ row.lang }}" class="mb-1 block text-sm font-medium">{{ t('letters.blocks_voice', lang) }}</label>
+      <label for="voice-{{ row.lang }}" class="field-label">{{ t('letters.blocks_voice', lang) }}</label>
       <textarea id="voice-{{ row.lang }}" name="voice_notes" rows="2"
-                class="w-full rounded-card border border-border px-3 py-2 text-sm">{{ row.entry.voice_notes if row.entry else '' }}</textarea>
-      <p class="mt-1 text-xs text-text-3">{{ t('letters.blocks_voice_hint', lang) }}</p>
+                class="w-full">{{ row.entry.voice_notes if row.entry else '' }}</textarea>
+      <p class="field-hint">{{ t('letters.blocks_voice_hint', lang) }}</p>
     </div>
     <div class="flex flex-wrap items-center gap-3">
       <button type="submit" class="btn btn-primary">
@@ -53,7 +53,7 @@
       </button>
       {# F8: fills only the empty fields, by code, and does not save. #}
       <button type="submit" formaction="/letters/settings/autogenerate"
-              class="min-h-11 rounded-control border border-border px-4 py-2 text-sm hover:bg-surface-2">
+              class="btn btn-secondary">
         {{ t('letters.autogenerate', lang) }}
       </button>
     </div>
@@ -67,19 +67,19 @@
 {% macro track_row(row) %}
 <li class="flex flex-wrap items-center gap-x-4 gap-y-2 p-4">
   <div class="min-w-0 flex-1">
-    <a href="/tracks/{{ row.track.id }}" class="break-words font-medium hover:underline">{{ row.track.name }}</a>
-    <span class="ml-2 text-xs uppercase text-text-3">{{ row.track.lang }}</span>
+    <a href="/tracks/{{ row.track.id }}" class="break-words hover:underline">{{ row.track.name }}</a>
+    <span class="ml-2 text-xs text-text-3">{{ row.track.lang }}</span>
   </div>
   {{ status_tag(row.status, lang) }}
   <a href="/tracks/{{ row.track.id }}/letter"
-     class="inline-flex min-h-11 items-center rounded-control border border-border px-3 py-2 text-sm hover:bg-surface-2">
+     class="btn btn-secondary">
     {{ t('letters.action.edit' if row.has_template else 'letters.action.create', lang) }}
   </a>
 </li>
 {% endmacro %}
 
-<h2 class="mt-8 text-lg font-semibold">{{ t('letters.by_track_title', lang) }}</h2>
-<p class="mt-1 text-xs text-text-3">{{ t('letters.by_track_hint', lang) }}</p>
+<h2 class="mt-8 text-3xl leading-tight tracking-[-0.01em] md:text-4xl">{{ t('letters.by_track_title', lang) }}</h2>
+<p class="field-hint">{{ t('letters.by_track_hint', lang) }}</p>
 {% if track_rows %}
 <ul class="mt-3 divide-y divide-card-border rounded-card border border-card-border bg-surface-1">
   {% for row in track_rows %}{{ track_row(row) }}{% endfor %}
@@ -102,13 +102,13 @@
 
 {# Old templates linked to no track: kept, never used by a letter, assignable (F8). #}
 {% if unlinked %}
-<h2 class="mt-8 text-lg font-semibold">{{ t('letters.unlinked_title', lang) }}</h2>
-<p class="mt-1 text-xs text-text-3">{{ t('letters.unlinked_hint', lang) }}</p>
+<h2 class="mt-8 text-3xl leading-tight tracking-[-0.01em] md:text-4xl">{{ t('letters.unlinked_title', lang) }}</h2>
+<p class="field-hint">{{ t('letters.unlinked_hint', lang) }}</p>
 <ul class="mt-3 divide-y divide-card-border rounded-card border border-card-border bg-surface-1">
   {% for item in unlinked %}
   <li class="space-y-2 p-4">
     <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
-      <span class="text-xs uppercase text-text-3">{{ item.letter.lang }}</span>
+      <span class="text-xs text-text-3">{{ item.letter.lang }}</span>
       <span class="min-w-0 break-words text-sm text-text-2">{{ item.first_line or t('common.none', lang) }}</span>
       <a href="/letters/{{ item.letter.id }}/edit" class="ml-auto inline-flex min-h-11 items-center text-sm underline">{{ t('letters.view', lang) }}</a>
     </div>
@@ -116,10 +116,10 @@
     <form method="post" action="/letters/{{ item.letter.id }}/assign" class="flex flex-wrap items-center gap-2">
       <label for="assign-{{ item.letter.id }}" class="sr-only">{{ t('letters.assign_label', lang) }}</label>
       <select id="assign-{{ item.letter.id }}" name="track_id"
-              class="min-h-11 min-w-0 rounded-control border border-border bg-surface-1 px-3 py-2 text-sm">
+              class="btn btn-secondary">
         {% for track in item.tracks %}<option value="{{ track.id }}">{{ track.name }}</option>{% endfor %}
       </select>
-      <button type="submit" class="min-h-11 rounded-control border border-border px-3 py-2 text-sm hover:bg-surface-2">
+      <button type="submit" class="btn btn-secondary">
         {{ t('letters.assign', lang) }}
       </button>
     </form>

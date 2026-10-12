@@ -1,21 +1,21 @@
 {% extends "base.html" %}
 {% block title %}{{ t('import.translate_title', lang) }} — {{ t('app.name', lang) }}{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-semibold tracking-tight">{{ t('import.translate_title', lang) }}</h1>
+<h1 class="text-4xl leading-[1.11] tracking-[-0.02em] md:text-5xl">{{ t('import.translate_title', lang) }}</h1>
 <p class="mt-1 text-sm text-text-2">
   {{ t('import.translate_intro', lang, document=t('lang.' ~ draft.language, lang),
         track=t('lang.' ~ track.lang, lang)) }}
 </p>
-<p class="mt-1 text-xs text-text-3">{{ t('import.translate_hint', lang) }}</p>
+<p class="field-hint">{{ t('import.translate_hint', lang) }}</p>
 
 <form method="post" action="/import/{{ resume.id }}/translate/apply" class="mt-6 space-y-8">
   <section>
-    <h2 class="text-lg font-semibold">{{ t('import.translate_pairs', lang) }}</h2>
-    <p class="mt-1 text-xs text-text-3">{{ t('import.translate_pairs_hint', lang) }}</p>
+    <h2 class="text-3xl leading-tight tracking-[-0.01em] md:text-4xl">{{ t('import.translate_pairs', lang) }}</h2>
+    <p class="field-hint">{{ t('import.translate_pairs_hint', lang) }}</p>
     <div class="mt-3 space-y-4">
       {% for match in translation.matches %}
       <div class="rounded-card border border-card-border bg-surface-1 p-5">
-        <p class="text-sm font-medium">{{ match.role.employer }} — {{ match.role.title }}</p>
+        <p class="text-sm">{{ match.role.employer }} — {{ match.role.title }}</p>
         {% for pair in match.pairs %}
         <div class="mt-3 rounded-control border border-card-border bg-surface-1 p-3">
           <label class="flex items-start gap-2 text-sm">
@@ -28,9 +28,9 @@
           {% if pair.current %}
           {# Never overwritten: the column holds text already, so the CV's wording is
              shown and the column keeps what it has. #}
-          <p class="mt-1 text-xs text-sev-warning">{{ t('import.translate_kept_hint', lang) }}</p>
+          <p class="mt-1 text-xs text-slate">{{ t('import.translate_kept_hint', lang) }}</p>
           {% else %}
-          <p class="mt-1 text-xs text-text-3">
+          <p class="field-hint">
             {{ t('import.translate_fills', lang, language=t('lang.' ~ pair.column, lang)) }}
           </p>
           {% endif %}
@@ -46,8 +46,8 @@
   </section>
 
   <section>
-    <h2 class="text-lg font-semibold">{{ t('import.translate_new', lang) }}</h2>
-    <p class="mt-1 text-xs text-text-3">{{ t('import.translate_new_hint', lang) }}</p>
+    <h2 class="text-3xl leading-tight tracking-[-0.01em] md:text-4xl">{{ t('import.translate_new', lang) }}</h2>
+    <p class="field-hint">{{ t('import.translate_new_hint', lang) }}</p>
   </section>
 
   {% include "import/_candidates.html" %}
