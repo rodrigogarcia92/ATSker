@@ -1,54 +1,54 @@
 {% extends "base.html" %}
 {% block title %}{{ t('tracks.new', lang) if not track else track.name }} — {{ t('app.name', lang) }}{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-semibold tracking-tight">
+<h1 class="text-4xl leading-[1.11] tracking-[-0.02em] md:text-5xl">
   {{ t('tracks.new', lang) if not track else t('common.edit', lang) }}
 </h1>
 
 <form method="post" action="{{ '/tracks' if not track else '/tracks/' ~ track.id }}"
       class="mt-6 space-y-4 rounded-card border border-card-border bg-surface-1 p-5">
   <div>
-    <label for="name" class="mb-1 block text-sm font-medium">{{ t('tracks.name', lang) }}</label>
+    <label for="name" class="field-label">{{ t('tracks.name', lang) }}</label>
     <input id="name" name="name" required value="{{ track.name if track else '' }}"
-           class="w-full rounded-control border border-border px-3 py-2 text-sm">
+           class="w-full btn btn-secondary">
   </div>
   <div>
-    <label for="applies_when" class="mb-1 block text-sm font-medium">{{ t('tracks.applies_when', lang) }}</label>
+    <label for="applies_when" class="field-label">{{ t('tracks.applies_when', lang) }}</label>
     <input id="applies_when" name="applies_when" value="{{ track.applies_when if track else '' }}"
-           class="w-full rounded-control border border-border px-3 py-2 text-sm">
-    <p class="mt-1 text-xs text-text-3">{{ t('tracks.applies_hint', lang) }}</p>
+           class="w-full btn btn-secondary">
+    <p class="field-hint">{{ t('tracks.applies_hint', lang) }}</p>
   </div>
   <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
     <div>
-      <label for="lang" class="mb-1 block text-sm font-medium">{{ t('tracks.lang', lang) }}</label>
-      <select id="lang" name="lang" class="w-full rounded-control border border-border bg-surface-1 px-3 py-2 text-sm">
+      <label for="lang" class="field-label">{{ t('tracks.lang', lang) }}</label>
+      <select id="lang" name="lang" class="w-full">
         <option value="es" {% if not track or track.lang == 'es' %}selected{% endif %}>ES</option>
         <option value="en" {% if track and track.lang == 'en' %}selected{% endif %}>EN</option>
       </select>
-      <p class="mt-1 text-xs text-text-3">{{ t('tracks.lang_hint', lang) }}</p>
+      <p class="field-hint">{{ t('tracks.lang_hint', lang) }}</p>
     </div>
     <div>
-      <label for="target_seniority" class="mb-1 block text-sm font-medium">{{ t('tracks.seniority', lang) }}</label>
+      <label for="target_seniority" class="field-label">{{ t('tracks.seniority', lang) }}</label>
       <input id="target_seniority" name="target_seniority"
              value="{{ track.target_seniority or '' if track else '' }}"
-             class="w-full rounded-control border border-border px-3 py-2 text-sm">
-      <p class="mt-1 text-xs text-text-3">{{ t('tracks.seniority_hint', lang) }}</p>
+             class="w-full btn btn-secondary">
+      <p class="field-hint">{{ t('tracks.seniority_hint', lang) }}</p>
     </div>
   </div>
   <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
     <div>
-      <label for="organisation_kind" class="mb-1 block text-sm font-medium">{{ t('tracks.organisation_kind', lang) }}</label>
+      <label for="organisation_kind" class="field-label">{{ t('tracks.organisation_kind', lang) }}</label>
       <input id="organisation_kind" name="organisation_kind"
              value="{{ track.organisation_kind or '' if track else '' }}"
-             class="w-full rounded-control border border-border px-3 py-2 text-sm">
-      <p class="mt-1 text-xs text-text-3">{{ t('tracks.organisation_kind_hint', lang) }}</p>
+             class="w-full btn btn-secondary">
+      <p class="field-hint">{{ t('tracks.organisation_kind_hint', lang) }}</p>
     </div>
     <div>
-      <label for="specialisation" class="mb-1 block text-sm font-medium">{{ t('tracks.specialisation', lang) }}</label>
+      <label for="specialisation" class="field-label">{{ t('tracks.specialisation', lang) }}</label>
       <input id="specialisation" name="specialisation"
              value="{{ track.specialisation or '' if track else '' }}"
-             class="w-full rounded-control border border-border px-3 py-2 text-sm">
-      <p class="mt-1 text-xs text-text-3">{{ t('tracks.specialisation_hint', lang) }}</p>
+             class="w-full btn btn-secondary">
+      <p class="field-hint">{{ t('tracks.specialisation_hint', lang) }}</p>
     </div>
   </div>
 
@@ -57,25 +57,25 @@
      from the pool. Nothing is stored free-text on the track itself. #}
   <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
     <div>
-      <label for="headline_es" class="mb-1 block text-sm font-medium">{{ t('tracks.headline_es', lang) }}</label>
+      <label for="headline_es" class="field-label">{{ t('tracks.headline_es', lang) }}</label>
       <input id="headline_es" name="headline_es"
              value="{{ track.headline_es or '' if track else '' }}"
-             class="w-full rounded-control border border-border px-3 py-2 text-sm">
+             class="w-full btn btn-secondary">
     </div>
     <div>
-      <label for="headline_en" class="mb-1 block text-sm font-medium">{{ t('tracks.headline_en', lang) }}</label>
+      <label for="headline_en" class="field-label">{{ t('tracks.headline_en', lang) }}</label>
       <input id="headline_en" name="headline_en"
              value="{{ track.headline_en or '' if track else '' }}"
-             class="w-full rounded-control border border-border px-3 py-2 text-sm">
+             class="w-full btn btn-secondary">
     </div>
   </div>
   <p class="text-xs text-text-3">{{ t('tracks.headline_hint', lang) }}</p>
 
   {% macro summary_slot(code, label_key, rows, selected_id) %}
   <div class="rounded-control border border-card-border bg-surface-1 p-3">
-    <label for="summary_{{ code }}_id" class="mb-1 block text-sm font-medium">{{ t(label_key, lang) }}</label>
+    <label for="summary_{{ code }}_id" class="field-label">{{ t(label_key, lang) }}</label>
     <select id="summary_{{ code }}_id" name="summary_{{ code }}_id"
-            class="w-full rounded-control border border-border bg-surface-1 px-3 py-2 text-sm">
+            class="w-full">
       <option value="">{{ t('tracks.summary_none', lang) }}</option>
       {% for row in rows %}
       <option value="{{ row.id }}" {% if selected_id == row.id %}selected{% endif %}>
@@ -83,9 +83,9 @@
       </option>
       {% endfor %}
     </select>
-    <label for="summary_{{ code }}_new" class="mt-2 block text-sm font-medium">{{ t('tracks.summary_new', lang) }}</label>
+    <label for="summary_{{ code }}_new" class="mt-2 block text-sm">{{ t('tracks.summary_new', lang) }}</label>
     <textarea id="summary_{{ code }}_new" name="summary_{{ code }}_new" rows="3"
-              class="w-full rounded-card border border-border px-3 py-2 text-sm"></textarea>
+              class="w-full"></textarea>
   </div>
   {% endmacro %}
 
@@ -98,10 +98,10 @@
   <p class="text-xs text-text-3">{{ t('tracks.summary_hint', lang) }}</p>
 
   <div>
-    <p class="mb-1 text-sm font-medium">{{ t('tracks.skills', lang) }}</p>
+    <p class="mb-1 text-sm">{{ t('tracks.skills', lang) }}</p>
     <p class="mb-2 text-xs text-text-3">{{ t('tracks.skills_hint', lang) }}</p>
     {% for kind, names in skill_groups %}
-    <p class="mt-2 text-xs uppercase tracking-wide text-text-3">{{ t('kind.' ~ kind, lang) }}</p>
+    <p class="mt-2 text-xs text-text-3">{{ t('kind.' ~ kind, lang) }}</p>
     <div class="mt-1 flex flex-wrap gap-2">
       {% for name in names %}
       <label class="flex items-center gap-2 rounded-control border border-card-border bg-surface-1 px-3 py-2 text-sm">

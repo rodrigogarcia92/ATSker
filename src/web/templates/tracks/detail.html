@@ -6,41 +6,41 @@
 
 <div class="mt-3 flex flex-wrap items-start justify-between gap-3">
   <div>
-    <h1 class="text-2xl font-semibold tracking-tight">{{ track.name }}</h1>
+    <h1 class="text-4xl leading-[1.11] tracking-[-0.02em] md:text-5xl">{{ track.name }}</h1>
     <p class="text-sm text-text-2">{{ track.applies_when }}</p>
-    <p class="mt-1 text-xs text-text-3">
+    <p class="field-hint">
       {{ t('tracks.lang_line', lang, code=track.lang | upper, name=t('lang.' ~ track.lang, lang)) }}
       {% if track.target_seniority %} · {{ t('tracks.seniority', lang) }}: {{ track.target_seniority }}{% endif %}
       {% if not track.active %} · <span class="rounded-control bg-surface-2 px-2 py-0.5">{{ t('common.inactive', lang) }}</span>{% endif %}
     </p>
   </div>
   <div class="flex flex-wrap items-center gap-3">
-    <a href="/tracks/{{ track.id }}/edit" class="rounded-control border border-border px-3 py-2 text-sm">
+    <a href="/tracks/{{ track.id }}/edit" class="btn btn-secondary">
       {{ t('common.edit', lang) }}
     </a>
     <a href="/tracks/{{ track.id }}/bullets"
        class="btn btn-primary">
       {{ t('tracks.pick', lang) }}
     </a>
-    <a href="/tracks/{{ track.id }}/delete" class="text-sm text-sev-blocker underline">{{ t('common.delete', lang) }}</a>
+    <a href="/tracks/{{ track.id }}/delete" class="btn btn-danger">{{ t('common.delete', lang) }}</a>
   </div>
 </div>
 
 {# F4.1: the whole CV the track presents — headlines and pool summaries per
    language, and the skill selection from the profile's pool. #}
 <div class="mt-6 rounded-card border border-card-border bg-surface-1 p-4">
-  {% if track.headline_es %}<p class="text-sm font-medium">{{ t('tracks.headline_es', lang) }}: {{ track.headline_es }}</p>{% endif %}
-  {% if track.headline_en %}<p class="text-sm font-medium">{{ t('tracks.headline_en', lang) }}: {{ track.headline_en }}</p>{% endif %}
+  {% if track.headline_es %}<p class="text-sm">{{ t('tracks.headline_es', lang) }}: {{ track.headline_es }}</p>{% endif %}
+  {% if track.headline_en %}<p class="text-sm">{{ t('tracks.headline_en', lang) }}: {{ track.headline_en }}</p>{% endif %}
   {% if summary_es %}
   <p class="mt-2 text-sm text-text-2">
-    <span class="text-xs uppercase tracking-wide text-text-3">{{ t('tracks.summary_es', lang) }}</span><br>
+    <span class="text-xs text-text-3">{{ t('tracks.summary_es', lang) }}</span><br>
     {{ summary_es.text }}
     <a href="/summaries/{{ summary_es.id }}" class="text-xs underline">{{ t('summaries.edit', lang) }}</a>
   </p>
   {% endif %}
   {% if summary_en %}
   <p class="mt-2 text-sm text-text-2">
-    <span class="text-xs uppercase tracking-wide text-text-3">{{ t('tracks.summary_en', lang) }}</span><br>
+    <span class="text-xs text-text-3">{{ t('tracks.summary_en', lang) }}</span><br>
     {{ summary_en.text }}
     <a href="/summaries/{{ summary_en.id }}" class="text-xs underline">{{ t('summaries.edit', lang) }}</a>
   </p>
@@ -56,19 +56,19 @@
 </div>
 
 {# F8: the track's one cover-letter template, and the link that writes or fixes it. #}
-<h2 class="mt-8 text-lg font-semibold">{{ t('tracks.letter_card', lang) }}</h2>
+<h2 class="mt-8 text-3xl leading-tight tracking-[-0.01em] md:text-4xl">{{ t('tracks.letter_card', lang) }}</h2>
 <div class="mt-3 rounded-card border border-card-border bg-surface-1 p-4">
   <p class="text-sm">{{ status_tag(letter_status, lang) }}</p>
   {% if letter_template and letter_template.presentation %}
   <p class="mt-2 break-words text-sm text-text-2">{{ letter_template.presentation[:120] }}{% if letter_template.presentation | length > 120 %}…{% endif %}</p>
   {% endif %}
   <a href="/tracks/{{ track.id }}/letter"
-     class="mt-3 inline-flex min-h-11 items-center rounded-control border border-border px-3 py-2 text-sm hover:bg-surface-2">
+     class="mt-3 btn btn-secondary">
     {{ t('letters.action.edit' if letter_status != 'missing' else 'letters.action.create', lang) }}
   </a>
 </div>
 
-<h2 class="mt-8 text-lg font-semibold">{{ t('tracks.skills', lang) }}</h2>
+<h2 class="mt-8 text-3xl leading-tight tracking-[-0.01em] md:text-4xl">{{ t('tracks.skills', lang) }}</h2>
 {% if track.skills %}
 <div class="mt-3 flex flex-wrap gap-2">
   {% for name in track.skills %}
@@ -79,8 +79,8 @@
 <p class="mt-1 text-sm text-text-2">{{ t('tracks.skills_none', lang) }}</p>
 {% endif %}
 
-<h2 class="mt-8 text-lg font-semibold">{{ t('tracks.selection', lang) }}</h2>
-<p class="mt-1 text-xs text-text-3">{{ t('tracks.selection_hint', lang) }}</p>
+<h2 class="mt-8 text-3xl leading-tight tracking-[-0.01em] md:text-4xl">{{ t('tracks.selection', lang) }}</h2>
+<p class="field-hint">{{ t('tracks.selection_hint', lang) }}</p>
 <ol class="mt-3 space-y-2">
   {% for bullet in bullets %}
   <li class="flex items-start gap-3 rounded-card border border-card-border bg-surface-1 p-3">
@@ -97,12 +97,12 @@
 <div class="mt-8 space-y-4">
   <form method="post" action="/tracks/{{ track.id }}/clone" class="flex flex-wrap items-end gap-3">
     <div>
-      <label for="clone_name" class="mb-1 block text-sm font-medium">{{ t('tracks.clone', lang) }}</label>
+      <label for="clone_name" class="field-label">{{ t('tracks.clone', lang) }}</label>
       <input id="clone_name" name="name" required value="{{ track.name }}"
-             class="rounded-control border border-border px-3 py-2 text-sm">
-      <p class="mt-1 text-xs text-text-3">{{ t('tracks.clone_hint', lang) }}</p>
+             class="btn btn-secondary">
+      <p class="field-hint">{{ t('tracks.clone_hint', lang) }}</p>
     </div>
-    <button type="submit" class="rounded-control border border-border px-3 py-2 text-sm">
+    <button type="submit" class="btn btn-secondary">
       {{ t('tracks.clone', lang) }}
     </button>
   </form>

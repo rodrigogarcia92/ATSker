@@ -3,13 +3,13 @@
 {% block content %}
 <a href="/tracks/{{ track.id }}" class="text-sm text-text-2 underline">{{ t('common.back', lang) }}</a>
 
-<h1 class="mt-3 text-2xl font-semibold tracking-tight">{{ t('tracks.pick_title', lang, name=track.name) }}</h1>
+<h1 class="mt-3 text-4xl leading-[1.11] tracking-[-0.02em] md:text-5xl">{{ t('tracks.pick_title', lang, name=track.name) }}</h1>
 <p class="mt-1 text-sm text-text-2">{{ t('tracks.pick_hint', lang) }}</p>
 
 <form method="post" action="/tracks/{{ track.id }}/bullets" class="mt-6 space-y-5">
   {% for role, role_bullets in groups %}
   <fieldset class="rounded-card border border-card-border bg-surface-1 p-4">
-    <legend class="px-1 text-sm font-medium">
+    <legend class="px-1 text-sm">
       {{ role.title }} · {{ role.employer }}
       {% if not role.active %} ({{ t('common.inactive', lang) }}){% endif %}
     </legend>
@@ -21,7 +21,7 @@
         <input type="hidden" name="row" value="{{ bullet.id }}">
         <input type="number" name="rank" min="1" value="{{ positions.get(bullet.id, '') }}"
                aria-label="{{ t('tracks.order', lang) }}"
-               class="w-16 rounded-control border border-border px-2 py-1 text-sm">
+               class="w-16 btn btn-secondary">
         <span class="text-sm">{{ bullet.text_es or bullet.text_en }}</span>
       </div>
       {% endfor %}

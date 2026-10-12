@@ -3,7 +3,7 @@
 {% block title %}{{ t('tracks.title', lang) }} — {{ t('app.name', lang) }}{% endblock %}
 {% block content %}
 <div class="flex items-center justify-between gap-4">
-  <h1 class="text-2xl font-semibold tracking-tight">{{ t('tracks.title', lang) }}</h1>
+  <h1 class="text-4xl leading-[1.11] tracking-[-0.02em] md:text-5xl">{{ t('tracks.title', lang) }}</h1>
   <a href="/tracks/new" class="btn btn-primary">
     {{ t('tracks.new', lang) }}
   </a>
@@ -13,9 +13,9 @@
 <ul class="mt-6 divide-y divide-card-border rounded-card border border-card-border bg-surface-1">
   {% for track in tracks %}
   <li class="flex flex-wrap items-center gap-x-4 gap-y-1 p-4">
-    <a href="/tracks/{{ track.id }}" class="font-medium hover:underline">{{ track.name }}</a>
+    <a href="/tracks/{{ track.id }}" class="hover:underline">{{ track.name }}</a>
     <span class="text-sm text-text-2">{{ track.applies_when }}</span>
-    <span class="text-xs uppercase text-text-3">{{ track.lang }}</span>
+    <span class="text-xs text-text-3">{{ track.lang }}</span>
     {% if track.organisation_kind %}
     <span class="text-xs text-text-3">{{ t('tracks.organisation_kind', lang) }}: {{ track.organisation_kind }}</span>
     {% endif %}

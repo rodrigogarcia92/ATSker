@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ t('summaries.edit', lang) }} — {{ t('app.name', lang) }}{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-semibold tracking-tight">{{ t('summaries.edit', lang) }}</h1>
+<h1 class="text-4xl leading-[1.11] tracking-[-0.02em] md:text-5xl">{{ t('summaries.edit', lang) }}</h1>
 <p class="mt-1 text-sm text-text-2">{{ t('summaries.edit_hint', lang) }}</p>
 {% if summary.source_resume_id %}
 <p class="mt-2 text-xs text-text-3">{{ t('summaries.from_upload', lang) }}</p>
@@ -12,13 +12,13 @@
 <form method="post" action="/summaries/{{ summary.id }}"
       class="mt-6 space-y-4 rounded-card border border-card-border bg-surface-1 p-5">
   <div>
-    <label for="text" class="mb-1 block text-sm font-medium">{{ t('summaries.text', lang) }}</label>
+    <label for="text" class="field-label">{{ t('summaries.text', lang) }}</label>
     <textarea id="text" name="text" rows="5" required
-              class="w-full rounded-card border border-border px-3 py-2 text-sm">{{ summary.text }}</textarea>
+              class="w-full">{{ summary.text }}</textarea>
   </div>
   <div>
-    <label for="lang" class="mb-1 block text-sm font-medium">{{ t('tracks.lang', lang) }}</label>
-    <select id="lang" name="lang" class="rounded-control border border-border px-3 py-2 text-sm">
+    <label for="lang" class="field-label">{{ t('tracks.lang', lang) }}</label>
+    <select id="lang" name="lang">
       <option value="es" {% if summary.lang == 'es' %}selected{% endif %}>es</option>
       <option value="en" {% if summary.lang == 'en' %}selected{% endif %}>en</option>
     </select>
@@ -34,9 +34,9 @@
 
 <form method="post" action="/summaries/{{ summary.id }}/active" class="mt-4">
   <input type="hidden" name="active" value="{{ 'off' if summary.active else 'on' }}">
-  <button type="submit" class="rounded-control border border-border px-3 py-2 text-sm">
+  <button type="submit" class="btn btn-secondary">
     {{ t('common.hide' if summary.active else 'common.reactivate', lang) }}
   </button>
 </form>
-<a href="/summaries/{{ summary.id }}/delete" class="mt-4 inline-block text-sm text-sev-blocker underline">{{ t('common.delete', lang) }}</a>
+<a href="/summaries/{{ summary.id }}/delete" class="btn btn-danger mt-4">{{ t('common.delete', lang) }}</a>
 {% endblock %}

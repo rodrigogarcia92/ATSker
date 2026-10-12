@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ t('roles.new', lang) if not role else role.title }} — {{ t('app.name', lang) }}{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-semibold tracking-tight">
+<h1 class="text-4xl leading-[1.11] tracking-[-0.02em] md:text-5xl">
   {{ t('roles.new', lang) if not role else t('common.edit', lang) }}
 </h1>
 
@@ -11,35 +11,35 @@
     {# F4.2: one title per language. `title` is not a field any more — it is written
        from whichever of the two the role's primary language names. #}
     <div>
-      <label for="title_es" class="mb-1 block text-sm font-medium">{{ t('roles.title_es', lang) }}</label>
+      <label for="title_es" class="field-label">{{ t('roles.title_es', lang) }}</label>
       <input id="title_es" name="title_es"
              value="{{ role.title_es if role and role.title_es else (role.title if role and not role.title_en else '') }}"
-             class="w-full rounded-control border border-border px-3 py-2 text-sm">
+             class="w-full btn btn-secondary">
     </div>
     <div>
-      <label for="title_en" class="mb-1 block text-sm font-medium">{{ t('roles.title_en', lang) }}</label>
+      <label for="title_en" class="field-label">{{ t('roles.title_en', lang) }}</label>
       <input id="title_en" name="title_en" value="{{ role.title_en if role and role.title_en else '' }}"
-             class="w-full rounded-control border border-border px-3 py-2 text-sm">
+             class="w-full btn btn-secondary">
     </div>
   </div>
   <p class="text-xs text-text-3">{{ t('roles.title_hint', lang) }}</p>
   <div>
-    <label for="employer" class="mb-1 block text-sm font-medium">{{ t('roles.employer', lang) }}</label>
+    <label for="employer" class="field-label">{{ t('roles.employer', lang) }}</label>
     <input id="employer" name="employer" required value="{{ role.employer if role else '' }}"
-           class="w-full rounded-control border border-border px-3 py-2 text-sm">
+           class="w-full btn btn-secondary">
   </div>
   <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
     <div>
-      <label for="start_date" class="mb-1 block text-sm font-medium">{{ t('roles.start', lang) }}</label>
+      <label for="start_date" class="field-label">{{ t('roles.start', lang) }}</label>
       <input id="start_date" name="start_date" type="date"
              value="{{ role.start_date.isoformat() if role and role.start_date else '' }}"
-             class="w-full rounded-control border border-border px-3 py-2 text-sm">
+             class="w-full btn btn-secondary">
     </div>
     <div>
-      <label for="end_date" class="mb-1 block text-sm font-medium">{{ t('roles.end', lang) }}</label>
+      <label for="end_date" class="field-label">{{ t('roles.end', lang) }}</label>
       <input id="end_date" name="end_date" type="date"
              value="{{ role.end_date.isoformat() if role and role.end_date else '' }}"
-             class="w-full rounded-control border border-border px-3 py-2 text-sm">
+             class="w-full btn btn-secondary">
     </div>
   </div>
   <p class="text-xs text-text-3">{{ t('roles.dates_hint', lang) }}</p>
