@@ -424,8 +424,9 @@ body.sheet-open {
     padding: 2.5rem 2rem 5rem;
   }
 }
-/* Eight Spanish links plus the wordmark and the avatar need about 900px on one line, so the
-   links and the avatar menu stay folded into the circular button and the sheet below lg. */
+/* Eight Spanish links are about 660px wide; with the wordmark, the avatar and the gutters the
+   bar needs about 860px on one line. From lg (1024) it fits with room to spare; below that the
+   links and the avatar menu stay folded into the circular button and the sheet. */
 @media (min-width: 1024px) {
   .topnav,
   .avatar-menu {
