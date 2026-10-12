@@ -13,7 +13,7 @@
     <a href="/import?track_id={{ cv_track.id }}" class="ml-1 underline">{{ t('analyze.no_cv_link', lang) }}</a>
   </p>
   {% else %}
-  <select id="resume_id" name="resume_id" class="min-h-12 px-4 text-[0.9375rem]">
+  <select id="resume_id" name="resume_id" class="min-h-12">
     <option value="latest" {% if cv_choice in ('', 'latest') %}selected{% endif %}>
       {{ t('analyze.cv_latest', lang, name=cvs[0].filename) }}
     </option>

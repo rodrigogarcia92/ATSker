@@ -28,7 +28,7 @@
   <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
     <div class="field-label">
       <label for="track_id">{{ t('analyze.track', lang) }}</label>
-      <select id="track_id" name="track_id" class="min-h-12 px-4 text-[0.9375rem]">
+      <select id="track_id" name="track_id" class="min-h-12">
         {% if tracks | length != 1 %}
         <option value="">{{ t('analyze.track_pick', lang) }}</option>
         {% endif %}
@@ -89,17 +89,17 @@
   <div class="field-label">
     <label for="jd_text">{{ t('analyze.jd', lang) }}</label>
     <textarea id="jd_text" name="jd_text" rows="10" required
-              class="min-h-[200px] w-full resize-y px-[18px] py-4 text-[0.9375rem] leading-normal">{{ values.jd_text }}</textarea>
+              class="min-h-[200px] w-full resize-y leading-normal">{{ values.jd_text }}</textarea>
     <p class="field-hint">{{ t('analyze.jd_hint', lang) }}</p>
   </div>
   <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
     <div class="field-label">
       <label for="company">{{ t('analyze.company', lang) }}</label>
-      <input id="company" name="company" value="{{ values.company }}" class="min-h-12 w-full px-[18px] text-[0.9375rem]">
+      <input id="company" name="company" value="{{ values.company }}" class="min-h-12 w-full">
     </div>
     <div class="field-label">
       <label for="title">{{ t('analyze.role_title', lang) }}</label>
-      <input id="title" name="title" value="{{ values.title }}" class="min-h-12 w-full px-[18px] text-[0.9375rem]">
+      <input id="title" name="title" value="{{ values.title }}" class="min-h-12 w-full">
     </div>
   </div>
   <p class="field-hint -mt-3">{{ t('analyze.optional_hint', lang) }}</p>

@@ -66,7 +66,7 @@
       <input type="radio" name="destination" value="otro">
       {{ t('attempt.incorporate.otro', lang) }}
     </label>
-    <select name="track_id" class="ml-6 rounded-control border border-border px-2 py-1 text-sm">
+    <select name="track_id" class="ml-6">
       <option value=""></option>
       {% for track in tracks %}<option value="{{ track.id }}">{{ track.name }}</option>{% endfor %}
     </select>
@@ -75,7 +75,7 @@
       {{ t('attempt.incorporate.nuevo', lang) }}
     </label>
     <input type="text" name="new_name" placeholder="{{ t('attempt.incorporate.new_name', lang) }}"
-           class="ml-6 rounded-control border border-border px-2 py-1 text-sm">
+           class="ml-6">
   </fieldset>
   <div class="flex items-center gap-3">
     <button type="submit" class="btn btn-secondary">

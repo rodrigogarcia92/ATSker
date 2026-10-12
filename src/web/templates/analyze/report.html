@@ -77,7 +77,7 @@
   <form method="post" action="/applications/{{ application.id }}/reanalyze"
         class="mt-3 flex flex-wrap items-center gap-3 text-sm" data-progress="analyze">
     <label for="reanalyze-cv" class="sr-only">{{ t('report.reanalyse_label', lang) }}</label>
-    <select id="reanalyze-cv" name="resume_id" class="min-h-10 max-w-full px-4 text-sm">
+    <select id="reanalyze-cv" name="resume_id" class="min-h-10 max-w-full">
       {% for cv in cv_choices %}
       <option value="{{ cv.id }}" {% if cv.id == application.resume_id %}selected{% endif %}>
         {{ t('analyze.cv_option', lang, name=cv.filename, date=(cv.merged_at or cv.uploaded_at).strftime('%Y-%m-%d')) }}
@@ -364,7 +364,7 @@
   {{ t('report.req.gaps_one' if uncovered == 1 else 'report.req.gaps', lang, n=uncovered) }}{% if notes %}
   · {{ t('report.req.could_rise_one' if notes | length == 1 else 'report.req.could_rise', lang, n=notes | length) }}{% endif %}
 </p>
-<p class="mt-1 text-xs text-text-3">{{ t('report.grades_hint', lang) }}</p>
+<p class="field-hint">{{ t('report.grades_hint', lang) }}</p>
 <div id="req-chips" class="mt-4" hidden>
   <p class="text-xs text-text-2">{{ t('report.req.hint', lang) }}</p>
   <div class="mt-3 flex flex-wrap gap-2">
@@ -485,7 +485,7 @@
 <section id="recommendations" class="mt-10">
 <details class="disclosure row-section">
 <summary>
-  <h2 class="text-lg">{{ t('report.advice', lang) }}</h2>
+  <h2 class="text-3xl leading-tight tracking-[-0.01em] md:text-4xl">{{ t('report.advice', lang) }}</h2>
   <span class="row-summary">{{ row_parts | join(' · ') }}</span>
 </summary>
 <div class="pb-6">
@@ -549,7 +549,7 @@
    A report stored before the recommendation existed has none. #}
 <div id="track-ranking" class="card mt-4 p-5">
   <p class="text-sm">{{ t('report.recommendation', lang) }}</p>
-  <p class="mt-1 text-xs text-text-3">{{ t('report.recommendation.intro', lang) }}</p>
+  <p class="field-hint">{{ t('report.recommendation.intro', lang) }}</p>
   {% if report.recommendation.candidates %}
   <div class="mt-2 max-w-full overflow-x-auto rounded-card border border-card-border">
     <table class="w-full text-sm">
@@ -616,7 +616,7 @@
   </p>
   {% endif %}
   {% if report.recommendation.not_graded %}
-  <p class="mt-1 text-xs text-text-3">
+  <p class="field-hint">
     {{ t('report.recommendation.not_graded', lang,
           names=report.recommendation.not_graded | map(attribute='name') | join(', ')) }}
   </p>
@@ -657,7 +657,7 @@
 {%- endmacro %}
 <div id="keywords-card" class="card mt-4 p-5">
   <p class="text-sm">{{ t('report.keywords.title', lang) }}</p>
-  <p class="mt-1 text-xs text-text-3">
+  <p class="field-hint">
     {{ t('report.keywords.intro_file' if advice_for_file else 'report.keywords.intro', lang) }}
     · <span data-keywords-basis>{{ t('report.keywords.calculated', lang) }}</span>
   </p>
@@ -735,7 +735,7 @@
 {% if skipped %}{% set parts = parts + [t('report.ats.count_not_run', lang, n=skipped)] %}{% endif %}
 <details class="disclosure row-section row-last"{% if blockers %} open{% endif %}>
   <summary class="flex-wrap gap-y-1">
-    <h2 class="text-lg">{{ t('report.scan_readability_question', lang) }}</h2>
+    <h2 class="text-3xl leading-tight tracking-[-0.01em] md:text-4xl">{{ t('report.scan_readability_question', lang) }}</h2>
     <span class="row-summary flex flex-wrap items-center justify-end gap-2">
       {% if blockers %}
       {{ ui.severity('blocker', t('report.ats.blockers_one' if blockers == 1 else 'report.ats.blockers', lang, n=blockers)) }}
@@ -751,7 +751,7 @@
   </div>
 </details>
 {% else %}
-<h2 class="text-lg">{{ t('report.scan_readability_question', lang) }}</h2>
+<h2 class="text-3xl leading-tight tracking-[-0.01em] md:text-4xl">{{ t('report.scan_readability_question', lang) }}</h2>
 <p class="mt-1 text-sm text-text-2">{{ t('report.scan_no_document', lang) }}</p>
 {% endif %}
 </section>
@@ -772,7 +772,7 @@
 
 {% if report.disqualifiers %}
 <p class="mt-3 text-sm">{{ t('report.disqualifiers', lang) }}</p>
-<p class="mt-1 text-xs text-text-3">{{ t('report.disqualifiers_hint', lang) }}</p>
+<p class="field-hint">{{ t('report.disqualifiers_hint', lang) }}</p>
 {# F6.1: three-way verdicts, beside the score and never inside it. `unverified` is
    the honest default and is never rendered as `met`. #}
 <ul class="mt-2 space-y-2">
@@ -961,7 +961,7 @@
     </div>
     {% endfor %}
     {% if report.llm.calls | selectattr('ledger_error') | list %}
-    <div class="rounded-card border border-slate px-3 py-2 text-xs text-sev-warning">
+    <div class="rounded-card border border-slate px-3 py-2 text-xs text-slate">
       {{ t('common.ledger_unrecorded', lang) }}
     </div>
     {% endif %}

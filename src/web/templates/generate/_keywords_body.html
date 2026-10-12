@@ -7,7 +7,7 @@
 {% set dialog = dialog | default(false) %}
 
 {% if error %}
-<p role="alert" class="mt-4 rounded-card border border-sev-warning px-3 py-2 text-sm text-sev-warning">{{ error }}</p>
+<p role="alert" class="mt-4 rounded-card border border-ink px-4 py-3 text-sm text-ink">{{ error }}</p>
 {% endif %}
 
 {% if items is none and not remaining %}
@@ -41,7 +41,7 @@
         <span class="tag">{{ t('report.keywords.basis.inferred', lang) }}</span>
         <button type="button" data-copy="{{ item.keyword }}"
                 aria-label="{{ t('report.keywords.copy', lang, keyword=item.keyword) }}"
-                class="min-h-11 rounded-tag border border-border px-2 py-0.5 text-xs text-text-2 hover:bg-surface-2"
+                class="btn btn-tertiary"
                 onclick="navigator.clipboard.writeText(this.dataset.copy)">{{ t('recall.copy', lang) }}</button>
       </p>
       <p class="mt-2 text-sm text-text-2">{{ item.reason }}</p>
@@ -63,10 +63,10 @@
       </p>
       {% if item.draft %}
       <div class="mt-2 rounded-card border border-card-border bg-bg p-3">
-        <p class="text-xs uppercase tracking-wide text-text-3">{{ t('keywords.infer.draft', lang) }}</p>
+        <p class="text-xs text-text-3">{{ t('keywords.infer.draft', lang) }}</p>
         <p class="mt-1 text-sm" data-draft>{{ item.draft }}</p>
         <button type="button"
-                class="mt-2 min-h-11 rounded-tag border border-border px-2 py-0.5 text-xs text-text-2 hover:bg-surface-2"
+                class="mt-2 btn btn-tertiary"
                 onclick="navigator.clipboard.writeText(this.previousElementSibling.textContent.trim())">{{ t('keywords.infer.copy_draft', lang) }}</button>
       </div>
       {% endif %}

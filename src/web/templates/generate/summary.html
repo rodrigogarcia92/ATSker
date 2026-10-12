@@ -4,9 +4,9 @@
 {% block title %}{{ t('generate.title', lang) }} — {{ t('app.name', lang) }}{% endblock %}
 {% block width %}max-w-5xl{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-semibold tracking-tight">{{ t('generate.title', lang) }}</h1>
+<h1 class="text-4xl leading-[1.11] tracking-[-0.02em] md:text-5xl">{{ t('generate.title', lang) }}</h1>
 <p class="mt-1 text-sm text-text-2">{{ t('generate.intro', lang) }}</p>
-<p class="mt-1 text-xs text-text-3">
+<p class="field-hint">
   {{ application.title or t('report.title', lang) }} · {{ track.name }} · {{ language }}
 </p>
 

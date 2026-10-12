@@ -70,7 +70,7 @@
   <p class="text-text-3">{{ t('attempt.flags.none', lang) }}</p>
   {% endif %}
   {% if view.flags.above_ceiling %}
-  <p class="text-sev-warning">{{ t('attempt.flags.above_ceiling', lang) }}</p>
+  <p class="text-slate">{{ t('attempt.flags.above_ceiling', lang) }}</p>
   {% endif %}
 
   {# 6 — What's left: the open F7.2 advice, worded for the document. #}
@@ -130,7 +130,7 @@
     </a>
   </div>
   {% if view.is_sent %}
-  <p class="text-xs text-score-strong">{{ t('attempt.sent_done', lang) }}</p>
+  <p class="text-xs text-forest">{{ t('attempt.sent_done', lang) }}</p>
   {% endif %}
 
   {# Cost (C.0 answer 6) and 9 — the full report. #}

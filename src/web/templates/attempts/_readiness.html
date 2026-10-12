@@ -3,7 +3,7 @@
 <section class="mt-3 rounded-card border border-card-border bg-surface-1 p-3 text-sm">
   <h3>{{ t('attempt.ready.title', lang) }}</h3>
   {% if readiness.ready %}
-  <p class="mt-1 text-score-strong">
+  <p class="mt-1 text-forest">
     {% if readiness.unreachable %}
     {{ t('attempt.ready.message', lang, gaps=readiness.unreachable | map(attribute='requirement') | join(', ')) }}
     {% else %}
@@ -43,7 +43,7 @@
       {{ t('attempt.ready.target_label', lang, ceiling_high=readiness.ceiling_high) }}
       <input type="number" name="target" min="0" max="{{ readiness.ceiling_high or 100 }}"
              value="{{ readiness.target if readiness.target is not none else '' }}"
-             class="ml-1 w-16 rounded-control border border-border px-2 py-1 text-sm">
+             class="ml-1 w-16">
     </label>
     <button type="submit" class="btn btn-secondary">
       {{ t('attempt.ready.target_save', lang) }}

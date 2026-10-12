@@ -4,14 +4,14 @@
 {% import "_ui.html" as ui with context %}
 {% block title %}{{ t('generate.rephrase_title', lang) }} — {{ t('app.name', lang) }}{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-semibold tracking-tight">{{ t('generate.rephrase_title', lang) }}</h1>
+<h1 class="text-4xl leading-[1.11] tracking-[-0.02em] md:text-5xl">{{ t('generate.rephrase_title', lang) }}</h1>
 <p class="mt-1 text-sm text-text-2">{{ t('generate.rephrase_intro', lang) }}</p>
-<p class="mt-1 text-xs text-text-3">
+<p class="field-hint">
   {{ application.title or t('report.title', lang) }} · {{ language }}
 </p>
 
 {% if error %}
-<p class="mt-4 rounded-control border border-sev-warning px-3 py-2 text-sm text-sev-warning">{{ error }}</p>
+<p class="mt-4 rounded-card border border-ink px-4 py-3 text-sm text-ink">{{ error }}</p>
 {% endif %}
 
 {% set output = refused or (proposal.output if proposal else none) %}
@@ -33,21 +33,21 @@
   {% else %}
   <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
     <div class="min-w-0 rounded-card border border-card-border bg-surface-1 p-4">
-      <p class="text-xs uppercase tracking-wide text-text-3">{{ t('generate.current_bullet', lang) }}</p>
+      <p class="text-xs text-text-3">{{ t('generate.current_bullet', lang) }}</p>
       <p class="mt-2 text-sm text-text-2">{{ current_text or t('generate.empty_bullet', lang) }}</p>
     </div>
-    <div class="min-w-0 rounded-card border border-score-strong bg-surface-1 p-4">
-      <p class="text-xs uppercase tracking-wide text-text-3">{{ t('generate.proposed', lang) }}</p>
+    <div class="min-w-0 rounded-card border border-forest bg-surface-1 p-4">
+      <p class="text-xs text-text-3">{{ t('generate.proposed', lang) }}</p>
       <p class="mt-2 text-sm" id="proposal-text">{{ output.text }}</p>
       <button type="button"
-              class="mt-3 rounded-tag border border-border px-2 py-0.5 text-xs text-text-2 hover:bg-surface-2"
+              class="mt-3 btn btn-tertiary"
               onclick="navigator.clipboard.writeText(document.getElementById('proposal-text').textContent.trim())">
         {{ t('recall.copy', lang) }}
       </button>
     </div>
   </div>
   {% if is_translation %}
-  <p class="mt-3 rounded-control border border-sev-info px-3 py-2 text-xs text-sev-info">
+  <p class="mt-3 rounded-card border border-slate px-3 py-2 text-xs text-pewter">
     {{ t('generate.suggested_translation', lang) }}
   </p>
   {% endif %}

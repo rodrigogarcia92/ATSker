@@ -7,7 +7,7 @@
 {% if not findings_embedded %}
 <h2 class="mt-8 text-3xl leading-tight tracking-[-0.01em]">{{ findings_heading or t('import.findings', lang) }}</h2>
 {% endif %}
-<p class="mt-1 text-xs text-text-3">{{ t('import.findings_hint', lang) }}</p>
+<p class="field-hint">{{ t('import.findings_hint', lang) }}</p>
 
 {% if findings %}
 <ul class="mt-3 space-y-2">
@@ -25,7 +25,7 @@
       <a href="/import/{{ findings_resume.id }}/findings/{{ finding.index }}"
          class="link mt-1 inline-block text-xs">{{ t('import.show_where', lang) }}</a>
       {% else %}
-      <span class="mt-1 block text-xs text-text-3">{{ t('import.location_pdf_only', lang) }}</span>
+      <span class="field-hint">{{ t('import.location_pdf_only', lang) }}</span>
       {% endif %}
     {% endif %}
   </li>
@@ -44,6 +44,6 @@
   <ul class="mt-1 list-inside list-disc text-xs text-text-3">
     {% for check in not_run %}<li>{{ t('gate.check.' ~ check, lang) }}</li>{% endfor %}
   </ul>
-  <p class="mt-1 text-xs text-text-3">{{ t('import.not_run_hint', lang) }}</p>
+  <p class="field-hint">{{ t('import.not_run_hint', lang) }}</p>
 </div>
 {% endif %}
