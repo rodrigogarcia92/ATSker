@@ -1,0 +1,271 @@
+{# §12.8's landing, for visitors with no session. It is its own document — the mockup
+   `private_docs/design/v3/Landing.dc.html` is the reference for look, spacing and copy —
+   because the shell's rail is for signed-in pages and this page carries its own header and
+   footer. Nothing here posts and nothing here calls a provider: it is one GET.
+
+   The hero's grey ribbon is the mockup's inline SVG, decorative and `aria-hidden`, drawn
+   with the stone token. The preview card is static sample data (no product image exists
+   until N8.18); its terms and figures are the mockup's. #}
+{%- macro mark_intense(text) -%}
+<mark class="rounded-[3px] bg-lime px-[2px] text-ink">{{ text }}</mark>
+{%- endmacro -%}
+{%- macro mark_base(text) -%}
+<mark class="rounded-[3px] bg-highlight-base px-[2px] text-ink">{{ text }}</mark>
+{%- endmacro -%}
+{%- macro mark_weak(text) -%}
+<mark class="border-b-2 border-dashed border-forest bg-transparent text-ink">{{ text }}</mark>
+{%- endmacro -%}
+{%- macro section_link(href, label) -%}
+<a href="{{ href }}" class="hover:text-ink">{{ label }}</a>
+{%- endmacro -%}
+<!doctype html>
+<html lang="{{ lang }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>{{ t('app.name', lang) }} — {{ t('app.tagline', lang) }}</title>
+  {# The same one Google Fonts request the shell makes; no font file is committed. #}
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400&family=Geist+Mono:wght@400&display=swap">
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body class="bg-paper font-sans text-ink">
+
+  <div class="flex flex-wrap items-center justify-center gap-3 bg-highlight-base px-4 py-2 text-[13px]">
+    <span>{{ t('landing.announce', lang) }}</span>
+    <a href="https://github.com/rodrigogarcia92/ATSker"
+       class="rounded-pill bg-ink px-3 py-1 text-[12px] text-paper">{{ t('landing.announce.link', lang) }}</a>
+  </div>
+
+  <header class="mx-auto flex max-w-[1200px] flex-wrap items-center justify-between gap-4 px-6 py-5 sm:px-8">
+    <span class="text-[20px] tracking-[-0.01em]">atsker</span>
+    <nav aria-label="{{ t('landing.nav.label', lang) }}" class="flex flex-wrap gap-6 text-sm text-slate">
+      {{ section_link('#brechas', t('landing.nav.gaps', lang)) }}
+      {{ section_link('#como-funciona', t('landing.nav.how', lang)) }}
+      {{ section_link('#privacidad', t('landing.nav.privacy', lang)) }}
+    </nav>
+    <div class="flex items-center gap-4 text-sm">
+      <a href="/?lang={{ 'en' if lang == 'es' else 'es' }}"
+         hreflang="{{ 'en' if lang == 'es' else 'es' }}"
+         aria-label="{{ t('nav.language', lang) }}"
+         class="text-slate hover:text-ink">{{ 'EN' if lang == 'es' else 'ES' }}</a>
+      <a href="/login"
+         class="inline-flex min-h-11 items-center rounded-pill bg-forest px-4 text-paper">{{ t('landing.login', lang) }}</a>
+    </div>
+  </header>
+
+  <section class="relative overflow-hidden">
+    <svg aria-hidden="true" viewBox="0 0 1440 640" preserveAspectRatio="xMidYMid slice"
+         class="absolute inset-0 h-full w-full">
+      <defs>
+        <linearGradient id="ribbon-a" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" class="ribbon-fade"></stop>
+          <stop offset="0.5" class="ribbon-strong"></stop>
+          <stop offset="1" class="ribbon-fade"></stop>
+        </linearGradient>
+        <linearGradient id="ribbon-b" x1="1" y1="0" x2="0" y2="1">
+          <stop offset="0" class="ribbon-fade"></stop>
+          <stop offset="0.5" class="ribbon-soft"></stop>
+          <stop offset="1" class="ribbon-fade"></stop>
+        </linearGradient>
+      </defs>
+      <path d="M-80 520 C 260 120, 520 640, 820 300 S 1300 40, 1540 260 L 1540 330 C 1300 120, 1060 420, 820 380 S 260 220, -80 600 Z"
+            fill="url(#ribbon-a)"></path>
+      <path d="M-80 220 C 300 520, 600 60, 900 260 S 1320 560, 1540 420 L 1540 470 C 1320 620, 1000 340, 880 320 S 300 600, -80 290 Z"
+            fill="url(#ribbon-b)"></path>
+    </svg>
+    <div class="relative mx-auto flex max-w-[1200px] flex-col items-center gap-6 px-6 py-20 text-center sm:px-8 sm:py-24 lg:py-[120px]">
+      <span class="text-[13px] text-slate">{{ t('landing.hero.eyebrow', lang) }}</span>
+      <h1 class="m-0 max-w-[980px] text-[40px] leading-none tracking-[-0.03em] sm:text-[56px] lg:text-[72px]">{{ t('landing.hero.headline', lang) }}</h1>
+      <p class="m-0 max-w-[640px] text-[18px] leading-[1.38] text-slate">{{ t('landing.hero.subline', lang) }}</p>
+      <div class="flex flex-wrap items-center justify-center gap-5 pt-2">
+        <a href="/login"
+           class="inline-flex min-h-12 items-center rounded-pill bg-forest px-6 text-[15px] text-paper">{{ t('landing.login', lang) }}</a>
+        {% if demo_enabled %}
+        <a href="/demo"
+           class="inline-flex min-h-12 items-center rounded-pill border border-hairline px-6 text-[15px]">{{ t('landing.demo', lang) }}</a>
+        {% endif %}
+        <a href="https://github.com/rodrigogarcia92/ATSker"
+           class="text-[15px] underline underline-offset-[3px]">{{ t('landing.github', lang) }}</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="mx-auto max-w-[1120px] px-6 pb-20 sm:px-8">
+    <div class="landing-card grid grid-cols-1 gap-7 rounded-card border border-hairline bg-paper p-7 lg:grid-cols-2">
+      <div class="rounded-[16px] bg-vellum p-6 text-[13px] leading-[1.71]">
+        <div class="text-[18px]">Ana Rivas</div>
+        <div class="text-slate">{{ t('landing.preview.role', lang) }}</div>
+        <p class="mt-3">{{ t('landing.preview.bullet.one', lang, term=mark_intense('SQL'))|safe }}</p>
+        <p class="mt-2">{{ t('landing.preview.bullet.two', lang, term=mark_base(t('landing.preview.bullet.two.term', lang)))|safe }}</p>
+        <p class="mt-2">{{ t('landing.preview.bullet.three', lang, term=mark_weak('Power BI'))|safe }}</p>
+      </div>
+      <div class="flex flex-col gap-4">
+        <div class="text-[12px] text-slate">{{ t('landing.preview.caption', lang) }}</div>
+        <div class="flex items-baseline gap-2.5">
+          <span class="text-[60px] leading-none tracking-[-0.03em]">82</span>
+          <span class="text-forest">{{ t('ui.band.strong', lang) }}</span>
+        </div>
+        <div class="grid grid-cols-2 gap-3 text-[12px] text-slate sm:grid-cols-4">
+          <span>{{ t('landing.preview.sub.skills', lang) }}<br><span class="text-[24px] text-ink">85</span></span>
+          <span>{{ t('landing.preview.sub.experience', lang) }}<br><span class="text-[24px] text-ink">90</span></span>
+          <span>{{ t('landing.preview.sub.title', lang) }}<br><span class="text-[24px] text-ink">75</span></span>
+          <span>{{ t('landing.preview.sub.keywords', lang) }}<br><span class="text-[24px] text-ink">68</span></span>
+        </div>
+        <div class="flex flex-wrap gap-1.5">
+          <span class="rounded-pill bg-lime px-2.5 py-1 text-[12px]">SQL · 3/3</span>
+          <span class="rounded-pill border border-hairline px-2.5 py-1 text-[12px]">Power BI · 1/3</span>
+          <span class="rounded-pill border border-dashed border-slate px-2.5 py-1 text-[12px]">Looker · 0/3</span>
+        </div>
+        <div class="text-[12px] text-slate">{{ t('landing.preview.sample', lang) }}</div>
+      </div>
+    </div>
+  </section>
+
+  <div class="mx-auto flex max-w-[1200px] items-center gap-4 px-6 text-sm text-slate sm:px-8">
+    <span class="h-px flex-1 bg-hairline"></span>{{ t('landing.gaps.divider', lang) }}<span class="h-px flex-1 bg-hairline"></span>
+  </div>
+
+  <section id="brechas" class="reveal mx-auto flex max-w-[1200px] flex-col gap-10 px-6 pt-16 pb-20 sm:px-8">
+    <h2 class="m-0 text-center text-[32px] leading-[1.1] tracking-[-0.02em] sm:text-[44px] lg:text-[60px]">{{ t('landing.gaps.title', lang) }}</h2>
+    <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
+      <div class="flex flex-col gap-3 rounded-card bg-vellum p-7">
+        <span class="flex h-10 w-10 items-center justify-center rounded-full bg-paper text-sm">1</span>
+        <span class="text-[18px]">{{ t('landing.gaps.discard.title', lang) }}</span>
+        <span class="text-sm leading-[1.43] text-slate">{{ t('landing.gaps.discard.body', lang) }}</span>
+      </div>
+      <div class="flex flex-col gap-3 rounded-card bg-vellum p-7">
+        <span class="flex h-10 w-10 items-center justify-center rounded-full bg-paper text-sm">2</span>
+        <span class="text-[18px]">{{ t('landing.gaps.transfer.title', lang) }}</span>
+        <span class="text-sm leading-[1.43] text-slate">{{ t('landing.gaps.transfer.body', lang) }}</span>
+      </div>
+      <div class="flex flex-col gap-3 rounded-card bg-vellum p-7">
+        <span class="flex h-10 w-10 items-center justify-center rounded-full bg-lime text-sm">3</span>
+        <span class="text-[18px]">{{ t('landing.gaps.close.title', lang) }}</span>
+        <span class="text-sm leading-[1.43] text-slate">{{ t('landing.gaps.close.body', lang) }}</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="reveal mx-auto grid max-w-[1200px] grid-cols-1 gap-4 px-6 pb-20 sm:px-8 lg:grid-cols-2">
+    <div class="flex flex-col gap-3 rounded-card border border-hairline p-8">
+      <h2 class="m-0 text-[28px] leading-[1.25] sm:text-[36px]">{{ t('landing.questions.ats.title', lang) }}</h2>
+      <p class="m-0 text-base leading-normal text-slate">{{ t('landing.questions.ats.body', lang) }}</p>
+    </div>
+    <div class="flex flex-col gap-3 rounded-card border border-hairline p-8">
+      <h2 class="m-0 text-[28px] leading-[1.25] sm:text-[36px]">{{ t('landing.questions.recruiter.title', lang) }}</h2>
+      <p class="m-0 text-base leading-normal text-slate">{{ t('landing.questions.recruiter.body', lang) }}</p>
+      <code class="self-start rounded-sm bg-vellum px-3 py-2 font-mono text-[13px]">"data analyst" AND (sql OR python)</code>
+    </div>
+  </section>
+
+  <section class="reveal mx-auto flex max-w-[1200px] flex-col gap-6 px-6 pb-20 sm:px-8">
+    <div class="flex items-center gap-4 text-sm text-slate">
+      <span class="h-px flex-1 bg-hairline"></span>{{ t('landing.what.divider', lang) }}<span class="h-px flex-1 bg-hairline"></span>
+    </div>
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <div class="flex flex-col gap-2.5 rounded-card bg-vellum p-6">
+        <span class="text-base">{{ t('landing.what.import.title', lang) }}</span>
+        <span class="text-sm leading-[1.43] text-slate">{{ t('landing.what.import.body', lang) }}</span>
+      </div>
+      <div class="flex flex-col gap-2.5 rounded-card bg-vellum p-6">
+        <span class="text-base">{{ t('landing.what.tracks.title', lang) }}</span>
+        <span class="text-sm leading-[1.43] text-slate">{{ t('landing.what.tracks.body', lang) }}</span>
+      </div>
+      <div class="flex flex-col gap-2.5 rounded-card bg-vellum p-6">
+        <span class="text-base">{{ t('landing.what.report.title', lang) }}</span>
+        <span class="text-sm leading-[1.43] text-slate">{{ t('landing.what.report.body', lang) }}</span>
+      </div>
+      <div class="flex flex-col gap-2.5 rounded-card bg-vellum p-6">
+        <span class="text-base">{{ t('landing.what.ceiling.title', lang) }}</span>
+        <span class="text-sm leading-[1.43] text-slate">{{ t('landing.what.ceiling.body', lang) }}</span>
+      </div>
+      <div class="flex flex-col gap-2.5 rounded-card bg-vellum p-6">
+        <span class="text-base">{{ t('landing.what.writing.title', lang) }}</span>
+        <span class="text-sm leading-[1.43] text-slate">{{ t('landing.what.writing.body', lang) }}</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="reveal mx-auto mb-20 max-w-[1200px] px-6 sm:px-8">
+    <div class="flex flex-col gap-8 rounded-lg bg-forest p-8 text-paper sm:p-12 lg:p-16">
+      <span class="text-[13px] text-lime">{{ t('landing.honest.eyebrow', lang) }}</span>
+      <h2 class="m-0 max-w-[900px] text-[28px] leading-[1.11] tracking-[-0.02em] sm:text-[36px] lg:text-[48px]">{{ t('landing.honest.title', lang) }}</h2>
+      <div class="grid grid-cols-1 gap-6 sm:grid-cols-3">
+        <div class="flex flex-col gap-1.5 border-t border-paper/25 pt-4">
+          <span class="text-base">{{ t('landing.honest.provenance.title', lang) }}</span>
+          <span class="text-sm leading-[1.43] text-paper/80">{{ t('landing.honest.provenance.body', lang) }}</span>
+        </div>
+        <div class="flex flex-col gap-1.5 border-t border-paper/25 pt-4">
+          <span class="text-base">{{ t('landing.honest.literal.title', lang) }}</span>
+          <span class="text-sm leading-[1.43] text-paper/80">{{ t('landing.honest.literal.body', lang) }}</span>
+        </div>
+        <div class="flex flex-col gap-1.5 border-t border-paper/25 pt-4">
+          <span class="text-base">{{ t('landing.honest.closure.title', lang) }}</span>
+          <span class="text-sm leading-[1.43] text-paper/80">{{ t('landing.honest.closure.body', lang) }}</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="como-funciona" class="reveal mx-auto flex max-w-[1200px] flex-col gap-8 px-6 pb-20 sm:px-8">
+    <h2 class="m-0 text-center text-[32px] leading-[1.11] tracking-[-0.02em] sm:text-[44px] lg:text-[48px]">{{ t('landing.how.title', lang) }}</h2>
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div class="flex flex-col gap-2 rounded-card border border-hairline p-7">
+        <span class="text-[36px] leading-[1.25] text-slate">01</span>
+        <span class="text-[18px]">{{ t('landing.how.cv.title', lang) }}</span>
+        <span class="text-sm text-slate">{{ t('landing.how.cv.body', lang) }}</span>
+      </div>
+      <div class="flex flex-col gap-2 rounded-card border border-hairline p-7">
+        <span class="text-[36px] leading-[1.25] text-slate">02</span>
+        <span class="text-[18px]">{{ t('landing.how.posting.title', lang) }}</span>
+        <span class="text-sm text-slate">{{ t('landing.how.posting.body', lang) }}</span>
+      </div>
+      <div class="flex flex-col gap-2 rounded-card border border-hairline p-7">
+        <span class="text-[36px] leading-[1.25] text-slate">03</span>
+        <span class="text-[18px]">{{ t('landing.how.report.title', lang) }}</span>
+        <span class="text-sm text-slate">{{ t('landing.how.report.body', lang) }}</span>
+      </div>
+    </div>
+  </section>
+
+  <section id="privacidad" class="reveal mx-auto max-w-[1200px] px-6 pb-20 sm:px-8">
+    <div class="flex flex-col gap-3 rounded-card bg-vellum p-10">
+      <h2 class="m-0 text-[28px] leading-[1.25] sm:text-[36px]">{{ t('landing.privacy.title', lang) }}</h2>
+      <p class="m-0 max-w-[860px] text-base leading-normal text-pewter">{{ t('landing.privacy.body', lang) }}</p>
+    </div>
+  </section>
+
+  <footer class="border-t border-hairline">
+    <div class="mx-auto flex max-w-[1200px] flex-wrap justify-between gap-4 px-6 pt-8 pb-12 text-sm text-slate sm:px-8">
+      <span>{{ t('landing.footer.note', lang) }}</span>
+      <a href="https://github.com/rodrigogarcia92/ATSker"
+         class="underline underline-offset-[3px]">{{ t('landing.footer.github', lang) }}</a>
+    </div>
+  </footer>
+
+  <script>
+    // §12.8's reveal on scroll, for browsers without scroll-driven animations: the observer
+    // adds the class the stylesheet keys its hidden state on, one element at a time. Without
+    // JavaScript nothing is hidden; under reduced motion neither path runs. No library.
+    (function () {
+      var reveal = document.querySelectorAll('.reveal');
+      if (!reveal.length) return;
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+      if (window.CSS && CSS.supports && CSS.supports('animation-timeline: view()')) return;
+      if (!('IntersectionObserver' in window)) return;
+      document.documentElement.classList.add('reveal-js');
+      var observer = new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry) {
+          if (!entry.isIntersecting) return;
+          entry.target.classList.add('is-visible');
+          observer.unobserve(entry.target);
+        });
+      }, { rootMargin: '0px 0px -10% 0px' });
+      reveal.forEach(function (item) { observer.observe(item); });
+    })();
+  </script>
+</body>
+</html>

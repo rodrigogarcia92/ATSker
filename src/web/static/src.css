@@ -852,3 +852,67 @@ body.sheet-open {
 .advice-evidence:has(details[open]) > .advice-clamp {
   display: none;
 }
+
+/* The landing's preview card (§12.8, design v3 §3): the one soft shadow in the system, the
+   same four layers as the CV sheet. Every other card on the page stays flat. */
+.landing-card {
+  box-shadow:
+    rgba(207, 207, 207, 0.01) 0 132px 53px,
+    rgba(207, 207, 207, 0.05) 0 74px 44px,
+    rgba(207, 207, 207, 0.09) 0 33px 33px,
+    rgba(207, 207, 207, 0.1) 0 8px 18px;
+}
+
+/* The landing hero's ribbon (§12.8): one decorative stroke of stone behind the headline,
+   drawn as an inline SVG that is hidden from assistive technology. Stone is a fill here,
+   never a border and never text. */
+.ribbon-fade {
+  stop-color: var(--stone);
+  stop-opacity: 0;
+}
+.ribbon-soft {
+  stop-color: var(--stone);
+  stop-opacity: 0.45;
+}
+.ribbon-strong {
+  stop-color: var(--stone);
+  stop-opacity: 0.55;
+}
+
+/* The landing's reveal on scroll (§12.8, design v3 §5): a fade and a short rise, and nothing
+   hidden on its own. Two paths, both inside `prefers-reduced-motion: no-preference`:
+   - a browser with scroll-driven animations animates each element against its own entry,
+     with no script at all;
+   - otherwise the landing's script adds the class `reveal-js` to <html> and the class
+     `is-visible` to each element as it enters. Without JavaScript neither class exists, so
+     the page is simply visible. */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes landing-reveal {
+    from {
+      opacity: 0;
+      transform: translateY(16px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  @supports (animation-timeline: view()) {
+    .reveal {
+      animation: landing-reveal linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 30%;
+    }
+  }
+  @supports not (animation-timeline: view()) {
+    .reveal-js .reveal {
+      opacity: 0;
+      transform: translateY(16px);
+      transition: opacity 0.6s ease, transform 0.6s ease;
+    }
+    .reveal-js .reveal.is-visible {
+      opacity: 1;
+      transform: none;
+    }
+  }
+}

@@ -16,6 +16,229 @@ STRINGS: dict[str, dict[str, str]] = {
         "es": "Evaluación de ajuste entre tu currículum y una oferta",
         "en": "How well your résumé matches a job posting",
     },
+    # §12.8 landing (lane C)
+    # The logged-out page at `/`: its copy is the approved mockup's
+    # (`private_docs/design/v3/Landing.dc.html`), which follows §12.8 and the README. The
+    # preview card is static sample data — no product image exists until N8.18 — so its
+    # figures and terms are literals here, not a second report.
+    "landing.announce": {
+        "es": "La demo pública, gratis y sin registro, está en camino.",
+        "en": "The public demo, free and without sign-up, is on its way.",
+    },
+    "landing.announce.link": {"es": "Ver el proyecto", "en": "See the project"},
+    "landing.nav.label": {"es": "Secciones", "en": "Sections"},
+    "landing.nav.gaps": {"es": "Brechas", "en": "Gaps"},
+    "landing.nav.how": {"es": "Cómo funciona", "en": "How it works"},
+    "landing.nav.privacy": {"es": "Privacidad", "en": "Privacy"},
+    "landing.login": {"es": "Iniciar sesión", "en": "Log in"},
+    "landing.demo": {"es": "Probar la demo", "en": "Try the demo"},
+    "landing.hero.eyebrow": {
+        "es": "Con IA · En español y en inglés",
+        "en": "AI-powered · Spanish and English",
+    },
+    "landing.hero.headline": {
+        "es": "Tú controlas tu CV. ATSker te ayuda a afinarlo para cada oferta.",
+        "en": "You control your CV. ATSker helps you tune it for every job.",
+    },
+    "landing.hero.subline": {
+        "es": (
+            "Tu puntaje, sin caja negra. Tus brechas, a la vista. "
+            "Consejos que puedes aplicar hoy."
+        ),
+        "en": "Your score, no black box. Your gaps, in plain sight. Advice you can apply today.",
+    },
+    "landing.github": {"es": "Ver en GitHub", "en": "See it on GitHub"},
+    "landing.preview.role": {"es": "Analista de datos", "en": "Data analyst"},
+    # The `{term}` placeholder is the highlighted word in each bullet; the template wraps
+    # it in the §12.7 mark, so the sentence stays whole in one string.
+    "landing.preview.bullet.one": {
+        "es": (
+            "Automaticé el reporte semanal de cobranzas con Python y {term}, "
+            "reduciendo 30% el tiempo de cierre."
+        ),
+        "en": (
+            "I automated the weekly collections report with Python and {term}, "
+            "cutting close time by 30%."
+        ),
+    },
+    "landing.preview.bullet.two": {
+        "es": "{term} para el data mart de riesgo.",
+        "en": "{term} for the risk data mart.",
+    },
+    "landing.preview.bullet.two.term": {
+        "es": "Modelé un esquema dimensional",
+        "en": "I modelled a dimensional schema",
+    },
+    "landing.preview.bullet.three": {
+        "es": "Diseñé tableros en {term} para el equipo comercial.",
+        "en": "I designed {term} dashboards for the sales team.",
+    },
+    "landing.preview.caption": {"es": "Ajuste general · ejemplo", "en": "Overall fit · example"},
+    "landing.preview.sub.skills": {"es": "Habilidades", "en": "Skills"},
+    "landing.preview.sub.experience": {"es": "Experiencia", "en": "Experience"},
+    "landing.preview.sub.title": {"es": "Título", "en": "Title"},
+    "landing.preview.sub.keywords": {"es": "Palabras", "en": "Keywords"},
+    "landing.preview.sample": {"es": "Datos de ejemplo", "en": "Sample data"},
+    "landing.gaps.divider": {"es": "El análisis de brechas", "en": "The gap analysis"},
+    "landing.gaps.title": {
+        "es": "Antes de postular, conoce tus brechas",
+        "en": "Before you apply, know your gaps",
+    },
+    "landing.gaps.discard.title": {"es": "Lo que te descarta", "en": "What rules you out"},
+    "landing.gaps.discard.body": {
+        "es": "Los requisitos imprescindibles que tu CV no muestra, primero.",
+        "en": "The must-have requirements your CV does not show, first.",
+    },
+    "landing.gaps.transfer.title": {"es": "Lo cubierto por transferencia", "en": "What transfers"},
+    "landing.gaps.transfer.body": {
+        "es": (
+            "Lo que acreditas con una herramienta equivalente, y el argumento "
+            "que conviene preparar."
+        ),
+        "en": "What you can prove with an equivalent tool, and the argument worth preparing.",
+    },
+    "landing.gaps.close.title": {
+        "es": "Lo que puedes cerrar hoy",
+        "en": "What you can close today",
+    },
+    "landing.gaps.close.body": {
+        "es": (
+            "Lo que tu material ya cubre y tu CV no dice, separado de lo que "
+            "solo la experiencia cerrará."
+        ),
+        "en": (
+            "What your material already covers and your CV does not say, apart "
+            "from what only experience will close."
+        ),
+    },
+    "landing.questions.ats.title": {
+        "es": "¿El ATS puede leer tu CV?",
+        "en": "Can the ATS read your CV?",
+    },
+    "landing.questions.ats.body": {
+        "es": (
+            "Texto oculto, contacto en el encabezado, tablas y columnas, cada "
+            "uno con «muéstrame dónde»."
+        ),
+        "en": (
+            "Hidden text, contact details in the header, tables and columns, "
+            "each with “show me where”."
+        ),
+    },
+    "landing.questions.recruiter.title": {
+        "es": "¿Te encuentra el reclutador?",
+        "en": "Will the recruiter find you?",
+    },
+    "landing.questions.recruiter.body": {
+        "es": (
+            "Las búsquedas que correría un reclutador, listas para copiar, con "
+            "«apareces» o «no apareces»."
+        ),
+        "en": (
+            "The searches a recruiter would run, ready to copy, with “you appear” "
+            "or “you do not”."
+        ),
+    },
+    "landing.what.divider": {"es": "Qué hace", "en": "What it does"},
+    "landing.what.import.title": {"es": "Importa una vez", "en": "Import once"},
+    "landing.what.import.body": {
+        "es": "Revisas lo extraído antes de guardar nada.",
+        "en": "You review what was extracted before anything is saved.",
+    },
+    "landing.what.tracks.title": {"es": "Líneas de carrera", "en": "Career tracks"},
+    "landing.what.tracks.body": {
+        "es": "La misma experiencia, para cada tipo de puesto.",
+        "en": "The same experience, for each kind of role.",
+    },
+    "landing.what.report.title": {"es": "El informe", "en": "The report"},
+    "landing.what.report.body": {
+        "es": "De 0 a 100, en cuatro partes que un reclutador reconoce.",
+        "en": "From 0 to 100, in four parts a recruiter recognises.",
+    },
+    "landing.what.ceiling.title": {
+        "es": "Prueba el archivo que vas a enviar",
+        "en": "Test the file you will send",
+    },
+    "landing.what.ceiling.body": {
+        "es": "Compáralo con el techo de tu material.",
+        "en": "Compare it with the ceiling of your material.",
+    },
+    "landing.what.writing.title": {
+        "es": "Ayuda para escribir que no inventa",
+        "en": "Writing help that does not invent",
+    },
+    "landing.what.writing.body": {
+        "es": "Resumen y carta que citan lo que escribiste.",
+        "en": "A summary and a letter that cite what you wrote.",
+    },
+    "landing.honest.eyebrow": {
+        "es": "Con IA, honesto por diseño",
+        "en": "AI-powered, honest by design",
+    },
+    "landing.honest.title": {
+        "es": (
+            "La IA lee tus documentos y evalúa tu evidencia; el código calcula "
+            "el puntaje y revisa cada frase."
+        ),
+        "en": (
+            "The AI reads your documents and assesses your evidence; the code "
+            "computes the score and checks every sentence."
+        ),
+    },
+    "landing.honest.provenance.title": {"es": "Procedencia", "en": "Provenance"},
+    "landing.honest.provenance.body": {
+        "es": "Cada frase cita un bullet, una historia o un resumen tuyo.",
+        "en": "Every sentence cites a bullet, a story or a summary of yours.",
+    },
+    "landing.honest.literal.title": {"es": "Preservación literal", "en": "Literal preservation"},
+    "landing.honest.literal.body": {
+        "es": "Cada número, fecha y nombre propio está en esa fuente.",
+        "en": "Every number, date and proper noun is in that source.",
+    },
+    "landing.honest.closure.title": {"es": "Cierre de habilidades", "en": "Skill closure"},
+    "landing.honest.closure.body": {
+        "es": "Solo nombra habilidades que tienes.",
+        "en": "It only names skills you have.",
+    },
+    "landing.how.title": {"es": "Cómo funciona", "en": "How it works"},
+    "landing.how.cv.title": {"es": "Tu CV", "en": "Your CV"},
+    "landing.how.cv.body": {
+        "es": "Lo subes una vez, en español o en inglés.",
+        "en": "You upload it once, in Spanish or in English.",
+    },
+    "landing.how.posting.title": {"es": "La oferta", "en": "The posting"},
+    "landing.how.posting.body": {
+        "es": "Pegas el texto de cualquier aviso.",
+        "en": "You paste the text of any posting.",
+    },
+    "landing.how.report.title": {"es": "El informe", "en": "The report"},
+    "landing.how.report.body": {
+        "es": "Puntaje, brechas y qué cambiar, en una página.",
+        "en": "Score, gaps and what to change, on one page.",
+    },
+    "landing.privacy.title": {
+        "es": "Privacidad, en palabras simples",
+        "en": "Privacy, in plain words",
+    },
+    "landing.privacy.body": {
+        "es": (
+            "Tus datos se guardan en infraestructura gestionada en EE. UU. y pasan por un "
+            "proveedor de modelos. Antes de enviar texto al modelo se quitan nombres, correos "
+            "y teléfonos. Los registros guardan solo hashes e identificadores. Eliminar es "
+            "eliminar."
+        ),
+        "en": (
+            "Your data is stored on managed infrastructure in the United States and goes "
+            "through a model provider. Names, e-mails and phone numbers are removed before "
+            "text is sent to the model. Logs keep only hashes and identifiers. Deleting means "
+            "deleting."
+        ),
+    },
+    "landing.footer.note": {
+        "es": "atsker · proyecto de portafolio de Rodrigo García Sánchez",
+        "en": "atsker · a portfolio project by Rodrigo García Sánchez",
+    },
+    "landing.footer.github": {"es": "GitHub", "en": "GitHub"},
     # Shell — the 64px icon rail of §12.1: three groups, nine links, and the account
     # controls. Vocabulario is not a rail destination; Perfil links to it.
     "nav.dashboard": {"es": "Inicio", "en": "Home"},
