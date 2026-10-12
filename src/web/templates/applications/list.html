@@ -118,9 +118,21 @@
           {{ t('applications.recall.pass', lang) if row.boolean.passed else t('applications.recall.fail', lang) }}
           {% else %}{{ t('common.none', lang) }}{% endif %}
         </td>
-        <td class="break-all px-2 py-2 text-text-2">
+        {# The versions are long identifiers: shown inline they wrap one character per
+           line and every row grows to ~400 px. Collapsed they are one line; the list
+           opens in place. Geist Mono 12 px slate, like every code-like string (§2). #}
+        <td class="px-2 py-2 text-text-2">
           {% if row.prompt_versions %}
-          {% for purpose, version in row.prompt_versions.items() %}{{ purpose }}={{ version }}{% if not loop.last %} · {% endif %}{% endfor %}
+          <details class="font-mono text-xs text-slate">
+            <summary class="cursor-pointer whitespace-nowrap">
+              {{ t('applications.prompts_count', lang, count=row.prompt_versions|length) }}
+            </summary>
+            <ul class="mt-1 space-y-0.5">
+              {% for purpose, version in row.prompt_versions.items() %}
+              <li class="whitespace-nowrap">{{ purpose }}={{ version }}</li>
+              {% endfor %}
+            </ul>
+          </details>
           {% else %}{{ t('common.none', lang) }}{% endif %}
         </td>
         <td class="whitespace-nowrap px-2 py-2 text-right text-text-2">

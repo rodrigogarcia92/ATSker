@@ -9,7 +9,7 @@
 <p class="mt-4 rounded-card border border-ink bg-surface-1 px-4 py-3 text-sm text-ink">{{ error }}</p>
 {% endif %}
 {% if not can_extract %}
-<p class="mt-4 rounded-control border border-card-border bg-surface-1 px-3 py-2 text-sm text-text-2">
+<p class="mt-4 rounded-card border border-card-border bg-surface-1 px-3 py-2 text-sm text-text-2">
   {{ t('import.no_model', lang) }}
 </p>
 {% endif %}
@@ -22,7 +22,7 @@
   </div>
   <div>
     <label for="track_id" class="field-label">
-      {{ t('import.track', lang) }} <span class="text-text-3">({{ t('common.optional', lang) }})</span>
+      {{ t('import.track_label', lang) }} <span class="text-text-3">({{ t('common.optional', lang) }})</span>
     </label>
     <select id="track_id" name="track_id" class="w-full">
       <option value="">{{ t('common.none', lang) }}</option>

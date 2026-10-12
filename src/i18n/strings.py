@@ -479,6 +479,7 @@ STRINGS: dict[str, dict[str, str]] = {
     "applications.readability": {"es": "Lectura", "en": "Readability"},
     "applications.boolean": {"es": "Búsqueda", "en": "Search"},
     "applications.prompts": {"es": "Prompts", "en": "Prompts"},
+    "applications.prompts_count": {"es": "{count} versiones", "en": "{count} versions"},
     "applications.cost": {"es": "Coste", "en": "Cost"},
     # F.1: the history can be narrowed to the analyses still waiting on a result.
     "applications.filter.none": {"es": "Sin resultado", "en": "No outcome"},
@@ -2211,7 +2212,6 @@ STRINGS: dict[str, dict[str, str]] = {
         "es": "Tu CV puede estar en español o en inglés.",
         "en": "Your CV can be in Spanish or English.",
     },
-    "import.track": {"es": "Línea de carrera (opcional)", "en": "Target track (optional)"},
     "import.track_hint": {
         "es": "La experiencia con la que piensas usar este currículum. Si lo dejas vacío, la "
         "importación crea una línea de carrera con el nombre del archivo.",

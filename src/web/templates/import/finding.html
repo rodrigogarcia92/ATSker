@@ -21,7 +21,7 @@
   {% for text in characters %}
   <li>
     <span class="text-xs text-text-3">{{ t('import.location_box', lang) }} {{ loop.index }}:</span>
-    {% if text %}<code class="break-all rounded-control bg-surface-2 px-1">{{ text }}</code>
+    {% if text %}<code class="break-all rounded-sm bg-surface-2 px-1">{{ text }}</code>
     {% else %}{{ t('import.location_empty_box', lang) }}{% endif %}
   </li>
   {% endfor %}

@@ -16,7 +16,7 @@
 <p class="field-hint">{{ t('letters.track_letter_intro', lang) }}</p>
 
 {% if chosen %}
-<p role="status" class="mt-4 rounded-control border border-card-border bg-surface-1 px-3 py-2 text-sm">
+<p role="status" class="mt-4 rounded-card border border-card-border bg-surface-1 px-3 py-2 text-sm">
   {{ t('letters.notice.chosen', lang) }}
 </p>
 {% endif %}
@@ -60,7 +60,7 @@
 <p role="alert" class="mt-4 rounded-card border border-ink bg-surface-1 px-4 py-3 text-sm text-ink">{{ error }}</p>
 {% endif %}
 {% if cost %}
-<p role="status" class="mt-4 rounded-control border border-card-border bg-surface-1 px-3 py-2 text-sm">
+<p role="status" class="mt-4 rounded-card border border-card-border bg-surface-1 px-3 py-2 text-sm">
   {{ t('letters.draft_notice', lang) }}
   <span class="text-xs text-text-3">{{ t('applications.cost', lang) }}: ${{ '%.6f'|format(cost|float) }}</span>
 </p>

@@ -8,7 +8,7 @@
 </h1>
 
 {% if notice %}
-<p class="mt-4 rounded-control border border-card-border bg-surface-1 px-3 py-2 text-sm text-text">{{ notice }}</p>
+<p class="mt-4 rounded-card border border-card-border bg-surface-1 px-3 py-2 text-sm text-text">{{ notice }}</p>
 {% endif %}
 {% if error %}
 <p class="mt-4 rounded-card border border-ink bg-surface-1 px-4 py-3 text-sm text-ink">{{ error }}</p>
@@ -56,7 +56,7 @@
   <fieldset>
     <legend class="mb-1 text-sm">{{ t('stories.related_bullets', lang) }}</legend>
     <p class="mb-2 text-xs text-text-3">{{ t('stories.related_hint', lang) }}</p>
-    <div class="max-h-64 space-y-2 overflow-y-auto rounded-control border border-card-border p-3">
+    <div class="max-h-64 space-y-2 overflow-y-auto rounded-card border border-card-border p-3">
       {% for bullet in bullets %}
       <label class="flex items-start gap-2 text-sm">
         <input type="checkbox" name="bullet_ids" value="{{ bullet.id }}"

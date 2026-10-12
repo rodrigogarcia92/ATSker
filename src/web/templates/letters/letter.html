@@ -43,10 +43,10 @@
 {% else %}
 
 {% if notice %}
-<p role="status" class="mt-4 rounded-control border border-card-border bg-surface-1 px-3 py-2 text-sm">{{ notice }}</p>
+<p role="status" class="mt-4 rounded-card border border-card-border bg-surface-1 px-3 py-2 text-sm">{{ notice }}</p>
 {% endif %}
 {% if language_notice %}
-<p role="status" class="mt-4 rounded-control border border-card-border bg-surface-1 px-3 py-2 text-sm text-text-2">
+<p role="status" class="mt-4 rounded-card border border-card-border bg-surface-1 px-3 py-2 text-sm text-text-2">
   {{ t('letters.language_notice', lang, x=t('lang.' ~ posting_language, lang), y=t('lang.' ~ language, lang)) }}
 </p>
 {% endif %}
@@ -125,7 +125,7 @@
   <form method="post" action="/applications/{{ application.id }}/letter/save" class="mt-6 space-y-3">
     <input type="hidden" name="track_id" value="{{ track.id }}">
     <label for="letter-text" class="block text-sm">{{ t('letters.full_label', lang) }}</label>
-    <p id="edited-notice" role="status" class="flex flex-wrap items-center gap-3 rounded-control border border-card-border bg-surface-1 px-3 py-2 text-sm text-text-2" {% if not edited %}hidden{% endif %}>
+    <p id="edited-notice" role="status" class="flex flex-wrap items-center gap-3 rounded-card border border-card-border bg-surface-1 px-3 py-2 text-sm text-text-2" {% if not edited %}hidden{% endif %}>
       <span>{{ t('letters.full_edited', lang) }}</span>
       <button type="button" id="reassemble" class="btn btn-secondary">
         {{ t('letters.reassemble', lang) }}

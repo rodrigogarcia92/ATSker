@@ -72,7 +72,7 @@
   <p class="text-xs text-text-3">{{ t('tracks.headline_hint', lang) }}</p>
 
   {% macro summary_slot(code, label_key, rows, selected_id) %}
-  <div class="rounded-control border border-card-border bg-surface-1 p-3">
+  <div class="rounded-card border border-card-border bg-surface-1 p-3">
     <label for="summary_{{ code }}_id" class="field-label">{{ t(label_key, lang) }}</label>
     <select id="summary_{{ code }}_id" name="summary_{{ code }}_id"
             class="w-full">

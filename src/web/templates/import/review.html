@@ -94,7 +94,7 @@
         <input type="hidden" name="bullet_count_{{ ri }}" value="{{ role.bullets | length }}">
         <div class="mt-2 space-y-3">
           {% for bullet in role.bullets %}
-          <div class="rounded-control border border-card-border bg-surface-1 p-3">
+          <div class="rounded-card border border-card-border bg-surface-1 p-3">
             <label for="bullet-{{ ri }}-{{ loop.index0 }}" class="sr-only">{{ t('import.bullets_of', lang) }}</label>
             <textarea id="bullet-{{ ri }}-{{ loop.index0 }}" name="bullet_{{ ri }}_{{ loop.index0 }}_text" rows="2"
                       class="w-full">{{ bullet.text }}</textarea>
