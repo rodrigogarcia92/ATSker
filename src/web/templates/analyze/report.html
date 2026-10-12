@@ -705,7 +705,7 @@
 {{ advice_groups(layout.shown, advice_for_file) }}
 {% if layout.rest %}
 <details class="disclosure mt-4 rounded-card border border-card-border px-4">
-  <summary class="font-medium">{{ t('report.advice.see_all', lang, n=layout.total) }}</summary>
+  <summary>{{ t('report.advice.see_all', lang, n=layout.total) }}</summary>
   <div class="pb-3">
     {{ advice_groups(layout.rest, advice_for_file) }}
   </div>

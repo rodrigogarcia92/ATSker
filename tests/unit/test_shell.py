@@ -165,6 +165,19 @@ def test_the_login_page_has_no_top_bar(client):
     assert 'class="sheet"' not in page
 
 
+def test_the_links_fold_into_the_sheet_below_1024px():
+    """Eight Spanish links do not fit one line at 768px, so the bar only unfolds at lg."""
+    from pathlib import Path
+
+    path = Path(__file__).parents[2] / "src" / "web" / "static" / "src.css"
+    css = path.read_text(encoding="utf-8")
+    after = css.split("@media (min-width: 1024px)", 1)[1]
+    block = after[: after.index("\n}")]
+
+    assert re.search(r"\.topnav,\s*\.avatar-menu\s*\{\s*display: flex;", block)
+    assert re.search(r"\.sheet-menu\s*\{\s*display: none;", block)
+
+
 def test_recall_labels_are_shown_in_the_readers_language():
     """N6.6: the derivation answers in its own English words; the panel does not print
     them at a Spanish reader, and never hides a label it does not recognise."""

@@ -240,7 +240,7 @@ body {
 }
 
 /* The shell (design v3 §5): a white top bar with a hairline under it. Wordmark left, the
-   links in the centre, the avatar menu right. Under 768px the links and the avatar fold
+   links in the centre, the avatar menu right. Under 1024px the links and the avatar fold
    into one circular button that opens a full-width sheet. Both menus are native <details>. */
 .topbar {
   position: relative;
@@ -420,15 +420,19 @@ body.sheet-open {
   .topbar-inner {
     padding: 0.75rem 2rem;
   }
+  .main {
+    padding: 2.5rem 2rem 5rem;
+  }
+}
+/* Eight Spanish links plus the wordmark and the avatar need about 900px on one line, so the
+   links and the avatar menu stay folded into the circular button and the sheet below lg. */
+@media (min-width: 1024px) {
   .topnav,
   .avatar-menu {
     display: flex;
   }
   .sheet-menu {
     display: none;
-  }
-  .main {
-    padding: 2.5rem 2rem 5rem;
   }
 }
 
