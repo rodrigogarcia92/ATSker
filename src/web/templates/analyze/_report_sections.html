@@ -12,7 +12,7 @@
 {% endfor %}
 {% set cap = report.score.cap %}
 {% set binding = cap is not none and report.score.capped < report.score.uncapped %}
-{% set match_band = 'strong' if report.score.capped >= 75 else ('adequate' if report.score.capped >= 50 else 'weak') %}
+{% set match_band = ui.band_for(report.score.capped) %}
 {# §12.7's phone links: "Ver en mi CV (N)" in each section that has marks, opening the CV as
    a bottom sheet at the section (S3c wires the dialog). The inline pane is desktop-only, so
    this is the phone's way back to the CV. `cv_links` is set only by report_cv.html. #}

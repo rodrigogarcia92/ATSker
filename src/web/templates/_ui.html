@@ -1,17 +1,25 @@
+{# The band of a 0–100 score, from the two presentation thresholds (75 / 50). The one place
+   the thresholds live: the score macro and the header's Job Match pill both read it. #}
+{% macro band_for(percent) -%}{{ 'strong' if percent >= 75 else ('adequate' if percent >= 50 else 'weak') }}{%- endmacro %}
+
 {# Design v3 §4's score and severity components, in one place so every screen shows the same
    value the same way. Imported `with context` so the macros can reach `t` and `lang`.
 
    `score(value, ...)` takes the stored 0–1 value and is the only place it is turned
    into the integer 0–100 the interface shows — the report does not change. Bands
    (75 / 50) are presentation settings, never scoring: changing them changes a word
-   and the forest of a band label, and never a number.
+   and the colour of a band label, and never a number.
 
    Three shapes: the default (label, number, band word, five segments, caption), `hero`
-   (the 72px Job Match) and `stat` (a sub-score: 12px label, 36px number, caption — no
-   segments, no band word). #}
+   (the 72px Job Match) and `stat` (a sub-score: 12px label, 36px number, its own progress
+   bar, caption — no band word and no five-segment row).
+
+   Every band takes its own colour (design v3 §4, amended 2026-10-12): the number, the band
+   word, the filled segments and the sub-score bar. The band word and the number of filled
+   segments still say the band, so colour is never the only signal. #}
 {% macro score(value, label, caption, out_of_100=False, hero=False, stat=False) -%}
 {%- set percent = (value * 100) | round | int -%}
-{%- set band = 'strong' if percent >= 75 else ('adequate' if percent >= 50 else 'weak') -%}
+{%- set band = band_for(percent) -%}
 <div class="score{% if hero %} score-hero{% endif %}{% if stat %} score-stat{% endif %}" data-band="{{ band }}">
   <div class="score-head">
     <span class="score-label">{{ label }}</span>
@@ -28,6 +36,10 @@
     <span class="score-segment band-{{ band }}{% if percent >= step * 20 %} is-on{% endif %}"></span>
     {%- endfor -%}
   </div>
+  {%- else -%}
+  {# A sub-score's own progress bar, in its band colour on a vellum track (design v3 §4);
+     the number above it is the value, so the bar is decorative. #}
+  <div class="score-bar" aria-hidden="true"><span style="width: {{ percent }}%"></span></div>
   {%- endif %}
   {%- if caption %}<p class="score-caption">{{ caption }}</p>{%- endif -%}
 </div>

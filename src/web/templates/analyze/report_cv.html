@@ -45,7 +45,7 @@
         {{ ui.progress('analyze') }}
       </form>
       {% endif %}
-      <span class="job-pill">
+      <span class="job-pill" data-band="{{ ui.band_for(report.score.capped) }}">
         <span class="job-pill-dot" aria-hidden="true"></span>{{ t('report.job_match', lang) }} {{ report.score.capped }}
       </span>
     </div>

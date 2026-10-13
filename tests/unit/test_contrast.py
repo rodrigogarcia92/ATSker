@@ -49,7 +49,7 @@ PAGE_SURFACES = ["paper", "vellum"]
 def test_every_token_is_defined():
     expected = {
         "paper", "vellum", "hairline", "stone", "ash", "slate", "pewter", "ink",
-        "forest", "lime", "highlight",
+        "forest", "lime", "highlight", "ochre", "brick",
     }  # fmt: skip
     assert expected <= set(TOKENS)
 
@@ -85,6 +85,14 @@ def test_white_on_forest():
 @pytest.mark.parametrize("surface", PAGE_SURFACES)
 def test_forest_is_visible_as_focus_ring_and_segments(surface):
     assert ratio("forest", surface) >= NON_TEXT, (surface, ratio("forest", surface))
+
+
+@pytest.mark.parametrize("surface", PAGE_SURFACES)
+@pytest.mark.parametrize("band", ["ochre", "brick"])
+def test_the_two_other_score_bands_are_text_colours(band, surface):
+    """Design v3 §4: the Adecuado and Débil numbers, band words and sub-score bars take
+    ochre and brick, so both must read as text on paper and on vellum."""
+    assert ratio(band, surface) >= TEXT, (band, surface, ratio(band, surface))
 
 
 def test_slate_dashed_border_of_a_missing_term_is_visible_on_paper():

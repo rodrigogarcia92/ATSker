@@ -53,6 +53,33 @@ def test_a_score_is_never_colour_alone():
     assert "Fuerte" in html, "the band word is beside the number and the segments"
 
 
+def test_each_band_renders_its_word_and_its_colour_class_together():
+    """Design v3 §4 (amended 2026-10-12): the number, the band word and the filled segments
+    take the band's colour — Fuerte forest, Adecuado ochre, Débil brick — and the band word
+    still says the band."""
+    for value, band, word in (
+        (0.9, "strong", "Fuerte"),
+        (0.6, "adequate", "Adecuado"),
+        (0.2, "weak", "Débil"),
+    ):
+        html = render_macro(f'{{{{ ui.score({value}, "Skills", "") }}}}')
+
+        assert f'data-band="{band}"' in html, f"{value} carries the {band} band"
+        assert f'<span class="score-band">{word}</span>' in html, "the band word is there"
+        assert f'class="score-segment band-{band}' in html, "the segments carry the band"
+
+
+def test_a_sub_score_renders_its_own_progress_bar():
+    """Design v3 §4: a sub-score's progress bar fills in its band colour on a vellum track;
+    the number above it is the value, so the bar is decorative."""
+    html = render_macro('{{ ui.score(0.63, "Experiencia", "", false, false, true) }}')
+
+    assert 'class="score-bar" aria-hidden="true"' in html
+    assert '<span style="width: 63%"></span>' in html
+    assert 'data-band="adequate"' in html, "the bar takes the sub-score's own band"
+    assert "score-segments" not in html, "a sub-score has the bar, not the five-segment row"
+
+
 def test_severity_is_an_icon_and_a_word_and_never_a_fill():
     for level in ("blocker", "warning", "info"):
         html = render_macro(f'{{{{ ui.severity("{level}", "Etiqueta") }}}}')

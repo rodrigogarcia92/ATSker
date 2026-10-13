@@ -21,9 +21,13 @@
   --pewter: #5e5e5e; /* helper text needing more weight; text on lime when grey is needed */
   --ink: #171717; /* primary text, icons, outlines that signal */
   /* Brand */
-  --forest: #1f4a3d; /* primary button, score segments, focus ring; white text on it */
+  --forest: #1f4a3d; /* primary button, the Fuerte band, focus ring; white text on it */
   --lime: #c4f07a; /* the highlighter, intense; the selected requirement chip */
   --highlight: #e7f9ca; /* the highlighter, base */
+  /* The two other score bands (design v3 §1, §4): the number, the band word, the filled
+     segments and the sub-score bar take them, on score surfaces only. */
+  --ochre: #8c5e0a; /* the Adecuado band, and a requirement at level 1 */
+  --brick: #a3431f; /* the Débil band, and a requirement at level 0 */
 }
 
 /* Names by meaning, kept from §12.1 so a template says what a colour is for; each now points
@@ -54,10 +58,11 @@
   /* Interactive */
   --color-link: var(--ink);
   --color-focus: var(--forest);
-  /* Score: forest for the strong band, ink otherwise (shape and word carry the rest) */
+  /* Score: one colour per band (design v3 §4, amended 2026-10-12). The band word and the
+     filled segments still say the band, so colour is never the only signal. */
   --color-score-strong: var(--forest);
-  --color-score-adequate: var(--ink);
-  --color-score-weak: var(--ink);
+  --color-score-adequate: var(--ochre);
+  --color-score-weak: var(--brick);
   /* Severity: outlined tags, told apart by shape and word, never by colour alone */
   --color-sev-blocker: var(--ink);
   --color-sev-warning: var(--slate);
@@ -454,6 +459,22 @@ body.sheet-open {
   align-items: baseline;
   gap: 0.75rem;
 }
+/* One colour per band (design v3 §4, amended 2026-10-12): the number (hero and stat), the
+   band word, the filled segments and the sub-score bar below it. The empty segments stay
+   hairline and the band word still says the band, so colour is never the only signal. */
+.score[data-band="strong"] {
+  --band-color: var(--forest);
+}
+.score[data-band="adequate"] {
+  --band-color: var(--ochre);
+}
+.score[data-band="weak"] {
+  --band-color: var(--brick);
+}
+.score-number,
+.score-band {
+  color: var(--band-color, var(--ink));
+}
 .score-number {
   font-size: 2.25rem;
   line-height: 1.25;
@@ -470,11 +491,7 @@ body.sheet-open {
 }
 .score-band {
   margin: 0;
-  color: var(--ink);
   font-size: 1rem;
-}
-.score[data-band="strong"] .score-band {
-  color: var(--forest);
 }
 .score-segments {
   display: flex;
@@ -487,6 +504,20 @@ body.sheet-open {
   border-radius: var(--radius-pill);
   background: var(--hairline);
 }
+/* A sub-score's own progress bar: the band colour on a vellum track (design v3 §4). */
+.score-bar {
+  height: 0.375rem;
+  margin-top: 0.5rem;
+  border-radius: var(--radius-pill);
+  background: var(--vellum);
+  overflow: hidden;
+}
+.score-bar span {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--band-color, var(--forest));
+}
 .score-caption {
   margin: 0.375rem 0 0;
   color: var(--slate);
@@ -495,8 +526,13 @@ body.sheet-open {
 .is-on {
   background: var(--forest);
 }
+/* A filled score segment takes its band's colour; the level bars above keep the forest. */
+.score-segment.is-on {
+  background: var(--band-color, var(--forest));
+}
 /* The Job Match bar: the score it would have without the cap, the score it has, and the
-   cap marked only as a tick. Fills are grey; the one forest element is the segment row. */
+   cap marked only as a tick. The bar stays grey/forest; the coloured element is the
+   segment row above it. */
 .match {
   position: relative;
   height: 0.375rem;
@@ -1150,7 +1186,8 @@ body.sheet-open {
   background: var(--hairline);
 }
 
-/* The header strip's Job Match pill (design v3 §5): vellum, a forest dot and the number. */
+/* The header strip's Job Match pill (design v3 §5): vellum, the number, and a dot in the
+   Job Match's own band colour (design v3 §4). */
 .job-pill {
   display: inline-flex;
   align-items: center;
@@ -1238,4 +1275,13 @@ body.sheet-open {
 }
 .cv-drawer-dialog .cv-pane-head {
   padding-inline: 1.5rem;
+}
+.job-pill[data-band="strong"] .job-pill-dot {
+  background: var(--forest);
+}
+.job-pill[data-band="adequate"] .job-pill-dot {
+  background: var(--ochre);
+}
+.job-pill[data-band="weak"] .job-pill-dot {
+  background: var(--brick);
 }
