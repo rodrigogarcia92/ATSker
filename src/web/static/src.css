@@ -1106,6 +1106,17 @@ body.sheet-open {
   outline: 2px solid var(--forest);
   outline-offset: 3px;
 }
+/* The focus fade (design v3 §5, amended 2026-10-12): while a section is active the sheet's
+   unmarked text turns slate and the marked words keep ink on their fill, so the highlights
+   stand out in a full page. Both conditions are the script's — no `.cv-js` and no
+   `data-active` means no fade — and reduced motion keeps the colour, not the transition. */
+.cv-js [data-cv-pane][data-active] .cv-sheet-body {
+  color: var(--slate);
+  transition: color 350ms ease;
+}
+.cv-js [data-cv-pane][data-active] .cv-sheet-body .cv-headline {
+  color: var(--ink);
+}
 /* One pulse when a jump lands on a mark; the underline and the dashed border stay put. */
 @keyframes cv-pulse {
   from {
@@ -1126,6 +1137,10 @@ body.sheet-open {
   }
   .cv-js .hl[data-pulse] {
     animation: none;
+  }
+  /* The fade still greys the unmarked text; it just does not animate. */
+  .cv-js [data-cv-pane][data-active] .cv-sheet-body {
+    transition: none;
   }
 }
 /* The mark map's ticks (design v3 §4): lime, and forest for the section on screen. */
