@@ -1619,9 +1619,10 @@ def test_a_stored_recall_without_query_text_still_renders(client, session, caree
 
 
 def test_the_recall_rows_carry_their_verdict_colours(client, session, career, provider):
-    """N8.8: each query reads at a glance in the score palette — green for a pass, red
-    for a fail — the same pair the section's summary verdict already uses. The words
-    Pasa/Falla and the ✓/✗ glyphs stay, so colour is never the only signal."""
+    """Design v3 §4 (Result colours): each query reads at a glance — a forest outline for a
+    pass, a brick outline for a fail, the two score bands the section's verdict already
+    uses. The words Apareces / No apareces and the ✓/✕ glyphs stay, so colour is never the
+    only signal."""
     login(client, career.first.email)
     posted = client.post(
         "/analyze",
@@ -1635,14 +1636,20 @@ def test_the_recall_rows_carry_their_verdict_colours(client, session, career, pr
     # the summary verdict sits in its own `<p>` and the copy button keeps bg-surface-2.
     rows = re.findall(
         r'<span class="text-text-2">(\w+)</span>\s*'
-        r'<span class="(chip|tag tag-danger)">',
+        r'<span class="(tag tag-strong|tag tag-danger)">',
         page,
         re.S,
     )
     assert dict(rows) == {
-        "amplia": "chip",
+        "amplia": "tag tag-strong",
         "estricta": "tag tag-danger",
-    }, "a pass row is a vellum chip, a fail row an ink outline (design v3 §4)"
+    }, "a pass row is a forest outline, a fail row a brick outline (design v3 §4)"
+    assert re.search(
+        r'class="tag tag-strong">\s*<span aria-hidden="true">✓</span>\s*Apareces', page
+    ), "a pass keeps its ✓ and its word, inside the forest outline"
+    assert re.search(
+        r'class="tag tag-danger">\s*<span aria-hidden="true">✕</span>\s*No apareces', page
+    ), "a fail keeps its ✕ and its word, inside the brick outline"
     assert '<span aria-hidden="true">✓</span>' in page, "the met clause keeps its mark"
     assert '<span aria-hidden="true">✕</span>' in page, "the missing clause keeps its mark"
 

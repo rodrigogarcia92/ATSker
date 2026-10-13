@@ -247,8 +247,7 @@
   <p class="text-xs text-text-2">{{ t('report.req.hint', lang) }}</p>
   <div class="mt-3 flex flex-wrap gap-2">
     {% for grade in report.grades %}
-    {% set band = 'strong' if grade.level >= 3 else ('adequate' if grade.level == 2 else 'weak') %}
-    <button type="button" class="req-chip req-{{ band }}" aria-pressed="false"
+    <button type="button" class="req-chip req-{{ ui.level_band(grade.level) }}" aria-pressed="false"
             aria-controls="req-detail" data-template="req-tpl-{{ loop.index0 }}" data-level="{{ grade.level }}"
             {%- if cv_keys is defined %} data-key="requirement:{{ loop.index0 }}@requirements"{% endif %}>
       <span>{{ grade.requirement }}</span>
@@ -265,7 +264,7 @@
       <span class="text-base">{{ grade.requirement }}</span>
       <span class="text-xs text-text-3">
         {{ t('report.must_have', lang) if grade.must_have else t('report.nice_to_have', lang) }}
-        · {{ t('report.req.level_of', lang, level=grade.level) }}
+        · <span class="req-level-line" data-band="{{ ui.level_band(grade.level) }}">{{ t('report.req.level_of', lang, level=grade.level) }}</span>
       </span>
       {{ ui.level_bars(grade.level) }}
     </div>

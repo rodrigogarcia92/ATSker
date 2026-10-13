@@ -597,8 +597,9 @@ body.sheet-open {
   color: var(--slate);
 }
 .tag-danger {
-  border-color: var(--ink);
-  color: var(--ink);
+  /* A failed recruiter search: the Débil colour, in outline (design v3 §4, Result colours). */
+  border-color: var(--brick);
+  color: var(--brick);
 }
 .tag-proposal {
   border-color: var(--lime);
@@ -876,8 +877,26 @@ body.sheet-open {
 .req-chip:hover {
   background: var(--vellum);
 }
-.req-chip[data-level="0"] {
-  border: 1px dashed var(--slate);
+/* The level's colour, on the border and the n/3 (design v3 §4, Result colours): levels 2–3
+   forest, 1 ochre, 0 brick with a dashed border. The requirement's name stays ink, and the
+   selected chip keeps the lime fill, so colour is never the only signal. */
+.req-chip.req-strong {
+  border-color: var(--forest);
+}
+.req-chip.req-strong .req-level {
+  color: var(--forest);
+}
+.req-chip.req-adequate {
+  border-color: var(--ochre);
+}
+.req-chip.req-adequate .req-level {
+  color: var(--ochre);
+}
+.req-chip.req-weak {
+  border: 1px dashed var(--brick);
+}
+.req-chip.req-weak .req-level {
+  color: var(--brick);
 }
 .req-chip[aria-pressed="true"] {
   background: var(--lime);
@@ -886,6 +905,16 @@ body.sheet-open {
 .req-level {
   color: var(--pewter);
   font-size: 0.75rem;
+}
+/* The requirement detail's level line takes the level's own colour. */
+.req-level-line[data-band="strong"] {
+  color: var(--forest);
+}
+.req-level-line[data-band="adequate"] {
+  color: var(--ochre);
+}
+.req-level-line[data-band="weak"] {
+  color: var(--brick);
 }
 
 /* §12.7: the report's two panes. The CV is a white sheet on the canvas, sticky with its

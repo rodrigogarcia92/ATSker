@@ -23,10 +23,10 @@
         <span class="flex min-w-0 flex-1 flex-col gap-1 py-2">
           <span class="flex flex-wrap items-center gap-2">
             <span class="text-text-2">{{ query.label or t('recall.unlabelled', lang) }}</span>
-            {# N8.8: the same score palette the section's verdict used, so both read as one
-               system. The words and the clause glyphs stay: colour is never the only
-               signal. #}
-            <span class="{% if query.passed %}chip{% else %}tag tag-danger{% endif %}">
+            {# Design v3 §4, Result colours: a pass is a forest-outlined tag, a fail a
+               brick-outlined one, the same two bands the score uses. The words and the
+               clause glyphs stay: colour is never the only signal. #}
+            <span class="{% if query.passed %}tag tag-strong{% else %}tag tag-danger{% endif %}">
               <span aria-hidden="true">{{ '✓' if query.passed else '✕' }}</span>
               {{ t('recall.appears', lang) if query.passed else t('recall.not_appears', lang) }}
             </span>

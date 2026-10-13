@@ -60,6 +60,11 @@
 </span>
 {%- endmacro %}
 
+{# A requirement's level as the band whose colour it takes (design v3 §4, Result colours):
+   levels 2–3 forest, 1 ochre, 0 brick. The chip, its `n/3` and the detail's level line all
+   read it from here, so the three cannot drift. #}
+{% macro level_band(level) -%}{{ 'strong' if level >= 2 else ('adequate' if level == 1 else 'weak') }}{%- endmacro %}
+
 {# Evidence levels 0–3: three bars filled forest up to the level. The number is always
    written beside the bars. #}
 {% macro level_bars(level) -%}
