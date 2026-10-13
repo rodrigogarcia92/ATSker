@@ -88,16 +88,21 @@
     </section>
   </div>
 
-  {# Tablet (768–1279 px): a sticky "Ver CV" button opens the pane as a drawer from the
-     left; the fragment is loaded into it, and the open/close behaviour is S3c. #}
-  <button type="button" data-cv-drawer class="cv-drawer-open hidden min-[768px]:flex min-[1280px]:hidden">
+  {# Tablet (768–1279 px): a "Ver CV" control that stays in the viewport opens the pane as a
+     drawer from the left. It is a link to the pane fragment — that is what a browser without
+     script navigates to — and the script turns the click into the drawer (§12.7). #}
+  <a href="/applications/{{ application.id }}/cv" data-cv-drawer
+     class="cv-drawer-open hidden min-[768px]:flex min-[1280px]:hidden">
     {{ t('report.cv_pane.open', lang) }}
-  </button>
+  </a>
+  {# The fixed control floats over the page, so the report keeps room for it between 768 and
+     1279 px (the phone bar reserves its own below). #}
+  <div class="hidden min-[768px]:block min-[1280px]:hidden" aria-hidden="true" style="height: 4rem"></div>
   <dialog id="cv-drawer" class="cv-drawer-dialog" data-cv-dialog="drawer"
           data-cv-url="/applications/{{ application.id }}/cv"></dialog>
 
   {# Phone (< 768 px): each section's "Ver en mi CV (N)" opens the sheet at its first mark,
-     with previous / next. Also S3c. #}
+     with previous / next. Its link twin is the pane fragment, for a browser without script. #}
   <dialog id="cv-sheet" class="cv-sheet-dialog" data-cv-dialog="sheet"
           data-cv-url="/applications/{{ application.id }}/cv"></dialog>
 </div>
@@ -122,7 +127,11 @@
     {% endif %}
   </div>
 </div>
-<div class="min-[768px]:hidden" aria-hidden="true" style="height: calc(5rem + env(safe-area-inset-bottom))"></div>
+{# The bar is `pt-3` + a 2.75rem button + `max(0.75rem, safe-area)` + its 1px border, so the
+   room it needs is its own bottom padding plus 4.5rem: a fixed 5rem was short on a phone
+   with a home indicator, which hid the last row of the report behind the bar. #}
+<div class="min-[768px]:hidden" aria-hidden="true"
+     style="height: calc(4.5rem + max(0.75rem, env(safe-area-inset-bottom)))"></div>
 
 {% include "analyze/_attempt_modal.html" %}
 {{ ui.dialog('proposal-dialog') }}

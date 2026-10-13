@@ -158,7 +158,11 @@ def test_the_phone_bar_is_fixed_safe_area_aware_and_padded_for(client, career, p
     assert "fixed" in bar_tag and "bottom-0" in bar_tag
     assert "min-[768px]:hidden" in bar_tag, "the bar is a phone control (< 768 px, §12.7)"
     assert "padding-bottom: max(0.75rem, env(safe-area-inset-bottom))" in bar_tag
-    assert 'calc(5rem + env(safe-area-inset-bottom))' in page, "the page is padded by the bar"
+    # S3c: the reserved room is the bar's own bottom padding plus its 4.5rem of content —
+    # a flat 5rem was short on a phone with a home indicator (env() adds to the bar).
+    assert (
+        'calc(4.5rem + max(0.75rem, env(safe-area-inset-bottom)))' in page
+    ), "the page is padded by the bar"
     assert "viewport-fit=cover" in page, "env() means something on a notched phone"
 
 

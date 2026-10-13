@@ -32,7 +32,7 @@
       <p class="cv-summary">{{ marked(element) }}</p>
       {% elif element.kind == 'role' %}
         {% if not ns.exp %}<div class="cv-caption">{{ t('report.cv_pane.section.experience', lang) }}</div>{% set ns.exp = true %}{% endif %}
-        <div class="cv-role">{{ marked(element) }}</div>
+        <div class="cv-role"><span>{{ marked(element) }}</span></div>
       {% elif element.kind == 'skills' %}
         {% if not ns.skills %}<div class="cv-caption">{{ t('report.cv_pane.section.skills', lang) }}</div>{% set ns.skills = true %}{% endif %}
         <p class="cv-skills">{{ marked(element) }}</p>

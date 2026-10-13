@@ -966,11 +966,10 @@ body.sheet-open {
   font-size: 0.75rem;
   color: var(--slate);
 }
+/* The role line is one run of text: a flex row made every word (and every `<mark>`) its
+   own item and spread the header across the sheet. One block, marks inline. */
 .cv-role {
   margin-top: 0.5rem;
-  display: flex;
-  justify-content: space-between;
-  gap: 0.75rem;
 }
 .cv-bullets {
   margin: 0.375rem 0 0;
@@ -1007,16 +1006,19 @@ body.sheet-open {
   border-radius: 0;
 }
 
-/* The tablet drawer's sticky opener and the two dialogs the phone and tablet use; S3c
-   loads the pane fragment into them and opens them. */
+/* The tablet drawer's opener and the two dialogs the phone and tablet use; the script loads
+   the pane fragment into them and opens them. The opener is fixed near the bottom of the
+   viewport between 768 and 1279 px — a sticky element at the end of the flow only stuck
+   inside its own box, which left the control off screen — and the report reserves 4rem of
+   room for it, so it never hides the last row. */
 .cv-drawer-open {
   align-items: center;
   justify-content: center;
-  position: sticky;
-  top: 1rem;
+  position: fixed;
+  left: 1rem;
+  bottom: calc(1rem + env(safe-area-inset-bottom));
   z-index: 10;
   min-height: 2.75rem;
-  margin-top: 1rem;
   padding: 0 1.25rem;
   border: 1px solid var(--hairline);
   border-radius: var(--radius-pill);
