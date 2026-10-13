@@ -232,8 +232,17 @@
       panes.forEach(function (pane) { pane.setAttribute('data-active', section); });
       render(section, 1);
     }
+    // The pane's scroll box: the nearest ancestor that really scrolls — the sheet body in
+    // the drawer and the sheet, the pane itself in the inline view, whose A4 sheet is taller
+    // than the viewport. With none, the mark is scrolled into view by the browser.
+    function scrollBox(el) {
+      for (var node = el.parentElement; node; node = node.parentElement) {
+        if (node.scrollHeight - node.clientHeight > 1) return node;
+      }
+      return null;
+    }
     function scrollPane(mark) {
-      var box = mark.closest('.cv-sheet-body');
+      var box = scrollBox(mark);
       if (!box) { mark.scrollIntoView({ block: 'center', behavior: smooth }); return; }
       var rect = mark.getBoundingClientRect();
       var frame = box.getBoundingClientRect();

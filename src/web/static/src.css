@@ -893,6 +893,10 @@ body.sheet-open {
 .cv-column {
   position: sticky;
   top: 1.5rem;
+  /* The A4 sheet is taller than the viewport, so the pane itself is the scroll box; the
+     script finds it when it walks up from a mark. */
+  max-height: calc(100vh - 3rem);
+  overflow-y: auto;
 }
 .cv-pane {
   display: flex;
@@ -956,6 +960,8 @@ body.sheet-open {
    mark map as a track down its right edge. The body scrolls inside the pane. */
 .cv-sheet {
   position: relative;
+  /* The sheet is the container: its own width is what the body's type is sized against. */
+  container-type: inline-size;
   background: var(--paper);
   border: 1px solid var(--hairline);
   border-radius: var(--radius-card);
@@ -964,13 +970,31 @@ body.sheet-open {
     rgba(207, 207, 207, 0.05) 0 74px 44px,
     rgba(207, 207, 207, 0.09) 0 33px 33px,
     rgba(207, 207, 207, 0.1) 0 8px 18px;
-  padding: 2.5rem 2.75rem 2.75rem 2.5rem;
-  font-size: 0.875rem;
-  line-height: 1.71;
 }
 .cv-sheet-body {
+  padding: 2.5rem 2.75rem 2.75rem 2.5rem;
+  /* The drawer and the phone sheet keep readable text: never under 13 px. */
+  font-size: max(13px, 1.85cqw);
+  line-height: 1.4;
   max-height: calc(100vh - 24rem);
   overflow-y: auto;
+}
+/* The CV as an A4 page (design v3 §5, amended 2026-10-12). In the inline pane only: the
+   sheet is paper — A4 width-to-height as its minimum height, margins at 9.5 % of its width,
+   type sized to the sheet like a printed CV, and a faint dashed page-break line at every A4
+   height, so a CV longer than a page shows where its pages would break. The pane scrolls. */
+.cv-column .cv-sheet-body {
+  padding: 9.5cqw;
+  font-size: 1.85cqw;
+  min-height: calc(100cqw * 297 / 210);
+  max-height: none;
+  overflow: visible;
+  background-image:
+    linear-gradient(to right, transparent 0 6px, var(--paper) 6px 12px),
+    linear-gradient(to bottom, var(--hairline) 0 1px, transparent 1px);
+  background-size: 12px 100%, 100% calc(100cqw * 297 / 210);
+  background-position: 0 0, 0 calc(100cqw * 297 / 210);
+  background-repeat: repeat, repeat;
 }
 .cv-mark-map {
   position: absolute;
@@ -990,8 +1014,9 @@ body.sheet-open {
   background: var(--lime);
 }
 .cv-headline {
-  font-size: 2.25rem;
-  line-height: 1.25;
+  /* The CV's name: 2.4× the body, so it scales with the sheet like a printed CV. */
+  font-size: 2.4em;
+  line-height: 1.1;
   letter-spacing: -0.01em;
 }
 .cv-summary {
@@ -999,7 +1024,8 @@ body.sheet-open {
 }
 .cv-caption {
   margin-top: 1.75rem;
-  font-size: 0.75rem;
+  /* A section label: 1.1× the body. */
+  font-size: 1.1em;
   color: var(--slate);
 }
 /* The role line is one run of text: a flex row made every word (and every `<mark>`) its
