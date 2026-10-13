@@ -79,7 +79,9 @@
     <a href="#before" class="flex min-h-11 items-center hover:text-text">{{ t('report.before_applying', lang) }}</a>
   </nav>
 
-  <div class="mt-8 min-[1280px]:grid min-[1280px]:grid-cols-[minmax(0,45fr)_minmax(0,55fr)] min-[1280px]:items-start min-[1280px]:gap-8">
+  {# The CV pane takes the larger share (design v3 §5, amended 2026-10-12): the sheet is an
+     A4 page, so it needs the width. #}
+  <div class="mt-8 min-[1280px]:grid min-[1280px]:grid-cols-[minmax(0,58fr)_minmax(0,42fr)] min-[1280px]:items-start min-[1280px]:gap-8">
     {# Left: the CV pane. Hidden below 1280 px, where the drawer and the sheet
        (GET /applications/{id}/cv) take over. #}
     <section class="cv-column hidden min-w-0 min-[1280px]:block">

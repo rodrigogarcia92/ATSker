@@ -111,7 +111,9 @@ def test_a_cv_analysis_renders_two_panes(client, career, provider):
     _id, page = analysed(client, career)
 
     assert "data-cv-pane" in page
-    assert "min-[1280px]:grid-cols-[minmax(0,45fr)_minmax(0,55fr)]" in page
+    assert "min-[1280px]:grid-cols-[minmax(0,58fr)_minmax(0,42fr)]" in page, (
+        "the CV pane takes the larger share (design v3 §5, amended 2026-10-12)"
+    )
     assert 'id="cv-view-text"' in page and 'id="cv-view-file"' in page, "the two views"
     assert 'id="cv-drawer"' in page and 'id="cv-sheet"' in page
 
