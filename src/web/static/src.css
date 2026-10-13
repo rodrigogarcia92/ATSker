@@ -1000,7 +1000,7 @@ body.sheet-open {
 .hl {
   background: var(--highlight);
   color: var(--ink);
-  padding: 0 2px;
+  padding: 0 0.05em;
   border-radius: 3px;
   text-decoration: underline;
   text-decoration-color: var(--lime);
@@ -1127,13 +1127,15 @@ body.sheet-open {
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   overflow-y: auto;
 }
-/* The drawer's and the sheet's own header: the mark the steps are on, and the controls. */
+/* The drawer's and the sheet's own header: the mark the steps are on, and the controls.
+   It carries the sheet's side padding, so the status line never touches the dialog's edge
+   (16px on the phone sheet, 24px in the tablet drawer). */
 .cv-pane-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  padding-bottom: 0.75rem;
+  padding: 0 1rem 0.75rem;
   margin-bottom: 0.75rem;
   border-bottom: 1px solid var(--hairline);
   font-size: 0.8125rem;
@@ -1233,4 +1235,7 @@ body.sheet-open {
       transform: none;
     }
   }
+}
+.cv-drawer-dialog .cv-pane-head {
+  padding-inline: 1.5rem;
 }
