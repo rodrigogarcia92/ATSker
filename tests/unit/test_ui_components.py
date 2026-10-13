@@ -69,6 +69,15 @@ def test_each_band_renders_its_word_and_its_colour_class_together():
         assert f'class="score-segment band-{band}' in html, "the segments carry the band"
 
 
+def test_a_bare_score_number_takes_its_band_colour():
+    """Design v3 §4: a score outside the Score component — the history's *Ajuste* column, an
+    attempt's sub-score line — carries the same three band colours."""
+    for value, band in ((86, "strong"), (63, "adequate"), (40, "weak")):
+        html = render_macro(f"{{{{ ui.band_number({value}) }}}}")
+
+        assert f'<span class="band-number-{band}">{value}</span>' in html
+
+
 def test_a_sub_score_renders_its_own_progress_bar():
     """Design v3 §4: a sub-score's progress bar fills in its band colour on a vellum track;
     the number above it is the value, so the bar is decorative."""

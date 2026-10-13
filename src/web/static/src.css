@@ -518,6 +518,18 @@ body.sheet-open {
   border-radius: var(--radius-pill);
   background: var(--band-color, var(--forest));
 }
+/* A bare score number outside the Score component (design v3 §4: the band colours are on
+   score surfaces): the history's *Ajuste* column and an attempt's sub-score values take
+   their band's colour, so every score in the app reads the same way. */
+.band-number-strong {
+  color: var(--forest);
+}
+.band-number-adequate {
+  color: var(--ochre);
+}
+.band-number-weak {
+  color: var(--brick);
+}
 .score-caption {
   margin: 0.375rem 0 0;
   color: var(--slate);
@@ -877,26 +889,18 @@ body.sheet-open {
 .req-chip:hover {
   background: var(--vellum);
 }
-/* The level's colour, on the border and the n/3 (design v3 §4, Result colours): levels 2–3
-   forest, 1 ochre, 0 brick with a dashed border. The requirement's name stays ink, and the
-   selected chip keeps the lime fill, so colour is never the only signal. */
+/* The level's colour, on the chip's border and on its `n/3` (design v3 §4, Result colours):
+   levels 2–3 forest, 1 ochre, 0 brick with a dashed border. The requirement's name stays
+   ink, and the selected chip keeps the lime fill, so colour is never the only signal. The
+   detail's level line carries the same two classes, so it takes the same colour. */
 .req-chip.req-strong {
   border-color: var(--forest);
-}
-.req-chip.req-strong .req-level {
-  color: var(--forest);
 }
 .req-chip.req-adequate {
   border-color: var(--ochre);
 }
-.req-chip.req-adequate .req-level {
-  color: var(--ochre);
-}
 .req-chip.req-weak {
   border: 1px dashed var(--brick);
-}
-.req-chip.req-weak .req-level {
-  color: var(--brick);
 }
 .req-chip[aria-pressed="true"] {
   background: var(--lime);
@@ -906,14 +910,13 @@ body.sheet-open {
   color: var(--pewter);
   font-size: 0.75rem;
 }
-/* The requirement detail's level line takes the level's own colour. */
-.req-level-line[data-band="strong"] {
+.req-level.req-strong {
   color: var(--forest);
 }
-.req-level-line[data-band="adequate"] {
+.req-level.req-adequate {
   color: var(--ochre);
 }
-.req-level-line[data-band="weak"] {
+.req-level.req-weak {
   color: var(--brick);
 }
 

@@ -45,6 +45,13 @@
 </div>
 {%- endmacro %}
 
+{# A bare score number on a surface that is not the Score component — the history's *Ajuste*
+   column and an attempt's sub-score line (design v3 §4: the band colours are for score
+   surfaces). The value is the signal; the colour is the report's, so the two agree. #}
+{% macro band_number(value) -%}
+<span class="band-number-{{ band_for(value) }}">{{ value }}</span>
+{%- endmacro %}
+
 {# Severity is told apart by shape and word, never by colour alone: Bloqueo an ink outline
    with an octagon, Aviso a slate outline with a triangle, Info a vellum pill with a circle. #}
 {% macro severity(level, text) -%}

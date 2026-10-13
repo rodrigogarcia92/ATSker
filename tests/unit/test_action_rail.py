@@ -143,7 +143,9 @@ def test_a_cv_report_is_two_panes_with_the_actions_as_a_row_of_tertiary_buttons(
     pane = part(page, "section", "data-cv-pane")
 
     assert "max-w-[1360px]" in page, "the two panes use the wide column"
-    assert "min-[1280px]:grid-cols-[minmax(0,45fr)_minmax(0,55fr)]" in page, "≈ 45 % and ≈ 55 %"
+    assert "min-[1280px]:grid-cols-[minmax(0,58fr)_minmax(0,42fr)]" in page, (
+        "the CV pane takes ≈ 58 % and the report ≈ 42 % (design v3 §5, amended 2026-10-12)"
+    )
     assert "lg:sticky" not in page and "lg:flex" not in page
     # The summary opener is a button and its no-script link twin, so four elements, three actions.
     assert pane.count("btn btn-tertiary") == 4, "Probar nuevo CV, Carta, Proponer resumen"

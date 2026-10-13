@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_ui.html" as ui with context %}
 {% macro header(key, label) -%}
 {% set natural = 'desc' if key in ('date', 'score') else 'asc' %}
 {% set next_dir = ('asc' if direction == 'desc' else 'desc') if sort == key else natural %}
@@ -91,7 +92,9 @@
         </td>
         <td class="whitespace-nowrap px-2 py-2">
           {% if row.score is not none %}
-          <span >{{ row.score }}</span>
+          {# The one score surface outside the report: the Ajuste number takes its band's
+             colour, like the report's own numbers (design v3 §4, amended 2026-10-12). #}
+          {{ ui.band_number(row.score) }}
           <span class="text-xs text-text-3">{{ row.weights_version }}</span>
           {% else %}
           <span class="text-text-3">{{ t('common.none', lang) }}</span>

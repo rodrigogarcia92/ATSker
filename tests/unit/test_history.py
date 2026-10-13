@@ -223,6 +223,19 @@ def test_the_history_page_renders_the_table_and_its_links(client, session, caree
     )
 
 
+def test_the_ajuste_number_takes_its_bands_colour(client, session, career, history):
+    """Design v3 §4 (amended 2026-10-12): the one score surface outside the report — the
+    history's *Ajuste* column — carries its band's colour class, like the report's numbers.
+    The unscored row keeps its dash, so nothing claims a band it has not got."""
+    login(client, career.first.email)
+
+    page = client.get("/applications").text
+
+    assert '<span class="band-number-adequate">71</span>' in page, "71 is the Adecuado band"
+    assert '<span class="band-number-weak">34</span>' in page, "34 is the Débil band"
+    assert page.count("band-number-") == 2, "two scored rows; the third shows a dash"
+
+
 def test_the_history_table_scrolls_in_its_box_and_collapses_the_prompts(
     client, session, career, history
 ):

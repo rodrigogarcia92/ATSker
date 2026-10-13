@@ -37,7 +37,7 @@ GRADES = [
 BUTTON = re.compile(
     r'<button type="button" class="req-chip req-(\w+)" aria-pressed="(\w+)"\s+'
     r'aria-controls="req-detail" data-template="(req-tpl-\d+)"[^>]*>\s*'
-    r"<span>(.*?)</span>\s*<span class=\"req-level\">(\d)/3</span>",
+    r"<span>(.*?)</span>\s*<span class=\"req-level req-\w+\">(\d)/3</span>",
     re.S,
 )
 
@@ -133,13 +133,20 @@ def test_each_level_renders_its_colour_class_with_its_count(client, session, car
     assert pairs == {("strong", "3"), ("strong", "2"), ("adequate", "1"), ("weak", "0")}
 
 
-def test_the_detail_level_line_takes_the_levels_colour(client, session, career):
-    """Design v3 §4: the requirement detail's level line takes the same colour as its chip."""
+def test_the_count_and_the_detail_line_take_the_levels_colour(client, session, career):
+    """Design v3 §4, Result colours: the chip's `n/3` and the detail's level line carry the
+    same colour class as the chip, so the three read as one level."""
     page = requirements_page(client, session, career)
 
-    lines = re.findall(
-        r'<span class="req-level-line" data-band="(\w+)">nivel (\d) de 3</span>', page
+    counts = re.findall(
+        r'class="req-chip req-(\w+)"[^>]*>\s*<span>.*?</span>\s*'
+        r'<span class="req-level req-(\w+)">\d/3</span>',
+        page,
+        re.S,
     )
+    assert counts and all(chip == count for chip, count in counts), counts
+
+    lines = re.findall(r'<span class="req-level req-(\w+)">nivel (\d) de 3</span>', page)
 
     assert set(lines) == {("strong", "3"), ("strong", "2"), ("adequate", "1"), ("weak", "0")}
 
