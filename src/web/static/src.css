@@ -1177,6 +1177,9 @@ body.sheet-open {
   font-size: 0.8125rem;
   color: var(--slate);
 }
+.cv-drawer-dialog .cv-pane-head {
+  padding-inline: 1.5rem;
+}
 /* The phone sheet's grab handle (design v3 §5); the drawer has none. */
 .cv-sheet-handle {
   width: 2.5rem;
@@ -1202,6 +1205,15 @@ body.sheet-open {
   height: 0.5rem;
   border-radius: var(--radius-pill);
   background: var(--forest);
+}
+.job-pill[data-band="strong"] .job-pill-dot {
+  background: var(--forest);
+}
+.job-pill[data-band="adequate"] .job-pill-dot {
+  background: var(--ochre);
+}
+.job-pill[data-band="weak"] .job-pill-dot {
+  background: var(--brick);
 }
 
 /* §12.1 item 6: an advice item's evidence is clamped to two lines, and "Ver más" opens
@@ -1272,16 +1284,4 @@ body.sheet-open {
       transform: none;
     }
   }
-}
-.cv-drawer-dialog .cv-pane-head {
-  padding-inline: 1.5rem;
-}
-.job-pill[data-band="strong"] .job-pill-dot {
-  background: var(--forest);
-}
-.job-pill[data-band="adequate"] .job-pill-dot {
-  background: var(--ochre);
-}
-.job-pill[data-band="weak"] .job-pill-dot {
-  background: var(--brick);
 }
