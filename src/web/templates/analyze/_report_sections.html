@@ -19,7 +19,8 @@
 {% macro cv_link(section) -%}
 {% if cv_links is defined and cv_links and cv_pane.counts[section] %}
 <p class="mt-2 min-[768px]:hidden">
-  <a href="#cv-sheet" data-cv-sheet="{{ section }}" class="link inline-flex min-h-11 items-center">{{ t('report.cv_pane.see_in_cv', lang, n=cv_pane.counts[section]) }}</a>
+  <a href="/applications/{{ application.id }}/cv" data-cv-sheet="{{ section }}"
+     class="link inline-flex min-h-11 items-center">{{ t('report.cv_pane.see_in_cv', lang, n=cv_pane.counts[section]) }}</a>
 </p>
 {% endif %}
 {%- endmacro %}
@@ -163,8 +164,13 @@
     </details>
     {% endif %}
     <div class="mt-2 flex flex-wrap gap-2">
+      {# §12.7: on a CV report a matched term is the item that points at the words it found
+         in the pane, so it carries the mark's own `data-key` and takes keyboard focus. #}
       {% for term in sub.matched %}
-      <span class="chip"><span aria-hidden="true">✓</span> {{ term | localised_term(lang) }}<span class="sr-only"> ({{ t('report.term.found', lang) }})</span></span>
+      {# The Skills card's terms carry their level and basis (`python (L3, direct)`, F5.5.2);
+         the pane's mark is keyed by the term's own name, so the key drops the annotation. #}
+      {% set named = term.split(' (')[0] if name == 'skills' else term %}
+      <span class="chip"{% if cv_keys is defined and name in ('keywords', 'skills') %} data-key="keyword:{{ named }}@components" tabindex="0"{% elif cv_keys is defined and name == 'title' %} data-key="title@components" tabindex="0"{% endif %}><span aria-hidden="true">✓</span> {{ term | localised_term(lang) }}<span class="sr-only"> ({{ t('report.term.found', lang) }})</span></span>
       {% endfor %}
       {% for term in sub.missing %}
       <span class="chip chip-missing"><span aria-hidden="true">✕</span> {{ term | localised_term(lang) }}<span class="sr-only"> ({{ t('report.term.missing', lang) }})</span></span>
@@ -243,7 +249,8 @@
     {% for grade in report.grades %}
     {% set band = 'strong' if grade.level >= 3 else ('adequate' if grade.level == 2 else 'weak') %}
     <button type="button" class="req-chip req-{{ band }}" aria-pressed="false"
-            aria-controls="req-detail" data-template="req-tpl-{{ loop.index0 }}" data-level="{{ grade.level }}">
+            aria-controls="req-detail" data-template="req-tpl-{{ loop.index0 }}" data-level="{{ grade.level }}"
+            {%- if cv_keys is defined %} data-key="requirement:{{ loop.index0 }}@requirements"{% endif %}>
       <span>{{ grade.requirement }}</span>
       <span class="req-level">{{ grade.level }}/3</span>
     </button>
@@ -371,7 +378,10 @@
 {# One item, in whichever group it falls. A promote item leads with its position chip;
    its evidence is clamped to two lines and "Ver más" opens the whole text. #}
 {% macro advice_item(item, for_file) -%}
-<li class="flex items-start gap-3 px-4 py-3">
+{# §12.7: on a CV report the item carries the key of the bullet it names, so pointing at it
+   lights that bullet in the pane. `item.index` is the item's place in the stored advice,
+   which is what the highlight map's `advice:<n>` keys count. #}
+<li class="flex items-start gap-3 px-4 py-3"{% if cv_keys is defined %} data-key="advice:{{ item.index }}@recommendations" tabindex="0"{% endif %}>
   {% if item.kind == 'promote_bullet' %}
   <span class="tag flex-none">{{ t('report.advice.chip_position', lang, position=item['values'].position) }}</span>
   {% endif %}

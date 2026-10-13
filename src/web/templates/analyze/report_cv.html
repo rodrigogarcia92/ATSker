@@ -11,6 +11,9 @@
 {% set attempt_view = false %}
 {# The right pane's sections carry the phone's "Ver en mi CV (N)" links. #}
 {% set cv_links = true %}
+{# §12.7: the report's own items carry the `key@section` of the marks they point at, so the
+   script can light them. Only a CV report sets this; the single column has no pane. #}
+{% set cv_keys = true %}
 <div class="min-w-0">
 
   {# 1 — Header strip: what was posted, the Track ▸ CV selector (a re-analysis is a new
@@ -135,4 +138,271 @@
 
 {% include "analyze/_attempt_modal.html" %}
 {{ ui.dialog('proposal-dialog') }}
+
+<script>
+  // §12.7's highlight behaviour. An IntersectionObserver on the report's own sections sets
+  // one attribute on the pane, `data-active`, and the stylesheet lights that section's
+  // marks in the base tone with the left-to-right sweep. Report items and marks share a
+  // `data-key` — `key@section` — so hovering, focusing or selecting an item takes the
+  // intense tone on every mark with that key. Selecting an item scrolls the pane to its
+  // first mark, with one pulse; selecting a mark scrolls the report back to its item; the
+  // ↑ ↓ buttons walk the marks of the section on screen and put focus on each one. The
+  // drawer and the sheet are native <dialog>s, so Escape, the focus trap and the return of
+  // focus are the browser's. Without this script every mark keeps the base tone and both
+  // openers are ordinary links to the pane. No library.
+  (function () {
+    var panes = [];
+    function collect() {
+      panes = Array.prototype.slice.call(document.querySelectorAll('[data-cv-pane]'));
+    }
+    collect();
+    if (!panes.length) return;
+    document.documentElement.classList.add('cv-js');
+
+    var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var smooth = reduce ? 'auto' : 'smooth';
+    // §12.1's order of the blocks that cite the pane: the observer reports the first of
+    // these holding the middle of the viewport.
+    var SECTIONS = {
+      fit: 'components', components: 'components', recruiter: 'recruiter',
+      requirements: 'requirements', recommendations: 'recommendations'
+    };
+    var active = null;
+    var step = 0;
+    var pointed = [];
+
+    function pairsOf(mark) { return (mark.dataset.key || '').split('|').filter(Boolean); }
+    function keyOf(pair) { return pair.slice(0, pair.lastIndexOf('@')); }
+    function sectionOf(pair) { return pair.slice(pair.lastIndexOf('@') + 1); }
+    function keysOf(mark) { return pairsOf(mark).map(keyOf); }
+    function marksIn(pane) {
+      return Array.prototype.slice.call(pane.querySelectorAll('mark.hl[data-key]'));
+    }
+    function sectionKeys(pane, section) {
+      var found = [];
+      marksIn(pane).forEach(function (mark) {
+        pairsOf(mark).forEach(function (pair) {
+          var key = keyOf(pair);
+          if (sectionOf(pair) === section && found.indexOf(key) === -1) found.push(key);
+        });
+      });
+      return found;
+    }
+    function marksFor(pane, key) {
+      return marksIn(pane).filter(function (mark) { return keysOf(mark).indexOf(key) !== -1; });
+    }
+    function firstVisible(list) {
+      var shown = list.filter(function (el) { return el.getClientRects().length; });
+      return shown.length ? shown[0] : list[0];
+    }
+    function labelOf(section) {
+      var box = document.getElementById(section);
+      var heading = box ? box.querySelector('h2') : null;
+      return heading ? heading.textContent.trim() : section;
+    }
+    function fill(template, section, index, n) {
+      return String(template || '')
+        .split('@section@').join(labelOf(section))
+        .split('@index@').join(String(index))
+        .split('@n@').join(String(n));
+    }
+    // The legend of the inline pane and the status line of the drawer/sheet say the same
+    // thing in their own words: the section on screen, its marks and where the steps are.
+    function render(section, index) {
+      var n = panes.length ? sectionKeys(panes[0], section).length : 0;
+      panes.forEach(function (pane) {
+        var legend = pane.querySelector('[data-cv-legend]');
+        if (legend) {
+          legend.textContent = fill(
+            n === 1 ? legend.dataset.cvTemplateOne : legend.dataset.cvTemplate, section, index, n
+          );
+        }
+        var status = pane.querySelector('[data-cv-status]');
+        if (status) status.textContent = fill(status.dataset.cvTemplate, section, index, n);
+        Array.prototype.forEach.call(pane.querySelectorAll('[data-cv-step]'), function (button) {
+          button.disabled = !n;
+        });
+      });
+    }
+    function showSection(section) {
+      active = section;
+      step = 0;
+      panes.forEach(function (pane) { pane.setAttribute('data-active', section); });
+      render(section, 1);
+    }
+    function scrollPane(mark) {
+      var box = mark.closest('.cv-sheet-body');
+      if (!box) { mark.scrollIntoView({ block: 'center', behavior: smooth }); return; }
+      var rect = mark.getBoundingClientRect();
+      var frame = box.getBoundingClientRect();
+      var top = box.scrollTop + rect.top - frame.top - (box.clientHeight - rect.height) / 2;
+      box.scrollTo({ top: Math.max(0, top), behavior: smooth });
+    }
+    function pulse(marks) {
+      if (reduce) return;
+      marks.forEach(function (mark) {
+        mark.removeAttribute('data-pulse');
+        void mark.offsetWidth; // restarts the animation when the same mark is picked twice
+        mark.setAttribute('data-pulse', '');
+        window.setTimeout(function () { mark.removeAttribute('data-pulse'); }, 700);
+      });
+    }
+    function clearIntense() {
+      pointed.forEach(function (mark) { mark.removeAttribute('data-intense'); });
+      pointed = [];
+    }
+    function pointAt(value) {
+      var wanted = String(value || '').split('|').filter(Boolean).map(keyOf);
+      clearIntense();
+      if (!wanted.length) return;
+      panes.forEach(function (pane) {
+        marksIn(pane).forEach(function (mark) {
+          var keys = keysOf(mark);
+          if (!wanted.some(function (key) { return keys.indexOf(key) !== -1; })) return;
+          mark.setAttribute('data-intense', '');
+          pointed.push(mark);
+        });
+      });
+    }
+    function restore() {
+      var selected = document.querySelector('[aria-pressed="true"][data-key]');
+      if (selected) pointAt(selected.dataset.key);
+      else clearIntense();
+    }
+    function toMark(mark) {
+      scrollPane(mark);
+      pulse([mark]);
+      mark.focus({ preventScroll: true });
+    }
+    function selectItem(item) {
+      var key = keyOf(item.dataset.key);
+      var marks = [];
+      panes.forEach(function (pane) { marks = marks.concat(marksFor(pane, key)); });
+      if (marks.length) toMark(firstVisible(marks));
+    }
+    function selectMark(mark) {
+      var wanted = pairsOf(mark);
+      var items = Array.prototype.filter.call(
+        document.querySelectorAll('[data-key]'),
+        function (el) { return el.tagName !== 'MARK' && wanted.indexOf(el.dataset.key) !== -1; }
+      );
+      if (items.length) items[0].scrollIntoView({ block: 'center', behavior: smooth });
+    }
+    function stepBy(pane, delta) {
+      var section = pane.getAttribute('data-active') || active;
+      if (!section) return;
+      var keys = sectionKeys(pane, section);
+      if (!keys.length) return;
+      step = (step + delta + keys.length) % keys.length;
+      var marks = marksFor(pane, keys[step]);
+      if (marks.length) toMark(firstVisible(marks));
+      render(section, step + 1);
+    }
+
+    // The pane tracks the report, never a scroll listener: the observer reports which of
+    // §12.1's blocks holds the middle of the viewport, and that is the section on screen.
+    if ('IntersectionObserver' in window) {
+      var visible = {};
+      var observer = new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry) { visible[entry.target.id] = entry.isIntersecting; });
+        var next = null;
+        Object.keys(SECTIONS).forEach(function (id) {
+          if (next === null && visible[id]) next = SECTIONS[id];
+        });
+        if (next && next !== active) showSection(next);
+      }, { rootMargin: '-45% 0px -45% 0px' });
+      Object.keys(SECTIONS).forEach(function (id) {
+        var section = document.getElementById(id);
+        if (section) observer.observe(section);
+      });
+    }
+
+    // The drawer (768–1279 px) and the bottom sheet (< 768 px) fetch the pane fragment into
+    // their dialog and open it natively; a failure falls back to navigating, which is what
+    // the opener's own link does.
+    var drawer = document.getElementById('cv-drawer');
+    var sheet = document.getElementById('cv-sheet');
+    function openPane(dialog, section) {
+      if (!dialog || typeof dialog.showModal !== 'function') return false;
+      var loading = dialog.dataset.cvLoaded
+        ? Promise.resolve()
+        : fetch(dialog.dataset.cvUrl, { headers: { Accept: 'text/html' } })
+          .then(function (response) {
+            if (!response.ok) throw new Error(response.status);
+            return response.text();
+          })
+          .then(function (html) {
+            dialog.innerHTML = html;
+            dialog.dataset.cvLoaded = '1';
+            collect();
+          });
+      loading.then(function () {
+        dialog.showModal();
+        var pane = dialog.querySelector('[data-cv-pane]');
+        if (!pane) return;
+        if (section) showSection(section);
+        else if (active) pane.setAttribute('data-active', active);
+        if (section) {
+          var keys = sectionKeys(pane, section);
+          var marks = keys.length ? marksFor(pane, keys[0]) : [];
+          if (marks.length) { scrollPane(firstVisible(marks)); pulse([firstVisible(marks)]); }
+        }
+      }).catch(function () { window.location.href = dialog.dataset.cvUrl; });
+      return true;
+    }
+
+    document.addEventListener('click', function (event) {
+      var target = event.target instanceof Element ? event.target : null;
+      if (!target) return;
+      var close = target.closest('[data-cv-close]');
+      if (close) { var box = close.closest('dialog'); if (box) box.close(); return; }
+      var stepButton = target.closest('[data-cv-step]');
+      if (stepButton) {
+        var owner = stepButton.closest('[data-cv-pane]');
+        if (owner) stepBy(owner, stepButton.dataset.cvStep === 'prev' ? -1 : 1);
+        return;
+      }
+      var opener = target.closest('[data-cv-drawer]');
+      if (opener && openPane(drawer, null)) { event.preventDefault(); return; }
+      var link = target.closest('[data-cv-sheet]');
+      if (link && openPane(sheet, link.dataset.cvSheet)) { event.preventDefault(); return; }
+      var mark = target.closest('mark.hl[data-key]');
+      if (mark) { selectMark(mark); return; }
+      var item = target.closest('[data-key]');
+      if (!item || !item.dataset.key) return;
+      pointAt(item.dataset.key);
+      selectItem(item);
+    });
+
+    // Enter and Space do for a chip what a click does (a span is not a button); a real
+    // button or link already answers to both.
+    document.addEventListener('keydown', function (event) {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      var item = event.target instanceof Element ? event.target.closest('[data-key]') : null;
+      if (!item || item.tagName === 'BUTTON' || item.tagName === 'A') return;
+      event.preventDefault();
+      pointAt(item.dataset.key);
+      selectItem(item);
+    });
+
+    document.addEventListener('pointerover', function (event) {
+      var item = event.target instanceof Element ? event.target.closest('[data-key]') : null;
+      if (!item || item.contains(event.relatedTarget)) return;
+      pointAt(item.dataset.key);
+    });
+    document.addEventListener('pointerout', function (event) {
+      var item = event.target instanceof Element ? event.target.closest('[data-key]') : null;
+      if (!item || item.contains(event.relatedTarget)) return;
+      restore();
+    });
+    document.addEventListener('focusin', function (event) {
+      var item = event.target instanceof Element ? event.target.closest('[data-key]') : null;
+      if (item) pointAt(item.dataset.key);
+    });
+    document.addEventListener('focusout', function (event) {
+      var item = event.target instanceof Element ? event.target.closest('[data-key]') : null;
+      if (item) restore();
+    });
+  })();
+</script>
 {% endblock %}

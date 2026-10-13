@@ -221,3 +221,11 @@ def test_an_unknown_kind_is_shown_not_dropped():
     layout = advice_layout([{"kind": "future_rule", "values": {}}])
 
     assert [g["key"] for g in layout["shown"]] == ["other"]
+
+
+def test_each_item_keeps_its_place_in_the_stored_list():
+    """§12.7: the highlight map keys an advice item by its position in the stored advice, so
+    the page needs that position to name the bullet an item lights — grouping keeps it."""
+    layout = advice_layout([language(), add(), promote(7)])
+
+    assert [item["index"] for group in layout["shown"] for item in group["items"]] == [2, 1, 0]

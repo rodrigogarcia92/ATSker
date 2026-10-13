@@ -1,7 +1,27 @@
 {# §12.7's CV pane as a fragment: what GET /applications/{id}/cv returns for the tablet
-   drawer and the phone sheet. The legend and the sheet — no toolbar and no Texto /
-   Archivo original toggle, which carry ids and would clash with the inline pane's. #}
+   drawer and the phone sheet. The status line and the two steps name the mark the user is
+   on; the close button and the native <dialog> give the Escape, the focus trap and the
+   return of focus. No toolbar and no Texto / Archivo original toggle, which carry ids and
+   would clash with the inline pane's. The four names are the ones `_cv_legend.html` uses. #}
+{% set section_labels = {
+  'components': t('report.sub_scores', lang),
+  'recruiter': t('recall.title', lang),
+  'requirements': t('report.requirements', lang),
+  'recommendations': t('report.advice', lang),
+} %}
 <section class="cv-pane" data-cv-pane aria-label="{{ t('report.cv_pane.aria', lang) }}">
-  <div class="mb-4">{% include "analyze/_cv_legend.html" %}</div>
+  <div class="cv-sheet-handle min-[768px]:hidden" aria-hidden="true"></div>
+  <div class="cv-pane-head">
+    <span data-cv-status
+          data-cv-template="{{ t('report.cv_pane.sheet_marks', lang, section='@section@', index='@index@', n='@n@') }}"
+          >{% if cv_pane.counts[cv_pane.default_section] %}{{ t('report.cv_pane.sheet_marks', lang,
+              section=section_labels[cv_pane.default_section], index=1,
+              n=cv_pane.counts[cv_pane.default_section]) }}{% else %}{{ section_labels[cv_pane.default_section] }}{% endif %}</span>
+    <div class="flex flex-none items-center gap-1.5">
+      <button type="button" data-cv-step="prev" aria-label="{{ t('report.cv_pane.previous', lang) }}" class="cv-step">↑</button>
+      <button type="button" data-cv-step="next" aria-label="{{ t('report.cv_pane.next', lang) }}" class="cv-step">↓</button>
+      <button type="button" data-cv-close aria-label="{{ t('dialog.close', lang) }}" class="cv-step">✕</button>
+    </div>
+  </div>
   {% include "analyze/_cv_sheet.html" %}
 </section>

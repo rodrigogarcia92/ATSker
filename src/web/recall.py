@@ -26,6 +26,9 @@ def query_rows(payload: Mapping[str, Any], lang: str) -> list[dict[str, Any]]:
         rows.append(
             {
                 "label": t(f"recall.label.{label}", lang) if label in RECALL_LABELS else label,
+                # §12.7: the highlight map keys a query by its stored label, which the page
+                # localises for reading, so the clause that points at the mark keeps both.
+                "key": label,
                 "passed": bool(query.get("passed")),
                 # A.9.2: the line the user pastes into the ATS. Empty for a report
                 # stored before the field existed, and the panel shows nothing then.

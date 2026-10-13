@@ -1,9 +1,11 @@
 {# §12.7's white sheet: the stored draft as text, in the file's order, with the highlight
    map drawn over it. Shared by the inline pane (report_cv.html) and the drawer/sheet
-   fragment (cv_pane.html), so both print the same marks. #}
+   fragment (cv_pane.html), so both print the same marks. `data-key` carries the
+   `key@section` pairs the report's own items repeat — the script lights the intense tone on
+   every mark sharing a pair, and the section on screen lights the rest in the base tone. #}
 {% macro marked(element) -%}
 {%- for seg in element.segments -%}
-{%- if seg.marked -%}<mark class="hl{% if seg.weak %} hl-weak{% endif %}" data-key="{{ seg.keys | join(' ') }}" data-section="{{ seg.sections | join(' ') }}" data-strength="{{ 'weak' if seg.weak else 'strong' }}" title="{{ t('report.cv_pane.mark', lang, term=seg.text[:40]) }}">{{ seg.text }}</mark>{%- else -%}{{ seg.text }}{%- endif -%}
+{%- if seg.marked -%}<mark class="hl{% if seg.weak %} hl-weak{% endif %}" data-key="{{ seg.pairs | join('|') }}" data-section="{{ seg.sections | join(' ') }}" data-strength="{{ 'weak' if seg.weak else 'strong' }}" tabindex="-1" title="{{ t('report.cv_pane.mark', lang, term=seg.text[:40]) }}">{{ seg.text }}</mark>{%- else -%}{{ seg.text }}{%- endif -%}
 {%- endfor -%}
 {%- endmacro %}
 <div class="cv-sheet">

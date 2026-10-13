@@ -992,18 +992,86 @@ body.sheet-open {
 }
 
 /* The two tones (design v3 §4): base is the lighter highlight fill, every mark without
-   script; weaker evidence is a dashed forest underline and never a fill. The intense tone
-   (lime) and the sweep are S3c, driven by the observer's `data-active`. */
+   script; weaker evidence is a dashed forest underline and never a fill. Every mark also
+   carries an underline, so it still reads as a mark when its section is not the one on
+   screen. The intense tone (lime) is the word(s) of the item the user points at, and the
+   section on screen lights its own marks with a left-to-right sweep (≈ 350 ms) — both S3c:
+   `data-active` comes from the observer, `data-intense` from the script. */
 .hl {
   background: var(--highlight);
   color: var(--ink);
   padding: 0 2px;
   border-radius: 3px;
+  text-decoration: underline;
+  text-decoration-color: var(--lime);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 2px;
 }
 .hl-weak {
   background: none;
   border-bottom: 2px dashed var(--forest);
   border-radius: 0;
+  text-decoration: none;
+}
+/* With script the fill follows the section on screen: one colour drawn as a gradient whose
+   width is what transitions, so the fill sweeps in from the left instead of appearing. */
+.cv-js .hl:not(.hl-weak) {
+  background-image: linear-gradient(var(--hl-fill, transparent), var(--hl-fill, transparent));
+  background-repeat: no-repeat;
+  background-position: left center;
+  background-size: var(--hl-sweep, 0%) 100%;
+  background-color: transparent;
+  transition: background-size 350ms ease;
+}
+/* `:where()` keeps these selectors at the weight of their own part, so the intense rule
+   below always wins over the section rule however they are ordered. */
+:where(.cv-js [data-cv-pane][data-active="components"]) .hl[data-section~="components"],
+:where(.cv-js [data-cv-pane][data-active="recruiter"]) .hl[data-section~="recruiter"],
+:where(.cv-js [data-cv-pane][data-active="requirements"]) .hl[data-section~="requirements"],
+:where(.cv-js [data-cv-pane][data-active="recommendations"]) .hl[data-section~="recommendations"] {
+  --hl-fill: var(--highlight);
+  --hl-sweep: 100%;
+}
+.cv-js .hl[data-intense] {
+  --hl-fill: var(--lime);
+  --hl-sweep: 100%;
+}
+.cv-js .hl-weak[data-intense] {
+  /* Weak evidence is never a fill: pointing at it strengthens the dashed underline. */
+  border-bottom-color: var(--ink);
+}
+.cv-js .hl:focus {
+  outline: 2px solid var(--forest);
+  outline-offset: 3px;
+}
+/* One pulse when a jump lands on a mark; the underline and the dashed border stay put. */
+@keyframes cv-pulse {
+  from {
+    box-shadow: 0 0 0 3px rgb(196 240 122 / 0.85);
+  }
+  to {
+    box-shadow: 0 0 0 3px rgb(196 240 122 / 0);
+  }
+}
+.cv-js .hl[data-pulse] {
+  animation: cv-pulse 600ms ease-out;
+}
+/* Reduced motion (§12.7, design v3): no sweep and no pulse. The script also refuses to
+   pulse or to scroll smoothly — this is the stylesheet's own promise. */
+@media (prefers-reduced-motion: reduce) {
+  .cv-js .hl:not(.hl-weak) {
+    transition: none;
+  }
+  .cv-js .hl[data-pulse] {
+    animation: none;
+  }
+}
+/* The mark map's ticks (design v3 §4): lime, and forest for the section on screen. */
+:where(.cv-js [data-cv-pane][data-active="components"]) .cv-tick[data-section~="components"],
+:where(.cv-js [data-cv-pane][data-active="recruiter"]) .cv-tick[data-section~="recruiter"],
+:where(.cv-js [data-cv-pane][data-active="requirements"]) .cv-tick[data-section~="requirements"],
+:where(.cv-js [data-cv-pane][data-active="recommendations"]) .cv-tick[data-section~="recommendations"] {
+  background: var(--forest);
 }
 
 /* The tablet drawer's opener and the two dialogs the phone and tablet use; the script loads
@@ -1058,6 +1126,26 @@ body.sheet-open {
   border-top: 1px solid var(--hairline);
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   overflow-y: auto;
+}
+/* The drawer's and the sheet's own header: the mark the steps are on, and the controls. */
+.cv-pane-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-bottom: 0.75rem;
+  margin-bottom: 0.75rem;
+  border-bottom: 1px solid var(--hairline);
+  font-size: 0.8125rem;
+  color: var(--slate);
+}
+/* The phone sheet's grab handle (design v3 §5); the drawer has none. */
+.cv-sheet-handle {
+  width: 2.5rem;
+  height: 0.25rem;
+  margin: 0.625rem auto 0;
+  border-radius: var(--radius-pill);
+  background: var(--hairline);
 }
 
 /* The header strip's Job Match pill (design v3 §5): vellum, a forest dot and the number. */

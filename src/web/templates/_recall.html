@@ -44,7 +44,10 @@
         {% if query.clauses %}
         <ul class="space-y-1">
           {% for clause in query.clauses %}
-          <li class="text-xs {% if clause.matched %}text-text-2{% else %}text-text-3{% endif %}">
+          {# §12.7: on a CV report the clause that passed points at the words that satisfied
+             it, so it carries its query's key — the mark the pane drew for that query. #}
+          <li class="text-xs {% if clause.matched %}text-text-2{% else %}text-text-3{% endif %}"
+              {%- if clause.matched and cv_keys is defined %} data-key="query:{{ query.key }}@recruiter" tabindex="0"{% endif %}>
             {% if clause.matched %}
             <span aria-hidden="true">✓</span> {{ t('recall.clause_met', lang, term=clause.term, unit=clause.unit) }}
             {% if clause.text %}<span class="block text-text-3">{{ clause.text }}</span>{% endif %}

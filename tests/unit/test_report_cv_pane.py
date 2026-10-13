@@ -149,6 +149,54 @@ def test_the_original_view_says_a_docx_has_no_page_image(client, career, provide
     assert t("report.cv_pane.no_pages", "es") in page
 
 
+# --- what the highlight behaviour needs from the server (§12.7) ---
+
+
+def test_a_report_item_repeats_the_key_and_the_section_of_its_marks(client, career, provider):
+    """§12.7: an item and its marks share `data-key` — `key@section` — so pointing at the item
+    lights exactly the marks of its own section, even where one span carries two sections."""
+    _id, page = analysed(client, career)
+    pane = part(page, "section", "data-cv-pane")
+    pairs = {
+        pair
+        for value in re.findall(r'<mark[^>]*data-key="([^"]*)"', pane)
+        for pair in value.split("|")
+    }
+    chips = set(re.findall(r'<span class="chip" data-key="([^"]*)"', page))
+    requirements = set(re.findall(r'data-key="(requirement:\d+@requirements)"', page))
+
+    marked = {pair for pair in pairs if pair.startswith("requirement:")}
+    clauses = set(re.findall(r'data-key="(query:[^"]*@recruiter)"', page))
+
+    assert pairs and chips and requirements, "the pane's marks and the report's items both key"
+    assert marked, "a requirement with evidence is marked in the pane"
+    assert marked <= requirements, "and the chip of that requirement carries the same number"
+    assert {pair for pair in pairs if pair.startswith("keyword:")} <= chips, (
+        "a keyword mark's chip carries its key — the Skills card's annotated terms included"
+    )
+    assert {pair for pair in pairs if pair.startswith("query:")} <= clauses, (
+        "a clause carries the key of the query the pane marked"
+    )
+    assert all(
+        pair.rsplit("@", 1)[1] in ("components", "recruiter", "requirements", "recommendations")
+        for pair in pairs
+    ), "every pair names one of §12.1's four blocks that cite the pane"
+
+
+def test_the_legend_and_the_status_carry_the_sentences_the_script_fills(client, career, provider):
+    """The legend and the drawer/sheet status are server-rendered with the blanks the script
+    fills; without script the server's default section and count stay."""
+    application_id, page = analysed(client, career)
+    fragment = client.get(f"/applications/{application_id}/cv").text
+
+    legend = part(page, "span", "data-cv-legend")
+    assert "Mostrando:" in legend and "@section@" in legend and "@n@" in legend
+    status = part(fragment, "span", "data-cv-status")
+    assert "@section@" in status and "@index@" in status and "@n@" in status
+    assert "data-cv-step" in fragment and "data-cv-close" in fragment, "the steps and the close"
+    assert "data-cv-legend" not in fragment, "the fragment carries the status line instead"
+
+
 # --- what stays the single column ---
 
 

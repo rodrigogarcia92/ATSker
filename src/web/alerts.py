@@ -161,7 +161,13 @@ def advice_layout(
     What does not fit goes to `rest`, grouped the same way, for the "Ver todas" toggle.
     `total` is every item, which is the number that toggle names.
     """
-    source = [item for item in items or [] if isinstance(item, Mapping)]
+    # Each item keeps its place in the stored list (`index`): §12.7's highlight map keys an
+    # advice item by that position, so the page needs it to name the bullet an item lights.
+    source = [
+        {**item, "index": index}
+        for index, item in enumerate(items or [])
+        if isinstance(item, Mapping)
+    ]
     known = {kind for _key, kinds in ADVICE_GROUPS for kind in kinds}
     groups = [
         (key, [item for item in source if item.get("kind") in kinds])

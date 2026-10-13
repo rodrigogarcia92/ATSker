@@ -7,6 +7,10 @@ text with those spans cut into plain and marked segments. It also counts the mar
 report section — the phone's "Ver en mi CV (N)" links and the legend read them — and says
 whether the offsets still describe the stored draft (decision 5: a CV edited after the
 analysis is drawn without marks).
+
+Each segment also carries its `key@section` pairs (§12.7's `data-key`), which is what the
+page's script matches a mark against a report item with: one span can carry two sections,
+so the pair — not the two lists — is what says which mark belongs to which section.
 """
 
 from __future__ import annotations
@@ -40,6 +44,9 @@ class Segment:
     weak: bool
     keys: tuple[str, ...]
     sections: tuple[str, ...]
+    # `key@section`, in the order the marks were resolved: the page's `data-key`, and the
+    # same string a report item carries.
+    pairs: tuple[str, ...]
 
 
 @dataclass(frozen=True)
@@ -56,6 +63,7 @@ class _Span:
     end: int
     keys: tuple[str, ...]
     sections: tuple[str, ...]
+    pairs: tuple[str, ...]
     weak: bool
 
 
@@ -125,17 +133,22 @@ def _spans(marks: Sequence[Mark]) -> list[_Span]:
     for (start, end), group in sorted(grouped.items()):
         keys: list[str] = []
         sections: list[str] = []
+        pairs: list[str] = []
         for mark in group:
             if mark.key not in keys:
                 keys.append(mark.key)
             if mark.section not in sections:
                 sections.append(mark.section)
+            pair = f"{mark.key}@{mark.section}"
+            if pair not in pairs:
+                pairs.append(pair)
         spans.append(
             _Span(
                 start,
                 end,
                 tuple(keys),
                 tuple(sections),
+                tuple(pairs),
                 all(mark.strength == WEAK for mark in group),
             )
         )
@@ -150,10 +163,12 @@ def _segments(text: str, spans: Sequence[_Span]) -> tuple[Segment, ...]:
         start = max(0, min(span.start, len(text)))
         end = max(start, min(span.end, len(text)))
         if start > cursor:
-            segments.append(Segment(text[cursor:start], False, False, (), ()))
+            segments.append(Segment(text[cursor:start], False, False, (), (), ()))
         if end > start:
-            segments.append(Segment(text[start:end], True, span.weak, span.keys, span.sections))
+            segments.append(
+                Segment(text[start:end], True, span.weak, span.keys, span.sections, span.pairs)
+            )
         cursor = max(cursor, end)
     if cursor < len(text):
-        segments.append(Segment(text[cursor:], False, False, (), ()))
+        segments.append(Segment(text[cursor:], False, False, (), (), ()))
     return tuple(segments)
