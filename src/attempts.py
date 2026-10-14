@@ -32,7 +32,7 @@ from src.analysis import (
     score_track,
     shown_ceiling,
 )
-from src.attempt_flags import change_list, document_flags, previous_attempt_report
+from src.attempt_flags import change_list, document_flags, new_terms, previous_attempt_report
 from src.attempt_track import ephemeral_track
 from src.extract.client import CallOptions, Completion
 from src.extract.resume import ResumeExtraction, extract_resume
@@ -277,15 +277,18 @@ def run_pipeline(
     # F10.5 flags, and the F10.4 change list against the previous attempt.
     ceiling = report.get("ceiling") or {}
     above = bool(report["score"]["capped"] > (ceiling.get("high") or 100))
-    report["flags"] = document_flags(
-        profile_id, session, draft=extracted.draft, above_ceiling=above
+    previous_report = previous_attempt_report(
+        profile_id, session, application.id, before=attempt.attempt_no
     )
-    report["change"] = change_list(
-        previous_attempt_report(
-            profile_id, session, application.id, before=attempt.attempt_no
-        ),
-        report,
+    flags = document_flags(profile_id, session, draft=extracted.draft, above_ceiling=above)
+    # §12.9: what the file names that neither the material nor the report it is compared
+    # with held, for "Nuevo en este documento". The comparison is the previous attempt, or
+    # the posting analysis for the first one — the same reference the change list reads.
+    flags["new_terms"] = new_terms(
+        session, flags=flags, report=report, compared=previous_report or application.report
     )
+    report["flags"] = flags
+    report["change"] = change_list(previous_report, report)
     return report, analysis
 
 
@@ -334,6 +337,34 @@ def _score_rows(change: Mapping[str, object]) -> list[dict[str, object]]:
         rows.append({"name": "total", "before": total["before"], "after": total["after"]})
     rows.extend(change.get("sub_scores") or [])
     return rows
+
+
+def _new_terms(report: Mapping[str, object]) -> list[str]:
+    """§12.9's list for the pop-up: what the run stored under the flags.
+
+    An attempt stored before the key existed — a row from an older drive or an earlier
+    analysis — falls back to the skill flags it does carry, so its pop-up still names what
+    the file added instead of claiming there is nothing new. Never the claims: those are
+    computed and stored (F10.5) and never shown.
+    """
+    flags = report.get("flags")
+    flags = flags if isinstance(flags, Mapping) else {}
+    stored = flags.get("new_terms")
+    listed = stored if stored is not None else flags.get("skills") or []
+    return [str(term) for term in listed if str(term).strip()]
+
+
+def _mentions(report: Mapping[str, object]) -> list[str]:
+    """The requirements the file only mentions (§12.1 item 3): level 1 — the summary or the
+    skills list names them, no bullet shows them. The pop-up's *Qué queda* lists each with
+    what would make it count; the score is untouched (they already count as a gap, F5.5)."""
+    block = report.get("gaps")
+    rows = block.get("gaps") if isinstance(block, Mapping) else None
+    return [
+        str(row.get("requirement") or "")
+        for row in (rows or [])
+        if isinstance(row, Mapping) and row.get("level") == 1 and row.get("requirement")
+    ]
 
 
 def attempt_view(
@@ -388,8 +419,10 @@ def attempt_view(
         "change": change,
         "change_scores": _score_rows(change),
         "flags": report.get("flags") or {},
+        "new_terms": _new_terms(report),
         "unreachable": ceiling.get("unreachable") or {},
         "advice": report.get("advice") or [],
+        "mentions": _mentions(report),
         "cost_usd": attempt.token_cost_usd,
         "cost_reused": cost == 0.0,
         "error": attempt.error,

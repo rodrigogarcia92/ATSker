@@ -8,7 +8,7 @@ attempt.
 
 import pytest
 
-from src.attempt_flags import discard_attempt, document_flags
+from src.attempt_flags import discard_attempt, document_flags, new_terms
 from src.bullets import create_bullet
 from src.certifications import create_certification
 from src.education import create_education
@@ -65,6 +65,8 @@ def test_a_skill_the_pool_does_not_hold_is_flagged_and_survives_discard(
 
     attempt = _attempts(session)[0]
     assert "machine learning" in attempt.report["flags"]["skills"]
+    # §12.9: what the pop-up's "Nuevo en este documento" lists is stored with the flags.
+    assert "machine learning" in attempt.report["flags"]["new_terms"]
     # The unheld skill lifts Keywords past the analysis's ceiling (E2): the F10.5 signal that
     # the file claims more than the material holds.
     assert attempt.job_match > attempt.ceiling_high
@@ -120,6 +122,43 @@ def test_the_change_list_names_the_search_the_document_now_passes(
     first, second = _attempts(session)
     assert first.report["change"] == {}, "there was nothing before the first attempt"
     assert second.report["change"]["searches_found"] == ["strict"]
+
+
+# --- §12.9: what "Nuevo en este documento" lists ---
+
+
+def _keywords(*terms: str) -> dict:
+    return {"score": {"sub_scores": {"keywords": {"matched": list(terms)}}}}
+
+
+def test_new_terms_name_each_thing_once_and_never_one_the_compared_report_had(
+    session, career
+):
+    """§12.9: the file's own words first, then the keywords this report matches that the
+    compared one did not — de-duplicated by canonical, so `ml` and `machine learning` are
+    one entry, and a keyword the compared report already had is none at all."""
+    flags = {"skills": ["ml", "tablas dinámicas"]}
+    report = _keywords("machine learning", "Python", "reportes")
+
+    merged = new_terms(session, flags=flags, report=report, compared=_keywords("python"))
+
+    assert merged == ["ml", "tablas dinámicas", "reportes"]
+
+
+def test_the_first_attempt_measures_against_the_analysis_it_reuses(session, career):
+    """No previous attempt means the posting analysis is the reference (the same one the
+    change list reads), and one without the card — an old row — adds nothing."""
+    flags = {"skills": []}
+    report = _keywords("reportes", "dashboards")
+
+    assert new_terms(session, flags=flags, report=report, compared=None) == [
+        "reportes",
+        "dashboards",
+    ]
+    assert new_terms(session, flags=flags, report=report, compared={}) == [
+        "reportes",
+        "dashboards",
+    ]
 
 
 # --- D4: the flags read everything the user has stored (F10.5) ---

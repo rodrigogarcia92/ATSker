@@ -137,6 +137,51 @@ def document_flags(
     }
 
 
+def keyword_terms(report: Mapping[str, object] | None) -> list[str]:
+    """The Keywords card's matched terms of a stored report, in its own wording.
+
+    The card's terms are the posting's labels and carry no annotation (unlike the Skills
+    card's), so one is the label as the posting wrote it. A report without the card — an
+    old row, or a failed run — has none.
+    """
+    score = (report or {}).get("score")
+    sub_scores = score.get("sub_scores") if isinstance(score, Mapping) else None
+    block = (sub_scores or {}).get("keywords") if isinstance(sub_scores, Mapping) else None
+    terms = block.get("matched") if isinstance(block, Mapping) else None
+    return [str(term) for term in (terms or []) if str(term).strip()]
+
+
+def new_terms(
+    session: Session,
+    *,
+    flags: Mapping[str, object],
+    report: Mapping[str, object],
+    compared: Mapping[str, object] | None,
+) -> list[str]:
+    """What the file names that neither the material nor the compared report held (§12.9).
+
+    Two sources, de-duplicated by canonical (`alias_map`) so one thing is listed once and
+    the file's own wording wins: the F10.5 skill flags (a skill the stored material does
+    not hold, in the file's words), then the posting's Keywords-card terms that this report
+    matches and the report it is compared with (`compared`: the previous attempt, or the
+    analysis for attempt 1) did not. The user decides whether it is true — a new CV is
+    expected to carry new information — so this is a list, never a verdict.
+    """
+    aliases = alias_map(session)
+
+    def key(term: str) -> str:
+        return aliases.get(fold(term), fold(term))
+
+    was = {key(term) for term in keyword_terms(compared)}
+    seen: dict[str, str] = {}
+    for term in (str(item) for item in flags.get("skills") or []):
+        seen.setdefault(key(term), term)
+    for term in keyword_terms(report):
+        if key(term) not in was:
+            seen.setdefault(key(term), term)
+    return list(seen.values())
+
+
 def change_list(
     previous: Mapping[str, object] | None, current: Mapping[str, object]
 ) -> dict[str, object]:
