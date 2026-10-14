@@ -1026,10 +1026,13 @@ body.sheet-open {
   overflow: visible;
   background-image:
     linear-gradient(to right, transparent 0 6px, var(--paper) 6px 12px),
-    linear-gradient(to bottom, var(--hairline) 0 1px, transparent 1px);
+    linear-gradient(to bottom, transparent 0 calc(100% - 1px), var(--hairline) calc(100% - 1px));
   background-size: 12px 100%, 100% calc(100cqw * 297 / 210);
-  background-position: 0 0, 0 calc(100cqw * 297 / 210);
+  background-position: 0 0;
   background-repeat: repeat, repeat;
+  /* The hairline is the last pixel of each A4-tall tile, not its first: a line at the
+     tile's top would also fall at y = 0, because the tiles repeat upwards as well, and the
+     top edge of the first page would carry a page break that is not one. */
 }
 .cv-mark-map {
   position: absolute;

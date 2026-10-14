@@ -285,7 +285,7 @@ def block(css: str, selector: str) -> str:
 
 
 def test_the_match_bar_fill_takes_its_band_colour():
-    """review_S3d 1: the hero's long bar showed forest under a Débil or Adecuado score."""
+    """The hero's long bar is the band's own colour, like the segments above it."""
     css = SRC_CSS.read_text(encoding="utf-8")
 
     assert "var(--band-color" in block(css, ".match-fill")
@@ -293,3 +293,17 @@ def test_the_match_bar_fill_takes_its_band_colour():
         assert "--band-color:" in block(css, f'[data-band="{band}"]'), (
             f"the {band} band sets the variable the bar reads"
         )
+
+
+def test_the_page_break_line_is_never_drawn_at_the_sheets_top():
+    """The page-break hairline falls at each A4 height, and not at y = 0.
+
+    A tile whose line sits at its top would tile upwards as well, so the first page's top
+    edge would show a page break that is not one; the line belongs to the tile's bottom.
+    """
+    rule = block(SRC_CSS.read_text(encoding="utf-8"), ".cv-column .cv-sheet-body")
+
+    assert "transparent 0 calc(100% - 1px)" in rule
+    assert "var(--hairline) calc(100% - 1px)" in rule
+    assert "100% calc(100cqw * 297 / 210)" in rule, "one tile is one A4 height"
+    assert "background-position: 0 0;" in rule, "no offset that moves a line to the top"
