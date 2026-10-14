@@ -200,6 +200,18 @@ def test_the_legend_and_the_status_carry_the_sentences_the_script_fills(client, 
     assert "data-cv-legend" not in fragment, "the fragment carries the status line instead"
 
 
+def test_the_section_on_screen_is_decided_by_the_top_edge(client, career, provider):
+    """The section that lights up is the one at the top edge, not the one at the middle.
+
+    The observer's band is the top tenth of the window, so a short section whose heading
+    has reached the top lights up even though it never covers the middle of the page.
+    """
+    _id, page = analysed(client, career)
+
+    assert "rootMargin: '0px 0px -90% 0px'" in page, "the band sits at the top edge"
+    assert "-45% 0px -45% 0px" not in page, "the middle band is gone"
+
+
 # --- what stays the single column ---
 
 

@@ -164,7 +164,7 @@
     var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     var smooth = reduce ? 'auto' : 'smooth';
     // §12.1's order of the blocks that cite the pane: the observer reports the first of
-    // these holding the middle of the viewport.
+    // these holding the top edge of the viewport.
     var SECTIONS = {
       fit: 'components', components: 'components', recruiter: 'recruiter',
       requirements: 'requirements', recommendations: 'recommendations'
@@ -311,7 +311,9 @@
     }
 
     // The pane tracks the report, never a scroll listener: the observer reports which of
-    // §12.1's blocks holds the middle of the viewport, and that is the section on screen.
+    // §12.1's blocks holds the top edge of the viewport, and that is the section on
+    // screen. The band is the top tenth of the window, so a short section lights up as
+    // soon as its heading reaches the top, instead of having to cover the middle.
     if ('IntersectionObserver' in window) {
       var visible = {};
       var observer = new IntersectionObserver(function (entries) {
@@ -321,7 +323,7 @@
           if (next === null && visible[id]) next = SECTIONS[id];
         });
         if (next && next !== active) showSection(next);
-      }, { rootMargin: '-45% 0px -45% 0px' });
+      }, { rootMargin: '0px 0px -90% 0px' });
       Object.keys(SECTIONS).forEach(function (id) {
         var section = document.getElementById(id);
         if (section) observer.observe(section);
