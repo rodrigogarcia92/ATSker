@@ -826,25 +826,22 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "New in this document",
     },
     "attempt.flags.none": {
-        "es": "Nada nuevo: el documento dice lo que dice tu material.",
-        "en": "Nothing new: the document says what your material says.",
+        "es": "Nada nuevo frente a tu material.",
+        "en": "Nothing new against your material.",
     },
-    "attempt.flags.skills": {
-        "es": "Habilidades que tu material no tiene: {items}",
-        "en": "Skills your material does not have: {items}",
-    },
-    "attempt.flags.claims": {
-        "es": "Cifras, fechas o nombres sin respaldo: {items}",
-        "en": "Figures, dates or names with no support: {items}",
+    "attempt.flags.new_skills": {
+        "es": "Habilidades y palabras clave nuevas:",
+        "en": "New skills and keywords:",
     },
     "attempt.flags.titles": {
-        "es": "Puestos que no están en tu material: {items}",
-        "en": "Roles your material does not carry: {items}",
+        "es": "Puestos nuevos: {items}",
+        "en": "New roles: {items}",
     },
-    "attempt.flags.above_ceiling": {
-        "es": "Este CV puntúa por encima de lo que tu material permite; revisa las "
-        "afirmaciones nuevas.",
-        "en": "This CV scores above what your material allows; check the new claims.",
+    "attempt.flags.confirm": {
+        "es": "Revisa que sea cierto. Si lo es, agrégalo a tu material para que los próximos "
+        "análisis lo usen.",
+        "en": "Check that it is true. If it is, add it to your material so the next "
+        "analyses use it.",
     },
     "attempt.left.title": {"es": "Qué queda", "en": "What's left"},
     "attempt.left.none": {
@@ -951,6 +948,12 @@ STRINGS: dict[str, dict[str, str]] = {
         "es": "Fondo gris con ✓: está presente.",
         "en": "Grey fill with ✓: it is present.",
     },
+    "report.legend.mentioned": {
+        "es": "Contorno ocre con ~: solo mencionado — está en tu lista de habilidades o en el "
+        "resumen, y ningún bullet muestra cómo lo usaste.",
+        "en": "Ochre outline with ~: mentioned only — it is in your skills list or summary, "
+        "and no bullet shows how you used it.",
+    },
     "report.divider.screens": {"es": "Las dos pantallas", "en": "The two screens"},
     "report.row.keywords": {"es": "{n} palabras clave", "en": "{n} keywords"},
     "report.row.keywords_one": {"es": "1 palabra clave", "en": "1 keyword"},
@@ -966,6 +969,15 @@ STRINGS: dict[str, dict[str, str]] = {
     },
     "report.term.found": {"es": "encontrada", "en": "found"},
     "report.term.missing": {"es": "falta", "en": "missing"},
+    # §12.1 item 3, amended 2026-10-13: a term at level 1 is shown as mentioned, never as
+    # missing, and the line that carries it says what would make it count.
+    "report.term.mentioned": {"es": "solo mencionado", "en": "mentioned only"},
+    "report.mention_line": {
+        "es": "«{skill}» solo aparece en tu lista de habilidades o en el resumen: escríbelo "
+        "en un bullet que muestre cómo lo usaste para que cuente como evidencia.",
+        "en": "«{skill}» only appears in your skills list or summary: write it into a bullet "
+        "that shows how you used it, so it counts as evidence.",
+    },
     # F7.1: the table the recommendation produces, above the components, with the
     # chosen track marked. The justification is a code-built line, not prose from a
     # model: the winner, the sub-score it leads on, and the track's own "when to use".

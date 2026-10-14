@@ -72,6 +72,14 @@
    read it from here, so the three cannot drift. #}
 {% macro level_band(level) -%}{{ 'strong' if level >= 2 else ('adequate' if level == 1 else 'weak') }}{%- endmacro %}
 
+{# §12.1 item 3, amended 2026-10-13: a skill at level 1 — it appears in the skills list or
+   the summary, never in a described task — is *mentioned*, not missing. One chip for both
+   places it is shown (the Skills card and the pop-up's *Qué queda*): the ochre outline and
+   the words carry the state, so colour is never the only signal. #}
+{% macro mentioned(name, lang) -%}
+<span class="chip chip-mentioned"><span aria-hidden="true">~</span> {{ name }} <span>{{ t('report.term.mentioned', lang) }}</span></span>
+{%- endmacro %}
+
 {# Evidence levels 0–3: three bars filled forest up to the level. The number is always
    written beside the bars. #}
 {% macro level_bars(level) -%}

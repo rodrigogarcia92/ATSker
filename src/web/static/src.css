@@ -82,8 +82,9 @@
 }
 
 /* Every number is tabular (§12.1): scores, counts, dates and hashes line up. Hanken Grotesk
-   loads one weight (400), so bold is never synthesised: hierarchy comes from size, ink and
-   spacing, and `font-semibold` and `font-medium` in a template change nothing visible. */
+   loads 400 and 600 (§2, amended 2026-10-13); 600 is used only by the dialog subheadings
+   (`.dialog-subhead`), so anywhere else `font-semibold` and `font-medium` change nothing
+   visible and hierarchy comes from size, ink and spacing. */
 body {
   font-variant-numeric: tabular-nums;
   font-synthesis-weight: none;
@@ -636,6 +637,23 @@ body.sheet-open {
   background: none;
   border: 1px dashed var(--slate);
   color: var(--pewter);
+}
+/* §12.1 item 3, amended 2026-10-13: level 1 is *mentioned*, not missing — the skills list
+   or the summary names it and no bullet shows it. A solid ochre hairline, the same colour a
+   requirement at level 1 takes; the glyph and the words carry the state. */
+.chip-mentioned {
+  background: none;
+  border: 1px solid var(--ochre);
+  color: var(--ink);
+}
+
+/* Design v3 §2, amended 2026-10-13: the one place 600 is loaded — the subheadings inside a
+   dialog or pop-up (*Qué cambió*, *Nuevo en este documento*, *Qué queda*). 18 px ink,
+   nothing else in the interface is bold. */
+.dialog-subhead {
+  font-size: 1.125rem;
+  color: var(--ink);
+  font-weight: 600;
 }
 
 /* Severity: told apart by shape and word — Bloqueo an ink outline with an octagon, Aviso a

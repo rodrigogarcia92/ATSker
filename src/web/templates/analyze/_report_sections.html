@@ -99,6 +99,7 @@
     <li>{{ t('report.legend.scores', lang) }}</li>
     <li>{{ t('report.legend.dashed', lang) }}</li>
     <li>{{ t('report.legend.filled', lang) }}</li>
+    <li>{{ t('report.legend.mentioned', lang) }}</li>
     <li>{{ t('report.legend.severity', lang) }}</li>
   </ul>
 </details>
@@ -169,11 +170,17 @@
       {% for term in sub.matched %}
       {# The Skills card's terms carry their level and basis (`python (L3, direct)`, F5.5.2);
          the pane's mark is keyed by the term's own name, so the key drops the annotation. #}
-      {% set named = term.split(' (')[0] if name == 'skills' else term %}
+      {% set named = term | term_name %}
       <span class="chip"{% if cv_keys is defined and name in ('keywords', 'skills') %} data-key="keyword:{{ named }}@components" tabindex="0"{% elif cv_keys is defined and name == 'title' %} data-key="title@components" tabindex="0"{% endif %}><span aria-hidden="true">✓</span> {{ term | localised_term(lang) }}<span class="sr-only"> ({{ t('report.term.found', lang) }})</span></span>
       {% endfor %}
       {% for term in sub.missing %}
+      {% if (term | term_level) == 1 %}
+      {# Amended 2026-10-13: level 1 is *mentioned* — the skills list or the summary names
+         it, no bullet shows it — so it is not a missing term and never wears the ✕. #}
+      {{ ui.mentioned(term | term_name | localised_term(lang), lang) }}
+      {% else %}
       <span class="chip chip-missing"><span aria-hidden="true">✕</span> {{ term | localised_term(lang) }}<span class="sr-only"> ({{ t('report.term.missing', lang) }})</span></span>
+      {% endif %}
       {% endfor %}
     </div>
   </div>
@@ -704,7 +711,12 @@
               {% if gap.blocking %}<span class="tag tag-warning">{{ t('report.gap_blocking', lang) }}</span>{% endif %}
             </span>
           </div>
-          {% if gap.bullet_text %}
+          {% if gap.level == 1 %}
+          {# Amended 2026-10-13: at level 1 the citation is the skills list or the summary
+             itself, not a bullet that came close, so the line says where the term is and
+             what would make it count (§12.1 item 3). #}
+          <p class="mt-1 text-sm text-text-2">{{ t('report.mention_line', lang, skill=gap.requirement) }}</p>
+          {% elif gap.bullet_text %}
           <p class="mt-1 text-sm text-text-2">{{ t('report.came_close', lang) }}: {{ gap.bullet_text }}</p>
           {% endif %}
           {% if gap.interpretation %}

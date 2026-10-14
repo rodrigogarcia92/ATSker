@@ -60,6 +60,28 @@ def localised_term(value: object, lang: str = DEFAULT_LANG) -> str:
 
 _TEMPLATES.env.filters["localised_term"] = localised_term
 
+# The scorer annotates a Skills term with its level — `python (L3, direct)`, `excel (L1)`
+# — and is frozen, so the display reads that annotation instead of changing it (§12.1
+# item 3 amendment): level 1 is "mentioned", not "missing", and gets its own chip.
+_TERM_ANNOTATION = re.compile(r"^(?P<name>.+?)\s*\(L(?P<level>\d)(?:,\s*(?P<basis>[a-z]+))?\)$")
+
+
+def term_level(value: object) -> int | None:
+    """The level a sub-score term carries (`excel (L1)` -> 1), or None when it carries none."""
+    match = _TERM_ANNOTATION.match(str(value).strip())
+    return int(match.group("level")) if match else None
+
+
+def term_name(value: object) -> str:
+    """A sub-score term without its level annotation (`python (L3, direct)` -> `python`)."""
+    text = str(value)
+    match = _TERM_ANNOTATION.match(text.strip())
+    return match.group("name") if match else text
+
+
+_TEMPLATES.env.filters["term_level"] = term_level
+_TEMPLATES.env.filters["term_name"] = term_name
+
 
 def relative_time(value: object, lang: str = DEFAULT_LANG) -> str:
     """A moment as its rough distance from now (§12.8's state lines and activity).
