@@ -11,7 +11,7 @@ import json
 import pytest
 
 from src.extract import client as extract_client
-from src.extract.prompts import SUMMARY_V5
+from src.extract.prompts import SUMMARY_V6
 from src.generate.proposals import cv_summary_material
 from src.models import Summary
 from src.summaries import create_summary
@@ -192,4 +192,4 @@ def test_a_deleted_cv_still_proposes_from_the_report(client, session, career, qu
 
 
 def test_the_prompt_version_is_unchanged():
-    assert SUMMARY_V5.version == "summary_v5"
+    assert SUMMARY_V6.version == "summary_v6"

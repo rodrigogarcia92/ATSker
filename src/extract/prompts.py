@@ -557,6 +557,37 @@ SUMMARY_V5 = Prompt(
 )
 
 
+# summary_v6 (S5b): the title the summary opens with is the person's career title, chosen in
+# code (`career_title`) — the posting's own title only when a title the person holds carries
+# every content word of it — so the model never picks a title it cannot claim. The length is
+# 60-100 words, and the objective is said plainly: the summary exists to get a call. V4 and
+# V5 stay defined: a stored ledger row may name either.
+SUMMARY_V6 = Prompt(
+    version="summary_v6",
+    system=SUMMARY_V5.system.replace(
+        "1. Open the first sentence with the posting's title exactly as given in the "
+        "message — the same words, the same accents — once, as the role the summary is "
+        "written for. Do not paraphrase it.\n",
+        "1. Open the first sentence with the career title given in the message, exactly as "
+        "written, once, as the role the person is presented in. Do not use any other job "
+        "title.\n",
+    ).replace(
+        "Write three or four sentences and at most 80 words, in a plain register. ",
+        "Write three to five sentences, between 60 and 100 words, in a plain register. "
+        "This summary is read by a recruiter in a few seconds. Its job is to get the person "
+        "a call: lead with the career title and the strongest evidence for what this "
+        "posting asks, use the posting's own words for the shortlisted skills, place each "
+        "of them inside what the person actually did (from the base summary or a cited "
+        "bullet), keep one concrete result from the material if there is one, and cut "
+        "anything generic. ",
+    ),
+    template=SUMMARY_V5.template.replace(
+        "The posting's title, to be used exactly as written:",
+        "The career title, to be used exactly as written:",
+    ),
+)
+
+
 BULLET_REPHRASE_V1 = Prompt(
     version="bullet_rephrase_v1",
     system=(

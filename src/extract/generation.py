@@ -25,7 +25,7 @@ from src.extract.prompts import (
     LETTER_BLOCKS_V1,
     LETTER_BRIDGE_V2,
     STORY_BULLETS_V1,
-    SUMMARY_V5,
+    SUMMARY_V6,
     summarize_rows,
 )
 from src.jd import StructuredJD
@@ -212,11 +212,11 @@ def generate_summary(
     model: str | None = None,
     options: CallOptions | None = None,
 ) -> Proposal:
-    """One call: the summary for one application (F7.3, Tier 1; `summary_v5`).
+    """One call: the summary for one application (F7.3, Tier 1; `summary_v6`).
 
-    `title` is the posting's, to be opened with verbatim; `shortlist` is (wording,
-    canonical[, step]) rows that code chose, the step being `posting` or `related`; `base` is
-    the summary to follow and improve.
+    `title` is the career title code chose (`career_title`), to be opened with verbatim;
+    `shortlist` is (wording, canonical[, step]) rows that code chose, the step being
+    `posting` or `related`; `base` is the summary to follow and improve.
     `retry` is (the previous text, the failed rules) for the one second call. The track's
     skills and the pool go in as context for skill closure, never as output: the answer is
     a summary and its citations, and accepting it never touches the track's skills.
@@ -227,9 +227,9 @@ def generate_summary(
     completion = complete_json(
         session,
         purpose=GENERATE_SUMMARY,
-        prompt_version=SUMMARY_V5.version,
-        system=SUMMARY_V5.render_system(),
-        user=SUMMARY_V5.render(
+        prompt_version=SUMMARY_V6.version,
+        system=SUMMARY_V6.render_system(),
+        user=SUMMARY_V6.render(
             lang=language,
             title=title or "(none)",
             shortlist=summarize_rows([_shortlist_row(row) for row in shortlist]),

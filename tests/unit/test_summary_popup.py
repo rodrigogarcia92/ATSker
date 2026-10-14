@@ -86,7 +86,7 @@ def test_the_ledger_row_keeps_its_purpose_and_names_the_new_version(
     client.post(urls(application)[1], data={"dialog": "1"})
 
     rows = session.query(LlmCall).filter_by(purpose="generate_summary").all()
-    assert [row.prompt_version for row in rows] == ["summary_v5"]
+    assert [row.prompt_version for row in rows] == ["summary_v6"]
     from src.deletion import PERSONAL_PURPOSES
 
     assert "generate_summary" in PERSONAL_PURPOSES, "its answer is still blanked by Eliminar todo"

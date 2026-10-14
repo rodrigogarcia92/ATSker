@@ -230,7 +230,7 @@ def test_both_calls_are_in_the_ledger(client, session, career, queue):
     generate(client, application)
 
     rows = session.query(LlmCall).filter_by(purpose="generate_summary").all()
-    assert [row.prompt_version for row in rows] == ["summary_v5", "summary_v5"]
+    assert [row.prompt_version for row in rows] == ["summary_v6", "summary_v6"]
 
 
 def test_the_prompt_receives_the_base_and_says_when_there_is_none(client, session, career, queue):
