@@ -460,15 +460,17 @@ body.sheet-open {
   gap: 0.75rem;
 }
 /* One colour per band (design v3 §4, amended 2026-10-12): the number (hero and stat), the
-   band word, the filled segments and the sub-score bar below it. The empty segments stay
-   hairline and the band word still says the band, so colour is never the only signal. */
-.score[data-band="strong"] {
+   band word, the filled segments, the sub-score bar below it and the Job Match bar's own
+   fill. The empty segments stay hairline and the band word still says the band, so colour
+   is never the only signal. The variable is set on `[data-band]`, not on `.score`, because
+   the Job Match bar carries its own band attribute and needs the same value. */
+[data-band="strong"] {
   --band-color: var(--forest);
 }
-.score[data-band="adequate"] {
+[data-band="adequate"] {
   --band-color: var(--ochre);
 }
-.score[data-band="weak"] {
+[data-band="weak"] {
   --band-color: var(--brick);
 }
 .score-number,
@@ -543,8 +545,9 @@ body.sheet-open {
   background: var(--band-color, var(--forest));
 }
 /* The Job Match bar: the score it would have without the cap, the score it has, and the
-   cap marked only as a tick. The bar stays grey/forest; the coloured element is the
-   segment row above it. */
+   cap marked only as a tick. Its fill takes the same band colour as the number and the
+   segments above it, so one band never shows two colours; the uncapped remainder stays
+   stone. */
 .match {
   position: relative;
   height: 0.375rem;
@@ -564,7 +567,7 @@ body.sheet-open {
   background: var(--stone);
 }
 .match-fill {
-  background: var(--forest);
+  background: var(--band-color, var(--forest));
 }
 .match-tick {
   position: absolute;

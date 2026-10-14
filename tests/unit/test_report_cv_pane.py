@@ -8,6 +8,7 @@ at all once the draft has moved on (decision 5).
 """
 
 import re
+from pathlib import Path
 
 import pytest
 
@@ -262,3 +263,33 @@ def test_the_cv_fragment_is_404_for_a_report_without_a_cv(client, session, caree
     login(client, career.first.email)
 
     assert client.get(f"/applications/{application.id}/cv").status_code == 404
+
+
+# --- the stylesheet rules the report's appearance is pinned by ---
+
+
+SRC_CSS = Path(__file__).resolve().parents[2] / "src" / "web" / "static" / "src.css"
+
+
+def block(css: str, selector: str) -> str:
+    """The declarations of the rule whose selector list is exactly `selector`.
+
+    Comments are dropped, so a comment above a rule does not hide it, and a shared block
+    (`a,\n.b { … }`) is not the rule this looks for: `.match-fill` reads its own rule even
+    where it also shares one with `.match-uncapped`.
+    """
+    for rule in re.finditer(r"([^{}]+)\{([^{}]*)\}", re.sub(r"/\*.*?\*/", "", css, flags=re.S)):
+        if [part.strip() for part in rule.group(1).split(",")] == [selector]:
+            return rule.group(2)
+    raise AssertionError(f"src.css declares {selector} in a rule of its own")
+
+
+def test_the_match_bar_fill_takes_its_band_colour():
+    """review_S3d 1: the hero's long bar showed forest under a Débil or Adecuado score."""
+    css = SRC_CSS.read_text(encoding="utf-8")
+
+    assert "var(--band-color" in block(css, ".match-fill")
+    for band in ("strong", "adequate", "weak"):
+        assert "--band-color:" in block(css, f'[data-band="{band}"]'), (
+            f"the {band} band sets the variable the bar reads"
+        )
