@@ -1020,7 +1020,9 @@ body.sheet-open {
    height, so a CV longer than a page shows where its pages would break. The pane scrolls. */
 .cv-column .cv-sheet-body {
   padding: 9.5cqw;
-  font-size: 1.85cqw;
+  /* Type sized to the sheet like a printed CV, with the same 13 px floor the drawer and
+     the phone sheet keep: a 1280 px window is where 1.85cqw would fall under it. */
+  font-size: max(13px, 1.85cqw);
   min-height: calc(100cqw * 297 / 210);
   max-height: none;
   overflow: visible;

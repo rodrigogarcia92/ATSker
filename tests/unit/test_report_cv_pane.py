@@ -295,6 +295,13 @@ def test_the_match_bar_fill_takes_its_band_colour():
         )
 
 
+def test_the_inline_pane_never_shows_cv_text_under_thirteen_pixels():
+    """The drawer and the sheet floor their text at 13 px; the inline pane does too."""
+    rule = block(SRC_CSS.read_text(encoding="utf-8"), ".cv-column .cv-sheet-body")
+
+    assert "font-size: max(13px, 1.85cqw);" in rule
+
+
 def test_the_page_break_line_is_never_drawn_at_the_sheets_top():
     """The page-break hairline falls at each A4 height, and not at y = 0.
 
