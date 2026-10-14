@@ -39,7 +39,7 @@
   </ul>
 
   {# 4 — What changed against the previous attempt, or the analysis for the first. #}
-  <h3 class="pt-1">{{ t('attempt.change.title', lang) }}</h3>
+  <h3 class="pt-1 dialog-subhead">{{ t('attempt.change.title', lang) }}</h3>
   {% set nonempty = [] %}
   {% if view.change_scores %}{% set _ = nonempty.append('score') %}{% endif %}
   {% for key in ('searches_found', 'searches_lost', 'gaps_closed', 'gaps_opened', 'findings_fixed', 'findings_introduced') %}
@@ -60,25 +60,48 @@
   </p>
   {% endif %}
 
-  {# 5 — New in this document (F10.5), with the above-ceiling note. #}
-  <h3 class="pt-1">{{ t('attempt.flags.title', lang) }}</h3>
-  {% if view.flags.skills or view.flags.claims or view.flags.titles %}
-  <ul class="space-y-1 text-text-2">
-    {% if view.flags.skills %}<li>{{ t('attempt.flags.skills', lang, items=view.flags.skills | join(', ')) }}</li>{% endif %}
-    {% if view.flags.claims %}<li>{{ t('attempt.flags.claims', lang, items=view.flags.claims | join(', ')) }}</li>{% endif %}
-    {% if view.flags.titles %}<li>{{ t('attempt.flags.titles', lang, items=view.flags.titles | join(', ')) }}</li>{% endif %}
-  </ul>
+  {# 5 — New in this document (§12.9, F10.5): what the file names that the material — or the
+     report it is compared with — did not hold. A new CV is expected to carry new
+     information and the user decides whether it is true, so nothing here accuses. The
+     claims and the above-ceiling flag are still computed and stored (F10.5); only this
+     pop-up stops showing them. #}
+  <h3 class="pt-1 dialog-subhead">{{ t('attempt.flags.title', lang) }}</h3>
+  {% set new_terms = view.new_terms %}
+  {% set new_titles = view.flags.titles or [] %}
+  {% if new_terms or new_titles %}
+  <div class="space-y-2 text-text-2">
+    {% if new_terms %}
+    <div>
+      <p>{{ t('attempt.flags.new_skills', lang) }}</p>
+      {# The file's own wording, as plain chips: nothing is missing and nothing is graded. #}
+      <ul class="mt-1 flex flex-wrap gap-2">
+        {% for term in new_terms %}<li class="chip">{{ term }}</li>{% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+    {% if new_titles %}<p>{{ t('attempt.flags.titles', lang, items=new_titles | join(', ')) }}</p>{% endif %}
+    <p class="text-slate">
+      {{ t('attempt.flags.confirm', lang) }}
+      {% if not view.discarded %}
+      <a class="text-link underline" href="/applications/{{ application.id }}/attempts/{{ attempt.id }}/incorporate">{{ t('attempt.actions.incorporate', lang) }}</a>
+      {% endif %}
+    </p>
+  </div>
   {% else %}
   <p class="text-text-3">{{ t('attempt.flags.none', lang) }}</p>
   {% endif %}
-  {% if view.flags.above_ceiling %}
-  <p class="text-slate">{{ t('attempt.flags.above_ceiling', lang) }}</p>
-  {% endif %}
 
-  {# 6 — What's left: the open F7.2 advice, worded for the document. #}
-  <h3 class="pt-1">{{ t('attempt.left.title', lang) }}</h3>
-  {% if view.advice %}
+  {# 6 — What's left: a term the file only mentions first — it needs a bullet that shows how
+     it was used (§12.1 item 3) — then the open F7.2 advice, worded for the document. #}
+  <h3 class="pt-1 dialog-subhead">{{ t('attempt.left.title', lang) }}</h3>
+  {% if view.mentions or view.advice %}
   <ul class="space-y-1 text-text-2">
+    {% for skill in view.mentions %}
+    <li>
+      {{ ui.mentioned(skill, lang) }}
+      {{ t('report.mention_line', lang, skill=skill) }}
+    </li>
+    {% endfor %}
     {% for item in view.advice %}
     <li>{{ advice_line(item, lang, for_file=True) }}</li>
     {% endfor %}

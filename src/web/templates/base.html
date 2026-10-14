@@ -28,11 +28,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>{% block title %}{{ t('app.name', lang) }}{% endblock %}</title>
   {# One Google Fonts request, `display=swap`, with the system fallbacks declared in the
-     theme — no font file is committed to the repository. #}
+     theme — no font file is committed to the repository. Design v3 §2 (amended
+     2026-10-13): 600 is loaded for the pop-up subheadings only (`.dialog-subhead`). #}
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet"
-        href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400&family=Geist+Mono:wght@400&display=swap">
+        href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600&family=Geist+Mono:wght@400&display=swap">
   <link rel="stylesheet" href="/static/app.css">
 </head>
 <body class="min-h-screen bg-bg font-sans text-text">
