@@ -31,7 +31,7 @@ from src.generate.proposals import (
     report_language,
     summary_validator,
 )
-from src.generate.summary_rules import check_style, key_skill_shortlist, title_is_unheld
+from src.generate.summary_rules import career_title, check_style, key_skill_shortlist
 from src.generate.summary_rules import propose_summary as run_summary_proposal
 from src.generate.validators import Violation
 from src.i18n import t
@@ -101,7 +101,6 @@ def _page(
     base=None,
     shortlist_size: int | None = None,
     shortlist_related: int = 0,
-    unheld_title: str | None = None,
     material=None,
 ):
     """The summary flow, as the full page or — with `dialog` — as the pop-up's partial.
@@ -132,7 +131,6 @@ def _page(
         base=base,
         shortlist_size=shortlist_size,
         shortlist_related=shortlist_related,
-        unheld_title=unheld_title,
         refused=refused,
         current=_current(session, track, language),
         bullet_count=(
@@ -227,7 +225,7 @@ def generate_summary_proposal(
         track_skills = material.track_skills
         pool_set = material.pool
         grades = material.prompt_grades
-        title = material.title
+        posting = material.title
         base = material.base
         aliases = material.sources.aliases
         validator = material.validate
@@ -241,7 +239,7 @@ def generate_summary_proposal(
         pool_set = pool_skills(profile.id, session)
         grades = grades_of(application)
         # F7.3's three rules: the title, the key skills and the base are decided by code, here.
-        title = posting_title(application)
+        posting = posting_title(application)
         base = base_summary(profile.id, session, track, language)
         aliases = alias_map(session)
         validator = summary_validator(profile.id, session, application, track)
@@ -250,7 +248,9 @@ def generate_summary_proposal(
         application.report or {}, pool_set, aliases, bullet_texts=dict(bullets)
     )
     banned = banned_phrases(language)
-    unheld = title_is_unheld(profile.id, session, track, title, aliases)
+    # `summary_v6`: the title the summary opens with is the person's career title, never
+    # the posting's own unless they hold one that carries every word of it.
+    title = career_title(profile.id, session, track, posting, aliases, language)
     session.commit()
     try:
         proposal, checklist, violations = run_summary_proposal(
@@ -300,7 +300,6 @@ def generate_summary_proposal(
         base=base,
         shortlist_size=len(shortlist),
         shortlist_related=sum(1 for skill in shortlist if skill.step == "related"),
-        unheld_title=title if unheld else None,
         material=material,
     )
 
@@ -354,7 +353,9 @@ def accept_summary_proposal(
         # pop-up shows is recomputed from the database and the user's text: no provider call.
         language = report_language(application)
         aliases = alias_map(session)
-        title = posting_title(application)
+        title = career_title(
+            profile.id, session, track, posting_title(application), aliases, language
+        )
         shortlist = key_skill_shortlist(
             application.report or {},
             pool_skills(profile.id, session) if material is None else material.pool,
@@ -388,9 +389,6 @@ def accept_summary_proposal(
             material=material,
             shortlist_size=len(shortlist),
             shortlist_related=sum(1 for skill in shortlist if skill.step == "related"),
-            unheld_title=title
-            if title_is_unheld(profile.id, session, track, title, aliases)
-            else None,
         )
 
     session.commit()

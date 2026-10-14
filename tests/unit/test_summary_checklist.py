@@ -1,4 +1,4 @@
-"""The summary pop-up shows what it did: checklist, base line, title note (queue M4, §12.5)."""
+"""The summary pop-up shows what it did: checklist and base line (queue M4, §12.5)."""
 
 import uuid
 
@@ -21,18 +21,21 @@ def rows(page: str) -> dict[str, str]:
     return found
 
 
-def test_a_passing_proposal_shows_three_ticks(client, session, career, queue):  # noqa: F811
+def test_a_passing_proposal_shows_two_ticks_and_no_word_count(
+    client, session, career, queue  # noqa: F811
+):
     queue(GOOD)
     application = stored_application(session, career)
     login(client, career.first.email)
 
-    shown = rows(generate(client, application).text)
+    page = generate(client, application).text
+    shown = rows(page)
 
-    assert set(shown) == {"title", "skills", "length"}
-    assert shown["title"].startswith("✓ Título exacto de la oferta")
+    assert set(shown) == {"title", "skills"}, "the length row is never shown"
+    assert shown["title"].startswith("✓ Título de carrera: Analista de datos")
     assert shown["skills"].startswith("✓ Habilidades clave nombradas (1): python")
-    assert shown["length"].startswith("✓ Máximo 80 palabras (9)")
     assert all("(cumple)" in text for text in shown.values()), "a word, not only a colour"
+    assert "palabras" not in page.lower(), "no word count or limit anywhere"
 
 
 def test_a_failing_proposal_shows_crosses_with_the_word_and_can_still_be_accepted(
@@ -46,7 +49,7 @@ def test_a_failing_proposal_shows_crosses_with_the_word_and_can_still_be_accepte
 
     shown = rows(page)
     assert shown["title"].startswith("✗") and "(no cumple)" in shown["title"]
-    assert shown["length"].startswith("✓")
+    assert set(shown) == {"title", "skills"}
     assert "/summary/accept" in page, "a style rule never blocks acceptance"
 
 
@@ -90,23 +93,6 @@ def test_an_inactive_cv_summary_is_not_reported_as_the_base(client, session, car
     assert "No había un resumen base" in generate(client, application).text
 
 
-def test_the_title_note_appears_only_when_no_held_title_shares_a_word(
-    client, session, career, queue  # noqa: F811
-):
-    queue(GOOD, GOOD)
-    held = stored_application(session, career)
-    login(client, career.first.email)
-    assert "no figura entre los que has tenido" not in generate(client, held).text
-
-    other = stored_application(session, career)
-    other.title = "Ingeniero de plataforma"
-    session.commit()
-
-    page = generate(client, other).text
-
-    assert "«Ingeniero de plataforma» es el título de la oferta; no figura entre los que" in page
-
-
 def test_the_pop_up_speaks_english_for_an_english_interface(client, session, career, queue):  # noqa: F811
     career.first.ui_lang = "en"
     session.commit()
@@ -119,11 +105,10 @@ def test_the_pop_up_speaks_english_for_an_english_interface(client, session, car
     page = generate(client, application).text
     shown = rows(page)
 
-    assert "Exact posting title" in shown["title"] and "(not met)" in shown["title"]
+    assert "Career title: Analista de datos" in shown["title"] and "(not met)" in shown["title"]
     assert "Key skills named (1)" in shown["skills"]
-    assert "At most 80 words" in shown["length"]
+    assert set(shown) == {"title", "skills"}, "no length row, no word count"
     assert "There was no base summary: written from your bullets" in page
-    assert "it is not among the titles you have held" in page
 
 
 def test_a_short_shortlist_says_how_many_there_were(client, session, career, queue):  # noqa: F811

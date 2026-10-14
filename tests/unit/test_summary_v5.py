@@ -106,7 +106,15 @@ def test_v5_adds_the_two_sentences_and_v4_stays_as_it_was():
 
 JD = StructuredJD(title="Analista de datos")
 SHORTLIST = [KeySkill("python", "python"), KeySkill("sql", "sql"), KeySkill("kpis", "kpis")]
-CLEAN = "Analista de datos con python, sql y kpis."
+# Inside `summary_v6`'s 60-100 words, so a "clean" answer is clean under the current rules.
+CLEAN = (
+    "Analista de datos con python, sql y kpis. Durante cinco años trabajé junto a equipos "
+    "de negocio para convertir sus preguntas en informes que se leen rápido y decisiones "
+    "que se toman a tiempo. Reduje el tiempo del reporte mensual y dejé el proceso en manos "
+    "de quien lo usa cada día. Cuidé la calidad de los números antes de publicarlos y "
+    "expliqué cada resultado en una frase. Busco un puesto donde medir y contar lo que "
+    "dicen los datos sea parte del trabajo de cada semana."
+)
 
 
 def proposal(text, cites=("b1",)):
@@ -222,7 +230,7 @@ def test_the_retry_names_failed_style_rules_and_every_finding_once():
     run(fake, finding_for("ZZ"))
 
     _previous, instructions = fake.retries[1]
-    assert instructions[0].startswith("the first sentence must contain the posting's title")
+    assert instructions[0].startswith("the first sentence must open with the career title")
     assert instructions.count("remove «ZZ»: no cited bullet shows it") == 1
 
 

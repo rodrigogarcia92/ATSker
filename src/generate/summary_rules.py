@@ -1,10 +1,11 @@
-"""The three style rules of a proposed summary, checked by code (PRD F7.3, `summary_v4`).
+"""The three style rules of a proposed summary, checked by code (PRD F7.3, `summary_v6`).
 
-The shortlist of key skills is built here, deterministically, from the stored report: the
-model never chooses it. The checks are pure — the text, the title, the shortlist and the
-vocabulary come in; a list of `{rule, ok, detail}` comes out — so they run without a
-provider. `propose_summary` is the one orchestration with a provider: one call, and at most
-one retry that names the failed rules. A style rule that still fails is shown, never a block.
+Two of the three things the summary needs are built here, deterministically, from the stored
+report: the shortlist of key skills and the career title it opens with. The model never
+chooses either. The checks are pure — the text, the title, the shortlist and the vocabulary
+come in; a list of `{rule, ok, detail}` comes out — so they run without a provider.
+`propose_summary` is the one orchestration with a provider: one call, and at most one retry
+that names the failed rules. A style rule that still fails is shown, never a block.
 """
 
 import re
@@ -22,7 +23,7 @@ from src.jd import StructuredJD
 from src.models import Track
 from src.normalize.text import fold, term_pattern
 from src.normalize.vocabulary import ambiguous_aliases, match_text
-from src.roles import list_roles
+from src.roles import list_roles, mirror_title
 from src.score.title import FUNCTION_WORDS, title_tokens
 
 TITLE_RULE = "title"
@@ -32,17 +33,18 @@ RULES = (TITLE_RULE, SKILLS_RULE, LENGTH_RULE)
 
 SHORTLIST_MAX = 4
 SKILLS_MIN = 3
-MAX_WORDS = 80
+MIN_WORDS = 60
+MAX_WORDS = 100
 
 _SENTENCE_END = ".!?\n"
 _SPACES = re.compile(r"\s+")
 
 # What the model is told when a rule failed; the rule's name alone would not say enough.
 _FAILED = {
-    TITLE_RULE: "the first sentence must contain the posting's title exactly as given",
+    TITLE_RULE: "the first sentence must open with the career title exactly as written",
     SKILLS_RULE: "name three or four skills from the shortlist (all of them if fewer than "
     "three), and no skill outside it",
-    LENGTH_RULE: f"the summary must have at most {MAX_WORDS} words",
+    LENGTH_RULE: f"the summary must be between {MIN_WORDS} and {MAX_WORDS} words",
 }
 
 
@@ -181,41 +183,60 @@ def check_skills(
 
 
 def check_length(text: str) -> dict[str, Any]:
-    """At most 80 words. Words, not sentences."""
+    """Between 60 and 100 words. Words, not sentences."""
     words = len(text.split())
-    return {"rule": LENGTH_RULE, "ok": words <= MAX_WORDS, "detail": str(words)}
+    return {
+        "rule": LENGTH_RULE,
+        "ok": MIN_WORDS <= words <= MAX_WORDS,
+        "detail": str(words),
+    }
 
 
 def check_style(
     text: str, *, title: str, shortlist: Sequence[KeySkill], aliases: Mapping[str, str]
 ) -> list[dict[str, Any]]:
-    """The three checks, in the order the pop-up lists them."""
+    """The three checks. The retry and the stored checklist read all three; the pop-up
+    hides the length row, so no word limit is ever shown to the user."""
     return [check_title(text, title), check_skills(text, shortlist, aliases), check_length(text)]
 
 
-def title_is_unheld(
+def career_title(
     profile_id: uuid.UUID,
     session: Session,
     track: Track,
     title: str,
     aliases: Mapping[str, str],
-) -> bool:
-    """True when no role title or headline the user holds shares a word with the posting's.
+    language: str,
+) -> str:
+    """The title the summary opens with, chosen by code — never by the model (F7.3).
 
-    Compared as the Title sub-score compares: folded, alias-expanded tokens with the function
-    words of both languages removed. It is information for the pop-up, never a block.
+    The posting's own title only when one title the person holds carries **every** content
+    token of it: a role title or the track's headline, compared as the Title sub-score
+    compares (folded, alias-expanded tokens with the function words of both languages
+    removed). Otherwise the track's headline in the posting's language — the user's own
+    catch-all title for this career — and otherwise the most recent held role title in that
+    language. A profile that holds no title at all keeps the posting's, so there is always
+    one to open with.
     """
 
     def content(text: str) -> set[str]:
         return {token for token in title_tokens(text, aliases) if token not in FUNCTION_WORDS}
 
     wanted = content(title)
-    if not wanted:
-        return False
+    roles = list_roles(profile_id, session)
     held = [track.headline_es, track.headline_en]
-    for role in list_roles(profile_id, session):
+    for role in roles:
         held.extend((role.title, role.title_es, role.title_en))
-    return not any(wanted & content(text) for text in held if text)
+    if wanted and any(wanted <= content(text) for text in held if text):
+        return title
+    headline = (track.headline_es if language == "es" else track.headline_en) or ""
+    if headline.strip():
+        return headline.strip()
+    for role in roles:
+        named = mirror_title(role.title_es, role.title_en, language)
+        if named.strip():
+            return named.strip()
+    return title
 
 
 def _text_of(proposal: Proposal) -> str:
@@ -305,12 +326,12 @@ def propose_summary(
 
 __all__ = [
     "KeySkill",
+    "career_title",
     "check_length",
     "check_skills",
     "check_style",
     "check_title",
     "key_skill_shortlist",
     "propose_summary",
-    "title_is_unheld",
     "violation_instruction",
 ]

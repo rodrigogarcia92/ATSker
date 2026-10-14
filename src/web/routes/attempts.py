@@ -52,7 +52,7 @@ from src.extract.resume import EmptyExtraction
 from src.generate.keywords import inferable
 from src.generate.letters import banned_phrases
 from src.generate.proposals import attempt_summary_material
-from src.generate.summary_rules import key_skill_shortlist, title_is_unheld
+from src.generate.summary_rules import career_title, key_skill_shortlist
 from src.generate.summary_rules import propose_summary as run_summary_proposal
 from src.i18n import t
 from src.ingest.documents import SUPPORTED_SUFFIXES, UnreadableDocument
@@ -480,7 +480,6 @@ def _file_summary_page(
     retry: bool = False,
     checklist=None,
     shortlist=None,
-    unheld_title: str | None = None,
 ):
     """The copy-only pop-up body for a summary of the attempt's file (PRD F10.7).
 
@@ -506,7 +505,6 @@ def _file_summary_page(
         shortlist_related=(
             sum(1 for skill in shortlist if skill.step == "related") if shortlist else 0
         ),
-        unheld_title=unheld_title,
         refused=None,
         current={"summary": None},
         bullet_count=len(material.bullets),
@@ -573,7 +571,10 @@ def attempt_summary_generate(
         material.report, material.pool, aliases, bullet_texts=dict(material.bullets)
     )
     banned = banned_phrases(material.language)
-    unheld = title_is_unheld(profile.id, session, material.track, material.title, aliases)
+    # `summary_v6`: code picks the title the summary opens with (F7.3 rule 1).
+    title = career_title(
+        profile.id, session, material.track, material.title, aliases, material.language
+    )
     # Every read is done: end the transaction before the provider call (the client refuses).
     session.commit()
     try:
@@ -585,7 +586,7 @@ def attempt_summary_generate(
             pool=sorted(material.pool),
             grades=material.prompt_grades,
             language=material.language,
-            title=material.title,
+            title=title,
             base=material.base,
             shortlist=shortlist,
             aliases=aliases,
@@ -617,7 +618,6 @@ def attempt_summary_generate(
         violations=violations,
         checklist=checklist,
         shortlist=shortlist,
-        unheld_title=material.title if unheld else None,
     )
 
 
