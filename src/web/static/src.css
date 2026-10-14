@@ -1366,3 +1366,166 @@ body.sheet-open {
     }
   }
 }
+
+/* The logged-in home (§12.8, design v3 §5): the greeting and the question, three cards
+   with their state lines, then the last report beside the activity. Same greys, forest
+   for the posting card, and one soft shadow only where the design asks for one (nowhere
+   on this page). */
+.home-hero {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  align-items: center;
+  padding-top: 2rem;
+  text-align: center;
+}
+.home-greeting {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--slate);
+}
+.home-title {
+  margin: 0;
+  font-size: 2.25rem;
+  line-height: 1.11;
+  letter-spacing: -0.02em;
+}
+.home-cards {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+  margin-top: 3rem;
+}
+.home-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 1.5rem;
+  min-height: 220px;
+  padding: 1.75rem;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-card);
+  color: var(--ink);
+  text-decoration: none;
+}
+.home-card:hover {
+  background: var(--vellum);
+}
+.home-card-primary {
+  background: var(--forest);
+  border-color: transparent;
+  color: var(--paper);
+}
+.home-card-primary:hover {
+  background: color-mix(in srgb, var(--forest) 88%, #000);
+}
+.home-card-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: var(--radius-pill);
+  background: var(--vellum);
+}
+.home-card-primary .home-card-icon {
+  background: rgba(255, 255, 255, 0.14);
+}
+.home-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+.home-card-title {
+  font-size: 2.25rem;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+}
+.home-card-state {
+  font-size: 0.875rem;
+  color: var(--slate);
+}
+.home-card-primary .home-card-state {
+  color: rgba(255, 255, 255, 0.8);
+}
+.home-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 3rem;
+  margin-top: 4rem;
+}
+.home-section-title {
+  margin: 0 0 1rem;
+  font-size: 1.125rem;
+  line-height: 1.38;
+}
+.home-continue {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.5rem;
+  border-radius: var(--radius-card);
+  background: var(--vellum);
+  color: var(--ink);
+  text-decoration: none;
+}
+.home-continue:hover {
+  background: color-mix(in srgb, var(--vellum) 92%, #000);
+}
+.home-continue-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+.home-continue-title {
+  font-size: 1rem;
+}
+.home-continue-meta {
+  font-size: 0.8125rem;
+  color: var(--slate);
+}
+.home-continue-score {
+  font-size: 2.25rem;
+  line-height: 1;
+}
+.home-activity {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.home-activity li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.875rem 0;
+  border-top: 1px solid var(--hairline);
+  font-size: 0.875rem;
+}
+.home-activity li:last-child {
+  border-bottom: 1px solid var(--hairline);
+}
+.home-activity-when {
+  color: var(--slate);
+  white-space: nowrap;
+}
+.home-empty {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--slate);
+}
+@media (min-width: 768px) {
+  .home-title {
+    font-size: 3.75rem;
+    line-height: 1.1;
+  }
+  .home-cards {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (min-width: 900px) {
+  .home-columns {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

@@ -21,28 +21,37 @@ from src.profiles import update_profile
 from src.roles import list_roles
 from src.stories import list_stories
 from src.vocabulary import list_skills, list_unmapped
-from src.web.deps import CurrentUser, DbSession, OwnProfile, SignedInUser
+from src.web.deps import CurrentUser, DbSession, OwnProfile, SignedInUser, require_profile
 from src.web.forms import parse_date, parse_list, parse_text
+from src.web.home import home_view
 from src.web.templating import render
 
 router = APIRouter()
 
 
 @router.get("/")
-def index(request: Request, user: CurrentUser, lang: str | None = None):
+def index(request: Request, user: CurrentUser, session: DbSession, lang: str | None = None):
     """§12.8: one home page whose top depends on the session.
 
-    Logged out it is the landing; logged in the redirect stays until S4b replaces it with
-    the three cards. `lang` is the only language control an anonymous visitor has — the
-    login form keeps its own route, and this GET calls no provider either way.
+    Logged out it is the landing; logged in it is *¿Cómo quieres continuar?* with the three
+    cards, the last report and the activity. `lang` is the only language control an
+    anonymous visitor has — the login form keeps its own route, and this GET calls no
+    provider either way.
     """
-    if user is not None:
-        return RedirectResponse("/dashboard", status_code=303)
+    if user is None:
+        return render(
+            request,
+            "landing.html",
+            lang=lang if lang in LANGUAGES else None,
+            demo_enabled=get_settings().demo_enabled,
+        )
+    profile = require_profile(session, user)
     return render(
         request,
-        "landing.html",
-        lang=lang if lang in LANGUAGES else None,
-        demo_enabled=get_settings().demo_enabled,
+        "home.html",
+        user=user,
+        profile=profile,
+        **home_view(profile.id, session),
     )
 
 

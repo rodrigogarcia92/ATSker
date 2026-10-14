@@ -53,13 +53,15 @@ def test_the_landing_is_not_behind_the_shell(client):
     assert ">Postular<" not in page
 
 
-def test_a_signed_in_visitor_is_still_sent_to_the_dashboard(client, career):
+def test_a_signed_in_visitor_gets_the_logged_in_home_instead(client, career):
+    """§12.8: one home page at `/`, whose top depends on the session — not two pages."""
     login(client, career.first.email)
 
-    response = client.get("/", follow_redirects=False)
+    response = client.get("/")
 
-    assert response.status_code == 303
-    assert response.headers["location"] == "/dashboard"
+    assert response.status_code == 200
+    assert "¿Cómo quieres continuar?" in response.text
+    assert "Tú controlas tu CV" not in response.text, "the landing is for visitors"
 
 
 def test_the_eight_sections_are_all_there_in_the_prds_order(client):

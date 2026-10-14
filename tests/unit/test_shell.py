@@ -14,7 +14,7 @@ from tests.conftest import login
 
 # The eight destinations in the bar's centre; Perfil and Vocabulario live in the avatar menu.
 NAV_LINKS = (
-    "/dashboard",
+    "/",
     "/analyze",
     "/applications",
     "/import",
@@ -27,6 +27,7 @@ MENU_LINKS = ("/profile", "/vocabulary")
 
 # Every page a signed-in user can reach from the bar, for the wording sweep.
 SIGNED_IN_PAGES = (
+    "/",
     "/dashboard",
     "/analyze",
     "/applications",
@@ -86,6 +87,7 @@ def test_trayectoria_appears_nowhere_in_the_rendered_spanish_pages(client, caree
 
 
 SCREEN_PATHS = (
+    "/",
     "/dashboard",
     "/analyze",
     "/applications",

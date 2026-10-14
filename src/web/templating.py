@@ -1,6 +1,7 @@
 """Template rendering with the interface language and the current user injected."""
 
 import re
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -58,6 +59,33 @@ def localised_term(value: object, lang: str = DEFAULT_LANG) -> str:
 
 
 _TEMPLATES.env.filters["localised_term"] = localised_term
+
+
+def relative_time(value: object, lang: str = DEFAULT_LANG) -> str:
+    """A moment as its rough distance from now (§12.8's state lines and activity).
+
+    Minutes, then hours, then days; after a week it gives way to the date itself, so
+    nothing ever reads "hace 39 días". A missing timestamp is the empty string, never a
+    "hace 0 minutos". The clock is read here, not passed in: this is presentation, and
+    the value it formats is the one the row carries.
+    """
+    if not isinstance(value, datetime):
+        return ""
+    moment = value if value.tzinfo is not None else value.replace(tzinfo=UTC)
+    minutes = int((datetime.now(UTC) - moment).total_seconds() // 60)
+    if minutes < 60:
+        count = max(1, minutes)
+        return t("time.minute" if count == 1 else "time.minutes", lang, n=count)
+    if minutes < 60 * 24:
+        count = minutes // 60
+        return t("time.hour" if count == 1 else "time.hours", lang, n=count)
+    days = minutes // (60 * 24)
+    if days < 7:
+        return t("time.day" if days == 1 else "time.days", lang, n=days)
+    return moment.strftime("%Y-%m-%d")
+
+
+_TEMPLATES.env.filters["relative_time"] = relative_time
 
 
 def render(

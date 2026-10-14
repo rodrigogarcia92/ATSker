@@ -1,0 +1,122 @@
+{# §12.8's logged-in home (design v3 §5): the greeting and the question, the three cards
+   with their state lines, the last report and the activity. Every line comes from
+   `src/web/home.py`; the sentences are `t`'s, joined with the separator the mockup uses.
+
+   §12.2's *Primeros pasos* is not built, so a profile with no analysis yet sees the same
+   three cards, with the empty states. (Onboarding is migration 0019, which this queue
+   deliberately left unbuilt.) #}
+{% extends "base.html" %}
+{% import "_ui.html" as ui with context %}
+{% block title %}{{ t('home.title', lang) }} — {{ t('app.name', lang) }}{% endblock %}
+{% block width %}max-w-[1200px]{% endblock %}
+{% block content %}
+<section class="home-hero">
+  <p class="home-greeting">{{ t('home.greeting', lang, name=profile.display_name) }}</p>
+  <h1 class="home-title">{{ t('home.title', lang) }}</h1>
+</section>
+
+<div class="home-cards">
+  <a href="/dashboard" class="home-card">
+    <span class="home-card-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" focusable="false"><rect x="4" y="4" width="7" height="7" rx="2"/><rect x="13" y="4" width="7" height="7" rx="2"/><rect x="4" y="13" width="7" height="7" rx="2"/><rect x="13" y="13" width="7" height="7" rx="2"/></svg>
+    </span>
+    <span class="home-card-body">
+      <span class="home-card-title">{{ t('home.card.dashboard', lang) }}</span>
+      {# F9's last analysis: its Job Match in its band's colour (design v3 §4, amended),
+         the company beside it. #}
+      <span class="home-card-state">
+        {%- if last -%}
+        {{ t('home.card.dashboard.label', lang) }}
+        {%- if last.score is not none %} {{ ui.band_number(last.score) }}{% else %} {{ t('common.none', lang) }}{% endif %}
+        {%- if last.company %} · {{ last.company }}{% endif -%}
+        {%- else -%}
+        {{ t('home.card.dashboard.empty', lang) }}
+        {%- endif -%}
+      </span>
+    </span>
+  </a>
+
+  <a href="/import" class="home-card">
+    <span class="home-card-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" focusable="false"><path d="M12 15V4M8 8l4-4 4 4M5 15v5h14v-5"/></svg>
+    </span>
+    <span class="home-card-body">
+      <span class="home-card-title">{{ t('home.card.import', lang) }}</span>
+      <span class="home-card-state">
+        {%- if imported_at -%}
+        {{ t('home.card.import.state', lang, when=imported_at | relative_time(lang)) }}
+        {%- else -%}
+        {{ t('home.card.import.empty', lang) }}
+        {%- endif -%}
+      </span>
+    </span>
+  </a>
+
+  {# The one forest card: the analysis is what the product is for. Two cards in white and
+     one in forest, so the eye lands on the posting. #}
+  <a href="/analyze" class="home-card home-card-primary">
+    <span class="home-card-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" focusable="false"><path d="M6 3h9l4 4v14H6z"/><path d="M9 17v-3M12 17v-6M15 17v-4"/></svg>
+    </span>
+    <span class="home-card-body">
+      <span class="home-card-title">{{ t('home.card.analyze', lang) }}</span>
+      <span class="home-card-state">
+        {%- if tracks == 1 -%}
+        {{ t('home.card.analyze.line', lang) }}
+        {%- else -%}
+        {{ t('home.card.analyze.lines', lang, n=tracks) }}
+        {%- endif -%}
+        {%- if cv_name %} · {{ t('home.card.analyze.cv', lang, name=cv_name) }}{% endif -%}
+      </span>
+    </span>
+  </a>
+</div>
+
+<div class="home-columns">
+  <section>
+    <h2 class="home-section-title">{{ t('home.continue.title', lang) }}</h2>
+    {% if last %}
+    <a href="/applications/{{ last.id }}" class="home-continue">
+      <span class="home-continue-body">
+        <span class="home-continue-title">{{ last.title or last.track or t('home.continue.untitled', lang) }}{% if last.company %} · {{ last.company }}{% endif %}</span>
+        <span class="home-continue-meta">
+          {%- if last.cv %}{{ last.cv }} · {% endif -%}
+          {%- if attempts %}{{ t('home.continue.attempt', lang, n=attempts, max=max_attempts) }} · {% endif -%}
+          {{ last.created_at | relative_time(lang) }}
+        </span>
+      </span>
+      <span class="home-continue-score">
+        {%- if last.score is not none %}{{ ui.band_number(last.score) }}{% else %}{{ t('common.none', lang) }}{% endif -%}
+      </span>
+    </a>
+    {% else %}
+    <p class="home-empty">{{ t('home.continue.empty', lang) }}</p>
+    {% endif %}
+  </section>
+
+  <section>
+    <h2 class="home-section-title">{{ t('home.activity.title', lang) }}</h2>
+    {% if activity %}
+    <ul class="home-activity">
+      {% for event in activity %}
+      <li>
+        <span>
+          {%- if event.kind == 'analysis' -%}
+          {{ t('home.activity.analysis', lang, subject=event.subject or t('home.activity.subject_empty', lang)) }}
+          {%- elif event.kind == 'import' -%}
+          {{ t('home.activity.import', lang, filename=event.filename) }}
+          {%- else -%}
+          {{ t('home.activity.attempt', lang, n=event.number, subject=event.subject or t('home.activity.subject_empty', lang)) }}
+          {%- endif -%}
+          {%- if event.company %} · {{ event.company }}{% endif -%}
+        </span>
+        <span class="home-activity-when">{{ event.at | relative_time(lang) }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="home-empty">{{ t('home.activity.empty', lang) }}</p>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

@@ -4,14 +4,14 @@
    are native <details>, so they work without script; the script below only adds Escape,
    click-outside, a focus trap in the sheet and the return of focus. #}
 {% set nav_items = [
-  ('/dashboard', 'nav.dashboard'), ('/analyze', 'nav.analyze'), ('/applications', 'nav.applications'),
+  ('/', 'nav.dashboard'), ('/analyze', 'nav.analyze'), ('/applications', 'nav.applications'),
   ('/import', 'nav.import'), ('/tracks', 'nav.tracks'), ('/roles', 'nav.roles'),
   ('/stories', 'nav.stories'), ('/letters', 'nav.letters'),
 ] %}
 {% set account_items = [('/profile', 'nav.profile'), ('/vocabulary', 'nav.vocabulary')] %}
 {% macro nav_link(href, label, extra='') -%}
 {%- set path = request.url.path if request is defined else '' -%}
-{%- set current = path == href or (href != '/dashboard' and path.startswith(href ~ '/')) -%}
+{%- set current = path == href or (href != '/' and path.startswith(href ~ '/')) -%}
 <a href="{{ href }}" class="nav-link {{ extra }}"{% if current %} aria-current="page"{% endif %}>{{ label }}</a>
 {%- endmacro %}
 {% macro language_switch() -%}
@@ -39,7 +39,7 @@
   {% if user %}
   <header class="topbar">
     <div class="topbar-inner">
-      <a href="/dashboard" class="wordmark">atsker</a>
+      <a href="/" class="wordmark">atsker</a>
       <nav aria-label="{{ t('nav.main', lang) }}" class="topnav">
         {% for href, key in nav_items %}{{ nav_link(href, t(key, lang)) }}{% endfor %}
       </nav>

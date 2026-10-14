@@ -239,6 +239,55 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "atsker · a portfolio project by Rodrigo García Sánchez",
     },
     "landing.footer.github": {"es": "GitHub", "en": "GitHub"},
+    # The logged-in home (PRD §12.8, design v3 §5): the greeting, the three cards and
+    # their state lines, the last report, and the activity. The state lines are parts —
+    # the page joins them with the separator the mockup uses, never a sentence built in
+    # Python (PRD 8).
+    "home.greeting": {"es": "Hola, {name}", "en": "Hello, {name}"},
+    "home.title": {"es": "¿Cómo quieres continuar?", "en": "How do you want to continue?"},
+    "home.card.dashboard": {"es": "Ir a tu panel", "en": "Go to your dashboard"},
+    "home.card.dashboard.label": {"es": "Último análisis:", "en": "Last analysis:"},
+    "home.card.dashboard.empty": {"es": "Todavía sin análisis", "en": "No analysis yet"},
+    "home.card.import": {"es": "Importar CV", "en": "Import CV"},
+    "home.card.import.state": {"es": "Último: {when}", "en": "Last: {when}"},
+    "home.card.import.empty": {"es": "Todavía sin CV", "en": "No CV yet"},
+    "home.card.analyze": {"es": "Analizar oferta", "en": "Analyse a posting"},
+    "home.card.analyze.line": {"es": "1 línea", "en": "1 track"},
+    "home.card.analyze.lines": {"es": "{n} líneas", "en": "{n} tracks"},
+    "home.card.analyze.cv": {"es": "CV más reciente: {name}", "en": "Most recent CV: {name}"},
+    "home.continue.title": {
+        "es": "Continuar donde lo dejaste",
+        "en": "Continue where you left off",
+    },
+    "home.continue.untitled": {"es": "Oferta sin título", "en": "Untitled posting"},
+    "home.continue.attempt": {"es": "intento {n} de {max}", "en": "attempt {n} of {max}"},
+    "home.continue.empty": {
+        "es": "Todavía no has analizado ninguna oferta.",
+        "en": "You have not analysed a posting yet.",
+    },
+    "home.activity.title": {"es": "Actividad reciente", "en": "Recent activity"},
+    "home.activity.empty": {
+        "es": "Todavía no hay actividad.",
+        "en": "There is no activity yet.",
+    },
+    "home.activity.analysis": {"es": "Analizaste {subject}", "en": "You analysed {subject}"},
+    "home.activity.import": {
+        "es": "Importaste {filename}",
+        "en": "You imported {filename}",
+    },
+    "home.activity.attempt": {
+        "es": "Subiste «Intento {n}» a {subject}",
+        "en": "You uploaded “Attempt {n}” to {subject}",
+    },
+    "home.activity.subject_empty": {"es": "una oferta", "en": "a posting"},
+    # A moment as its distance from now, for the state lines and the activity: minutes,
+    # then hours, then days, and the date itself after a week.
+    "time.minute": {"es": "hace 1 minuto", "en": "1 minute ago"},
+    "time.minutes": {"es": "hace {n} minutos", "en": "{n} minutes ago"},
+    "time.hour": {"es": "hace 1 hora", "en": "1 hour ago"},
+    "time.hours": {"es": "hace {n} horas", "en": "{n} hours ago"},
+    "time.day": {"es": "hace 1 día", "en": "1 day ago"},
+    "time.days": {"es": "hace {n} días", "en": "{n} days ago"},
     # Shell — the 64px icon rail of §12.1: three groups, nine links, and the account
     # controls. Vocabulario is not a rail destination; Perfil links to it.
     "nav.dashboard": {"es": "Inicio", "en": "Home"},
