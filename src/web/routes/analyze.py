@@ -5,6 +5,7 @@ user reads is the row the dataset keeps — not a re-render of live data that co
 drift from it.
 """
 
+import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Form, HTTPException, Request, Response
@@ -42,6 +43,8 @@ from src.web.routes.ingest import MAX_UPLOAD_BYTES
 from src.web.templating import render
 
 router = APIRouter()
+
+logger = logging.getLogger(__name__)
 
 # The form's own fields. `resume_id` is "latest" (resolved to the newest CV at submit,
 # F11.3) or a résumé id.
@@ -587,7 +590,8 @@ def application_cv_page(
 
     The same in-memory renderer the "show me where" view uses, with no boxes: the pane
     already draws its own marks over the text, so this is only the file behind them. A
-    DOCX has no page geometry and an out-of-range page is not found, never a traceback.
+    DOCX has no page geometry, an out-of-range page is not found and a page the renderer
+    cannot draw is not found either: this route answers no image, never a 500.
     """
     found = _cv_source(profile, session, application_id)
     if found is None:
@@ -595,5 +599,18 @@ def application_cv_page(
     _, source = found
     if source.file_bytes is None or not page_exists(source.file_bytes, page):
         return Response(status_code=404)
-    png = render_page_png(source.file_bytes, page_number=page, boxes=[], severity="info")
+    try:
+        png = render_page_png(source.file_bytes, page_number=page, boxes=[], severity="info")
+    except Exception as exc:  # noqa: BLE001 - a page image is never a 500
+        # The renderer is PDFium through pdfplumber: a malformed file or a failed load
+        # (`MalformedPDFException`, `PdfiumError`, anything else) is the same thing to the
+        # user — no image of that page. The pane says so for a missing image; the bytes
+        # are never logged.
+        logger.warning(
+            "cv page render failed: application=%s page=%s error=%s",
+            application_id,
+            page,
+            type(exc).__name__,
+        )
+        return Response(status_code=404)
     return Response(content=png, media_type="image/png", headers={"Cache-Control": "no-store"})

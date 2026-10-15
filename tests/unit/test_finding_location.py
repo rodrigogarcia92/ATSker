@@ -14,12 +14,14 @@ from decimal import Decimal
 from io import BytesIO
 
 from docx import Document
+from pdfplumber.utils.exceptions import MalformedPDFException
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 
 from src.applications import create_application
 from src.extract import client as extract_client
 from src.models import Resume
+from src.web.routes import ingest as ingest_routes
 from tests.conftest import login
 
 HIDDEN = "confidencial9"
@@ -210,6 +212,28 @@ def test_a_check_with_no_box_geometry_has_no_page_image(client, session, career,
     link = f"/import/{resume.id}/findings/{index}"
     assert client.get(f"{link}/page.png").status_code == 404
     assert client.get(link).status_code == 404
+
+
+def test_a_renderer_that_fails_here_is_a_404_and_one_warning(
+    client, session, career, monkeypatch, caplog
+):
+    """The pane's serialised PDFium can still refuse a file: no image, never a 500."""
+    provider(monkeypatch)
+    login(client, career.first.email)
+    upload(client, white_text_pdf(), "cv.pdf")
+    resume = session.query(Resume).one()
+    index = finding_index(resume, "invisible_text")
+
+    def failing(*_args, **_kwargs) -> bytes:
+        raise MalformedPDFException("Failed to load document (PDFium: Data format error).")
+
+    monkeypatch.setattr(ingest_routes, "render_page_png", failing)
+    caplog.set_level(logging.WARNING)
+
+    answer = client.get(f"/import/{resume.id}/findings/{index}/page.png")
+
+    assert answer.status_code == 404
+    assert f"resume={resume.id}" in caplog.text
 
 
 def test_a_docx_finding_says_the_location_view_is_pdf_only(

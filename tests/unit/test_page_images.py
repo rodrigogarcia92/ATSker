@@ -1,18 +1,26 @@
-"""The CV's page images: one rasteriser at a time.
+"""The CV's page images: one rasteriser at a time, and never a 500.
 
 PDFium — which pdfplumber rasterises with — is not thread-safe, and the *Archivo original*
 pane asks for page 1 and page 2 at the same moment; FastAPI answers both in its thread
-pool. This pins the first promise: the rasterisers are serialised, so the two loads never
-run into each other.
+pool. These tests pin what the operator's *Data format error* cost: the rasterisers are
+serialised, and a page the renderer cannot draw is a 404 rather than a 500.
 """
 
+import hashlib
+import logging
 from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
 
+from pdfplumber.utils.exceptions import MalformedPDFException
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 
+from src.resumes import create_resume
 from src.web import locations
+from src.web.routes import analyze as analyze_routes
+from tests.conftest import login
+from tests.unit.cv_support import draft_dict
+from tests.unit.test_analysis import store_flagged
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
@@ -53,3 +61,50 @@ def test_eight_threads_render_both_pages_at_once_three_times():
 
         assert len(pages) == 8
         assert all(page.startswith(PNG_SIGNATURE) for page in pages)
+
+
+# --- the route ---
+
+
+def stored_report_on_a_cv(session, career, *, pages: int = 2):
+    """A stored report on a PDF CV: the file's real bytes, no model call."""
+    resume = create_resume(
+        career.first_profile.id,
+        session,
+        filename="cv.pdf",
+        data=two_page_pdf(pages),
+        sha256=hashlib.sha256(b"page-images").hexdigest(),
+        track_id=career.first_track.id,
+        gate=None,
+        draft=draft_dict(career.first_bullet.text_es),
+    )
+    application = store_flagged(
+        session, career.first_profile.id, capped=40, uncapped=62, cap=40, severity="blocker"
+    )
+    application.resume_id = resume.id
+    application.report = {
+        **application.report,
+        "cv": {"resume_id": str(resume.id), "filename": "cv.pdf", "chosen": "explicit"},
+    }
+    session.commit()
+    return application, resume
+
+
+def test_a_renderer_that_fails_is_a_404_and_one_warning(
+    client, session, career, monkeypatch, caplog
+):
+    """The operator's *Data format error*: no image of that page, never a 500."""
+    application, _resume = stored_report_on_a_cv(session, career)
+    login(client, career.first.email)
+
+    def failing(*_args, **_kwargs) -> bytes:
+        raise MalformedPDFException("Failed to load document (PDFium: Data format error).")
+
+    monkeypatch.setattr(analyze_routes, "render_page_png", failing)
+    caplog.set_level(logging.WARNING)
+
+    answer = client.get(f"/applications/{application.id}/cv/page/1.png")
+
+    assert answer.status_code == 404
+    assert f"application={application.id}" in caplog.text
+    assert "page=1" in caplog.text

@@ -7,6 +7,7 @@ step, and the uploaded file is archived with its SHA-256 from the first (F2.6).
 """
 
 import hashlib
+import logging
 import uuid
 from collections.abc import Mapping
 from typing import Annotated, Any
@@ -68,6 +69,8 @@ from src.web.locations import (
 from src.web.templating import render
 
 router = APIRouter()
+
+logger = logging.getLogger(__name__)
 
 # 512 MiB of instance memory and a bytea column say no to a 40 MB scan; a résumé is
 # a text document, and anything past this is a mistake the user can see immediately.
@@ -955,10 +958,23 @@ def finding_page_png(
     if resume.file_bytes is None or not page_exists(resume.file_bytes, page):
         # An out-of-range page is not found, never a traceback (N6.6).
         return Response(status_code=404)
-    png = render_page_png(
-        resume.file_bytes,
-        page_number=page,
-        boxes=finding_boxes(finding),
-        severity=str(finding.get("severity")),
-    )
+    try:
+        png = render_page_png(
+            resume.file_bytes,
+            page_number=page,
+            boxes=finding_boxes(finding),
+            severity=str(finding.get("severity")),
+        )
+    except Exception as exc:  # noqa: BLE001 - a page image is never a 500
+        # A malformed file, or a PDFium load that failed (`MalformedPDFException`,
+        # `PdfiumError`, anything else): the view has no image to point at, which is a
+        # 404. The file's bytes are never logged.
+        logger.warning(
+            "finding page render failed: resume=%s index=%s page=%s error=%s",
+            resume_id,
+            index,
+            page,
+            type(exc).__name__,
+        )
+        return Response(status_code=404)
     return Response(content=png, media_type="image/png", headers={"Cache-Control": "no-store"})
