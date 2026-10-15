@@ -10,9 +10,15 @@ and rendered once.
 `pdfplumber` owns both halves — `page.to_image()` rasterises the page, `within_bbox()`
 reads the characters a box encloses — and its own dependencies carry the imaging, so no
 new one is added.
+
+Rasterising goes through PDFium (pypdfium2, under pdfplumber), which is **not
+thread-safe**: the CV pane asks for page 1 and page 2 at the same time, FastAPI runs the
+two handlers in its thread pool, and a concurrent load can fail with a spurious *Data
+format error*. Every rasterisation therefore takes `_PDFIUM_LOCK`.
 """
 
 import io
+import threading
 from collections.abc import Mapping, Sequence
 from typing import Any
 
@@ -36,6 +42,11 @@ RESOLUTION = 110
 # Stored boxes are rounded to 0.1pt (`gate._box`); `within_bbox` keeps only objects
 # fully inside, so a hair of padding is what makes the box enclose its own glyph again.
 BOX_PAD_PT = 1.0
+
+# PDFium is one library in one process and its docs forbid calling it from two threads at
+# once. This lock serialises the rasterisers; pdfminer-only work (`page_exists`,
+# `page_count`'s page count, `box_characters`) never touches PDFium and does not take it.
+_PDFIUM_LOCK = threading.Lock()
 
 
 def finding_page(finding: Mapping[str, Any]) -> int | None:
@@ -83,22 +94,24 @@ def render_page_png(
 
     The first page is `page_number=1`. The page is rasterised in memory; the boxes are
     drawn as outlines in the severity's colour, never filled, so the flagged words stay
-    readable underneath.
+    readable underneath. PDFium is called here and nowhere else, under `_PDFIUM_LOCK`.
     """
     colour = SEVERITY_COLOURS.get(severity, DEFAULT_COLOUR)
-    with pdfplumber.open(io.BytesIO(data)) as pdf:
-        page = pdf.pages[page_number - 1]
-        image = page.to_image(resolution=RESOLUTION)
-        width, height = float(page.width), float(page.height)
-        for x0, top, x1, bottom in boxes:
-            image.draw_rect(
-                (_clamp(x0, width), _clamp(top, height), _clamp(x1, width), _clamp(bottom, height)),
-                stroke=colour,
-                stroke_width=2,
-                fill=None,
-            )
-        buffer = io.BytesIO()
-        image.annotated.save(buffer, format="PNG")
+    with _PDFIUM_LOCK:
+        with pdfplumber.open(io.BytesIO(data)) as pdf:
+            page = pdf.pages[page_number - 1]
+            image = page.to_image(resolution=RESOLUTION)
+            width, height = float(page.width), float(page.height)
+            for x0, top, x1, bottom in boxes:
+                box = (
+                    _clamp(x0, width),
+                    _clamp(top, height),
+                    _clamp(x1, width),
+                    _clamp(bottom, height),
+                )
+                image.draw_rect(box, stroke=colour, stroke_width=2, fill=None)
+            buffer = io.BytesIO()
+            image.annotated.save(buffer, format="PNG")
     return buffer.getvalue()
 
 
