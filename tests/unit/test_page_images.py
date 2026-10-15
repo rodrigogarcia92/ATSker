@@ -1,9 +1,10 @@
-"""The CV's page images: one rasteriser at a time, and never a 500.
+"""The CV's page images: one rasteriser at a time, cached, and never a 500.
 
 PDFium — which pdfplumber rasterises with — is not thread-safe, and the *Archivo original*
 pane asks for page 1 and page 2 at the same moment; FastAPI answers both in its thread
 pool. These tests pin what the operator's *Data format error* cost: the rasterisers are
-serialised, and a page the renderer cannot draw is a 404 rather than a 500.
+serialised, a page the renderer cannot draw is a 404 rather than a 500, and a page already
+rendered is not rendered again.
 """
 
 import hashlib
@@ -11,6 +12,8 @@ import logging
 from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
 
+import pdfplumber
+import pytest
 from pdfplumber.utils.exceptions import MalformedPDFException
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
@@ -23,6 +26,19 @@ from tests.unit.cv_support import draft_dict
 from tests.unit.test_analysis import store_flagged
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+
+
+def bytes_of(number: int) -> bytes:
+    """Distinct file bytes for the cache tests, one per `number`."""
+    return f"%PDF-fake-{number}".encode()
+
+
+@pytest.fixture(autouse=True)
+def _an_empty_cache():
+    """The cache lives in the process; every test starts and ends with it empty."""
+    locations._PAGE_CACHE.clear()
+    yield
+    locations._PAGE_CACHE.clear()
 
 
 def two_page_pdf(pages: int = 2) -> bytes:
@@ -46,6 +62,7 @@ def test_eight_threads_render_both_pages_at_once_three_times():
     data = two_page_pdf()
 
     for _round in range(3):
+        locations._PAGE_CACHE.clear()  # every round rasterises all eight
         with ThreadPoolExecutor(max_workers=8) as pool:
             futures = [
                 pool.submit(
@@ -61,6 +78,65 @@ def test_eight_threads_render_both_pages_at_once_three_times():
 
         assert len(pages) == 8
         assert all(page.startswith(PNG_SIGNATURE) for page in pages)
+
+
+def test_a_page_already_rendered_is_not_rasterised_again(monkeypatch):
+    """A reload of the report — or the pane's second request — reads a PNG, not the file."""
+    opened: list[int] = []
+    real_open = pdfplumber.open
+
+    def counting_open(*args, **kwargs):
+        opened.append(1)
+        return real_open(*args, **kwargs)
+
+    monkeypatch.setattr(locations.pdfplumber, "open", counting_open)
+    data = two_page_pdf()
+
+    first = locations.render_page_png(data, page_number=2, boxes=[], severity="info")
+    again = locations.render_page_png(data, page_number=2, boxes=[], severity="info")
+
+    assert first == again
+    assert len(opened) == 1, "the second render came from the cache"
+
+
+def test_a_boxed_render_never_serves_the_plain_page():
+    """The key carries the boxes and the colour: two views of one page are two images."""
+    data = two_page_pdf()
+
+    plain = locations.render_page_png(data, page_number=1, boxes=[], severity="info")
+    boxed = locations.render_page_png(
+        data, page_number=1, boxes=[(60, 60, 300, 90)], severity="blocker"
+    )
+
+    assert boxed != plain, "the finding's boxes are drawn, not the pane's bare page"
+    assert boxed.startswith(PNG_SIGNATURE)
+
+
+def test_the_cache_is_capped_and_evicts_the_least_recently_used(monkeypatch):
+    """A long session cannot grow the cache: 32 views, and the oldest unused one goes."""
+    drawn: list[bytes] = []
+
+    def stub(data: bytes, **_kwargs) -> bytes:
+        drawn.append(data)
+        return PNG_SIGNATURE + data
+
+    monkeypatch.setattr(locations, "_draw_page", stub)
+
+    def render(number: int) -> bytes:
+        return locations.render_page_png(
+            bytes_of(number), page_number=1, boxes=[], severity="info"
+        )
+
+    for number in range(1, locations.PAGE_CACHE_SIZE + 1):
+        render(number)
+    render(1)
+    render(locations.PAGE_CACHE_SIZE + 1)
+
+    assert len(locations._PAGE_CACHE) == locations.PAGE_CACHE_SIZE
+    render(1)
+    assert drawn.count(bytes_of(1)) == 1, "the view used again is still cached"
+    render(2)
+    assert drawn.count(bytes_of(2)) == 2, "the view untouched longest was the one evicted"
 
 
 # --- the route ---

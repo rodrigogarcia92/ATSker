@@ -14,11 +14,14 @@ new one is added.
 Rasterising goes through PDFium (pypdfium2, under pdfplumber), which is **not
 thread-safe**: the CV pane asks for page 1 and page 2 at the same time, FastAPI runs the
 two handlers in its thread pool, and a concurrent load can fail with a spurious *Data
-format error*. Every rasterisation therefore takes `_PDFIUM_LOCK`.
+format error*. Every rasterisation therefore takes `_PDFIUM_LOCK`, and the PNG is kept in
+a small per-process cache so a reload — or the pane's second page — is not rendered twice.
 """
 
+import hashlib
 import io
 import threading
+from collections import OrderedDict
 from collections.abc import Mapping, Sequence
 from typing import Any
 
@@ -47,6 +50,13 @@ BOX_PAD_PT = 1.0
 # once. This lock serialises the rasterisers; pdfminer-only work (`page_exists`,
 # `page_count`'s page count, `box_characters`) never touches PDFium and does not take it.
 _PDFIUM_LOCK = threading.Lock()
+
+# The rendered pages, most recently used last. The key carries the file's digest — never
+# the bytes — with the page, the resolution, the boxes' geometry and the colour, so a
+# reload or the pane's second page does not rasterise again and two different views of one
+# page never collide. The value is only the PNG: small, per process, capped.
+PAGE_CACHE_SIZE = 32
+_PAGE_CACHE: OrderedDict[tuple[Any, ...], bytes] = OrderedDict()
 
 
 def finding_page(finding: Mapping[str, Any]) -> int | None:
@@ -94,8 +104,29 @@ def render_page_png(
 
     The first page is `page_number=1`. The page is rasterised in memory; the boxes are
     drawn as outlines in the severity's colour, never filled, so the flagged words stay
-    readable underneath. PDFium is called here and nowhere else, under `_PDFIUM_LOCK`.
+    readable underneath. A render identical to one already made is served from
+    `_PAGE_CACHE`; everything else goes through `_draw_page`, which owns the PDFium lock.
     """
+    key = (hashlib.sha256(data).hexdigest(), page_number, RESOLUTION, tuple(boxes), severity)
+    cached = _PAGE_CACHE.get(key)
+    if cached is not None:
+        _PAGE_CACHE.move_to_end(key)
+        return cached
+    png = _draw_page(data, page_number=page_number, boxes=boxes, severity=severity)
+    _PAGE_CACHE[key] = png
+    while len(_PAGE_CACHE) > PAGE_CACHE_SIZE:
+        _PAGE_CACHE.popitem(last=False)
+    return png
+
+
+def _draw_page(
+    data: bytes,
+    *,
+    page_number: int,
+    boxes: Sequence[tuple[float, float, float, float]],
+    severity: str,
+) -> bytes:
+    """Rasterise one page, one at a time: the only place that calls PDFium."""
     colour = SEVERITY_COLOURS.get(severity, DEFAULT_COLOUR)
     with _PDFIUM_LOCK:
         with pdfplumber.open(io.BytesIO(data)) as pdf:
