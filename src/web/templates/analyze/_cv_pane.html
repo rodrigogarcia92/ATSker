@@ -77,7 +77,10 @@
       <p class="field-hint">{{ t('report.cv_pane.no_file', lang) }}</p>
       {% elif cv_original %}
       {% for page in cv_original %}
+      {# `loading="lazy"`: the browser asks for page 2 only when it scrolls into view, so
+         the pane never has two rasterisations of one file in flight at once. #}
       <img class="cv-page" src="/applications/{{ application.id }}/cv/page/{{ page }}.png"
+           loading="lazy" decoding="async"
            alt="{{ t('report.cv_pane.aria', lang) }} · {{ page }}">
       {% endfor %}
       {% else %}

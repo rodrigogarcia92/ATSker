@@ -4,11 +4,13 @@ PDFium — which pdfplumber rasterises with — is not thread-safe, and the *Arc
 pane asks for page 1 and page 2 at the same moment; FastAPI answers both in its thread
 pool. These tests pin what the operator's *Data format error* cost: the rasterisers are
 serialised, a page the renderer cannot draw is a 404 rather than a 500, and a page already
-rendered is not rendered again.
+rendered is not rendered again. The pane then asks for its pages one at a time, so the
+second request waits for the reader to scroll.
 """
 
 import hashlib
 import logging
+import re
 from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
 
@@ -137,6 +139,36 @@ def test_the_cache_is_capped_and_evicts_the_least_recently_used(monkeypatch):
     assert drawn.count(bytes_of(1)) == 1, "the view used again is still cached"
     render(2)
     assert drawn.count(bytes_of(2)) == 2, "the view untouched longest was the one evicted"
+
+
+# --- the pane ---
+
+
+def test_the_pane_offers_the_files_pages_one_at_a_time(client, session, career):
+    """`loading="lazy"`: page 2 is fetched when it scrolls in, not with page 1."""
+    application, _resume = stored_report_on_a_cv(session, career)
+    login(client, career.first.email)
+
+    page = client.get(f"/applications/{application.id}").text
+    images = re.findall(r"<img[^>]*class=\"cv-page\"[^>]*>", page)
+
+    assert len(images) == 2, "the file has two pages"
+    assert f"/applications/{application.id}/cv/page/1.png" in page
+    for image in images:
+        assert 'loading="lazy"' in image
+        assert 'decoding="async"' in image
+
+
+def test_the_page_image_is_the_rendered_page(client, session, career):
+    application, _resume = stored_report_on_a_cv(session, career)
+    login(client, career.first.email)
+
+    image = client.get(f"/applications/{application.id}/cv/page/1.png")
+
+    assert image.status_code == 200
+    assert image.headers["content-type"] == "image/png"
+    assert image.content.startswith(PNG_SIGNATURE)
+    assert client.get(f"/applications/{application.id}/cv/page/3.png").status_code == 404
 
 
 # --- the route ---
