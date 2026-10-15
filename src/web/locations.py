@@ -10,9 +10,18 @@ and rendered once.
 `pdfplumber` owns both halves — `page.to_image()` rasterises the page, `within_bbox()`
 reads the characters a box encloses — and its own dependencies carry the imaging, so no
 new one is added.
+
+Rasterising goes through PDFium (pypdfium2, under pdfplumber), which is **not
+thread-safe**: the CV pane asks for page 1 and page 2 at the same time, FastAPI runs the
+two handlers in its thread pool, and a concurrent load can fail with a spurious *Data
+format error*. Every rasterisation therefore takes `_PDFIUM_LOCK`, and the PNG is kept in
+a small per-process cache so a reload — or the pane's second page — is not rendered twice.
 """
 
+import hashlib
 import io
+import threading
+from collections import OrderedDict
 from collections.abc import Mapping, Sequence
 from typing import Any
 
@@ -36,6 +45,18 @@ RESOLUTION = 110
 # Stored boxes are rounded to 0.1pt (`gate._box`); `within_bbox` keeps only objects
 # fully inside, so a hair of padding is what makes the box enclose its own glyph again.
 BOX_PAD_PT = 1.0
+
+# PDFium is one library in one process and its docs forbid calling it from two threads at
+# once. This lock serialises the rasterisers; pdfminer-only work (`page_exists`,
+# `page_count`'s page count, `box_characters`) never touches PDFium and does not take it.
+_PDFIUM_LOCK = threading.Lock()
+
+# The rendered pages, most recently used last. The key carries the file's digest — never
+# the bytes — with the page, the resolution, the boxes' geometry and the colour, so a
+# reload or the pane's second page does not rasterise again and two different views of one
+# page never collide. The value is only the PNG: small, per process, capped.
+PAGE_CACHE_SIZE = 32
+_PAGE_CACHE: OrderedDict[tuple[Any, ...], bytes] = OrderedDict()
 
 
 def finding_page(finding: Mapping[str, Any]) -> int | None:
@@ -83,22 +104,45 @@ def render_page_png(
 
     The first page is `page_number=1`. The page is rasterised in memory; the boxes are
     drawn as outlines in the severity's colour, never filled, so the flagged words stay
-    readable underneath.
+    readable underneath. A render identical to one already made is served from
+    `_PAGE_CACHE`; everything else goes through `_draw_page`, which owns the PDFium lock.
     """
+    key = (hashlib.sha256(data).hexdigest(), page_number, RESOLUTION, tuple(boxes), severity)
+    cached = _PAGE_CACHE.get(key)
+    if cached is not None:
+        _PAGE_CACHE.move_to_end(key)
+        return cached
+    png = _draw_page(data, page_number=page_number, boxes=boxes, severity=severity)
+    _PAGE_CACHE[key] = png
+    while len(_PAGE_CACHE) > PAGE_CACHE_SIZE:
+        _PAGE_CACHE.popitem(last=False)
+    return png
+
+
+def _draw_page(
+    data: bytes,
+    *,
+    page_number: int,
+    boxes: Sequence[tuple[float, float, float, float]],
+    severity: str,
+) -> bytes:
+    """Rasterise one page, one at a time: the only place that calls PDFium."""
     colour = SEVERITY_COLOURS.get(severity, DEFAULT_COLOUR)
-    with pdfplumber.open(io.BytesIO(data)) as pdf:
-        page = pdf.pages[page_number - 1]
-        image = page.to_image(resolution=RESOLUTION)
-        width, height = float(page.width), float(page.height)
-        for x0, top, x1, bottom in boxes:
-            image.draw_rect(
-                (_clamp(x0, width), _clamp(top, height), _clamp(x1, width), _clamp(bottom, height)),
-                stroke=colour,
-                stroke_width=2,
-                fill=None,
-            )
-        buffer = io.BytesIO()
-        image.annotated.save(buffer, format="PNG")
+    with _PDFIUM_LOCK:
+        with pdfplumber.open(io.BytesIO(data)) as pdf:
+            page = pdf.pages[page_number - 1]
+            image = page.to_image(resolution=RESOLUTION)
+            width, height = float(page.width), float(page.height)
+            for x0, top, x1, bottom in boxes:
+                box = (
+                    _clamp(x0, width),
+                    _clamp(top, height),
+                    _clamp(x1, width),
+                    _clamp(bottom, height),
+                )
+                image.draw_rect(box, stroke=colour, stroke_width=2, fill=None)
+            buffer = io.BytesIO()
+            image.annotated.save(buffer, format="PNG")
     return buffer.getvalue()
 
 
@@ -136,6 +180,20 @@ def box_characters(
                 continue
             readings.append("".join(str(char.get("text", "")) for char in chars).strip())
     return readings
+
+
+def page_count(data: bytes) -> int:
+    """How many pages the archived file has, 0 when it will not open (N6.6).
+
+    The CV pane's Archivo original view reads this to list the original's pages; a file
+    that is not a PDF (a DOCX, F11) has none, and one that will not open is treated the
+    same rather than raising.
+    """
+    try:
+        with pdfplumber.open(io.BytesIO(data)) as pdf:
+            return len(pdf.pages)
+    except Exception:  # noqa: BLE001 - any parse failure means "no pages to show"
+        return 0
 
 
 def page_exists(data: bytes, page_number: int) -> bool:

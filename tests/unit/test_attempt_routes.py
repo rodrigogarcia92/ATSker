@@ -58,10 +58,14 @@ def upload(client, application_id, data, name: str = "cv.docx"):
     )
 
 
-def test_an_attempt_stores_its_sha_and_keeps_no_bytes(client, session, career, provider):
+def test_an_attempt_stores_its_sha_and_keeps_no_bytes(
+    client, session, career, provider, monkeypatch, tmp_path
+):
     login(client, career.first.email)
     application, analysis = analyzed_application(session, career, provider)
     data = docx_bytes("Experiencia", career.first_bullet.text_es)
+    # An isolated temp directory: nothing else on the machine can write into it.
+    monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
     before = set(os.listdir(tempfile.gettempdir()))
 
     response = upload(client, application.id, data)

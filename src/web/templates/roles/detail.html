@@ -5,21 +5,21 @@
 
 <div class="mt-3 flex flex-wrap items-center justify-between gap-3">
   <div>
-    <h1 class="text-2xl font-semibold tracking-tight">{{ role.title }}</h1>
+    <h1 class="text-4xl leading-[1.11] tracking-[-0.02em] md:text-5xl">{{ role.title }}</h1>
     <p class="text-sm text-text-2">{{ role.employer }} ·
       {{ role.start_date.strftime('%Y-%m') if role.start_date else '—' }} –
       {{ role.end_date.strftime('%Y-%m') if role.end_date else t('roles.present', lang) }}
     </p>
   </div>
   <div class="flex items-center gap-3">
-    <a href="/roles/{{ role.id }}/edit" class="rounded-control border border-border px-3 py-2 text-sm">
+    <a href="/roles/{{ role.id }}/edit" class="btn btn-secondary">
       {{ t('common.edit', lang) }}
     </a>
     <a href="/roles/{{ role.id }}/bullets/new"
-       class="rounded-control bg-link px-3 py-2 text-sm font-medium text-bg hover:opacity-90">
+       class="btn btn-primary">
       {{ t('bullets.new', lang) }}
     </a>
-    <a href="/roles/{{ role.id }}/delete" class="text-sm text-sev-blocker underline">{{ t('common.delete', lang) }}</a>
+    <a href="/roles/{{ role.id }}/delete" class="btn btn-danger">{{ t('common.delete', lang) }}</a>
   </div>
 </div>
 
@@ -41,7 +41,7 @@
     {# F2.9: kept, logged, and counted for nothing until the operator promotes it. #}
     <p class="mt-2 flex flex-wrap gap-1">
       {% for term in bullet.pending_terms %}
-      <span class="rounded-control border border-dashed border-sev-warning bg-surface-1 px-2 py-0.5 text-xs text-sev-warning">{{ t('vocabulary.pending', lang) }}: {{ term }}</span>
+      <span class="rounded-control border border-dashed border-slate bg-surface-1 px-2 py-0.5 text-xs text-slate">{{ t('vocabulary.pending', lang) }}: {{ term }}</span>
       {% endfor %}
     </p>
     {% endif %}

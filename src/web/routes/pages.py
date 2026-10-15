@@ -7,6 +7,7 @@ from fastapi.responses import RedirectResponse
 
 from src.applications import stale_application_count
 from src.bullets import list_bullets
+from src.config import get_settings
 from src.deletion import (
     delete_everything,
     delete_skill,
@@ -20,16 +21,38 @@ from src.profiles import update_profile
 from src.roles import list_roles
 from src.stories import list_stories
 from src.vocabulary import list_skills, list_unmapped
-from src.web.deps import CurrentUser, DbSession, OwnProfile, SignedInUser
+from src.web.deps import CurrentUser, DbSession, OwnProfile, SignedInUser, require_profile
 from src.web.forms import parse_date, parse_list, parse_text
+from src.web.home import home_view
 from src.web.templating import render
 
 router = APIRouter()
 
 
 @router.get("/")
-def index(user: CurrentUser):
-    return RedirectResponse("/dashboard" if user is not None else "/login", status_code=303)
+def index(request: Request, user: CurrentUser, session: DbSession, lang: str | None = None):
+    """§12.8: one home page whose top depends on the session.
+
+    Logged out it is the landing; logged in it is *¿Cómo quieres continuar?* with the three
+    cards, the last report and the activity. `lang` is the only language control an
+    anonymous visitor has — the login form keeps its own route, and this GET calls no
+    provider either way.
+    """
+    if user is None:
+        return render(
+            request,
+            "landing.html",
+            lang=lang if lang in LANGUAGES else None,
+            demo_enabled=get_settings().demo_enabled,
+        )
+    profile = require_profile(session, user)
+    return render(
+        request,
+        "home.html",
+        user=user,
+        profile=profile,
+        **home_view(profile.id, session),
+    )
 
 
 @router.get("/dashboard")

@@ -14,6 +14,7 @@ import pytest
 from src.extract import client as extract_client
 from src.i18n import t
 from tests.conftest import login
+from tests.unit.cv_support import analysis_form, ensure_first_cv
 from tests.unit.test_analysis import POSTING, Provider, store_flagged, text_of
 
 SECTION_IDS = (
@@ -28,6 +29,13 @@ SECTION_IDS = (
 )
 
 DETAILS_TAG = re.compile(r"<details\b[^>]*>")
+
+
+@pytest.fixture(autouse=True)
+def _the_first_track_has_a_cv(request):
+    """F11.3: an analysis is of a CV, so a test that runs one finds the first track's."""
+    ensure_first_cv(request)
+
 
 
 @pytest.fixture
@@ -76,7 +84,9 @@ def test_the_sections_appear_in_the_approved_order(client, career, provider):
 
 def test_the_fit_definition_renders_in_both_languages(client, session, career, provider):
     login(client, career.first.email)
-    posted = client.post("/analyze", data={"jd_text": POSTING}, follow_redirects=False)
+    posted = client.post(
+        "/analyze", data=analysis_form(session, career, jd_text=POSTING), follow_redirects=False
+    )
     url = posted.headers["location"]
 
     spanish = text_of(client.get(url).text)
@@ -287,16 +297,17 @@ def test_the_page_stores_nothing_about_what_was_opened(client, career, provider)
 # --- V5: "Ajuste general" and the warning count (§12.1) ---
 
 
-def test_the_score_is_called_ajuste_general_in_the_section_the_rail_and_the_nav(
+def test_the_score_is_called_ajuste_general_in_the_section_the_header_and_the_nav(
     client, career, provider
 ):
     page = analysed_page(client, career)
 
     assert "Encaje total" not in text_of(page)
     assert "Ajuste general" in text_of(section(page, "fit"))
-    rail = re.search(r'<aside\b[^>]*aria-label="Acciones".*?</aside>', page, re.S).group(0)
-    assert "Ajuste general" in text_of(rail), "the compact Job Match in the rail"
-    nav = re.search(r"<nav\b[^>]*aria-label=\"En esta página\".*?</nav>", rail, re.S).group(0)
+    # §12.7: a CV report drops §12.1 item 10's rail, and its jump links move to the header.
+    rail = re.search(r'<aside\b[^>]*aria-label="Acciones"', page)
+    assert rail is None, "no action rail on a CV report"
+    nav = re.search(r"<nav\b[^>]*aria-label=\"En esta página\".*?</nav>", page, re.S).group(0)
     assert re.search(r'href="#fit"[^>]*>\s*Ajuste general\s*<', nav), "and its jump link"
     assert t("report.total", "en") == "Overall fit", "the key keeps its name; English is unchanged"
 

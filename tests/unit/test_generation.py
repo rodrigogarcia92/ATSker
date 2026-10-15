@@ -19,6 +19,17 @@ from src.stories import get_story
 from src.tracks import get_track, set_track_skills
 from tests.conftest import login
 
+# `summary_v6` wants 60-100 words, so the stub's answer is inside that range: a passing
+# first answer makes exactly one call, which several tests count.
+SUMMARY_TEXT = (
+    "Analista de datos que automatizó el reporte con Python. Durante cinco años trabajé "
+    "junto a equipos de negocio para convertir sus preguntas en informes que se leen rápido "
+    "y decisiones que se toman a tiempo. Reduje el tiempo del reporte mensual y dejé el "
+    "proceso en manos de quien lo usa cada día. Cuidé la calidad de los números antes de "
+    "publicarlos y expliqué cada resultado en una frase. Busco un puesto donde medir y "
+    "contar lo que dicen los datos sea parte del trabajo de cada semana."
+)
+
 
 class Provider:
     """Answers one generated-text schema per call, priced like a real call."""
@@ -46,7 +57,7 @@ def provider(monkeypatch, test_settings, career) -> Provider:
     stub = Provider(
         {
             "SummaryOnly": {
-                "summary": "Analista de datos que automatizó el reporte con Python.",
+                "summary": SUMMARY_TEXT,
                 "cites": [str(career.first_bullet.id)],
             }
         }
@@ -130,7 +141,7 @@ def test_the_proposal_is_shown_as_a_diff(client, session, career, provider):
 
     page = client.post(f"{url}/generate").text
     assert "Ahora" in page and "Propuesta" in page, "both sides of the diff"
-    assert "Analista de datos que automatizó el reporte con Python." in page
+    assert SUMMARY_TEXT in page
     assert f'action="{url}/accept"' in page
 
 

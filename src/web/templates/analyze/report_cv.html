@@ -1,0 +1,421 @@
+{% extends "base.html" %}
+{% import "_ui.html" as ui with context %}
+{% block title %}{{ application.title or t('report.title', lang) }} — {{ t('app.name', lang) }}{% endblock %}
+{% block width %}max-w-[1360px]{% endblock %}
+{% block content %}
+{# §12.7: the report on a CV. Two panes ≥ 1280 px — the CV on the left, sticky with its own
+   scroll, the commentary on the right — the same blocks restyled as one column below, a
+   drawer on a tablet and a bottom sheet on a phone. Availability is decided by the route;
+   this template only lays out a CV analysis. #}
+{% set advice_for_file = true %}
+{% set attempt_view = false %}
+{# The right pane's sections carry the phone's "Ver en mi CV (N)" links. #}
+{% set cv_links = true %}
+{# §12.7: the report's own items carry the `key@section` of the marks they point at, so the
+   script can light them. Only a CV report sets this; the single column has no pane. #}
+{% set cv_keys = true %}
+<div class="min-w-0">
+
+  {# 1 — Header strip: what was posted, the Track ▸ CV selector (a re-analysis is a new
+     application, F11.3) and the Job Match as a pill. #}
+  <header class="flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
+    <div class="flex min-w-0 flex-col gap-2">
+      <p class="text-[0.8125rem] text-text-2">
+        {% if application.company %}{{ application.company }} · {% endif %}{{ application.created_at.strftime('%Y-%m-%d') }}
+      </p>
+      <h1 class="text-4xl leading-[1.11] tracking-[-0.02em] md:text-5xl">{{ application.title or t('report.title', lang) }}</h1>
+      {% if cv_edited %}
+      <p class="text-xs text-text-2">{{ t('report.cv_edited', lang) }}</p>
+      {% endif %}
+    </div>
+    <div class="flex flex-wrap items-center gap-3">
+      {% if cv_choices %}
+      <form method="post" action="/applications/{{ application.id }}/reanalyze"
+            class="flex flex-wrap items-center gap-3 text-sm" data-progress="analyze">
+        <label for="reanalyze-cv" class="sr-only">{{ t('report.cv_pane.selector', lang) }}</label>
+        <select id="reanalyze-cv" name="resume_id" class="min-h-10 max-w-full">
+          {% for cv in cv_choices %}
+          <option value="{{ cv.id }}" {% if report.cv and cv.id | string == report.cv.resume_id %}selected{% endif %}>
+            {% if report.track %}{{ report.track.name }} ▸ {% endif %}{{ cv.filename }}
+          </option>
+          {% endfor %}
+        </select>
+        <button type="submit" class="btn btn-secondary">{{ t('report.reanalyse', lang) }}</button>
+        <span class="field-hint">{{ t('report.reanalyse_hint', lang) }}</span>
+        {{ ui.progress('analyze') }}
+      </form>
+      {% endif %}
+      <span class="job-pill" data-band="{{ ui.band_for(report.score.capped) }}">
+        <span class="job-pill-dot" aria-hidden="true"></span>{{ t('report.job_match', lang) }} {{ report.score.capped }}
+      </span>
+    </div>
+  </header>
+
+  {# §12.1 item 1: the run's metadata, the same fields the single column shows. #}
+  <dl class="mt-4 flex flex-wrap gap-x-6 gap-y-1 text-xs text-text-2">
+    <div class="flex gap-1"><dt>{{ t('report.analysed_on', lang) }}</dt>
+      <dd>{{ application.created_at.strftime('%Y-%m-%d %H:%M') }}</dd></div>
+    <div class="flex gap-1"><dt>{{ t('report.calculation', lang) }}</dt>
+      <dd>{{ application.weights_version }}</dd></div>
+    <div class="flex gap-1"><dt>{{ t('report.model', lang) }}</dt>
+      <dd>{{ report.llm.calls | map(attribute='model') | unique | join(', ') or t('common.none', lang) }}</dd></div>
+    <div class="flex gap-1"><dt>{{ t('report.calls_cost', lang) }}</dt>
+      <dd>{{ report.llm.calls | length }} · ${{ '%.6f'|format(application.token_cost_usd) }}</dd></div>
+    <div class="flex gap-1"><dt>{{ t('report.evidence_language', lang) }}</dt>
+      <dd>{{ report.jd.language or t('common.none', lang) }}</dd></div>
+  </dl>
+
+  {# §12.7: the rail is gone on a CV report, and its jump links move up here. #}
+  <nav aria-label="{{ t('report.on_this_page', lang) }}" class="mt-4 flex flex-wrap gap-x-5 text-sm text-text-2">
+    <span class="sr-only">{{ t('report.on_this_page', lang) }}</span>
+    <a href="#fit" class="flex min-h-11 items-center hover:text-text">{{ t('report.total', lang) }}</a>
+    <a href="#components" class="flex min-h-11 items-center hover:text-text">{{ t('report.sub_scores', lang) }}</a>
+    {% if application.scan_boolean %}
+    <a href="#recruiter" class="flex min-h-11 items-center hover:text-text">{{ t('recall.title', lang) }}</a>
+    {% endif %}
+    <a href="#requirements" class="flex min-h-11 items-center hover:text-text">{{ t('report.requirements', lang) }}</a>
+    <a href="#recommendations" class="flex min-h-11 items-center hover:text-text">{{ t('report.advice', lang) }}</a>
+    <a href="#ats" class="flex min-h-11 items-center hover:text-text">{{ t('report.scan_readability_question', lang) }}</a>
+    <a href="#before" class="flex min-h-11 items-center hover:text-text">{{ t('report.before_applying', lang) }}</a>
+  </nav>
+
+  {# The CV pane takes the larger share (design v3 §5, amended 2026-10-12): the sheet is an
+     A4 page, so it needs the width. #}
+  <div class="mt-8 min-[1280px]:grid min-[1280px]:grid-cols-[minmax(0,58fr)_minmax(0,42fr)] min-[1280px]:items-start min-[1280px]:gap-8">
+    {# Left: the CV pane. Hidden below 1280 px, where the drawer and the sheet
+       (GET /applications/{id}/cv) take over. #}
+    <section class="cv-column hidden min-w-0 min-[1280px]:block">
+      {% include "analyze/_cv_pane.html" %}
+    </section>
+    {# Right: §12.1's items 2–9, the same partial the single column renders. #}
+    <section class="min-w-0">
+      {% include "analyze/_report_sections.html" %}
+    </section>
+  </div>
+
+  {# Tablet (768–1279 px): a "Ver CV" control that stays in the viewport opens the pane as a
+     drawer from the left. It is a link to the pane fragment — that is what a browser without
+     script navigates to — and the script turns the click into the drawer (§12.7). #}
+  <a href="/applications/{{ application.id }}/cv" data-cv-drawer
+     class="cv-drawer-open hidden min-[768px]:flex min-[1280px]:hidden">
+    {{ t('report.cv_pane.open', lang) }}
+  </a>
+  {# The fixed control floats over the page, so the report keeps room for it between 768 and
+     1279 px (the phone bar reserves its own below). #}
+  <div class="hidden min-[768px]:block min-[1280px]:hidden" aria-hidden="true" style="height: 4rem"></div>
+  <dialog id="cv-drawer" class="cv-drawer-dialog" data-cv-dialog="drawer"
+          data-cv-url="/applications/{{ application.id }}/cv"></dialog>
+
+  {# Phone (< 768 px): each section's "Ver en mi CV (N)" opens the sheet at its first mark,
+     with previous / next. Its link twin is the pane fragment, for a browser without script. #}
+  <dialog id="cv-sheet" class="cv-sheet-dialog" data-cv-dialog="sheet"
+          data-cv-url="/applications/{{ application.id }}/cv"></dialog>
+</div>
+
+{# Phone: the three toolbar buttons, short, in a fixed bottom bar. #}
+<div id="action-bar" role="group" aria-label="{{ t('report.actions.label', lang) }}"
+     class="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-surface-1 px-3 pt-3 min-[768px]:hidden"
+     style="padding-bottom: max(0.75rem, env(safe-area-inset-bottom))">
+  <div class="flex gap-2">
+    <button type="button" id="attempt-open-bar" data-attempt-open class="btn btn-tertiary flex-1 px-2">
+      {{ t('report.actions.try_cv_bar', lang) }}
+    </button>
+    <a href="/applications/{{ application.id }}/letter" class="btn btn-tertiary flex-1 px-2">
+      {{ t('report.actions.letter_bar', lang) }}
+    </a>
+    {% if application.track_id %}
+    {{ ui.dialog_opener('/applications/' ~ application.id ~ '/summary?dialog=1',
+          '/applications/' ~ application.id ~ '/summary', t('report.actions.summary_bar', lang),
+          'btn btn-tertiary flex-1 px-2', wrap='contents') }}
+    {% else %}
+    <button type="button" disabled aria-describedby="summary-no-track" class="btn btn-tertiary flex-1 px-2">{{ t('report.actions.summary_bar', lang) }}</button>
+    {% endif %}
+  </div>
+</div>
+{# The bar is `pt-3` + a 2.75rem button + `max(0.75rem, safe-area)` + its 1px border, so the
+   room it needs is its own bottom padding plus 4.5rem: a fixed 5rem was short on a phone
+   with a home indicator, which hid the last row of the report behind the bar. #}
+<div class="min-[768px]:hidden" aria-hidden="true"
+     style="height: calc(4.5rem + max(0.75rem, env(safe-area-inset-bottom)))"></div>
+
+{% include "analyze/_attempt_modal.html" %}
+{{ ui.dialog('proposal-dialog') }}
+
+<script>
+  // §12.7's highlight behaviour. An IntersectionObserver on the report's own sections sets
+  // one attribute on the pane, `data-active`, and the stylesheet lights that section's
+  // marks in the base tone with the left-to-right sweep. Report items and marks share a
+  // `data-key` — `key@section` — so hovering, focusing or selecting an item takes the
+  // intense tone on every mark with that key. Selecting an item scrolls the pane to its
+  // first mark, with one pulse; selecting a mark scrolls the report back to its item; the
+  // ↑ ↓ buttons walk the marks of the section on screen and put focus on each one. The
+  // drawer and the sheet are native <dialog>s, so Escape, the focus trap and the return of
+  // focus are the browser's. Without this script every mark keeps the base tone and both
+  // openers are ordinary links to the pane. No library.
+  (function () {
+    var panes = [];
+    function collect() {
+      panes = Array.prototype.slice.call(document.querySelectorAll('[data-cv-pane]'));
+    }
+    collect();
+    if (!panes.length) return;
+    document.documentElement.classList.add('cv-js');
+
+    var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var smooth = reduce ? 'auto' : 'smooth';
+    // §12.1's order of the blocks that cite the pane: the observer reports the first of
+    // these holding the top edge of the viewport.
+    var SECTIONS = {
+      fit: 'components', components: 'components', recruiter: 'recruiter',
+      requirements: 'requirements', recommendations: 'recommendations'
+    };
+    var active = null;
+    var step = 0;
+    var pointed = [];
+
+    function pairsOf(mark) { return (mark.dataset.key || '').split('|').filter(Boolean); }
+    function keyOf(pair) { return pair.slice(0, pair.lastIndexOf('@')); }
+    function sectionOf(pair) { return pair.slice(pair.lastIndexOf('@') + 1); }
+    function keysOf(mark) { return pairsOf(mark).map(keyOf); }
+    function marksIn(pane) {
+      return Array.prototype.slice.call(pane.querySelectorAll('mark.hl[data-key]'));
+    }
+    function sectionKeys(pane, section) {
+      var found = [];
+      marksIn(pane).forEach(function (mark) {
+        pairsOf(mark).forEach(function (pair) {
+          var key = keyOf(pair);
+          if (sectionOf(pair) === section && found.indexOf(key) === -1) found.push(key);
+        });
+      });
+      return found;
+    }
+    function marksFor(pane, key) {
+      return marksIn(pane).filter(function (mark) { return keysOf(mark).indexOf(key) !== -1; });
+    }
+    function firstVisible(list) {
+      var shown = list.filter(function (el) { return el.getClientRects().length; });
+      return shown.length ? shown[0] : list[0];
+    }
+    function labelOf(section) {
+      var box = document.getElementById(section);
+      var heading = box ? box.querySelector('h2') : null;
+      return heading ? heading.textContent.trim() : section;
+    }
+    function fill(template, section, index, n) {
+      return String(template || '')
+        .split('@section@').join(labelOf(section))
+        .split('@index@').join(String(index))
+        .split('@n@').join(String(n));
+    }
+    // The legend of the inline pane and the status line of the drawer/sheet say the same
+    // thing in their own words: the section on screen, its marks and where the steps are.
+    function render(section, index) {
+      var n = panes.length ? sectionKeys(panes[0], section).length : 0;
+      panes.forEach(function (pane) {
+        var legend = pane.querySelector('[data-cv-legend]');
+        if (legend) {
+          legend.textContent = fill(
+            n === 1 ? legend.dataset.cvTemplateOne : legend.dataset.cvTemplate, section, index, n
+          );
+        }
+        var status = pane.querySelector('[data-cv-status]');
+        if (status) status.textContent = fill(status.dataset.cvTemplate, section, index, n);
+        Array.prototype.forEach.call(pane.querySelectorAll('[data-cv-step]'), function (button) {
+          button.disabled = !n;
+        });
+      });
+    }
+    function showSection(section) {
+      active = section;
+      step = 0;
+      panes.forEach(function (pane) { pane.setAttribute('data-active', section); });
+      render(section, 1);
+    }
+    // The pane's scroll box: the nearest ancestor that really scrolls — the sheet body in
+    // the drawer and the sheet, the pane itself in the inline view, whose A4 sheet is taller
+    // than the viewport. With none, the mark is scrolled into view by the browser.
+    function scrollBox(el) {
+      for (var node = el.parentElement; node; node = node.parentElement) {
+        if (node.scrollHeight - node.clientHeight > 1) return node;
+      }
+      return null;
+    }
+    function scrollPane(mark) {
+      var box = scrollBox(mark);
+      if (!box) { mark.scrollIntoView({ block: 'center', behavior: smooth }); return; }
+      var rect = mark.getBoundingClientRect();
+      var frame = box.getBoundingClientRect();
+      var top = box.scrollTop + rect.top - frame.top - (box.clientHeight - rect.height) / 2;
+      box.scrollTo({ top: Math.max(0, top), behavior: smooth });
+    }
+    function pulse(marks) {
+      if (reduce) return;
+      marks.forEach(function (mark) {
+        mark.removeAttribute('data-pulse');
+        void mark.offsetWidth; // restarts the animation when the same mark is picked twice
+        mark.setAttribute('data-pulse', '');
+        window.setTimeout(function () { mark.removeAttribute('data-pulse'); }, 700);
+      });
+    }
+    function clearIntense() {
+      pointed.forEach(function (mark) { mark.removeAttribute('data-intense'); });
+      pointed = [];
+    }
+    function pointAt(value) {
+      var wanted = String(value || '').split('|').filter(Boolean).map(keyOf);
+      clearIntense();
+      if (!wanted.length) return;
+      panes.forEach(function (pane) {
+        marksIn(pane).forEach(function (mark) {
+          var keys = keysOf(mark);
+          if (!wanted.some(function (key) { return keys.indexOf(key) !== -1; })) return;
+          mark.setAttribute('data-intense', '');
+          pointed.push(mark);
+        });
+      });
+    }
+    function restore() {
+      var selected = document.querySelector('[aria-pressed="true"][data-key]');
+      if (selected) pointAt(selected.dataset.key);
+      else clearIntense();
+    }
+    function toMark(mark) {
+      scrollPane(mark);
+      pulse([mark]);
+      mark.focus({ preventScroll: true });
+    }
+    function selectItem(item) {
+      var key = keyOf(item.dataset.key);
+      var marks = [];
+      panes.forEach(function (pane) { marks = marks.concat(marksFor(pane, key)); });
+      if (marks.length) toMark(firstVisible(marks));
+    }
+    function selectMark(mark) {
+      var wanted = pairsOf(mark);
+      var items = Array.prototype.filter.call(
+        document.querySelectorAll('[data-key]'),
+        function (el) { return el.tagName !== 'MARK' && wanted.indexOf(el.dataset.key) !== -1; }
+      );
+      if (items.length) items[0].scrollIntoView({ block: 'center', behavior: smooth });
+    }
+    function stepBy(pane, delta) {
+      var section = pane.getAttribute('data-active') || active;
+      if (!section) return;
+      var keys = sectionKeys(pane, section);
+      if (!keys.length) return;
+      step = (step + delta + keys.length) % keys.length;
+      var marks = marksFor(pane, keys[step]);
+      if (marks.length) toMark(firstVisible(marks));
+      render(section, step + 1);
+    }
+
+    // The pane tracks the report, never a scroll listener: the observer reports which of
+    // §12.1's blocks holds the top edge of the viewport, and that is the section on
+    // screen. The band is the top tenth of the window, so a short section lights up as
+    // soon as its heading reaches the top, instead of having to cover the middle.
+    if ('IntersectionObserver' in window) {
+      var visible = {};
+      var observer = new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry) { visible[entry.target.id] = entry.isIntersecting; });
+        var next = null;
+        Object.keys(SECTIONS).forEach(function (id) {
+          if (next === null && visible[id]) next = SECTIONS[id];
+        });
+        if (next && next !== active) showSection(next);
+      }, { rootMargin: '0px 0px -90% 0px' });
+      Object.keys(SECTIONS).forEach(function (id) {
+        var section = document.getElementById(id);
+        if (section) observer.observe(section);
+      });
+    }
+
+    // The drawer (768–1279 px) and the bottom sheet (< 768 px) fetch the pane fragment into
+    // their dialog and open it natively; a failure falls back to navigating, which is what
+    // the opener's own link does.
+    var drawer = document.getElementById('cv-drawer');
+    var sheet = document.getElementById('cv-sheet');
+    function openPane(dialog, section) {
+      if (!dialog || typeof dialog.showModal !== 'function') return false;
+      var loading = dialog.dataset.cvLoaded
+        ? Promise.resolve()
+        : fetch(dialog.dataset.cvUrl, { headers: { Accept: 'text/html' } })
+          .then(function (response) {
+            if (!response.ok) throw new Error(response.status);
+            return response.text();
+          })
+          .then(function (html) {
+            dialog.innerHTML = html;
+            dialog.dataset.cvLoaded = '1';
+            collect();
+          });
+      loading.then(function () {
+        dialog.showModal();
+        var pane = dialog.querySelector('[data-cv-pane]');
+        if (!pane) return;
+        if (section) showSection(section);
+        else if (active) pane.setAttribute('data-active', active);
+        if (section) {
+          var keys = sectionKeys(pane, section);
+          var marks = keys.length ? marksFor(pane, keys[0]) : [];
+          if (marks.length) { scrollPane(firstVisible(marks)); pulse([firstVisible(marks)]); }
+        }
+      }).catch(function () { window.location.href = dialog.dataset.cvUrl; });
+      return true;
+    }
+
+    document.addEventListener('click', function (event) {
+      var target = event.target instanceof Element ? event.target : null;
+      if (!target) return;
+      var close = target.closest('[data-cv-close]');
+      if (close) { var box = close.closest('dialog'); if (box) box.close(); return; }
+      var stepButton = target.closest('[data-cv-step]');
+      if (stepButton) {
+        var owner = stepButton.closest('[data-cv-pane]');
+        if (owner) stepBy(owner, stepButton.dataset.cvStep === 'prev' ? -1 : 1);
+        return;
+      }
+      var opener = target.closest('[data-cv-drawer]');
+      if (opener && openPane(drawer, null)) { event.preventDefault(); return; }
+      var link = target.closest('[data-cv-sheet]');
+      if (link && openPane(sheet, link.dataset.cvSheet)) { event.preventDefault(); return; }
+      var mark = target.closest('mark.hl[data-key]');
+      if (mark) { selectMark(mark); return; }
+      var item = target.closest('[data-key]');
+      if (!item || !item.dataset.key) return;
+      pointAt(item.dataset.key);
+      selectItem(item);
+    });
+
+    // Enter and Space do for a chip what a click does (a span is not a button); a real
+    // button or link already answers to both.
+    document.addEventListener('keydown', function (event) {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      var item = event.target instanceof Element ? event.target.closest('[data-key]') : null;
+      if (!item || item.tagName === 'BUTTON' || item.tagName === 'A') return;
+      event.preventDefault();
+      pointAt(item.dataset.key);
+      selectItem(item);
+    });
+
+    document.addEventListener('pointerover', function (event) {
+      var item = event.target instanceof Element ? event.target.closest('[data-key]') : null;
+      if (!item || item.contains(event.relatedTarget)) return;
+      pointAt(item.dataset.key);
+    });
+    document.addEventListener('pointerout', function (event) {
+      var item = event.target instanceof Element ? event.target.closest('[data-key]') : null;
+      if (!item || item.contains(event.relatedTarget)) return;
+      restore();
+    });
+    document.addEventListener('focusin', function (event) {
+      var item = event.target instanceof Element ? event.target.closest('[data-key]') : null;
+      if (item) pointAt(item.dataset.key);
+    });
+    document.addEventListener('focusout', function (event) {
+      var item = event.target instanceof Element ? event.target.closest('[data-key]') : null;
+      if (item) restore();
+    });
+  })();
+</script>
+{% endblock %}

@@ -13,6 +13,7 @@ from pathlib import Path
 import pytest
 
 from src.extract import client as extract_client
+from src.i18n import t
 from src.models import ApplicationAttempt
 from tests.conftest import login
 from tests.unit.attempt_support import AttemptProvider, analyzed_application, resume_payload
@@ -205,3 +206,117 @@ def test_nothing_left_has_its_own_wording(client, session, career, provider):
     left = text[text.index("Qué queda") :]
     assert "Nada pendiente: ya usaste lo que tu material ofrece para esta oferta." in left
     assert "Nada nuevo" not in left
+
+
+# --- S5a: the level-1 state, the honest "Nuevo en este documento", the subheadings -------
+
+# A requirement the file only mentions: the skills list names it, no bullet shows it (F5.5.2).
+MENTIONED_GAP = {
+    "requirement": "excel",
+    "level": 1,
+    "must_have": False,
+    "bullet_id": None,
+    "bullet_text": None,
+    "blocking": False,
+    "interpretation": "",
+}
+
+
+def test_a_mentioned_skill_is_listed_in_whats_left_with_its_ochre_chip(
+    client, session, career, provider
+):
+    """§12.1 item 3, amended 2026-10-13: the pop-up's *Qué queda* says where the term is
+    and what would make it count, and the chip beside it is the ochre mentioned state."""
+    application, _analysis, attempt = _run(client, session, career, provider)
+    attempt.report = {
+        **attempt.report,
+        "gaps": {**(attempt.report.get("gaps") or {}), "gaps": [MENTIONED_GAP]},
+    }
+    session.commit()
+
+    raw = client.get(f"/applications/{application.id}/attempts/{attempt.id}").text
+    left = raw[raw.index("Qué queda") :]
+
+    assert 'class="chip chip-mentioned"' in left, "level 1 is mentioned, never a missing ✕"
+    assert "✕</span> excel" not in left
+    assert (
+        "«excel» solo aparece en tu lista de habilidades o en el resumen: escríbelo en un "
+        "bullet que muestre cómo lo usaste para que cuente como evidencia."
+    ) in plain(left)
+
+
+def test_the_result_shows_no_claims_line_and_no_above_ceiling_line(
+    client, session, career, provider
+):
+    """Both flags are still computed and stored (F10.5), and neither is shown: a new CV is
+    expected to carry new information and the user decides whether it is true."""
+    application, _analysis, attempt = _run(client, session, career, provider)
+    attempt.report = {
+        **attempt.report,
+        "flags": {
+            **attempt.report["flags"],
+            "claims": ["37%"],
+            "above_ceiling": True,
+            "new_terms": ["tablas dinámicas"],
+            "titles": ["Directora de datos"],
+        },
+    }
+    session.commit()
+
+    raw = client.get(f"/applications/{application.id}/attempts/{attempt.id}").text
+    text = plain(raw)
+
+    assert "37%" not in text
+    assert "Cifras, fechas o nombres" not in text
+    assert "puntúa por encima de lo que tu material permite" not in text
+    assert attempt.report["flags"]["claims"] == ["37%"], "the stored report keeps both"
+    assert attempt.report["flags"]["above_ceiling"] is True
+    assert "Habilidades y palabras clave nuevas:" in text
+    assert "tablas dinámicas" in text and "Directora de datos" in text
+    assert "Revisa que sea cierto" in text
+    assert (
+        f'href="/applications/{application.id}/attempts/{attempt.id}/incorporate"' in raw
+    ), "the line links to the page that adds it to the material"
+
+
+def test_an_older_stored_attempt_still_names_what_its_flags_carried(
+    client, session, career, provider
+):
+    """A row stored before §12.9's key existed falls back to the skill flags it has and
+    never reads "nothing new" — the operator's earlier attempts are exactly this case."""
+    application, _analysis, attempt = _run(client, session, career, provider)
+    flags = {
+        key: value for key, value in attempt.report["flags"].items() if key != "new_terms"
+    }
+    flags["skills"] = ["tablas dinámicas"]
+    attempt.report = {**attempt.report, "flags": flags}
+    session.commit()
+
+    text = plain(client.get(f"/applications/{application.id}/attempts/{attempt.id}").text)
+
+    assert "tablas dinámicas" in text
+    assert "Nada nuevo frente a tu material." not in text
+
+
+def test_the_popup_subheadings_are_the_one_bold_class(client, session, career, provider):
+    """§2, amended 2026-10-13: 600 is loaded for these three and nothing else in the app."""
+    application, _analysis, attempt = _run(client, session, career, provider)
+
+    raw = client.get(f"/applications/{application.id}/attempts/{attempt.id}").text
+
+    for key in ("attempt.change.title", "attempt.flags.title", "attempt.left.title"):
+        assert f'<h3 class="pt-1 dialog-subhead">{t(key, "es")}</h3>' in raw
+    assert raw.count("dialog-subhead") == 3, "only the pop-up's own subheadings"
+    # The weight itself is loaded by the document head, which a partial does not carry.
+    assert "family=Hanken+Grotesk:wght@400;600" in client.get(
+        f"/applications/{application.id}"
+    ).text, "the weight has to be loaded"
+
+
+def test_the_dialog_subhead_and_the_mentioned_chip_are_the_styles_the_screens_say():
+    rule = re.search(r"\.dialog-subhead\{[^}]*\}", CSS).group(0)
+    assert "font-size:1.125rem" in rule and "font-weight:600" in rule
+    assert "font-synthesis-weight:none" in CSS, "600 is loaded, never synthesised"
+
+    chip = re.search(r"\.chip-mentioned\{[^}]*\}", CSS).group(0)
+    assert "1px" in chip and "var(--ochre)" in chip and "dashed" not in chip

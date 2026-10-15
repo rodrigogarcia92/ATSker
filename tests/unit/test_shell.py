@@ -1,9 +1,10 @@
-"""§12.1's shell: the rail, its three groups and nine links, and the renamed wording.
+"""Design v3 §5's shell: the top bar, its links, the avatar menu and the phone sheet.
 
-The rail is the second user's map of the application, so the links are asserted by
-href, not by styling: a link that disappears behind an icon is still a link, and one
-that is not in the HTML is not reachable at all.
+The bar is the second user's map of the application, so the links are asserted by href,
+not by styling: a link that is not in the HTML is not reachable at all.
 """
+
+import re
 
 import pytest
 
@@ -11,9 +12,9 @@ from src.i18n.strings import STRINGS
 from src.web.recall import query_rows
 from tests.conftest import login
 
-# The nine destinations §12.1 groups under Postular, Tu material and Cuenta.
+# The eight destinations in the bar's centre; Perfil and Vocabulario live in the avatar menu.
 NAV_LINKS = (
-    "/dashboard",
+    "/",
     "/analyze",
     "/applications",
     "/import",
@@ -21,11 +22,12 @@ NAV_LINKS = (
     "/roles",
     "/stories",
     "/letters",
-    "/profile",
 )
+MENU_LINKS = ("/profile", "/vocabulary")
 
-# Every page a signed-in user can reach from the rail, for the wording sweep.
+# Every page a signed-in user can reach from the bar, for the wording sweep.
 SIGNED_IN_PAGES = (
+    "/",
     "/dashboard",
     "/analyze",
     "/applications",
@@ -39,17 +41,40 @@ SIGNED_IN_PAGES = (
 )
 
 
-def test_the_rail_groups_and_all_nine_links_render_for_a_signed_in_user(client, career):
+def test_the_top_bar_has_the_main_links_and_the_avatar_menu_has_the_account_ones(client, career):
     login(client, career.first.email)
 
     page = client.get("/dashboard").text
 
-    for group in ("Postular", "Tu material", "Cuenta"):
-        assert group in page, f"the {group} group is part of the rail"
-    for href in NAV_LINKS:
-        assert f'href="{href}"' in page, f"{href} is a rail destination"
-    assert 'id="rail-body"' in page and 'id="rail-toggle"' in page
-    assert "/vocabulary" not in page, "Vocabulario left the rail"
+    assert '<header class="topbar">' in page and 'class="topnav"' in page
+    assert "atsker" in page, "the wordmark"
+    for href in NAV_LINKS + MENU_LINKS:
+        assert f'href="{href}"' in page, f"{href} is reachable from the bar"
+    for gone in ("rail-body", "rail-toggle", "Postular", "Tu material"):
+        assert gone not in page, f"{gone} left with the rail"
+    assert 'action="/logout"' in page and 'action="/settings/lang"' in page
+
+
+def test_the_avatar_menu_and_the_phone_sheet_are_details_that_work_without_script(client, career):
+    login(client, career.first.email)
+
+    page = client.get("/dashboard").text
+
+    assert page.count("<details class=\"menu ") == 2, "one avatar menu, one phone sheet"
+    assert 'class="sheet" role="dialog"' in page
+    sheet = page[page.index('class="sheet"') :]
+    for href in NAV_LINKS + MENU_LINKS:
+        assert f'href="{href}"' in sheet, f"the sheet keeps {href}"
+    assert 'name="lang" value="en"' in sheet and 'action="/logout"' in sheet
+
+
+def test_the_current_page_is_marked_in_the_bar(client, career):
+    login(client, career.first.email)
+
+    page = client.get("/analyze").text
+
+    assert re.search(r'<a href="/analyze" class="nav-link "[^>]* aria-current="page"', page)
+    assert not re.search(r'<a href="/tracks" class="nav-link "[^>]* aria-current="page"', page)
 
 
 def test_trayectoria_appears_nowhere_in_the_rendered_spanish_pages(client, career):
@@ -62,6 +87,7 @@ def test_trayectoria_appears_nowhere_in_the_rendered_spanish_pages(client, caree
 
 
 SCREEN_PATHS = (
+    "/",
     "/dashboard",
     "/analyze",
     "/applications",
@@ -112,7 +138,7 @@ def test_every_signed_in_screen_renders_with_the_shell(client, career, path):
     response = client.get(url)
 
     assert response.status_code == 200, url
-    assert 'id="rail-body"' in response.text, f"the shell reached {url}"
+    assert 'class="topbar"' in response.text, f"the shell reached {url}"
 
 
 def test_the_content_column_can_shrink_and_wide_tables_scroll(client, career):
@@ -126,19 +152,32 @@ def test_the_content_column_can_shrink_and_wide_tables_scroll(client, career):
     assert 'class="mx-auto w-full min-w-0' in page
 
 
-def test_vocabulario_is_reachable_from_perfil(client, career):
+def test_vocabulario_is_reachable_from_perfil_and_from_the_avatar_menu(client, career):
     login(client, career.first.email)
 
     page = client.get("/profile").text
 
-    assert 'href="/vocabulary"' in page, "Perfil is where Vocabulario lives now"
+    assert page.count('href="/vocabulary"') >= 3, "the profile text, the avatar menu and the sheet"
 
 
-def test_the_login_page_has_no_rail(client):
+def test_the_login_page_has_no_top_bar(client):
     page = client.get("/login").text
 
-    assert 'id="rail-body"' not in page
-    assert ">Postular<" not in page
+    assert 'class="topbar"' not in page
+    assert 'class="sheet"' not in page
+
+
+def test_the_links_fold_into_the_sheet_below_1024px():
+    """Eight Spanish links do not fit one line at 768px, so the bar only unfolds at lg."""
+    from pathlib import Path
+
+    path = Path(__file__).parents[2] / "src" / "web" / "static" / "src.css"
+    css = path.read_text(encoding="utf-8")
+    after = css.split("@media (min-width: 1024px)", 1)[1]
+    block = after[: after.index("\n}")]
+
+    assert re.search(r"\.topnav,\s*\.avatar-menu\s*\{\s*display: flex;", block)
+    assert re.search(r"\.sheet-menu\s*\{\s*display: none;", block)
 
 
 def test_recall_labels_are_shown_in_the_readers_language():

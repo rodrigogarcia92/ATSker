@@ -35,7 +35,7 @@ def test_the_agreement_around_the_track_is_feminine():
     assert t("attempt.incorporate.este", "es") == "Esta línea"
     assert t("attempt.incorporate.nuevo", "es") == "Nueva línea"
     assert t("letters.assign", "es") == "Asignar a una línea"
-    assert t("analyze.recommend", "es") == "Recomendar línea de carrera"
+    assert t("analyze.propose", "es") == "Proponer línea"
     assert t("letters.unlinked_title", "es") == "Sin línea"
     assert t("report.recommendation.track", "es") == "Línea"
     assert t("attempt.delta", "es", delta="+3") == "+3 vs. análisis de la línea"
@@ -50,3 +50,11 @@ def test_the_job_in_the_posting_keeps_puesto_and_its_placeholder():
 def test_the_users_own_roles_keep_puesto():
     assert t("roles.new", "es") == "Nuevo puesto"
     assert t("dashboard.roles", "es") == "Puestos"
+
+
+def test_no_spanish_value_says_bala_for_a_bullet():
+    offenders = [
+        key for key, value in STRINGS.items() if re.search(r"\bbalas?\b", value["es"], re.I)
+    ]
+
+    assert offenders == []

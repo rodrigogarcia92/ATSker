@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% import "_ui.html" as ui with context %}
+{% block title %}{{ t('attempt.save_cv.title', lang) }} — {{ t('app.name', lang) }}{% endblock %}
+{% block width %}max-w-2xl{% endblock %}
+{% block content %}
+{# F11.7: the confirmation after "Subir a esta línea". The CV joined the track; nothing of
+   the user's material changed. Two next steps: the usual merge review, and a new analysis
+   of the same posting on this CV. #}
+<h1 class="text-4xl leading-tight tracking-[-0.02em] md:text-5xl">{{ t('attempt.save_cv.title', lang) }}</h1>
+<p class="mt-2 text-sm text-text-2" role="status">
+  {% if created %}
+  {{ t('attempt.save_cv.done', lang, name=resume.filename, track=track.name if track else '') }}
+  {% else %}
+  {{ t('attempt.save_cv.exists', lang, name=resume.filename, track=track.name if track else '') }}
+  {% endif %}
+</p>
+{% if resume.file_bytes is none %}
+<p class="mt-2 text-xs text-text-3">{{ t('attempt.save_cv.no_file', lang) }}</p>
+{% endif %}
+
+<div class="mt-6 space-y-4">
+  <form method="post" action="/applications/{{ application.id }}/reanalyze" data-progress="analyze"
+        class="rounded-card border border-card-border bg-surface-1 p-4">
+    <input type="hidden" name="resume_id" value="{{ resume.id }}">
+    <button type="submit" class="btn btn-primary">
+      {{ t('attempt.save_cv.analyse', lang) }}
+    </button>
+    <p class="mt-2 text-xs text-text-3">{{ t('attempt.save_cv.analyse_hint', lang) }}</p>
+    {{ ui.progress('analyze') }}
+  </form>
+  {% if can_incorporate %}
+  <div class="rounded-card border border-card-border bg-surface-1 p-4">
+    <a class="btn btn-secondary"
+       href="/applications/{{ application.id }}/attempts/{{ attempt.id }}/incorporate">
+      {{ t('attempt.save_cv.incorporate', lang) }}
+    </a>
+    <p class="mt-2 text-xs text-text-3">{{ t('attempt.save_cv.incorporate_hint', lang) }}</p>
+  </div>
+  {% endif %}
+</div>
+<p class="mt-6 text-sm">
+  <a class="text-link underline" href="/applications/{{ application.id }}">{{ t('attempt.back', lang) }}</a>
+</p>
+{% endblock %}

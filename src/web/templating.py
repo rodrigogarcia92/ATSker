@@ -1,6 +1,7 @@
 """Template rendering with the interface language and the current user injected."""
 
 import re
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -58,6 +59,55 @@ def localised_term(value: object, lang: str = DEFAULT_LANG) -> str:
 
 
 _TEMPLATES.env.filters["localised_term"] = localised_term
+
+# The scorer annotates a Skills term with its level — `python (L3, direct)`, `excel (L1)`
+# — and is frozen, so the display reads that annotation instead of changing it (§12.1
+# item 3 amendment): level 1 is "mentioned", not "missing", and gets its own chip.
+_TERM_ANNOTATION = re.compile(r"^(?P<name>.+?)\s*\(L(?P<level>\d)(?:,\s*(?P<basis>[a-z]+))?\)$")
+
+
+def term_level(value: object) -> int | None:
+    """The level a sub-score term carries (`excel (L1)` -> 1), or None when it carries none."""
+    match = _TERM_ANNOTATION.match(str(value).strip())
+    return int(match.group("level")) if match else None
+
+
+def term_name(value: object) -> str:
+    """A sub-score term without its level annotation (`python (L3, direct)` -> `python`)."""
+    text = str(value)
+    match = _TERM_ANNOTATION.match(text.strip())
+    return match.group("name") if match else text
+
+
+_TEMPLATES.env.filters["term_level"] = term_level
+_TEMPLATES.env.filters["term_name"] = term_name
+
+
+def relative_time(value: object, lang: str = DEFAULT_LANG) -> str:
+    """A moment as its rough distance from now (§12.8's state lines and activity).
+
+    Minutes, then hours, then days; after a week it gives way to the date itself, so
+    nothing ever reads "hace 39 días". A missing timestamp is the empty string, never a
+    "hace 0 minutos". The clock is read here, not passed in: this is presentation, and
+    the value it formats is the one the row carries.
+    """
+    if not isinstance(value, datetime):
+        return ""
+    moment = value if value.tzinfo is not None else value.replace(tzinfo=UTC)
+    minutes = int((datetime.now(UTC) - moment).total_seconds() // 60)
+    if minutes < 60:
+        count = max(1, minutes)
+        return t("time.minute" if count == 1 else "time.minutes", lang, n=count)
+    if minutes < 60 * 24:
+        count = minutes // 60
+        return t("time.hour" if count == 1 else "time.hours", lang, n=count)
+    days = minutes // (60 * 24)
+    if days < 7:
+        return t("time.day" if days == 1 else "time.days", lang, n=days)
+    return moment.strftime("%Y-%m-%d")
+
+
+_TEMPLATES.env.filters["relative_time"] = relative_time
 
 
 def render(

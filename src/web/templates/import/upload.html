@@ -2,14 +2,14 @@
 {% import "_ui.html" as ui with context %}
 {% block title %}{{ t('import.title', lang) }} — {{ t('app.name', lang) }}{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-semibold tracking-tight">{{ t('import.title', lang) }}</h1>
+<h1 class="text-4xl leading-[1.11] tracking-[-0.02em] md:text-5xl">{{ t('import.title', lang) }}</h1>
 <p class="mt-1 text-sm text-text-2">{{ t('import.intro', lang) }}</p>
 
 {% if error %}
-<p class="mt-4 rounded-control border border-sev-warning bg-surface-1 px-3 py-2 text-sm text-sev-warning">{{ error }}</p>
+<p class="mt-4 rounded-card border border-ink bg-surface-1 px-4 py-3 text-sm text-ink">{{ error }}</p>
 {% endif %}
 {% if not can_extract %}
-<p class="mt-4 rounded-control border border-card-border bg-surface-1 px-3 py-2 text-sm text-text-2">
+<p class="mt-4 rounded-card border border-card-border bg-surface-1 px-3 py-2 text-sm text-text-2">
   {{ t('import.no_model', lang) }}
 </p>
 {% endif %}
@@ -21,29 +21,29 @@
     <p class="mt-2 text-xs text-text-3">{{ t('import.file_hint', lang) }}</p>
   </div>
   <div>
-    <label for="track_id" class="mb-1 block text-sm font-medium">
-      {{ t('import.track', lang) }} <span class="text-text-3">({{ t('common.optional', lang) }})</span>
+    <label for="track_id" class="field-label">
+      {{ t('import.track_label', lang) }} <span class="text-text-3">({{ t('common.optional', lang) }})</span>
     </label>
-    <select id="track_id" name="track_id" class="w-full rounded-control border border-border px-3 py-2 text-sm">
+    <select id="track_id" name="track_id" class="w-full">
       <option value="">{{ t('common.none', lang) }}</option>
       {% for track in tracks %}
       <option value="{{ track.id }}" {% if values.track_id == track.id | string %}selected{% endif %}>{{ track.name }}</option>
       {% endfor %}
     </select>
-    <p class="mt-1 text-xs text-text-3">{{ t('import.track_hint', lang) }}</p>
+    <p class="field-hint">{{ t('import.track_hint', lang) }}</p>
   </div>
-  <button type="submit" class="rounded-control bg-link px-3 py-2 text-sm font-medium text-bg hover:opacity-90">
+  <button type="submit" class="btn btn-primary">
     {{ t('import.submit', lang) }}
   </button>
   {{ ui.progress('import') }}
 </form>
 
-<h2 class="mt-10 text-lg font-semibold">{{ t('import.uploads', lang) }}</h2>
+<h2 class="mt-10 text-3xl leading-tight tracking-[-0.01em] md:text-4xl">{{ t('import.uploads', lang) }}</h2>
 <ul class="mt-3 divide-y divide-card-border rounded-card border border-card-border bg-surface-1">
   {% for item in resumes %}
   <li class="flex flex-wrap items-center justify-between gap-2 p-4">
     <div>
-      <p class="text-sm font-medium">{{ item.filename }}</p>
+      <p class="text-sm">{{ item.filename }}</p>
       <p class="text-xs text-text-3">
         {{ t('import.uploaded_at', lang) }} {{ item.uploaded_at.strftime('%Y-%m-%d %H:%M') }} ·
         {% if item.merged_at %}{{ t('import.status.merged', lang) }}{% elif item.active %}{{ t('import.status.pending', lang) }}{% else %}{{ t('import.status.discarded', lang) }}{% endif %}
@@ -58,7 +58,7 @@
         <button type="submit" class="text-sm text-text-3 underline">{{ t('import.discard', lang) }}</button>
       </form>
       {% endif %}
-      <a href="/import/{{ item.id }}/delete" class="text-sm text-sev-blocker underline">{{ t('common.delete', lang) }}</a>
+      <a href="/import/{{ item.id }}/delete" class="text-sm text-ink underline">{{ t('common.delete', lang) }}</a>
     </div>
   </li>
   {% else %}

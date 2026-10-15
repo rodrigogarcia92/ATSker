@@ -7,6 +7,7 @@ step, and the uploaded file is archived with its SHA-256 from the first (F2.6).
 """
 
 import hashlib
+import logging
 import uuid
 from collections.abc import Mapping
 from typing import Annotated, Any
@@ -68,6 +69,8 @@ from src.web.locations import (
 from src.web.templating import render
 
 router = APIRouter()
+
+logger = logging.getLogger(__name__)
 
 # 512 MiB of instance memory and a bytea column say no to a 40 MB scan; a résumé is
 # a text document, and anything past this is a mistake the user can see immediately.
@@ -349,8 +352,18 @@ def _upload_page(
 
 
 @router.get("/import")
-def import_index(request: Request, user: SignedInUser, session: DbSession, profile: OwnProfile):
-    return _upload_page(request, user, session, profile)
+def import_index(
+    request: Request,
+    user: SignedInUser,
+    session: DbSession,
+    profile: OwnProfile,
+    track_id: str | None = None,
+):
+    """The upload page. `?track_id=` preselects a track: the analysis form links here when
+    the track it chose has no CV (F11.3). Another profile's track is simply not preselected."""
+    track = get_track(profile.id, session, track_id) if track_id else None
+    values = {**EMPTY_FORM, "track_id": str(track.id)} if track is not None else None
+    return _upload_page(request, user, session, profile, values=values)
 
 
 @router.post("/import")
@@ -540,6 +553,9 @@ def import_retry(
 
     filename = resume.filename
     data = resume.file_bytes
+    if data is None:
+        # A CV saved from an attempt has no file to read again (F11.7).
+        return RedirectResponse(f"/import/{resume_id}", status_code=303)
     gate = resume.gate or {}
     kind = document_kind(filename)
     try:
@@ -888,6 +904,15 @@ def finding_location(
     if page is None or not is_locatable(str(finding.get("check"))):
         # A DOCX finding, or a check with no geometry to point at.
         return render(request, "not_found.html", user=user, status_code=404)
+    if resume.file_bytes is None:
+        # A CV saved from an attempt: say the file was not kept (F11.7).
+        return render(
+            request,
+            "not_found.html",
+            user=user,
+            status_code=404,
+            message=t("import.file_not_kept", user.ui_lang),
+        )
     if not page_exists(resume.file_bytes, page):
         return render(request, "not_found.html", user=user, status_code=404)
     boxes = finding_boxes(finding)
@@ -930,13 +955,26 @@ def finding_page_png(
     page = finding_page(finding)
     if page is None or not is_locatable(str(finding.get("check"))):
         return Response(status_code=404)
-    if not page_exists(resume.file_bytes, page):
+    if resume.file_bytes is None or not page_exists(resume.file_bytes, page):
         # An out-of-range page is not found, never a traceback (N6.6).
         return Response(status_code=404)
-    png = render_page_png(
-        resume.file_bytes,
-        page_number=page,
-        boxes=finding_boxes(finding),
-        severity=str(finding.get("severity")),
-    )
+    try:
+        png = render_page_png(
+            resume.file_bytes,
+            page_number=page,
+            boxes=finding_boxes(finding),
+            severity=str(finding.get("severity")),
+        )
+    except Exception as exc:  # noqa: BLE001 - a page image is never a 500
+        # A malformed file, or a PDFium load that failed (`MalformedPDFException`,
+        # `PdfiumError`, anything else): the view has no image to point at, which is a
+        # 404. The file's bytes are never logged.
+        logger.warning(
+            "finding page render failed: resume=%s index=%s page=%s error=%s",
+            resume_id,
+            index,
+            page,
+            type(exc).__name__,
+        )
+        return Response(status_code=404)
     return Response(content=png, media_type="image/png", headers={"Cache-Control": "no-store"})

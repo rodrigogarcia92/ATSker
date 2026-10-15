@@ -27,7 +27,7 @@ only on the inputs, so two calls on the same report return byte-identical output
 
 import hashlib
 import json
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date
 
@@ -195,6 +195,151 @@ def _title_ceiling(
     return max(current, round(best, 4))
 
 
+@dataclass(frozen=True)
+class Support:
+    """What the master database holds for one graded requirement (F10.2, F11.5).
+
+    `level` is the grade on the document; `lifted_level` and `basis` are what the Skills
+    ceiling reads once **all** the master material is allowed — the ceiling's own rule,
+    so there is one definition of "a master bullet supports this requirement". The
+    supporting bullet is the first of: a bullet outside the document tagged with the
+    canonical, one outside tagged with a family sibling, then the same two inside it
+    (master order within each). `in_document` says whether it is one the file already
+    carries, and `note_basis` how that bullet supports the requirement.
+    """
+
+    requirement: str
+    must_have: bool
+    level: int
+    lifted_level: int
+    basis: str
+    bullet_id: str | None = None
+    role_id: str | None = None
+    in_document: bool = False
+    note_basis: str | None = None
+
+    @property
+    def lifted(self) -> bool:
+        return self.lifted_level > self.level
+
+    @property
+    def note(self) -> bool:
+        """Material outside the document would raise this requirement (F11.5)."""
+        return self.lifted and self.bullet_id is not None and not self.in_document
+
+
+def requirement_support(
+    grades: Sequence[Mapping[str, object]],
+    master: MasterData,
+    aliases: Mapping[str, str],
+    siblings: Mapping[str, set[str]],
+    document_ids: Collection[str] = (),
+) -> list[Support]:
+    """The Skills ceiling's rule, per requirement, naming the bullet behind each lift.
+
+    A requirement graded below 2 is lifted to level 2 *direct* when any master bullet is
+    tagged with its canonical, else to level 2 *equivalent* when one is tagged with a
+    family sibling; otherwise it keeps its grade. `_skills_ceiling` reads the first
+    fields of this; the F11.5 note reads the rest, so the two cannot disagree.
+    `document_ids` are the master bullets the file carries; with none given nothing is
+    "in the document".
+    """
+    tagged: set[str] = {skill for bullet in master.bullets for skill in bullet.skills}
+    inside = set(document_ids)
+    supports: list[Support] = []
+    for grade in grades:
+        requirement = str(grade.get("requirement") or "")
+        level = int(grade.get("level") or 0)
+        must_have = bool(grade.get("must_have"))
+        basis = str(grade.get("basis") or "direct")
+        canonical = _canonical_from_text(requirement, aliases)
+        lifted_level, lifted_basis = level, basis
+        if level < 2:
+            if canonical in tagged:
+                lifted_level, lifted_basis = 2, "direct"
+            elif siblings.get(canonical, set()) & tagged:
+                lifted_level, lifted_basis = 2, "equivalent"
+        chosen: MasterBullet | None = None
+        note_basis: str | None = None
+        if lifted_level > level:
+            family = siblings.get(canonical, set())
+            direct = [bullet for bullet in master.bullets if canonical in bullet.skills]
+            related = [bullet for bullet in master.bullets if family & set(bullet.skills)]
+            for pool, how, outside in (
+                (direct, "direct", True),
+                (related, "equivalent", True),
+                (direct, "direct", False),
+                (related, "equivalent", False),
+            ):
+                chosen = next(
+                    (bullet for bullet in pool if (bullet.id in inside) is not outside), None
+                )
+                if chosen is not None:
+                    note_basis = how
+                    break
+        supports.append(
+            Support(
+                requirement=requirement,
+                must_have=must_have,
+                level=level,
+                lifted_level=lifted_level,
+                basis=lifted_basis,
+                bullet_id=chosen.id if chosen is not None else None,
+                role_id=chosen.role_id if chosen is not None else None,
+                in_document=chosen is not None and chosen.id in inside,
+                note_basis=note_basis,
+            )
+        )
+    return supports
+
+
+def requirement_notes(
+    grades: Sequence[Mapping[str, object]],
+    master: MasterData,
+    aliases: Mapping[str, str],
+    document_ids: Collection[str],
+    lang: str,
+) -> list[dict[str, object]]:
+    """F11.5's notes: the requirements the user's material *outside this CV* would raise.
+
+    One entry per requirement where `Support.note` holds, in the report's order, each
+    with the bullet's text (in the posting's language, falling back to the other) and
+    its role's title as they read now, so the report keeps showing them if the master
+    changes. Deterministic, no model call, and it never touches a score.
+    """
+    siblings = _family_siblings(master)
+    bullets = {bullet.id: bullet for bullet in master.bullets}
+    roles = {role.id: role for role in master.roles}
+    notes: list[dict[str, object]] = []
+    for support in requirement_support(grades, master, aliases, siblings, document_ids):
+        if not support.note or support.bullet_id is None:
+            continue
+        bullet = bullets[support.bullet_id]
+        role = roles.get(support.role_id or "")
+        title_en, title_es = (role.title_en, role.title_es) if role is not None else (None, None)
+        text = (
+            (bullet.text_en or bullet.text_es or "")
+            if lang == "en"
+            else (bullet.text_es or bullet.text_en or "")
+        )
+        role_title = (
+            (title_en or title_es or "") if lang == "en" else (title_es or title_en or "")
+        )
+        notes.append(
+            {
+                "requirement": support.requirement,
+                "level": support.level,
+                "estimated_level": support.lifted_level,
+                "basis": support.note_basis,
+                "bullet_id": bullet.id,
+                "bullet_text": text,
+                "role_id": support.role_id,
+                "role": role_title,
+            }
+        )
+    return notes
+
+
 def _skills_ceiling(
     grades: Sequence[Mapping[str, object]],
     master: MasterData,
@@ -204,27 +349,17 @@ def _skills_ceiling(
     skills_weight: float,
     current: float,
 ) -> tuple[float, list[dict[str, object]]]:
-    tagged: set[str] = {skill for bullet in master.bullets for skill in bullet.skills}
     lifted: list[Level] = []
     unreachable: list[dict[str, object]] = []
     total_weight = 0.0
     weights_by_requirement: list[tuple[Level, float]] = []
-    for grade in grades:
-        requirement = str(grade.get("requirement") or "")
-        level = int(grade.get("level") or 0)
-        must_have = bool(grade.get("must_have"))
-        basis = str(grade.get("basis") or "direct")
-        canonical = _canonical_from_text(requirement, aliases)
-        weight = 0.75 if must_have else 0.25
+    for support in requirement_support(grades, master, aliases, siblings):
+        weight = 0.75 if support.must_have else 0.25
         total_weight += weight
-        if level < 2:
-            if canonical in tagged:
-                level, basis = 2, "direct"
-            elif siblings.get(canonical, set()) & tagged:
-                level, basis = 2, "equivalent"
-            if level < 2:
-                weights_by_requirement.append((Level(requirement, level, must_have, basis), weight))
-        lifted.append(Level(requirement, level, must_have, basis))
+        entry = Level(support.requirement, support.lifted_level, support.must_have, support.basis)
+        if support.lifted_level < 2:
+            weights_by_requirement.append((entry, weight))
+        lifted.append(entry)
     value = evidence_coverage(lifted, basis_credit=basis_credit).value
     # The points each unreachable requirement holds out of 100 of the *total* (A5): its
     # share of the Skills weight, counted to the **top** level so the parts add up to

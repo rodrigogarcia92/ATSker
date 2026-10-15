@@ -1,18 +1,8 @@
 {% extends "base.html" %}
 {% import "_ui.html" as ui with context %}
 {% block title %}{{ application.title or t('report.title', lang) }} — {{ t('app.name', lang) }}{% endblock %}
-{% block width %}max-w-6xl{% endblock %}
+{% block width %}max-w-[760px]{% endblock %}
 {% block content %}
-{# A stored report is rendered from its own sub-scores, its own weights version and its
-   own `unavailable` declaration: a `w1` report has keys — and a fifth component — that
-   the current constant no longer has, and it must keep showing what it recorded. #}
-{% set ns = namespace(missing=[], components=report.score.sub_scores|length + report.score.unavailable|length) %}
-{% for name in report.score.unavailable %}
-  {% set ns.missing = ns.missing + [t('report.sub.' + name, lang)] %}
-{% endfor %}
-{% set cap = report.score.cap %}
-{% set binding = cap is not none and report.score.capped < report.score.uncapped %}
-{% set match_band = 'strong' if report.score.capped >= 75 else ('adequate' if report.score.capped >= 50 else 'weak') %}
 {# F10.3: the same report template renders an attempt, whose advice is worded for the
    document the user is editing. The analysis page passes nothing, so advice reads for
    the track. #}
@@ -26,39 +16,73 @@
    visible and no dismiss button, which needs script. #}
 {# F7.3 / §12.5: "Aceptar" in the summary pop-up lands here with `?summary_saved=1`. #}
 {% if summary_saved is defined and summary_saved and not attempt_view %}
-<p id="summary-saved" role="status" class="mb-4 rounded-card border border-score-strong bg-surface-1 px-4 py-3 text-sm text-text-2">{{ t('generate.saved', lang) }}</p>
+<p id="summary-saved" role="status" class="mb-4 rounded-card border border-forest px-4 py-3 text-sm">{{ t('generate.saved', lang) }}</p>
 {% endif %}
 
 {% if not attempt_view %}
 {% set notice_no = discarded_no if discarded_no is defined else none %}
-<p id="attempt-notice" role="status" class="mb-4 rounded-card border border-card-border bg-surface-1 px-4 py-3 text-sm text-text-2"
+<p id="attempt-notice" role="status" class="mb-4 rounded-card border border-border px-4 py-3 text-sm"
    {% if notice_no is none %}hidden{% endif %}>
   <span id="attempt-notice-text">{% if notice_no is not none %}{{ t('attempt.discarded', lang, n=notice_no) }}{% endif %}</span>
   <button type="button" id="attempt-notice-dismiss" hidden
-          class="ml-2 min-h-11 px-2 text-link underline">{{ t('attempt.notice_dismiss', lang) }}</button>
+          class="link ml-2 min-h-11 px-2">{{ t('attempt.notice_dismiss', lang) }}</button>
 </p>
 {% endif %}
 
-{# §12.1 item 10: on a desktop a reading column of at most 760px beside a sticky rail of
-   actions; below `lg` the rail is gone and a fixed bar at the bottom takes its two buttons.
-   An attempt's report is read-only and shows neither. #}
-<div class="lg:flex lg:items-start lg:gap-8">
-<div class="min-w-0 flex-1 lg:max-w-[760px]{% if attempt_view %} lg:mx-auto{% endif %}">
+{# Design v3: an old report is one column of at most 760px. The CV's three actions sit in a
+   row under the header; on a phone a fixed bar at the bottom repeats the first two. An
+   attempt's report is read-only and shows neither. #}
+<div class="min-w-0">
 
 {# 1 — Header: what was posted, the track used, and the run's metadata. #}
 <header>
-  <h1 class="text-2xl font-semibold tracking-tight">
+  {% if application.company %}<p class="text-[0.8125rem] text-text-2">{{ application.company }}</p>{% endif %}
+  <h1 class="mt-2 text-4xl leading-[1.11] tracking-[-0.02em] md:text-5xl">
     {% if attempt_view %}{{ t('attempt.done_heading', lang, n=attempt_no) }}{% else %}{{ application.title or t('report.title', lang) }}{% endif %}
   </h1>
-  {% if application.company %}<p class="mt-1 text-text-2">{{ application.company }}</p>{% endif %}
-  <p class="mt-2 text-sm">
+  <p class="mt-3 text-sm">
     {% if report.track %}
     <span class="text-text-2">{{ t('report.track', lang, name=report.track.name) }}</span>
     {% else %}
-    <span class="text-text-3">{{ t('report.no_track', lang) }}</span>
+    <span class="text-text-2">{{ t('report.no_track', lang) }}</span>
     {% endif %}
   </p>
-  <dl class="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-xs text-text-3">
+  {# F11.3, F11.8: the file this analysis scored — or, for one made before F11, that it
+     scored the track — and the selector that re-analyses the same posting on another CV
+     (a new application). A deleted CV keeps its name in the report. #}
+  {% if not attempt_view %}
+  <p class="mt-1 text-sm" data-cv-label>
+    {% if report.cv %}
+      {% if application.resume_id %}
+      <span class="text-text-2">{{ t('report.cv', lang, name=report.cv.filename) }}</span>
+      {% else %}
+      <span class="text-ink">{{ t('report.cv_deleted', lang, name=report.cv.filename) }}</span>
+      {% endif %}
+      {% if cv_edited %}<span class="block text-xs text-text-2">{{ t('report.cv_edited', lang) }}</span>{% endif %}
+    {% else %}
+    <span class="text-text-2">{{ t('report.cv_legacy', lang) }}</span>
+    {% endif %}
+  </p>
+  {% if cv_choices %}
+  <form method="post" action="/applications/{{ application.id }}/reanalyze"
+        class="mt-3 flex flex-wrap items-center gap-3 text-sm" data-progress="analyze">
+    <label for="reanalyze-cv" class="sr-only">{{ t('report.reanalyse_label', lang) }}</label>
+    <select id="reanalyze-cv" name="resume_id" class="min-h-10 max-w-full">
+      {% for cv in cv_choices %}
+      <option value="{{ cv.id }}" {% if cv.id == application.resume_id %}selected{% endif %}>
+        {{ t('analyze.cv_option', lang, name=cv.filename, date=(cv.merged_at or cv.uploaded_at).strftime('%Y-%m-%d')) }}
+      </option>
+      {% endfor %}
+    </select>
+    <button type="submit" class="btn btn-secondary">
+      {{ t('report.reanalyse', lang) }}
+    </button>
+    <span class="text-xs text-text-2">{{ t('report.reanalyse_hint', lang) }}</span>
+    {{ ui.progress('analyze') }}
+  </form>
+  {% endif %}
+  {% endif %}
+  <dl class="mt-4 flex flex-wrap gap-x-6 gap-y-1 text-xs text-text-2">
     <div class="flex gap-1"><dt>{{ t('report.analysed_on', lang) }}</dt>
       <dd>{{ application.created_at.strftime('%Y-%m-%d %H:%M') }}</dd></div>
     <div class="flex gap-1"><dt>{{ t('report.calculation', lang) }}</dt>
@@ -72,1135 +96,86 @@
   </dl>
   <p class="mt-3 text-sm">
     {% if attempt_view %}
-    <a href="/applications/{{ application.id }}" class="text-link underline">{{ t('attempt.back', lang) }}</a>
+    <a href="/applications/{{ application.id }}" class="link">{{ t('attempt.back', lang) }}</a>
     {% else %}
-    <a href="/analyze?application={{ application.id }}" class="text-link underline">{{ t('report.analyse_another', lang) }}</a>
+    <a href="/analyze?application={{ application.id }}" class="link">{{ t('report.analyse_another', lang) }}</a>
     {% endif %}
   </p>
 </header>
 
-
-{# 2 — Job Match: one number, its band, the capped/uncapped bar, and what it means.
-   No weights are shown anywhere on this page, so nothing here reads as the employer's
-   priorities. #}
-<section id="fit" class="mt-6 rounded-card border border-card-border bg-surface-1 p-5">
-  {# The definition is the caption: what the number is, and that it is not a chance of
-     being hired. #}
-  {{ ui.score(report.score.capped / 100, t('report.total', lang), t('report.fit_definition', lang), true) }}
-  <div class="match" data-band="{{ match_band }}">
-    <span class="match-uncapped" style="width: {{ report.score.uncapped }}%"></span>
-    <span class="match-fill" style="width: {{ report.score.capped }}%"></span>
-    {% if cap is not none %}<span class="match-tick" style="left: {{ cap }}%"></span>{% endif %}
-  </div>
-  {# F10.2: the ceiling from the user's own material, beside the number it bounds.
-     A10: it is recomputed on view only when the master data has moved, and the page
-     says when that happened. #}
-  {% if ceiling %}
-  <p class="mt-2 flex flex-wrap items-center gap-2 text-sm">
-    <span class="rounded-tag border border-link px-2 py-0.5 text-xs text-link">{{ t('report.ceiling', lang, value=ceiling.high) }}</span>
-    {# A5: when the gate cap applies to the Job Match above, say the ceiling ignores it,
-       so a higher ceiling beside a capped score does not read as a contradiction. #}
-    {% if binding %}<span class="text-xs text-text-3">{{ t('report.ceiling_no_cap', lang) }}</span>{% endif %}
-    {% if ceiling_recomputed %}<span class="text-xs text-text-3">{{ t('report.ceiling_recalculated', lang) }}</span>{% endif %}
-  </p>
-  {% if ceiling_remainder %}
-  <p class="mt-1 text-xs text-text-3">{{ ceiling_remainder }}</p>
-  {% endif %}
-  {% endif %}
-  {% if binding %}
-  <p class="mt-2 text-sm text-text-2">
-    {{ t('report.capped', lang, cap=cap, uncapped=report.score.uncapped,
-          check=t('gate.check.' ~ report.score.cap_reason, lang)) }}
-    {{ t('report.readability_capped', lang, check=t('gate.check.' ~ report.score.cap_reason, lang)) }}
-  </p>
-  {% elif cap is not none %}
-  {# A finding exists but nothing was capped: the score is already below the limit.
-     Naming two numbers that contradict each other is worse than naming none, and the
-     finding itself stays visible in the scan below either way. #}
-  {% set flagged = 'blocker' if report.gate and report.gate.findings
-        and report.gate.findings | selectattr('severity', 'equalto', 'blocker') | list
-        else 'warning' %}
-  <p class="mt-2 text-sm text-text-2">
-    {{ t('report.cap_not_binding.' ~ flagged, lang, check=t('gate.check.' ~ report.score.cap_reason, lang)) }}
-  </p>
-  {% endif %}
-  {% if ns.missing %}
-  <p class="mt-2 text-sm text-text-2">
-    {{ t('report.renormalised', lang, missing=ns.missing|join(', '),
-          available=report.score.sub_scores|length, total=ns.components) }}
-  </p>
-  {% endif %}
-</section>
-
-{# 3 — The four sub-score cards: number, band, one-line caption, its own ceiling with
-   its confidence. Experience adds the years line and a closed "Ver detalle". #}
-<section id="components" class="mt-8">
-<h2 class="text-lg font-semibold">{{ t('report.sub_scores', lang) }}</h2>
-{# §12.1 item 3, Legend: one always-visible line saying what a gray and a purple term mean,
-   once per page, and a closed toggle with the rest of the colours. The chips below carry
-   the same glyphs and a hidden word, so colour is never the only signal. #}
-<p class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-text-2" data-legend>
-  <span class="inline-flex items-center gap-2">
-    <span class="rounded-tag bg-surface-2 px-2 py-0.5 text-xs text-text-2"><span aria-hidden="true">✓</span> {{ t('report.legend.sample', lang) }}</span>
-    {{ t('report.legend.found', lang) }}
-  </span>
-  <span class="inline-flex items-center gap-2">
-    <span class="rounded-tag border border-sev-warning px-2 py-0.5 text-xs text-sev-warning"><span aria-hidden="true">✕</span> {{ t('report.legend.sample', lang) }}</span>
-    {{ t('report.legend.missing', lang) }}
-  </span>
-</p>
-<details class="disclosure mt-1 text-sm">
-  <summary class="text-link">{{ t('report.legend.toggle', lang) }}</summary>
-  <ul class="space-y-1 pb-1 pl-6 text-xs text-text-2">
-    <li>{{ t('report.legend.scores', lang) }}</li>
-    <li>{{ t('report.legend.purple', lang) }}</li>
-    <li>{{ t('report.legend.gray', lang) }}</li>
-    <li>{{ t('report.legend.severity', lang) }}</li>
-  </ul>
-</details>
-<div class="mt-3 grid grid-cols-2 gap-3">
-  {% for name, sub in report.score.sub_scores.items() %}
-  {% set has_experience = sub.detail is defined and sub.detail.relevant_years is defined %}
-  <div class="min-w-0 rounded-card border border-card-border bg-surface-1 p-4">
-    {{ ui.score(sub.value, t('report.sub.' + name, lang), t('report.sub_caption.' + name, lang)) }}
-    {# F10.2: each sub-score shows its own ceiling and says whether it is exact or an
-       estimate. A ceiling stored without a confidence says neither. #}
-    {% if ceiling and ceiling.sub_scores.get(name) %}
-    {% set confidence = ceiling.sub_scores[name].confidence %}
-    <p class="mt-1 text-xs text-text-3">
-      {{ t('report.ceiling_sub', lang, value=(ceiling.sub_scores[name].ceiling * 100) | round | int) }}{% if confidence == 'estimate' %} · {{ t('report.ceiling_estimate', lang) }}{% elif confidence == 'exact' %} · {{ t('report.ceiling_exact', lang) }}{% endif %}
-    </p>
-    {% endif %}
-    {% if sub.detail is defined and sub.detail.direct is defined %}
-    {# F5.5.2: the Skills split, both parts as integers out of 100. #}
-    {% set direct = (sub.detail.direct * 100) | round | int %}
-    {% set transfer = (sub.detail.transfer * 100) | round | int %}
-    {% set total = (sub.value * 100) | round | int %}
-    <div class="split-bar">
-      <span class="split-direct" style="width: {{ direct }}%"></span>
-      <span class="split-transfer" style="width: {{ transfer }}%"></span>
-    </div>
-    <p class="mt-1 text-sm text-text-2">
-      {{ t('report.skills_split_total', lang, total=total, direct=direct, transfer=transfer) }}
-    </p>
-    {% endif %}
-    {# F5.5.2: Experience shows what it counted. N6.6: relevant years in the interface's
-       language, then relevant-of-held with at most one decimal and no trailing ".0".
-       Rows scored before w4 carry none of these fields and get the card without the
-       toggle. #}
-    {% if has_experience %}
-    <p class="mt-2 text-sm text-text-2">
-      <span class="font-medium text-text">{{ t('report.experience_years_tag', lang, years=sub.detail.relevant_years | years) }}</span>
-      · <span>{{ t('report.experience_years', lang,
-            relevant=sub.detail.relevant_years | years, held=sub.detail.held_years | years) }}</span>
-    </p>
-    <details class="disclosure mt-1 text-sm">
-      <summary class="text-link">{{ t('report.see_detail', lang) }}</summary>
-      <div class="space-y-1 pb-1 pl-6 text-text-2">
-        {% if sub.detail.required_years %}
-        <p>{{ t('report.experience_required', lang, required=sub.detail.required_years | years,
-              relevant=sub.detail.relevant_years | years, held=sub.detail.held_years | years) }}</p>
-        {% endif %}
-        {% if sub.detail.relevant_roles %}
-        <p>
-          {{ t('report.experience_roles', lang) }}:
-          {% for role in sub.detail.relevant_roles %}{{ role.title }} ({{ role.weight }}){% if not loop.last %}, {% endif %}{% endfor %}
-        </p>
-        {% endif %}
-        {% if sub.detail.tasks %}
-        {% set covered = sub.detail.tasks | selectattr('level', 'ge', 2) | list | length %}
-        <p>{{ t('report.experience_tasks', lang, covered=covered, total=sub.detail.tasks | length) }}</p>
-        <ul class="space-y-1">
-          {% for task in sub.detail.tasks %}
-          <li>{{ task.text }} — {{ t('report.level_label', lang) }} {{ task.level }}</li>
-          {% endfor %}
-        </ul>
-        {% endif %}
-      </div>
-    </details>
-    {% endif %}
-    <div class="mt-2 flex flex-wrap gap-2">
-      {% for term in sub.matched %}
-      <span class="rounded-tag bg-surface-2 px-2 py-0.5 text-xs text-text-2"><span aria-hidden="true">✓</span> {{ term | localised_term(lang) }}<span class="sr-only"> ({{ t('report.term.found', lang) }})</span></span>
-      {% endfor %}
-      {% for term in sub.missing %}
-      <span class="rounded-tag border border-sev-warning px-2 py-0.5 text-xs text-sev-warning"><span aria-hidden="true">✕</span> {{ term | localised_term(lang) }}<span class="sr-only"> ({{ t('report.term.missing', lang) }})</span></span>
-      {% endfor %}
-    </div>
-  </div>
-  {% endfor %}
-</div>
-</section>
-
-{# 4 — Recruiter search (F5.2): the question, the count, one closed row per search. #}
-{% if application.scan_boolean %}
-  {% include "_recall.html" %}
-{% endif %}
-
-{# 5 — Requirements and evidence (§12.1 item 5). Each graded requirement is a button
-   outlined in its level's colour; selecting one fills the single detail region beneath
-   with that requirement's type, level, basis, cited evidence and transfer reason, and
-   selecting it again clears it. None is selected on load. Nothing depends on script for
-   its content: every detail is in a <template> and the old compact list is in a
-   <noscript>; without script the buttons stay hidden. #}
-{# F5.4.1: the basis column and the marks the rules left — clamped, downgraded, fallback
-   language. Rows stored before w3 carry none of these fields and show none of this.
-   F5.5.2 adds `inferred`: the level came from family data, so the downgraded mark is not
-   shown beside it. #}
-{% macro requirement_marks(grade) -%}
-{% if grade.basis is defined %}
-<p class="flex flex-wrap items-center gap-2 text-xs text-text-3">
-  <span class="rounded-tag bg-surface-2 px-2 py-0.5">{{ t('report.basis.' ~ grade.basis, lang) }}</span>
-  {% if grade.source and grade.source != 'bullet' %}
-  <span class="rounded-tag bg-surface-2 px-2 py-0.5">{{ t('report.source.' ~ grade.source, lang) }}</span>
-  {% endif %}
-  {% if grade.clamped %}<span class="rounded-tag border border-sev-warning px-2 py-0.5 text-sev-warning">{{ t('report.grade_clamped', lang) }}</span>{% endif %}
-  {% if grade.inferred %}<span class="rounded-tag bg-surface-2 px-2 py-0.5">{{ t('report.grade_inferred', lang) }}</span>{% endif %}
-  {% if grade.downgraded and not grade.inferred %}<span class="rounded-tag border border-sev-warning px-2 py-0.5 text-sev-warning">{{ t('report.grade_downgraded', lang) }}</span>{% endif %}
-  {% if grade.fallback %}<span class="rounded-tag border border-sev-warning px-2 py-0.5 text-sev-warning">{{ t('report.grade_fallback', lang) }}</span>{% endif %}
-</p>
-{% endif %}
-{%- endmacro %}
-{# Covered is level 2 or 3; a gap is a requirement at level 0 or 1, must-have or not (F6). #}
-{% set graded = report.grades | length %}
-{% set covered = report.grades | selectattr('level', 'ge', 2) | list | length %}
-{% set uncovered = graded - covered %}
-<section id="requirements">
-<h2 class="mt-8 text-lg font-semibold">{{ t('report.requirements', lang) }}</h2>
-{% if graded %}
-<p class="mt-1 text-sm text-text-2">
-  {{ t('report.req.n_one' if graded == 1 else 'report.req.n', lang, n=graded) }}:
-  {{ t('report.req.covered_one' if covered == 1 else 'report.req.covered', lang, n=covered) }},
-  {{ t('report.req.gaps_one' if uncovered == 1 else 'report.req.gaps', lang, n=uncovered) }}
-</p>
-<p class="mt-1 text-xs text-text-3">{{ t('report.grades_hint', lang) }}</p>
-<div id="req-chips" class="mt-3" hidden>
-  <p class="text-xs text-text-3">{{ t('report.req.hint', lang) }}</p>
-  <div class="mt-2 flex flex-wrap gap-2">
-    {% for grade in report.grades %}
-    {% set band = 'strong' if grade.level >= 3 else ('adequate' if grade.level == 2 else 'weak') %}
-    <button type="button" class="req-chip req-{{ band }}" aria-pressed="false"
-            aria-controls="req-detail" data-template="req-tpl-{{ loop.index0 }}">
-      <span>{{ grade.requirement }}</span>
-      <span class="req-level">{{ grade.level }}/3</span>
-    </button>
-    {% endfor %}
-  </div>
-</div>
-<div id="req-detail" class="mt-3" aria-live="polite"></div>
-{% for grade in report.grades %}
-<template id="req-tpl-{{ loop.index0 }}">
-  <div class="space-y-2 rounded-card border border-card-border bg-surface-1 p-4">
-    <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
-      <span class="text-base font-semibold">{{ grade.requirement }}</span>
-      <span class="text-xs text-text-3">
-        {{ t('report.must_have', lang) if grade.must_have else t('report.nice_to_have', lang) }}
-        · {{ t('report.req.level_of', lang, level=grade.level) }}
-      </span>
-      {{ ui.level_bars(grade.level) }}
-    </div>
-    {{ requirement_marks(grade) }}
-    {% if grade.transfer_reason %}
-    <p class="text-sm text-text-2">{{ t('report.transfer_reason', lang) }} {{ grade.transfer_reason }}</p>
-    {% endif %}
-    {% if grade.bullet_text %}
-    <p class="text-sm text-text-2">{{ grade.bullet_text }}</p>
-    {% if grade.bullet_id and grade.bullet_id in live_bullets and not attempt_view %}
-    {# F7.3 Tier 3a: one call, on demand, to restate this bullet for this posting. #}
-    <p class="text-xs">
-      <a href="/applications/{{ application.id }}/bullets/{{ grade.bullet_id }}/rephrase"
-         class="text-link underline">{{ t('generate.rephrase', lang) }}</a>
-    </p>
-    {% endif %}
-    {% else %}
-    <p class="text-sm text-text-3">{{ t('report.no_citation', lang) }}</p>
-    {% endif %}
-  </div>
-</template>
-{% endfor %}
-<noscript>
-<ul class="mt-3 space-y-2">
-  {% for grade in report.grades %}
-  <li class="rounded-card border border-card-border bg-surface-1 p-4">
-    <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-      <span class="text-sm font-medium">{{ grade.requirement }}</span>
-      <span class="flex flex-wrap items-center gap-2 text-xs text-text-3">
-        {{ t('report.must_have', lang) if grade.must_have else t('report.nice_to_have', lang) }}
-        · {{ t('report.level_label', lang) }} {{ grade.level }}
-        {{ ui.level_bars(grade.level) }}
-      </span>
-    </div>
-    <div class="mt-1">{{ requirement_marks(grade) }}</div>
-    {% if grade.transfer_reason %}
-    <p class="mt-1 text-sm text-text-2">{{ t('report.transfer_reason', lang) }} {{ grade.transfer_reason }}</p>
-    {% endif %}
-    {% if grade.bullet_text %}
-    <p class="mt-1 text-sm text-text-2">{{ grade.bullet_text }}</p>
-    {% else %}
-    <p class="mt-1 text-sm text-text-3">{{ t('report.no_citation', lang) }}</p>
-    {% endif %}
-  </li>
-  {% endfor %}
-</ul>
-</noscript>
-<script>
-  // §12.1 item 5: one requirement selected at a time; selecting it again clears it.
-  // aria-pressed is the state, the detail is cloned from its <template>, and nothing is
-  // stored — the page always opens with none selected.
-  (function () {
-    var chips = document.getElementById('req-chips');
-    var detail = document.getElementById('req-detail');
-    if (!chips || !detail) return;
-    chips.hidden = false;
-    chips.addEventListener('click', function (event) {
-      var button = event.target.closest('button[data-template]');
-      if (!button) return;
-      var wasOn = button.getAttribute('aria-pressed') === 'true';
-      chips.querySelectorAll('button[data-template]').forEach(function (other) {
-        other.setAttribute('aria-pressed', 'false');
-      });
-      detail.textContent = '';
-      if (wasOn) return;
-      button.setAttribute('aria-pressed', 'true');
-      detail.appendChild(document.getElementById(button.dataset.template).content.cloneNode(true));
-    });
-  })();
-</script>
-{% else %}
-<p class="mt-3 rounded-card border border-card-border bg-surface-1 p-4 text-sm text-text-2">{{ t('report.no_grades', lang) }}</p>
-{% endif %}
-{% if report.grading_note %}
-<p class="mt-2 text-sm text-text-2">{{ report.grading_note }}</p>
-{% endif %}
-</section>
-
-{# 7 — Potencial (F7.4) is not built yet: nothing is rendered, and no placeholder. #}
-
-{# 8 — Recommendations, one column: the track ranking, the Keywords card (F7.5), the edit
-   advice, and Tier 1's "Proponer resumen" pop-up button — disabled, with its reason, when
-   the analysis used no track. #}
-{% if report.recommendation or report.advice or application.track_id or not attempt_view %}
-<section id="recommendations">
-<h2 class="mt-8 text-lg font-semibold">{{ t('report.advice', lang) }}</h2>
-{% if report.advice %}
-<p class="mt-1 text-sm text-text-2">{{ t('report.advice.intro', lang) }}</p>
-{% endif %}
-
-{# One item, in whichever group it falls. A promote item leads with its position chip;
-   its evidence is clamped to two lines and "Ver más" opens the whole text. #}
-{% macro advice_item(item, for_file) -%}
-<li class="flex items-start gap-3 px-4 py-3">
-  {% if item.kind == 'promote_bullet' %}
-  <span class="tag flex-none">{{ t('report.advice.chip_position', lang, position=item['values'].position) }}</span>
-  {% endif %}
-  <div class="min-w-0 flex-1">
-    <p class="text-sm">{{ advice_line(item, lang, for_file=for_file) }}</p>
-    {% if item.evidence %}
-    <div class="advice-evidence mt-1">
-      <p class="advice-clamp line-clamp-2 text-xs text-text-3">{{ item.evidence }}</p>
-      {% if item.evidence | length > 60 %}
-      <details class="disclosure text-xs">
-        <summary class="text-link">{{ t('report.advice.see_more', lang) }}</summary>
-        <p class="pb-2 pl-6 text-text-3">{{ item.evidence }}</p>
-      </details>
-      {% endif %}
-    </div>
-    {% endif %}
-  </div>
-</li>
-{%- endmacro %}
-{% macro advice_groups(groups, for_file) -%}
-{% for group in groups %}
-<div class="mt-4">
-  <h3 class="text-sm font-semibold text-text-2">
-    {{ t('report.advice.group.add_file' if group.key == 'add' and for_file else 'report.advice.group.' ~ group.key, lang) }}
-    <span class="font-normal text-text-3">· {{ group['items'] | length }}</span>
-  </h3>
-  {% if group.key == 'skills' %}
-  <div class="mt-2 space-y-2 rounded-card border border-card-border bg-surface-1 px-4 py-3">
-    <p class="text-sm">{{ t('report.advice.file.skills_card' if for_file else 'report.advice.skills_card', lang) }}</p>
-    <ul class="flex flex-wrap gap-1.5">
-      {% for item in group['items'] %}
-      <li class="tag text-sm">{{ item.canonical or item['values'].canonical }}</li>
-      {% endfor %}
-    </ul>
-  </div>
-  {% else %}
-  <ul class="mt-2 divide-y divide-card-border rounded-card border border-card-border bg-surface-1">
-    {% for item in group['items'] %}{{ advice_item(item, for_file) }}{% endfor %}
-  </ul>
-  {% endif %}
-</div>
-{% endfor %}
-{%- endmacro %}
-
-{% if report.recommendation %}
-{# F7.1: the posting scored against every candidate track, its own card above the advice.
-   A report stored before the recommendation existed has none. #}
-<div id="track-ranking" class="mt-4 rounded-card border border-card-border bg-surface-1 p-4">
-  <p class="text-sm font-semibold">{{ t('report.recommendation', lang) }}</p>
-  <p class="mt-1 text-xs text-text-3">{{ t('report.recommendation.intro', lang) }}</p>
-  {% if report.recommendation.candidates %}
-  <div class="mt-2 max-w-full overflow-x-auto rounded-control border border-card-border bg-bg">
-    <table class="w-full text-sm">
-      <thead>
-        <tr class="border-b border-card-border text-xs uppercase tracking-wide text-text-3">
-          <th class="px-3 py-2 text-left">{{ t('report.recommendation.track', lang) }}</th>
-          <th class="px-3 py-2 text-right">{{ t('report.total', lang) }}</th>
-          {% for name in ['skills', 'experience', 'title', 'keywords'] %}
-          <th class="px-3 py-2 text-right">{{ t('report.sub.' ~ name, lang) }}</th>
-          {% endfor %}
-        </tr>
-      </thead>
-      <tbody>
-        {% for candidate in report.recommendation.candidates %}
-        <tr class="border-b border-card-border last:border-0">
-          <td class="px-3 py-2">
-            {{ candidate.name }}
-            {% if candidate.chosen %}
-            <span class="rounded-tag border border-score-strong px-2 py-0.5 text-xs text-score-strong">{{ t('report.recommendation.chosen', lang) }}</span>
-            {% endif %}
-          </td>
-          <td class="px-3 py-2 text-right font-semibold">{{ candidate.job_match }}</td>
-          {% for name in ['skills', 'experience', 'title', 'keywords'] %}
-          <td class="px-3 py-2 text-right text-text-2">{{ candidate.sub_scores.get(name, '—') }}</td>
-          {% endfor %}
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-  {% endif %}
-  {% if report.recommendation.margin is not none %}
-  <p class="mt-2 text-sm text-text-2">
-    {{ t('report.recommendation.margin', lang,
-          runner_up=report.recommendation.candidates[1].name,
-          margin=report.recommendation.margin) }}
-  </p>
-  {% endif %}
-  {% if report.recommendation.tie_break %}
-  <p class="mt-1 text-sm text-text-2">
-    {{ t('report.recommendation.tie_sub', lang,
-          sub_score=t('report.sub.' ~ report.recommendation.tie_break.sub_score, lang),
-          delta=report.recommendation.tie_break.delta) }}
-    {% if report.recommendation.tie_break.organisation_track %}
-    {{ t('report.recommendation.tie_organisation', lang,
-          track=report.recommendation.tie_break.organisation_track) }}
-    {% endif %}
-  </p>
-  {% endif %}
-  {% if report.recommendation.justification %}
-  <p class="mt-1 text-sm">
-    {% if report.recommendation.justification.runner_up %}
-    {{ t('report.recommendation.justification', lang,
-          track=report.recommendation.justification.track,
-          sub_score=t('report.sub.' ~ report.recommendation.justification.sub_score, lang),
-          delta=report.recommendation.justification.delta,
-          runner_up=report.recommendation.justification.runner_up,
-          applies_when=report.recommendation.justification.applies_when) }}
-    {% else %}
-    {{ t('report.recommendation.justification_single', lang,
-          track=report.recommendation.justification.track,
-          applies_when=report.recommendation.justification.applies_when) }}
-    {% endif %}
-  </p>
-  {% endif %}
-  {% if report.recommendation.not_graded %}
-  <p class="mt-1 text-xs text-text-3">
-    {{ t('report.recommendation.not_graded', lang,
-          names=report.recommendation.not_graded | map(attribute='name') | join(', ')) }}
-  </p>
-  {% endif %}
-</div>
-{% endif %}
-
-{% if keywords is defined and keywords and keywords.candidates %}
-{# F7.5: the Keywords card — the posting's missing keywords the user's own material could
-   back, each with its basis and where it would go. Computed on view from the stored report
-   and the material as it is now; it writes nothing and no button on it does. A report
-   stored before the Keywords sub-score has none. #}
-{% macro keyword_item(item, for_file) -%}
-<li class="flex items-start justify-between gap-3 px-4 py-3">
-  <div class="min-w-0 flex-1">
-    <p class="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-      <span class="font-medium">{{ item.keyword }}</span>
-      <span class="tag">{{ t('report.keywords.basis.' ~ item.basis, lang) }}</span>
-      <span class="text-xs text-text-3">{{ t('report.keywords.priority.' ~ item.priority, lang) }}</span>
-    </p>
-    <p class="mt-1 text-xs text-text-2">
-      <span class="font-medium">{{ t('report.keywords.where.skills_file' if for_file else 'report.keywords.where.skills', lang) if item.where == 'skills' else t('report.keywords.where.bullet', lang) }}</span>
-      —
-      {% if item.basis == 'pool' %}
-      {{ t('report.keywords.hint.pool_file' if for_file else 'report.keywords.hint.pool', lang) }}
-      {% elif item.basis == 'bullet' %}
-      {{ t('report.keywords.hint.bullet_' ~ ('add' if item.bullet_says else 'use') ~ ('_file' if for_file and item.bullet_says else ''), lang, text=item.bullet_text) }}
-      {% else %}
-      {{ t('report.keywords.hint.equivalent', lang, sibling=item.sibling) }}
-      {% endif %}
-    </p>
-  </div>
-  <button type="button" data-copy="{{ item.keyword }}"
-          aria-label="{{ t('report.keywords.copy', lang, keyword=item.keyword) }}"
-          class="min-h-11 flex-none rounded-tag border border-border px-2 py-0.5 text-xs text-text-2 hover:bg-surface-2"
-          onclick="navigator.clipboard.writeText(this.dataset.copy)">{{ t('recall.copy', lang) }}</button>
-</li>
-{%- endmacro %}
-<div id="keywords-card" class="mt-4 rounded-card border border-card-border bg-surface-1 p-4">
-  <p class="text-sm font-semibold">{{ t('report.keywords.title', lang) }}</p>
-  <p class="mt-1 text-xs text-text-3">
-    {{ t('report.keywords.intro_file' if advice_for_file else 'report.keywords.intro', lang) }}
-    · <span data-keywords-basis>{{ t('report.keywords.calculated', lang) }}</span>
-  </p>
-  {% if keywords.items %}
-  <ul class="mt-3 divide-y divide-card-border rounded-control border border-card-border bg-bg">
-    {% for item in keywords.shown %}{{ keyword_item(item, advice_for_file) }}{% endfor %}
-  </ul>
-  {% if keywords.rest %}
-  <details class="disclosure mt-2 rounded-control border border-card-border bg-bg px-3">
-    <summary class="text-sm font-medium">{{ t('report.advice.see_all', lang, n=keywords['items'] | length) }}</summary>
-    <ul class="divide-y divide-card-border pb-1">
-      {% for item in keywords.rest %}{{ keyword_item(item, advice_for_file) }}{% endfor %}
-    </ul>
-  </details>
-  {% endif %}
-  {% endif %}
-  {% if keywords.unsupported %}
-  <p class="mt-3 text-xs text-text-3">
-    {{ t('report.keywords.unsupported_one' if keywords.unsupported | length == 1 else 'report.keywords.unsupported', lang, n=keywords.unsupported | length) }}
-  </p>
-  {% endif %}
-  {# F7.5, probable keywords: the button shows only with something left over and a model to
-     ask; otherwise one line says why not. The pop-up is a GET until its own button posts. #}
-  <div class="mt-3">
-    {% if infer_left and infer_ready %}
-    {% set infer_suffix = ('?attempt=' ~ attempt_id) if attempt_view else '' %}
-    {{ ui.dialog_opener('/applications/' ~ application.id ~ '/keywords/dialog' ~ infer_suffix,
-          '/applications/' ~ application.id ~ '/keywords' ~ infer_suffix, t('report.keywords.infer', lang),
-          'inline-flex min-h-11 items-center rounded-control border border-border px-4 text-sm text-link') }}
-    {% elif infer_left %}
-    <p class="text-xs text-text-3">{{ t('report.keywords.infer_no_model', lang) }}</p>
-    {% else %}
-    <p class="text-xs text-text-3">{{ t('report.keywords.infer_none', lang) }}</p>
-    {% endif %}
-  </div>
-</div>
-{% endif %}
-
-{% if report.advice %}
-{# F7.2: the deterministic rules, in order, grouped. (The skills rule is the card above.) Each item is a claim, a one-line
-   reason and the stored evidence. A report stored before the rules existed has no
-   `advice` and renders without this part. The first three show; the rest sit behind
-   "Ver todas", whose count is every item. #}
-{% set layout = advice_layout(report.advice) %}
-{{ advice_groups(layout.shown, advice_for_file) }}
-{% if layout.rest %}
-<details class="disclosure mt-4 rounded-card border border-card-border bg-surface-1 px-4">
-  <summary class="font-medium">{{ t('report.advice.see_all', lang, n=layout.total) }}</summary>
-  <div class="pb-3">
-    {{ advice_groups(layout.rest, advice_for_file) }}
-  </div>
-</details>
-{% endif %}
-{% endif %}
-
-{# F7.3 Tier 1 / §12.5: "Proponer resumen" opens the shared dialog; without script it is
-   the link to the page. With no track the button stays, disabled, and says why. An attempt
-   view is read-only and offers neither. #}
 {% if not attempt_view %}
-<div class="mt-4">
-  {% if application.track_id %}
-  {{ ui.dialog_opener('/applications/' ~ application.id ~ '/summary?dialog=1',
-        '/applications/' ~ application.id ~ '/summary', t('generate.propose_summary', lang),
-        'inline-flex min-h-11 items-center rounded-control border border-border px-4 text-sm text-link') }}
-  {% else %}
-  <button type="button" disabled aria-describedby="summary-no-track"
-          class="inline-flex min-h-11 cursor-not-allowed items-center rounded-control border border-border px-4 text-sm text-text-3 opacity-60">{{ t('generate.propose_summary', lang) }}</button>
-  <p id="summary-no-track" class="mt-1 text-xs text-text-3">{{ t('generate.no_track', lang) }}</p>
-  {% endif %}
-</div>
-{% endif %}
-</section>
-{% endif %}
-
-
-{# 7 — Does the ATS read the CV? The question is always present: an analysis with no
-   source document says so rather than dropping it (N6.6). With a scan, one <details>:
-   its summary is the verdict tag and the counts, the findings sit inside, and it opens
-   by itself only when the document holds a blocker. #}
-<section id="ats">
-<h2 class="mt-8 text-lg font-semibold">{{ t('report.scan_readability_question', lang) }}</h2>
-{% if application.scan_readability %}
-{% set blockers = findings | selectattr('severity', 'equalto', 'blocker') | list | length %}
-{% set warnings = findings | selectattr('severity', 'equalto', 'warning') | list | length %}
-{% set infos = findings | selectattr('severity', 'equalto', 'info') | list | length %}
-{% set skipped = not_run | length if not_run else 0 %}
-{% set parts = [] %}
-{% if warnings %}{% set parts = parts + [t('report.ats.count_warning', lang, n=warnings)] %}{% endif %}
-{% if infos %}{% set parts = parts + [t('report.ats.count_info', lang, n=infos)] %}{% endif %}
-{% if skipped %}{% set parts = parts + [t('report.ats.count_not_run', lang, n=skipped)] %}{% endif %}
-<details class="disclosure mt-3 rounded-card border border-card-border bg-surface-1 px-4"{% if blockers %} open{% endif %}>
-  <summary class="flex-wrap gap-y-1">
-    {% if blockers %}
-    {{ ui.severity('blocker', t('report.ats.blockers_one' if blockers == 1 else 'report.ats.blockers', lang, n=blockers)) }}
-    {% else %}
-    {{ ui.severity('info', t('report.ats.none', lang)) }}
-    {% endif %}
-    <span class="text-sm text-text-2">{{ parts | join(' · ') or t('report.ats.count_none', lang) }}</span>
-  </summary>
-  <div class="pb-4 pl-6">
-    {% set findings_embedded = true %}
-    {% include "_findings.html" %}
-  </div>
-</details>
-{% else %}
-<p class="mt-1 text-sm text-text-2">{{ t('report.scan_no_document', lang) }}</p>
-{% endif %}
-</section>
-
-{# 8 — Before applying: the knock-out requirements stay visible, then one summary line
-   and three closed toggles — the gaps in band order, the single warning with its alerts,
-   and the claims that are only transferable. An empty group keeps its toggle. #}
-{% set gap_data = report.gaps or {} %}
-{% set gap_rows = gap_data.gaps or [] %}
-{% set transfer_rows = gap_data.covered_by_transfer or [] %}
-{% set warning = gap_data.warning or {} %}
-{% set alert_rows = gap_data.alerts or [] %}
-{# The count is the warning itself — 0 or 1. The alerts sit inside the toggle but are not
-   counted in it or in the summary line (§12.1 item 8: "the single warning and its alerts"). #}
-{% set warning_count = 1 if warning.text else 0 %}
-<section id="before" class="mt-8">
-<h2 class="text-lg font-semibold">{{ t('report.before_applying', lang) }}</h2>
-
-{% if report.disqualifiers %}
-<p class="mt-3 text-sm font-semibold">{{ t('report.disqualifiers', lang) }}</p>
-<p class="mt-1 text-xs text-text-3">{{ t('report.disqualifiers_hint', lang) }}</p>
-{# F6.1: three-way verdicts, beside the score and never inside it. `unverified` is
-   the honest default and is never rendered as `met`. #}
-<ul class="mt-2 space-y-2">
-  {% for item in report.disqualifiers %}
-  <li class="flex flex-wrap items-center justify-between gap-2 rounded-control border border-sev-warning px-3 py-2 text-sm">
-    <span>{{ item.requirement }}</span>
-    <span class="rounded-tag bg-surface-2 px-2 py-0.5 text-xs">{{ t('report.verdict.' ~ item.verdict, lang) }}</span>
-  </li>
-  {% endfor %}
-</ul>
-{% if report.disqualifiers | selectattr('verdict', 'equalto', 'unverified') | list %}
-<p class="mt-2 text-xs text-text-3">{{ t('report.disqualifiers_unverified_hint', lang) }}</p>
-{% endif %}
-{% elif report.jd.hard_requirements %}
-<ul class="mt-3 space-y-2">
-  {% for item in report.jd.hard_requirements %}
-  <li class="rounded-control border border-sev-warning px-3 py-2 text-sm">{{ item }}</li>
-  {% endfor %}
-</ul>
-{% endif %}
-
-{% if report.gaps %}
-<p class="mt-3 text-sm text-text-2">
-  {{ t('report.before.gaps_one' if gap_rows | length == 1 else 'report.before.gaps', lang, n=gap_rows | length) }}
-  · {{ t('report.before.warnings_one' if warning_count == 1 else 'report.before.warnings', lang, n=warning_count) }}
-  · {{ t('report.before.transfer_one' if transfer_rows | length == 1 else 'report.before.transfer', lang, n=transfer_rows | length) }}
-</p>
-
-<div class="mt-3 space-y-2">
-  <details class="disclosure rounded-card border border-card-border bg-surface-1 px-4">
-    <summary>
-      <span class="font-semibold">{{ t('report.before.gaps_toggle', lang) }}</span>
-      <span class="text-sm text-text-3">· {{ gap_rows | length }}{% if gap_rows | length > 1 %}, {{ t('report.before.gaps_order', lang) }}{% endif %}</span>
-    </summary>
-    <div class="pb-3 pl-6">
-      {% if gap_rows %}
-      {# F6's detailed list, in F6.1's band order: the level, the requirement text, whether a
-         bullet came close, and the blocking flag. #}
-      <ul class="space-y-2">
-        {% for gap in gap_rows %}
-        <li class="rounded-control border border-card-border bg-bg p-3">
-          <div class="flex flex-wrap items-center justify-between gap-2">
-            <span class="text-sm font-medium">{{ gap.requirement }}</span>
-            <span class="flex flex-wrap items-center gap-2 text-xs text-text-3">
-              {{ t('report.must_have', lang) if gap.must_have else t('report.nice_to_have', lang) }}
-              · {{ t('report.level_label', lang) }} {{ gap.level }}
-              {% if gap.blocking %}<span class="rounded-tag border border-sev-warning px-2 py-0.5 text-sev-warning">{{ t('report.gap_blocking', lang) }}</span>{% endif %}
-            </span>
-          </div>
-          {% if gap.bullet_text %}
-          <p class="mt-1 text-sm text-text-2">{{ t('report.came_close', lang) }}: {{ gap.bullet_text }}</p>
-          {% endif %}
-          {% if gap.interpretation %}
-          <p class="mt-1 text-sm text-text-2">{{ gap.interpretation }}</p>
-          {% endif %}
-        </li>
-        {% endfor %}
-      </ul>
-      {% else %}
-      <p class="text-sm text-text-2">{{ t('report.no_gaps', lang) }}</p>
-      {% endif %}
-    </div>
-  </details>
-
-  <details class="disclosure rounded-card border border-card-border bg-surface-1 px-4">
-    <summary>
-      <span class="font-semibold">{{ t('report.before.warning_toggle', lang) }}</span>
-      <span class="text-sm text-text-3">· {{ warning_count }}</span>
-    </summary>
-    <div class="space-y-2 pb-3 pl-6">
-      {% if warning.text %}
-      <div class="rounded-control border border-sev-warning px-3 py-2 text-sm">
-        <p>{{ t('report.gap_warning', lang) }} {{ warning.text }}</p>
-        {% if warning.handling %}
-        <p class="mt-1">{{ t('report.gap_handling', lang) }} {{ warning.handling }}</p>
-        {% endif %}
-      </div>
-      {% else %}
-      <p class="text-sm text-text-2">{{ t('report.before.no_warning', lang) }}</p>
-      {% endif %}
-      {% if alert_rows %}
-      {# F6.1's alerts beside the single warning, never inside the gap list and never in
-         the score: seniority in either direction (F5.5.2) and location. #}
-      <p class="text-sm font-semibold">{{ t('report.alerts', lang) }}</p>
-      <ul class="space-y-2">
-        {% for alert in alert_rows %}
-        <li class="rounded-control border border-sev-warning px-3 py-2 text-sm">
-          {% if alert.kind == 'over_seniority' %}
-          {{ t('report.alert.over_seniority', lang) }}
-          {% elif alert.kind == 'under_seniority' %}
-          {{ t('report.alert.under_seniority', lang, jd_rung=alert.jd_rung) }}
-          {% elif alert.kind == 'language_mismatch' %}
-          {# F4.2 (A.9.3): the posting's language and the counts, in words a reader knows —
-             the stored report keeps the ISO codes, and the list of what fell back is
-             joined by the language's own conjunction. #}
-          {{ language_alert(alert, lang) }}
-          {% else %}
-          {{ t('report.alert.location', lang, requirement=alert.requirement) }}
-          <span class="rounded-tag bg-surface-2 px-2 py-0.5 text-xs">{{ t('report.verdict.' ~ alert.verdict, lang) }}</span>
-          {% endif %}
-        </li>
-        {% endfor %}
-      </ul>
-      {% endif %}
-    </div>
-  </details>
-
-  <details class="disclosure rounded-card border border-card-border bg-surface-1 px-4">
-    <summary>
-      <span class="font-semibold">{{ t('report.transfer_band', lang) }}</span>
-      <span class="text-sm text-text-3">· {{ transfer_rows | length }}</span>
-    </summary>
-    <div class="pb-3 pl-6">
-      {% if transfer_rows %}
-      {# F6.1's fifth band: not a gap in the score's sense — the claim most likely to be
-         questioned, listed so the user can prepare the argument. #}
-      <p class="text-xs text-text-3">{{ t('report.transfer_band_hint', lang) }}</p>
-      <ul class="mt-2 space-y-2">
-        {% for gap in transfer_rows %}
-        <li class="rounded-control border border-card-border bg-bg p-3">
-          <div class="flex flex-wrap items-center justify-between gap-2">
-            <span class="text-sm font-medium">{{ gap.requirement }}</span>
-            <span class="flex flex-wrap items-center gap-2 text-xs text-text-3">
-              {{ t('report.must_have', lang) if gap.must_have else t('report.nice_to_have', lang) }}
-              · {{ t('report.level_label', lang) }} {{ gap.level }}
-            </span>
-          </div>
-          {% if gap.transfer_reason %}
-          <p class="mt-1 text-sm text-text-2">{{ t('report.transfer_reason', lang) }} {{ gap.transfer_reason }}</p>
-          {% endif %}
-          {% if gap.bullet_text %}
-          <p class="mt-1 text-sm text-text-2">{{ gap.bullet_text }}</p>
-          {% endif %}
-        </li>
-        {% endfor %}
-      </ul>
-      {% else %}
-      <p class="text-sm text-text-2">{{ t('report.before.no_transfer', lang) }}</p>
-      {% endif %}
-    </div>
-  </details>
-</div>
-{% if not gap_data.stories_used %}
-{# Said by the pipeline, not by the model: when the table was empty the output
-   names that, rather than implying none of the stories were relevant. #}
-<p class="mt-2 text-sm text-text-2">{{ t('report.no_stories_available', lang) }}</p>
-{% endif %}
-{% if gap_data.not_found %}
-<p class="mt-2 text-sm text-text-2">{{ gap_data.not_found }}</p>
-{% endif %}
-{% endif %}
-</section>
-
-{# F10.6 (C.2): the readiness checklist, when the caller has one (an attempt). #}
-{% if readiness is defined and readiness %}{% include "attempts/_readiness.html" %}{% endif %}
-
-{# 9 — Traceability: the run's versions, its cache state, its cost, and the fields the
-   extraction read, closed, and last. #}
-<section id="trace" class="mt-8">
-<details class="disclosure border-t border-card-border pt-2">
-<summary class="text-sm text-text-2">{{ t('report.audit', lang) }}</summary>
-<div class="mt-3 rounded-card border border-card-border bg-surface-1 p-5">
-  <dl class="space-y-2 text-xs text-text-2">
-    <div class="flex flex-wrap justify-between gap-2">
-      <dt>{{ t('report.calculation', lang) }}</dt>
-      <dd class="break-all">{{ application.weights_version }} · {{ report.score.effective_weights_hash }}</dd>
-    </div>
-    <div class="flex flex-wrap justify-between gap-2">
-      <dt>{{ t('report.prompt_versions', lang) }}</dt>
-      <dd class="break-all">
-        {% for purpose, version in application.prompt_versions.items() %}{{ purpose }}={{ version }}{% if not loop.last %} · {% endif %}{% endfor %}
-      </dd>
-    </div>
-    <div class="flex flex-wrap justify-between gap-2">
-      <dt>{{ t('report.cost_label', lang) }}</dt>
-      <dd>${{ '%.6f'|format(application.token_cost_usd) }}</dd>
-    </div>
-    {% for call in report.llm.calls %}
-    <div class="flex flex-wrap justify-between gap-2">
-      <dt>{{ call.purpose }} · {{ call.prompt_version }} · {{ call.model }}</dt>
-      <dd>
-        {{ t('report.tokens', lang, prompt=call.prompt_tokens, completion=call.completion_tokens) }}
-        · ${{ '%.6f'|format(call.cost_usd|float) }}
-        · {{ t('report.from_cache', lang) if call.cached else t('report.fresh_call', lang) }}
-      </dd>
-    </div>
-    {% endfor %}
-    {% if report.llm.calls | selectattr('ledger_error') | list %}
-    <div class="rounded-control border border-sev-warning px-3 py-2 text-xs text-sev-warning">
-      {{ t('common.ledger_unrecorded', lang) }}
-    </div>
-    {% endif %}
-    <div class="flex flex-wrap justify-between gap-2">
-      <dt>{{ t('report.jd_hash', lang) }}</dt>
-      <dd class="break-all font-mono">{{ application.jd_hash }}</dd>
-    </div>
-  </dl>
-  <details class="mt-4">
-    <summary class="cursor-pointer text-sm text-text-2">{{ t('report.jd_fields', lang) }}</summary>
-    <dl class="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
-      <div>
-        <dt class="text-xs uppercase tracking-wide text-text-3">{{ t('report.language', lang) }}</dt>
-        <dd class="text-sm">{{ report.jd.language }}</dd>
-      </div>
-      <div>
-        <dt class="text-xs uppercase tracking-wide text-text-3">{{ t('report.seniority', lang) }}</dt>
-        <dd class="text-sm">{{ report.jd.seniority }}</dd>
-      </div>
-      <div>
-        <dt class="text-xs uppercase tracking-wide text-text-3">{{ t('report.years', lang) }}</dt>
-        <dd class="text-sm">{{ report.jd.years_required if report.jd.years_required is not none else t('common.none', lang) }}</dd>
-      </div>
-    </dl>
-    <p class="mt-3 text-sm">
-      <span class="text-xs uppercase tracking-wide text-text-3">{{ t('report.must_have', lang) }}</span><br>
-      {{ report.jd.must_have|join(', ') or t('common.none', lang) }}
-    </p>
-    <p class="mt-2 text-sm">
-      <span class="text-xs uppercase tracking-wide text-text-3">{{ t('report.nice_to_have', lang) }}</span><br>
-      {{ report.jd.nice_to_have|join(', ') or t('common.none', lang) }}
-    </p>
-    <p class="mt-2 text-sm">
-      <span class="text-xs uppercase tracking-wide text-text-3">{{ t('report.keywords', lang) }}</span><br>
-      {{ report.jd.raw_keywords|join(', ') or t('common.none', lang) }}
-    </p>
-  </details>
-</div>
-</details>
-</section>
-
-<p class="mt-6 text-sm">
-  <a href="/analyze" class="text-link underline">{{ t('report.again', lang) }}</a>
-</p>
-</div>
-
-{% if not attempt_view %}
-{# The rail: the compact Job Match and ceiling, the two actions, and the jump links. The
-   try-a-CV button opens the attempt modal (same id as it always had). Sections that a
-   report does not have — an old one has no recruiter search — are not linked. #}
-{% set fit_colour = 'text-score-strong' if match_band == 'strong' else ('text-score-adequate' if match_band == 'adequate' else 'text-score-weak') %}
-<aside aria-label="{{ t('report.actions.label', lang) }}"
-       class="hidden lg:sticky lg:top-6 lg:block lg:w-80 lg:flex-none">
-  <div class="space-y-3 rounded-card border border-card-border bg-surface-1 p-4">
-    <p class="text-sm text-text-2">
-      {{ t('report.total', lang) }}
-      <span class="ml-1 text-2xl font-semibold {{ fit_colour }}">{{ report.score.capped }}</span>
-      {% if ceiling %}<span class="text-xs text-text-3">· {{ t('report.ceiling_sub', lang, value=ceiling.high) }}</span>{% endif %}
-    </p>
-    <button type="button" id="attempt-open" data-attempt-open
-            class="min-h-11 w-full rounded-control bg-link px-3 text-sm font-semibold text-bg hover:opacity-90">
+{# The CV's actions (design v3 §5): three tertiary buttons in one design. "Probar nuevo CV"
+   opens the attempt modal (same id as it always had); "Proponer resumen" opens the shared
+   dialog, or says why it cannot. The jump links sit under them. #}
+<aside aria-label="{{ t('report.actions.label', lang) }}" class="mt-8">
+  <div class="hidden gap-2 md:grid md:grid-cols-3">
+    <button type="button" id="attempt-open" data-attempt-open class="btn btn-tertiary">
       {{ t('report.actions.try_cv', lang) }}
     </button>
-    <a href="/applications/{{ application.id }}/letter"
-       class="flex min-h-11 w-full items-center justify-center rounded-control border border-border px-3 text-sm hover:bg-surface-2">
+    <a href="/applications/{{ application.id }}/letter" class="btn btn-tertiary">
       {{ t('report.actions.letter', lang) }}
     </a>
+    {% if application.track_id %}
+    {{ ui.dialog_opener('/applications/' ~ application.id ~ '/summary?dialog=1',
+          '/applications/' ~ application.id ~ '/summary', t('generate.propose_summary', lang),
+          'btn btn-tertiary w-full', wrap='contents') }}
+    {% else %}
+    <div>
+      <button type="button" disabled aria-describedby="summary-no-track" class="btn btn-tertiary w-full">{{ t('generate.propose_summary', lang) }}</button>
+      <p id="summary-no-track" class="mt-1 text-xs text-text-2">{{ t('generate.no_track', lang) }}</p>
+    </div>
+    {% endif %}
   </div>
-  <nav aria-label="{{ t('report.on_this_page', lang) }}" class="mt-4 flex flex-col text-sm">
-    <p class="mb-1 text-xs uppercase tracking-wide text-text-3">{{ t('report.on_this_page', lang) }}</p>
-    <a href="#fit" class="flex min-h-11 items-center text-link">{{ t('report.total', lang) }}</a>
-    <a href="#components" class="flex min-h-11 items-center text-link">{{ t('report.sub_scores', lang) }}</a>
+  <nav aria-label="{{ t('report.on_this_page', lang) }}" class="mt-4 flex flex-wrap gap-x-5 text-sm text-text-2">
+    <span class="sr-only">{{ t('report.on_this_page', lang) }}</span>
+    <a href="#fit" class="flex min-h-11 items-center hover:text-text">{{ t('report.total', lang) }}</a>
+    <a href="#components" class="flex min-h-11 items-center hover:text-text">{{ t('report.sub_scores', lang) }}</a>
     {% if application.scan_boolean %}
-    <a href="#recruiter" class="flex min-h-11 items-center text-link">{{ t('recall.title', lang) }}</a>
+    <a href="#recruiter" class="flex min-h-11 items-center hover:text-text">{{ t('recall.title', lang) }}</a>
     {% endif %}
-    <a href="#requirements" class="flex min-h-11 items-center text-link">{{ t('report.requirements', lang) }}</a>
+    <a href="#requirements" class="flex min-h-11 items-center hover:text-text">{{ t('report.requirements', lang) }}</a>
     {% if report.recommendation or report.advice or application.track_id or not attempt_view %}
-    <a href="#recommendations" class="flex min-h-11 items-center text-link">{{ t('report.advice', lang) }}</a>
+    <a href="#recommendations" class="flex min-h-11 items-center hover:text-text">{{ t('report.advice', lang) }}</a>
     {% endif %}
-    <a href="#ats" class="flex min-h-11 items-center text-link">{{ t('report.scan_readability_question', lang) }}</a>
-    <a href="#before" class="flex min-h-11 items-center text-link">{{ t('report.before_applying', lang) }}</a>
+    <a href="#ats" class="flex min-h-11 items-center hover:text-text">{{ t('report.scan_readability_question', lang) }}</a>
+    <a href="#before" class="flex min-h-11 items-center hover:text-text">{{ t('report.before_applying', lang) }}</a>
   </nav>
 </aside>
+{% endif %}
+
+
+{% include "analyze/_report_sections.html" %}
 </div>
 
+{% if not attempt_view %}
 {# Phone: a fixed bar with the same two actions, safe-area aware, hidden while the modal is
    open. The spacer keeps the last content from sitting under it. The flex row is inside
    the bar so that toggling `hidden` on the bar is not fighting a display utility. #}
 <div id="action-bar" role="group" aria-label="{{ t('report.actions.label', lang) }}"
-     class="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-surface-1 px-4 pt-3 lg:hidden"
+     class="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-surface-1 px-4 pt-3 md:hidden"
      style="padding-bottom: max(0.75rem, env(safe-area-inset-bottom))">
   <div class="flex gap-2">
     <button type="button" id="attempt-open-bar" data-attempt-open
-            class="min-h-11 flex-1 rounded-control bg-link px-3 text-sm font-semibold text-bg">
+            class="btn btn-tertiary flex-1 px-2">
       {{ t('report.actions.try_cv_short', lang) }}
     </button>
     <a href="/applications/{{ application.id }}/letter"
-       class="flex min-h-11 flex-1 items-center justify-center rounded-control border border-border px-3 text-sm">
+       class="btn btn-tertiary flex-1 px-2">
       {{ t('report.actions.letter_short', lang) }}
     </a>
+    {% if application.track_id %}
+    {{ ui.dialog_opener('/applications/' ~ application.id ~ '/summary?dialog=1',
+          '/applications/' ~ application.id ~ '/summary', t('generate.propose_summary', lang),
+          'btn btn-tertiary flex-1 px-2', wrap='contents') }}
+    {% else %}
+    <button type="button" disabled aria-describedby="summary-no-track" class="btn btn-tertiary flex-1 px-2">{{ t('generate.propose_summary', lang) }}</button>
+    {% endif %}
   </div>
 </div>
-<div class="lg:hidden" aria-hidden="true" style="height: calc(5rem + env(safe-area-inset-bottom))"></div>
+<div class="md:hidden" aria-hidden="true" style="height: calc(5rem + env(safe-area-inset-bottom))"></div>
 
-{# F10.1/F10.4: the modal. A native `<dialog>` — focus is trapped and Escape closes it
-   by the platform — holding the upload and the result's content order (F10.4). The
-   panel polls the attempt's status while it runs and stops on done or failed. #}
-<dialog id="attempt-modal" class="attempt-modal"
-        data-confirm="{{ t('attempt.form.confirm_close', lang) }}"
-        data-error="{{ t('attempt.form.error', lang) }}"
-        data-discarded="{{ t('attempt.discarded', lang, n='{n}') }}"
-        {% if open_attempt %}data-open-attempt="{{ open_attempt }}"{% endif %}>
-  <div class="p-4">
-    <div class="flex items-center justify-between gap-4">
-      <h2 class="text-lg font-semibold">{{ t('report.try_new_cv', lang) }}</h2>
-      <button type="button" id="attempt-close" class="rounded-control border border-border px-2 py-1 text-sm">
-        {{ t('common.cancel', lang) }}
-      </button>
-    </div>
-    {# F10.4: the upload area is shown while the analysis has no attempts. Once there is a
-       result (or an attempt running) it is hidden, and "Nuevo intento" at the end of the
-       result brings it back, cleared. #}
-    <div id="attempt-upload"{% if attempts %} hidden{% endif %}>
-    <form id="attempt-form" method="post" enctype="multipart/form-data"
-          action="/applications/{{ application.id }}/attempts" class="mt-3 space-y-3">
-      {# §12.4: the same drop zone as Importar CV; the file input keeps its id. #}
-      {{ ui.dropzone('attempt-file', 'file', '.docx,.pdf', max_upload_bytes, lang) }}
-      <button type="submit" id="attempt-submit" class="min-h-11 rounded-control border border-border px-3 text-sm">
-        {{ t('attempt.form.submit', lang) }}
-      </button>
-    </form>
-    </div>
-    <p id="attempt-progress" role="status" class="mt-2 hidden text-sm text-text-2">{{ t('attempt.form.working', lang) }}</p>
-    <p id="attempt-error" class="mt-2 hidden text-sm text-sev-blocker"></p>
-    <div id="attempt-status" class="mt-3">
-      <h3 class="text-sm font-semibold">{{ t('attempt.list', lang) }}</h3>
-      {% include "attempts/_list.html" %}
-    </div>
-  </div>
-</dialog>
+{% include "analyze/_attempt_modal.html" %}
 
-<script>
-  // F10.1: open/close, poll while running, confirm before closing an unsaved result;
-  // C.5: an in-flight state that blocks a second paid attempt.
-  (function () {
-    const modal = document.getElementById("attempt-modal");
-    const status = document.getElementById("attempt-status");
-    const form = document.getElementById("attempt-form");
-    const error = document.getElementById("attempt-error");
-    const progress = document.getElementById("attempt-progress");
-    const submit = document.getElementById("attempt-submit");
-    const file = document.getElementById("attempt-file");
-    const upload = document.getElementById("attempt-upload");
-    let poll = null;
-    let unsaved = false;
-
-    function stopPoll() {
-      if (poll !== null) { clearInterval(poll); poll = null; }
-    }
-
-    function startPoll(url) {
-      stopPoll();
-      poll = setInterval(function () {
-        fetch(url, {headers: {"Accept": "text/html"}})
-          .then(function (response) {
-            if (!response.ok) {
-              stopPoll();
-              showError(response.status);
-              return null;
-            }
-            return response.text();
-          })
-          .then(function (html) {
-            if (html === null) { return; }
-            status.innerHTML = html;
-            const root = status.querySelector("[data-attempt]");
-            if (!root || root.dataset.status !== "running") { stopPoll(); unsaved = true; }
-          })
-          .catch(function () {});
-      }, 2000);
-    }
-
-    // C5's in-flight state; F10.4 adds that while an attempt runs neither the upload area
-    // nor "Nuevo intento" is offered (the result under it is the previous one).
-    function setBusy(busy) {
-      submit.disabled = busy;
-      file.disabled = busy;
-      progress.classList.toggle("hidden", !busy);
-      upload.hidden = busy;
-      const again = document.getElementById("attempt-new");
-      if (again) { again.hidden = busy; }
-    }
-
-    function showError(detail) {
-      error.textContent = modal.dataset.error.replace("{detail}", detail);
-      error.classList.remove("hidden");
-    }
-
-    function requestClose() {
-      if (unsaved && !window.confirm(modal.dataset.confirm)) { return; }
-      modal.close("cancel");
-    }
-
-    // U6: two buttons open the one modal — the desktop rail's and the phone bar's. The bar
-    // is hidden while the dialog is open and comes back when it closes.
-    const opener = document.getElementById("attempt-open");
-    const bar = document.getElementById("action-bar");
-    function openModal() {
-      modal.showModal();
-      if (bar) { bar.classList.add("hidden"); }
-      const running = status.querySelector('[data-status="running"]');
-      if (running && running.dataset.attemptUrl) { startPoll(running.dataset.attemptUrl); }
-      showLatest();
-    }
-
-    // F10.4: with earlier attempts the upload area is hidden, so the modal opens on a
-    // result — the attempt a no-JS action returned to, else the latest one. A GET: it
-    // never calls the provider. If it cannot be loaded the upload area comes back rather
-    // than leaving the modal with neither.
-    function showLatest() {
-      if (status.querySelector("[data-attempt]")) { return; }
-      const rows = Array.from(status.querySelectorAll("[data-attempt-url]"));
-      if (!rows.length) { return; }
-      const wanted = modal.dataset.openAttempt;
-      const row = rows.find(function (item) {
-        return wanted && item.dataset.attemptUrl.endsWith("/" + wanted);
-      }) || rows[rows.length - 1];
-      fetch(row.dataset.attemptUrl, {headers: {"Accept": "text/html"}})
-        .then(function (response) { return response.ok ? response.text() : null; })
-        .then(function (html) {
-          if (html === null) { upload.hidden = false; return; }
-          status.innerHTML = html;
-        })
-        .catch(function () { upload.hidden = false; });
-    }
-
-    // F10.4: "Nuevo intento" reopens the upload area, cleared, in view and focused. The
-    // button sits in the re-rendered result, so the listener is on `status`. Clearing the
-    // input announces it with a `change`, which is how the drop zone empties its file row;
-    // the focus goes to the zone's own input, whose focus ring is drawn on the card (§12.4).
-    status.addEventListener("click", function (event) {
-      const button = event.target.closest("#attempt-new");
-      if (!button || button.disabled) { return; }
-      error.classList.add("hidden");
-      upload.hidden = false;
-      file.value = "";
-      file.dispatchEvent(new Event("change", {bubbles: true}));
-      upload.scrollIntoView({block: "start"});
-      file.focus();
-    });
-    [opener, document.getElementById("attempt-open-bar")].forEach(function (button) {
-      if (button) { button.addEventListener("click", openModal); }
-    });
-    // A no-JS action redirects back with `?attempt=<id>`: reopen the modal on load.
-    if (modal.dataset.openAttempt !== undefined) { openModal(); }
-
-    // F10.7: "Marcar como enviada" and "Descartar" are posted in place. The partial is
-    // re-rendered, so the listener sits on `status`. The action is already stored: no
-    // `unsaved`, and a non-OK answer is an error line that leaves the result alone.
-    // A discard also closes the modal, with no confirmation, and says so in the notice.
-    const notice = document.getElementById("attempt-notice");
-    const noticeText = document.getElementById("attempt-notice-text");
-    const noticeDismiss = document.getElementById("attempt-notice-dismiss");
-    if (noticeDismiss) {
-      noticeDismiss.hidden = false;
-      noticeDismiss.addEventListener("click", function () { notice.hidden = true; });
-    }
-    status.addEventListener("submit", function (event) {
-      const target = event.target;
-      if (!(target instanceof HTMLFormElement)) { return; }
-      const action = target.getAttribute("action") || "";
-      if (!/\/(sent|discard)$/.test(action)) { return; }
-      event.preventDefault();
-      error.classList.add("hidden");
-      const discarding = /\/discard$/.test(action);
-      const root = target.closest("[data-attempt]");
-      const number = root ? root.dataset.attempt : "";
-      fetch(target.action, {method: "POST", headers: {"X-Requested-With": "fetch"}})
-        .then(function (response) {
-          if (!response.ok) { showError(response.status); return null; }
-          return response.text();
-        })
-        .then(function (html) {
-          if (html === null) { return; }
-          status.innerHTML = html;
-          if (!discarding) { return; }
-          unsaved = false;
-          if (notice && noticeText) {
-            noticeText.textContent = modal.dataset.discarded.replace("{n}", number);
-            notice.hidden = false;
-          }
-          modal.close();
-        })
-        .catch(function (failure) { showError(failure && failure.message ? failure.message : String(failure)); });
-    });
-    document.getElementById("attempt-close").addEventListener("click", requestClose);
-    modal.addEventListener("cancel", function (event) {
-      if (unsaved && !window.confirm(modal.dataset.confirm)) { event.preventDefault(); }
-    });
-    modal.addEventListener("close", function () {
-      if (bar) { bar.classList.remove("hidden"); }
-      stopPoll();
-      if (unsaved) { window.location.reload(); }
-    });
-
-    form.addEventListener("submit", function (event) {
-      event.preventDefault();
-      error.classList.add("hidden");
-      const body = new FormData(form);
-      let resultShown = false;
-      setBusy(true);
-      fetch(form.action, {method: "POST", body: body})
-        .then(function (response) {
-          if (!response.ok) {
-            // A refusal or a gateway page is an error line, never a result (no `unsaved`).
-            const type = response.headers.get("content-type") || "";
-            if (type.indexOf("application/json") === -1) { showError(response.status); return null; }
-            return response.json()
-              .then(function (data) { showError(data.detail || response.status); })
-              .catch(function () { showError(response.status); });
-          }
-          return response.text().then(function (html) {
-            status.innerHTML = html;
-            resultShown = true;
-            const root = status.querySelector("[data-attempt]");
-            unsaved = true;
-            if (root && root.dataset.status === "running") { startPoll(root.dataset.attemptUrl); }
-          });
-        })
-        .catch(function (failure) { showError(failure && failure.message ? failure.message : String(failure)); })
-        .then(function () {
-          setBusy(false);
-          // A returned result collapses the upload area; a refusal leaves it for a retry.
-          upload.hidden = resultShown;
-        });
-    });
-  })();
-</script>
 
 {% else %}
 </div>

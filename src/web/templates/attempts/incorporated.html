@@ -2,7 +2,7 @@
 {% block title %}{{ t('attempt.incorporated.title', lang) }} — {{ t('app.name', lang) }}{% endblock %}
 {% block width %}max-w-2xl{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-semibold tracking-tight">{{ t('attempt.incorporated.title', lang) }}</h1>
+<h1 class="text-4xl leading-tight tracking-[-0.02em] md:text-5xl">{{ t('attempt.incorporated.title', lang) }}</h1>
 {% if counts.bullets_created or counts.bullets_updated or counts.skills_added %}
 <p class="mt-2 text-sm text-text-2">
   {{ t('attempt.incorporated.counts', lang, bullets=counts.bullets_created, skills=counts.skills_added) }}

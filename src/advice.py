@@ -13,6 +13,11 @@ Design principle 6 is the closure check: an item whose canonical is not evidence
 the user's own data is dropped, never reworded — the gap list (F6) is where an
 unevidenced requirement belongs. Rules 1 to 4 are about the selected track and advise
 nothing without one; the title and language rules are about the document.
+
+On a CV analysis (F11.4) the report carries `cv` and the file's bullets in file order, and
+the same rules compare the master database with **the file**: "the first three positions"
+are the file's, and a bullet is "outside" when the CV does not carry it — unchanged or
+reworded (`cv.represented_ids`).
 """
 
 import uuid
@@ -135,7 +140,20 @@ def edit_advice(
     bullets = [bullet for bullet in list_bullets(profile_id, session, active_only=True)]
     roles = list_roles(profile_id, session, active_only=True)
     selection = track_bullets(profile_id, session, track.id) if track is not None else []
-    positions = {str(bullet.id): index for index, bullet in enumerate(selection)}
+    cv = _mapping(report.get("cv"))
+    if cv:
+        # F11.4: the file's order, and the master bullets the file carries. A temporary
+        # bullet has a position (promote needs it) but is not a master row.
+        rows = sorted(
+            (row for row in report.get("bullets") or [] if isinstance(row, Mapping)),
+            key=lambda row: int(str(row.get("ordinal") or 0)),
+        )
+        order = [str(row.get("id")) for row in rows]
+        in_document = {str(item) for item in cv.get("represented_ids") or []}
+    else:
+        order = [str(bullet.id) for bullet in selection]
+        in_document = set(order)
+    positions = {bullet_id: index for index, bullet_id in enumerate(order)}
     by_id: dict[str, Bullet] = {str(bullet.id): bullet for bullet in bullets}
     for bullet in selection:
         by_id.setdefault(str(bullet.id), bullet)
@@ -149,7 +167,7 @@ def edit_advice(
     seen_bullets: set[str] = set()
     seen_canonicals: set[str] = set()
 
-    if track is not None:
+    if track is not None or cv:
         grades = [grade for grade in report.get("grades") or [] if isinstance(grade, Mapping)]
         cited = {str(grade.get("bullet_id")) for grade in grades if grade.get("bullet_id")}
 
@@ -162,7 +180,7 @@ def edit_advice(
             position = positions.get(bullet_id)
             if position is None or position < PROMOTE_INTO or bullet_id in seen_bullets:
                 continue
-            above = [str(bullet.id) for bullet in selection[:position]]
+            above = order[:position]
             if not any(above_id not in cited for above_id in above):
                 continue
             seen_bullets.add(bullet_id)
@@ -194,7 +212,7 @@ def edit_advice(
         for canonical in wanted:
             for bullet in bullets:
                 bullet_id = str(bullet.id)
-                if bullet_id in positions or bullet_id in seen_bullets:
+                if bullet_id in in_document or bullet_id in seen_bullets:
                     continue
                 if canonical not in bullet.skills:
                     continue
@@ -229,7 +247,7 @@ def edit_advice(
                 outside = [
                     bullet
                     for bullet in bullets
-                    if canonical in bullet.skills and str(bullet.id) not in positions
+                    if canonical in bullet.skills and str(bullet.id) not in in_document
                 ]
                 if outside:
                     bullet = outside[0]

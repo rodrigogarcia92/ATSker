@@ -8,9 +8,9 @@
 {% block title %}{{ t('letters.letter_title', lang) }} — {{ t('app.name', lang) }}{% endblock %}
 {% block width %}max-w-5xl{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-semibold tracking-tight">{{ t('letters.letter_title', lang) }}</h1>
+<h1 class="text-4xl leading-[1.11] tracking-[-0.02em] md:text-5xl">{{ t('letters.letter_title', lang) }}</h1>
 <p class="mt-1 text-sm text-text-2">{{ t('letters.letter_intro', lang) }}</p>
-<p class="mt-1 text-xs text-text-3">
+<p class="field-hint">
   {{ application.title or t('report.title', lang) }}{% if application.company %} · {{ application.company }}{% endif %}
   {% if track %}· {{ track.name }} · {{ t('lang.' ~ language, lang) }}{% endif %}
 </p>
@@ -22,14 +22,14 @@
   {% if tracks %}
   <form method="get" action="/applications/{{ application.id }}/letter" class="mt-4 flex flex-wrap items-end gap-3">
     <div class="min-w-0">
-      <label for="track" class="mb-1 block text-sm font-medium">{{ t('letters.picker_label', lang) }}</label>
-      <select id="track" name="track" class="min-h-11 rounded-control border border-border bg-surface-1 px-3 py-2 text-sm">
+      <label for="track" class="field-label">{{ t('letters.picker_label', lang) }}</label>
+      <select id="track" name="track" class="min-h-11">
         {% for option in tracks %}
         <option value="{{ option.id }}">{{ option.name }} ({{ option.lang | upper }})</option>
         {% endfor %}
       </select>
     </div>
-    <button type="submit" class="min-h-11 rounded-control bg-link px-4 py-2 text-sm font-medium text-bg hover:opacity-90">
+    <button type="submit" class="btn btn-primary">
       {{ t('letters.picker_submit', lang) }}
     </button>
   </form>
@@ -43,26 +43,26 @@
 {% else %}
 
 {% if notice %}
-<p role="status" class="mt-4 rounded-control border border-card-border bg-surface-1 px-3 py-2 text-sm">{{ notice }}</p>
+<p role="status" class="mt-4 rounded-card border border-card-border bg-surface-1 px-3 py-2 text-sm">{{ notice }}</p>
 {% endif %}
 {% if language_notice %}
-<p role="status" class="mt-4 rounded-control border border-card-border bg-surface-1 px-3 py-2 text-sm text-text-2">
+<p role="status" class="mt-4 rounded-card border border-card-border bg-surface-1 px-3 py-2 text-sm text-text-2">
   {{ t('letters.language_notice', lang, x=t('lang.' ~ posting_language, lang), y=t('lang.' ~ language, lang)) }}
 </p>
 {% endif %}
 {% if error %}
-<p role="alert" class="mt-4 rounded-control border border-sev-warning bg-surface-1 px-3 py-2 text-sm text-sev-warning">{{ error }}</p>
+<p role="alert" class="mt-4 rounded-card border border-ink bg-surface-1 px-4 py-3 text-sm text-ink">{{ error }}</p>
 {% endif %}
 
 {# What is missing is fixed from here: each message has its link and no call is offered. #}
 {% if not blocks_ok %}
-<p role="alert" class="mt-4 rounded-control border border-sev-warning bg-surface-1 px-3 py-2 text-sm text-sev-warning">
+<p role="alert" class="mt-4 rounded-card border border-ink bg-surface-1 px-4 py-3 text-sm text-ink">
   {{ t('letters.need_blocks', lang, name=t('lang.' ~ language, lang)) }}
   <a href="/letters" class="ml-2 inline-flex min-h-11 items-center underline">{{ t('letters.go_cartas', lang) }}</a>
 </p>
 {% endif %}
 {% if not template_ok %}
-<p role="alert" class="mt-4 rounded-control border border-sev-warning bg-surface-1 px-3 py-2 text-sm text-sev-warning">
+<p role="alert" class="mt-4 rounded-card border border-ink bg-surface-1 px-4 py-3 text-sm text-ink">
   {{ t('letters.need_template', lang, track=track.name, name=t('lang.' ~ language, lang)) }}
   <a href="/tracks/{{ track.id }}/letter" class="ml-2 inline-flex min-h-11 items-center underline">{{ t('letters.create_track_letter', lang) }}</a>
 </p>
@@ -80,9 +80,9 @@
 
   {# The letter as it reads, with the bridge's place marked until there is one. #}
   <section id="letter-preview" class="mt-6 rounded-card border border-card-border bg-surface-1 p-4 text-sm" {% if edited %}hidden{% endif %}>
-    <p class="mb-2 text-xs uppercase tracking-wide text-text-3">{{ t('letters.preview_title', lang) }}</p>
+    <p class="mb-2 text-xs text-text-3">{{ t('letters.preview_title', lang) }}</p>
     <div class="whitespace-pre-wrap break-words">{{ before_html | safe }}</div>
-    <div id="preview-bridge" class="my-3 whitespace-pre-wrap break-words">{% if bridge_field %}{{ bridge_field }}{% else %}<mark class="bg-surface-2 text-sev-warning">{{ marker }}</mark>{% endif %}</div>
+    <div id="preview-bridge" class="my-3 whitespace-pre-wrap break-words">{% if bridge_field %}{{ bridge_field }}{% else %}<mark class="bg-surface-2 text-slate">{{ marker }}</mark>{% endif %}</div>
     <div class="whitespace-pre-wrap break-words">{{ after_html | safe }}</div>
   </section>
 
@@ -91,12 +91,12 @@
     <input type="hidden" name="track_id" value="{{ track.id }}">
     <input type="hidden" name="previous" value="{{ previous_json }}">
     <div class="min-w-0 space-y-3 lg:col-span-2">
-      <label for="bridge-text" class="block text-sm font-medium">{{ t('letters.bridge_label', lang) }}</label>
+      <label for="bridge-text" class="block text-sm">{{ t('letters.bridge_label', lang) }}</label>
       <textarea id="bridge-text" name="bridge" rows="6"
-                class="w-full rounded-control border border-border px-3 py-2 text-sm">{{ bridge_field }}</textarea>
+                class="w-full">{{ bridge_field }}</textarea>
       <div class="flex flex-wrap items-center gap-3">
         <button type="submit" {% if at_limit %}disabled{% endif %}
-                class="min-h-11 rounded-control bg-link px-4 py-2 text-sm font-medium text-bg hover:opacity-90 disabled:opacity-50">
+                class="btn btn-primary disabled:opacity-50">
           {% if at_limit %}{{ t('letters.bridge_another_plain', lang) }}
           {% elif versions %}{{ t('letters.bridge_another', lang, n=versions + 1) }}
           {% else %}{{ t('letters.bridge_generate', lang) }}{% endif %}
@@ -105,18 +105,18 @@
       </div>
       {{ ui.progress('letter') }}
       {% if bridge_failed %}
-      <p role="alert" class="rounded-control border border-sev-warning bg-surface-1 px-3 py-2 text-sm text-sev-warning">{{ t('letters.bridge_failed', lang) }}</p>
+      <p role="alert" class="rounded-card border border-ink bg-surface-1 px-4 py-3 text-sm text-ink">{{ t('letters.bridge_failed', lang) }}</p>
       {% endif %}
     </div>
     <aside class="min-w-0 space-y-2 text-sm">
       {% if generated %}
-      <p class="font-medium">{{ t('letters.bridge_version', lang, n=generated.version, angle=generated.angle) }}</p>
+      <p >{{ t('letters.bridge_version', lang, n=generated.version, angle=generated.angle) }}</p>
       {% if generated.risk %}
-      <p class="rounded-control border border-sev-warning px-3 py-2 text-xs text-sev-warning">{{ t('letters.letter_risk', lang) }}: {{ generated.risk }}</p>
+      <p class="rounded-card border border-slate px-3 py-2 text-xs text-slate">{{ t('letters.letter_risk', lang) }}: {{ generated.risk }}</p>
       {% endif %}
-      {% if generated.sentences > 4 %}<p class="text-xs text-sev-warning">✗ {{ t('letters.soft.sentences', lang, n=generated.sentences) }}</p>{% endif %}
-      {% if generated.words > 90 %}<p class="text-xs text-sev-warning">✗ {{ t('letters.soft.words', lang, n=generated.words) }}</p>{% endif %}
-      {% for phrase in generated.banned %}<p class="text-xs text-sev-warning">✗ {{ t('letters.soft.banned', lang, phrase=phrase) }}</p>{% endfor %}
+      {% if generated.sentences > 4 %}<p class="text-xs text-slate">✗ {{ t('letters.soft.sentences', lang, n=generated.sentences) }}</p>{% endif %}
+      {% if generated.words > 90 %}<p class="text-xs text-slate">✗ {{ t('letters.soft.words', lang, n=generated.words) }}</p>{% endif %}
+      {% for phrase in generated.banned %}<p class="text-xs text-slate">✗ {{ t('letters.soft.banned', lang, phrase=phrase) }}</p>{% endfor %}
       <p class="text-xs text-text-3">{{ t('applications.cost', lang) }}: ${{ generated.cost }}</p>
       {% endif %}
     </aside>
@@ -124,20 +124,20 @@
 
   <form method="post" action="/applications/{{ application.id }}/letter/save" class="mt-6 space-y-3">
     <input type="hidden" name="track_id" value="{{ track.id }}">
-    <label for="letter-text" class="block text-sm font-medium">{{ t('letters.full_label', lang) }}</label>
-    <p id="edited-notice" role="status" class="flex flex-wrap items-center gap-3 rounded-control border border-card-border bg-surface-1 px-3 py-2 text-sm text-text-2" {% if not edited %}hidden{% endif %}>
+    <label for="letter-text" class="block text-sm">{{ t('letters.full_label', lang) }}</label>
+    <p id="edited-notice" role="status" class="flex flex-wrap items-center gap-3 rounded-card border border-card-border bg-surface-1 px-3 py-2 text-sm text-text-2" {% if not edited %}hidden{% endif %}>
       <span>{{ t('letters.full_edited', lang) }}</span>
-      <button type="button" id="reassemble" class="min-h-11 rounded-control border border-border px-3 py-2 text-sm hover:bg-surface-2">
+      <button type="button" id="reassemble" class="btn btn-secondary">
         {{ t('letters.reassemble', lang) }}
       </button>
     </p>
     <textarea id="letter-text" name="text" rows="18"
-              class="w-full rounded-control border border-border px-3 py-2 text-sm">{{ full_text }}</textarea>
+              class="w-full">{{ full_text }}</textarea>
     <div class="flex flex-wrap items-center gap-3">
-      <button type="submit" class="min-h-11 rounded-control bg-link px-4 py-2 text-sm font-medium text-bg hover:opacity-90">
+      <button type="submit" class="btn btn-primary">
         {{ t('letters.letter_save', lang) }}
       </button>
-      <button type="button" id="copy-letter" class="min-h-11 rounded-control border border-border px-4 py-2 text-sm hover:bg-surface-2">
+      <button type="button" id="copy-letter" class="btn btn-secondary">
         {{ t('recall.copy', lang) }}
       </button>
     </div>
@@ -150,12 +150,12 @@
     <ul class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs">
       {% for item in checklist %}
       {% if item.ok %}
-      <li class="text-score-strong">
+      <li class="text-forest">
         ✓ {{ t('letters.check.' ~ item.key, lang) }}
         {% if item.detail %}<span class="text-text-3">{{ item.detail }}</span>{% endif %}
       </li>
       {% else %}
-      <li class="text-sev-warning">
+      <li class="text-slate">
         ✗ {{ t('letters.check.' ~ item.key, lang) }}
         {% if item.detail %}<span class="text-text-3">{{ item.detail }}</span>{% endif %}
       </li>
@@ -190,7 +190,7 @@
         previewBridge.textContent = text;
       } else {
         var mark = document.createElement('mark');
-        mark.className = 'bg-surface-2 text-sev-warning';
+        mark.className = 'bg-surface-2 text-slate';
         mark.textContent = marker;
         previewBridge.appendChild(mark);
       }

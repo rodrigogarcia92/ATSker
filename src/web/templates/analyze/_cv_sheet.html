@@ -1,0 +1,52 @@
+{# §12.7's white sheet: the stored draft as text, in the file's order, with the highlight
+   map drawn over it. Shared by the inline pane (report_cv.html) and the drawer/sheet
+   fragment (cv_pane.html), so both print the same marks. `data-key` carries the
+   `key@section` pairs the report's own items repeat — the script lights the intense tone on
+   every mark sharing a pair, and the section on screen lights the rest in the base tone. #}
+{% macro marked(element) -%}
+{%- for seg in element.segments -%}
+{%- if seg.marked -%}<mark class="hl{% if seg.weak %} hl-weak{% endif %}" data-key="{{ seg.pairs | join('|') }}" data-section="{{ seg.sections | join(' ') }}" data-strength="{{ 'weak' if seg.weak else 'strong' }}" tabindex="-1" title="{{ t('report.cv_pane.mark', lang, term=seg.text[:40]) }}">{{ seg.text }}</mark>{%- else -%}{{ seg.text }}{%- endif -%}
+{%- endfor -%}
+{%- endmacro %}
+<div class="cv-sheet">
+  {# The mark map: one tick per mark on the sheet's own scrollbar track, positioned by the
+     mark's place in the text. `data-section` lets S3c light the one on screen. #}
+  <div class="cv-mark-map" aria-hidden="true">
+    {% set tick = namespace(i=0) %}
+    {% for element in cv_pane.elements %}
+    {% for seg in element.segments %}{% if seg.marked %}{% set tick.i = tick.i + 1 %}
+    <span class="cv-tick" data-section="{{ seg.sections | join(' ') }}"
+          style="top: {{ (tick.i / (cv_pane.total + 1) * 100) | round(1) }}%"></span>
+    {% endif %}{% endfor %}
+    {% endfor %}
+  </div>
+  <div class="cv-sheet-body">
+    {% set ns = namespace(ul=false, exp=false, skills=false, edu=false, cert=false) %}
+    {% for element in cv_pane.elements %}
+    {% if element.kind == 'bullet' and element.text %}
+      {% if not ns.ul %}<ul class="cv-bullets">{% set ns.ul = true %}{% endif %}
+      <li>{{ marked(element) }}</li>
+    {% else %}
+      {% if ns.ul %}</ul>{% set ns.ul = false %}{% endif %}
+      {% if element.kind == 'headline' %}
+      <div class="cv-headline">{{ marked(element) }}</div>
+      {% elif element.kind == 'summary' %}
+      <p class="cv-summary">{{ marked(element) }}</p>
+      {% elif element.kind == 'role' %}
+        {% if not ns.exp %}<div class="cv-caption">{{ t('report.cv_pane.section.experience', lang) }}</div>{% set ns.exp = true %}{% endif %}
+        <div class="cv-role"><span>{{ marked(element) }}</span></div>
+      {% elif element.kind == 'skills' %}
+        {% if not ns.skills %}<div class="cv-caption">{{ t('report.cv_pane.section.skills', lang) }}</div>{% set ns.skills = true %}{% endif %}
+        <p class="cv-skills">{{ marked(element) }}</p>
+      {% elif element.kind == 'education' %}
+        {% if not ns.edu %}<div class="cv-caption">{{ t('report.cv_pane.section.education', lang) }}</div>{% set ns.edu = true %}{% endif %}
+        <p class="cv-entry">{{ marked(element) }}</p>
+      {% elif element.kind == 'certification' %}
+        {% if not ns.cert %}<div class="cv-caption">{{ t('report.cv_pane.section.certifications', lang) }}</div>{% set ns.cert = true %}{% endif %}
+        <p class="cv-entry">{{ marked(element) }}</p>
+      {% endif %}
+    {% endif %}
+    {% endfor %}
+    {% if ns.ul %}</ul>{% endif %}
+  </div>
+</div>

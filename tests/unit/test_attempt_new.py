@@ -90,7 +90,7 @@ def test_with_a_done_attempt_the_upload_is_hidden_and_the_result_offers_nuevo_in
     button = button[: button.index("</button>")]
     assert "Nuevo intento (2 de 10)" in plain(button)
     assert not re.search(r"\sdisabled[\s>]", button.split(">")[0])
-    assert "bg-link" in button, "the primary style"
+    assert "btn-primary" in button, "the primary style"
     # After the actions and before the attempts list.
     assert result.index("/discard") < result.index('id="attempt-new"')
     assert result.index('id="attempt-new"') < result.rindex("data-attempt-url=")

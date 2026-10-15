@@ -53,6 +53,42 @@ def test_a_score_is_never_colour_alone():
     assert "Fuerte" in html, "the band word is beside the number and the segments"
 
 
+def test_each_band_renders_its_word_and_its_colour_class_together():
+    """Design v3 §4 (amended 2026-10-12): the number, the band word and the filled segments
+    take the band's colour — Fuerte forest, Adecuado ochre, Débil brick — and the band word
+    still says the band."""
+    for value, band, word in (
+        (0.9, "strong", "Fuerte"),
+        (0.6, "adequate", "Adecuado"),
+        (0.2, "weak", "Débil"),
+    ):
+        html = render_macro(f'{{{{ ui.score({value}, "Skills", "") }}}}')
+
+        assert f'data-band="{band}"' in html, f"{value} carries the {band} band"
+        assert f'<span class="score-band">{word}</span>' in html, "the band word is there"
+        assert f'class="score-segment band-{band}' in html, "the segments carry the band"
+
+
+def test_a_bare_score_number_takes_its_band_colour():
+    """Design v3 §4: a score outside the Score component — the history's *Ajuste* column, an
+    attempt's sub-score line — carries the same three band colours."""
+    for value, band in ((86, "strong"), (63, "adequate"), (40, "weak")):
+        html = render_macro(f"{{{{ ui.band_number({value}) }}}}")
+
+        assert f'<span class="band-number-{band}">{value}</span>' in html
+
+
+def test_a_sub_score_renders_its_own_progress_bar():
+    """Design v3 §4: a sub-score's progress bar fills in its band colour on a vellum track;
+    the number above it is the value, so the bar is decorative."""
+    html = render_macro('{{ ui.score(0.63, "Experiencia", "", false, false, true) }}')
+
+    assert 'class="score-bar" aria-hidden="true"' in html
+    assert '<span style="width: 63%"></span>' in html
+    assert 'data-band="adequate"' in html, "the bar takes the sub-score's own band"
+    assert "score-segments" not in html, "a sub-score has the bar, not the five-segment row"
+
+
 def test_severity_is_an_icon_and_a_word_and_never_a_fill():
     for level in ("blocker", "warning", "info"):
         html = render_macro(f'{{{{ ui.severity("{level}", "Etiqueta") }}}}')
@@ -72,74 +108,13 @@ def test_level_bars_fill_to_the_level_and_write_the_number():
     assert zero.count("is-on") == 0
 
 
-def _analyze_rail_link(client, career) -> str:
+
+def test_the_top_bar_links_are_plain_text_with_no_icon(client, career):
+    """Design v3 §5: the bar is words only; the accessible name is the visible label."""
     login(client, career.first.email)
     page = client.get("/dashboard").text
-    match = re.search(r'<a href="/analyze"[^>]*>.*?</a>', page, re.S)
-    assert match, "the rail links to /analyze"
-    return match.group(0)
+    bar = page[page.index('class="topnav"') : page.index("</nav>", page.index('class="topnav"'))]
 
-
-def test_the_analizar_icon_is_a_document_with_three_score_bars(client, career):
-    link = _analyze_rail_link(client, career)
-    icon = re.search(r"<svg.*?</svg>", link, re.S).group(0)
-    paths = re.findall(r'<path d="([^"]+)"', icon)
-
-    assert "<circle" not in icon, "the magnifier lens is gone"
-    assert [d for d in paths if d.startswith("M6 3")], "a page outline"
-    assert [d for d in paths if d.startswith("M14 3")], "its folded corner"
-    bars = [d for d in paths if d.startswith("M9 ")]
-    assert len(bars) == 3, "three score bars"
-    lengths = [float(re.search(r"h([\d.]+)$", d).group(1)) for d in bars]
-    assert lengths == sorted(lengths, reverse=True), "of decreasing length"
-    assert len(set(lengths)) == 3
-
-
-def test_the_analizar_link_keeps_its_label_and_a_hidden_icon(client, career):
-    link = _analyze_rail_link(client, career)
-
-    assert 'aria-hidden="true"' in link, "the icon is decoration"
-    assert 'aria-label="Analizar"' in link, "nav.analyze is the accessible name"
-
-
-# --- V3: Puestos objetivo is a branch, Historias a quill (PRD §12.1) ---
-
-
-def _rail_link(client, career, href: str) -> str:
-    login(client, career.first.email)
-    page = client.get("/dashboard").text
-    match = re.search(rf'<a href="{href}"[^>]*>.*?</a>', page, re.S)
-    assert match, f"the rail links to {href}"
-    return match.group(0)
-
-
-def test_the_tracks_icon_is_a_branch_not_concentric_circles(client, career):
-    link = _rail_link(client, career, "/tracks")
-    icon = re.search(r"<svg.*?</svg>", link, re.S).group(0)
-
-    centres = re.findall(r'<circle cx="([\d.]+)" cy="([\d.]+)"', icon)
-    assert len(centres) == len(set(centres)), "no two circles share a centre"
-    assert len(centres) >= 2, "paths end in small nodes"
-    stems = re.findall(r'<path d="(M12 21[^"]*)"', icon)
-    assert stems, "one stem rises from the bottom"
-    assert len(re.findall(r'<path d="M12 15', icon)) >= 2, "and splits into separate paths"
-
-
-def test_the_stories_icon_is_a_quill_not_the_book(client, career):
-    link = _rail_link(client, career, "/stories")
-    icon = re.search(r"<svg.*?</svg>", link, re.S).group(0)
-    paths = re.findall(r'<path d="([^"]+)"', icon)
-
-    assert "M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z" not in paths, "the book is gone"
-    assert len(paths) >= 2, "a feather and its shaft"
-    assert any(re.fullmatch(r"M[\d.]+ [\d.]+ [\d.]+ [\d.]+", d) for d in paths), "the shaft"
-
-
-def test_the_new_icons_stay_decoration_and_the_links_keep_their_labels(client, career):
-    tracks = _rail_link(client, career, "/tracks")
-    stories = _rail_link(client, career, "/stories")
-
-    for link in (tracks, stories):
-        assert 'aria-hidden="true"' in link
-    assert 'aria-label="Líneas de carrera"' in tracks
-    assert 'aria-label="Historias"' in stories
+    assert "<svg" not in bar
+    assert re.search(r'<a href="/analyze" class="nav-link[^"]*"[^>]*>Analizar</a>', bar)
+    assert re.search(r'<a href="/tracks" class="nav-link[^"]*"[^>]*>Líneas de carrera</a>', bar)

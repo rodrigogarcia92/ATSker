@@ -36,8 +36,8 @@ GRADES = [
 
 BUTTON = re.compile(
     r'<button type="button" class="req-chip req-(\w+)" aria-pressed="(\w+)"\s+'
-    r'aria-controls="req-detail" data-template="(req-tpl-\d+)">\s*'
-    r"<span>(.*?)</span>\s*<span class=\"req-level\">(\d)/3</span>",
+    r'aria-controls="req-detail" data-template="(req-tpl-\d+)"[^>]*>\s*'
+    r"<span>(.*?)</span>\s*<span class=\"req-level req-\w+\">(\d)/3</span>",
     re.S,
 )
 
@@ -93,7 +93,7 @@ def test_the_old_compact_list_is_the_noscript_fallback(client, session, career):
     for grade in GRADES:
         assert grade["requirement"] in text
     assert "Automaticé los reportes con Python y SQL." in text
-    assert 'id="req-chips" class="mt-3" hidden' in page, "the buttons wait for the script"
+    assert 'id="req-chips" class="mt-4" hidden' in page, "the buttons wait for the script"
 
 
 def test_the_summary_counts_match_the_grades(client, session, career):
@@ -110,17 +110,45 @@ def test_the_summary_counts_match_the_grades(client, session, career):
 
 
 def test_the_level_decides_the_border_colour_class(client, session, career):
+    """Design v3 §4, Result colours: the chip's border and its `n/3` take the level's colour
+    — levels 2–3 forest, 1 ochre, 0 brick with a dashed border."""
     page = requirements_page(client, session, career)
 
     bands = {name: band for band, _pressed, _tpl, name, _level in BUTTON.findall(page)}
 
     assert bands == {
         "python": "strong",
-        "snowflake": "adequate",
-        "tableau": "weak",
+        "snowflake": "strong",
+        "tableau": "adequate",
         "dbt": "weak",
-    }, "3 strong, 2 adequate, 0 and 1 weak"
-    assert len(set(bands.values())) == 3
+    }, "3 and 2 strong (forest), 1 adequate (ochre), 0 weak (brick, dashed)"
+    assert len(set(bands.values())) == 3, "three colours, each with its own count"
+
+
+def test_each_level_renders_its_colour_class_with_its_count(client, session, career):
+    page = requirements_page(client, session, career)
+
+    pairs = {(band, level) for band, _pressed, _tpl, _name, level in BUTTON.findall(page)}
+
+    assert pairs == {("strong", "3"), ("strong", "2"), ("adequate", "1"), ("weak", "0")}
+
+
+def test_the_count_and_the_detail_line_take_the_levels_colour(client, session, career):
+    """Design v3 §4, Result colours: the chip's `n/3` and the detail's level line carry the
+    same colour class as the chip, so the three read as one level."""
+    page = requirements_page(client, session, career)
+
+    counts = re.findall(
+        r'class="req-chip req-(\w+)"[^>]*>\s*<span>.*?</span>\s*'
+        r'<span class="req-level req-(\w+)">\d/3</span>',
+        page,
+        re.S,
+    )
+    assert counts and all(chip == count for chip, count in counts), counts
+
+    lines = re.findall(r'<span class="req-level req-(\w+)">nivel (\d) de 3</span>', page)
+
+    assert set(lines) == {("strong", "3"), ("strong", "2"), ("adequate", "1"), ("weak", "0")}
 
 
 def test_the_script_toggles_aria_pressed_and_clears_on_a_second_click(client, session, career):

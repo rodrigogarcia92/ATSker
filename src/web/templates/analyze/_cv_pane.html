@@ -1,0 +1,91 @@
+{# §12.7's left pane: the toolbar above the CV, the section legend, the Texto / Archivo
+   original toggle and the white sheet with the draft's text and the highlight map. Built
+   once and included inline by report_cv.html (≥ 1280 px, sticky with its own scroll); the
+   tablet drawer and the phone sheet fetch cv_pane.html instead — the legend and the sheet
+   without the toolbar and the toggle, which carry ids and would clash with these. The
+   marks are drawn statically in the base tone — that is the no-JS rendering; the intense
+   tone and the section tracking are S3c. #}
+{% import "_ui.html" as ui with context %}
+<section class="cv-pane" data-cv-pane aria-label="{{ t('report.cv_pane.aria', lang) }}">
+
+  {# The toolbar: the CV's name and its switcher, the line that says who controls the CV,
+     and the three actions in one design (design v3 §4: all tertiary). #}
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    {% if cv_choices %}
+    <details class="menu">
+      <summary class="chip cv-chip">{{ report.cv.filename if report.cv else '' }} ▾</summary>
+      <div class="menu-panel">
+        <form method="post" action="/applications/{{ application.id }}/reanalyze"
+              class="flex flex-col gap-2 p-1" data-progress="analyze">
+          <label for="cv-switch" class="text-xs text-text-2">{{ t('report.cv_pane.selector', lang) }}</label>
+          <select id="cv-switch" name="resume_id" class="min-h-10 max-w-full">
+            {% for cv in cv_choices %}
+            <option value="{{ cv.id }}" {% if report.cv and cv.id | string == report.cv.resume_id %}selected{% endif %}>
+              {{ cv.filename }} · {{ (cv.merged_at or cv.uploaded_at).strftime('%Y-%m-%d') }}
+            </option>
+            {% endfor %}
+          </select>
+          <button type="submit" class="btn btn-secondary">{{ t('report.reanalyse', lang) }}</button>
+          <span class="field-hint">{{ t('report.reanalyse_hint', lang) }}</span>
+          {{ ui.progress('analyze') }}
+        </form>
+      </div>
+    </details>
+    {% else %}
+    <span class="chip cv-chip">{{ report.cv.filename if report.cv else '' }}</span>
+    {% endif %}
+    <span class="text-[0.8125rem] text-text-2">{{ t('report.cv_pane.controls', lang) }}</span>
+  </div>
+
+  <div class="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+    <button type="button" id="attempt-open" data-attempt-open class="btn btn-tertiary px-2">
+      {{ t('report.cv_pane.try', lang) }}
+    </button>
+    <a href="/applications/{{ application.id }}/letter" class="btn btn-tertiary px-2">
+      {{ t('report.cv_pane.letter', lang) }}
+    </a>
+    {% if application.track_id %}
+    {{ ui.dialog_opener('/applications/' ~ application.id ~ '/summary?dialog=1',
+          '/applications/' ~ application.id ~ '/summary', t('report.cv_pane.summary', lang),
+          'btn btn-tertiary px-2', wrap='contents') }}
+    {% else %}
+    <div>
+      <button type="button" disabled aria-describedby="summary-no-track" class="btn btn-tertiary px-2 w-full">{{ t('report.cv_pane.summary', lang) }}</button>
+      <p id="summary-no-track" class="mt-1 text-xs text-text-2">{{ t('generate.no_track', lang) }}</p>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="mt-4">{% include "analyze/_cv_legend.html" %}</div>
+
+  {# Texto / Archivo original: two radios and `:has()` switch the two views, so the toggle
+     works without JavaScript. #}
+  <div class="cv-views mt-3">
+    <div role="group" aria-label="{{ t('report.cv_pane.view', lang) }}" class="cv-toggle">
+      <input class="sr-only" type="radio" name="cv-view" id="cv-view-text" checked>
+      <label class="cv-toggle-option" for="cv-view-text">{{ t('report.cv_pane.text', lang) }}</label>
+      <input class="sr-only" type="radio" name="cv-view" id="cv-view-file">
+      <label class="cv-toggle-option" for="cv-view-file">{{ t('report.cv_pane.file', lang) }}</label>
+    </div>
+
+    <div class="cv-view cv-view-text mt-4">
+      {% include "analyze/_cv_sheet.html" %}
+    </div>
+
+    <div class="cv-view cv-view-file mt-4">
+      {% if source is none or source.file_bytes is none %}
+      <p class="field-hint">{{ t('report.cv_pane.no_file', lang) }}</p>
+      {% elif cv_original %}
+      {% for page in cv_original %}
+      {# `loading="lazy"`: the browser asks for page 2 only when it scrolls into view, so
+         the pane never has two rasterisations of one file in flight at once. #}
+      <img class="cv-page" src="/applications/{{ application.id }}/cv/page/{{ page }}.png"
+           loading="lazy" decoding="async"
+           alt="{{ t('report.cv_pane.aria', lang) }} · {{ page }}">
+      {% endfor %}
+      {% else %}
+      <p class="field-hint">{{ t('report.cv_pane.no_pages', lang) }}</p>
+      {% endif %}
+    </div>
+  </div>
+</section>

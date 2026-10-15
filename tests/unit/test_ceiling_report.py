@@ -11,7 +11,15 @@ from src.extract import client as extract_client
 from src.i18n import t
 from src.models import Application
 from tests.conftest import login
+from tests.unit.cv_support import ensure_first_cv
 from tests.unit.test_analysis import POSTING, Provider, text_of
+
+
+@pytest.fixture(autouse=True)
+def _the_first_track_has_a_cv(request):
+    """F11.3: an analysis is of a CV, so a test that runs one finds the first track's."""
+    ensure_first_cv(request)
+
 
 
 @pytest.fixture
@@ -74,7 +82,8 @@ def test_the_try_new_cv_button_opens_the_attempt_modal(client, session, career, 
 
     raw = client.get(url).text
 
-    assert "Probar nueva versión del CV" in raw
+    # §12.7: on a CV report the toolbar's button reads "Probar nuevo CV".
+    assert t("report.cv_pane.try", "es") in raw
     assert ".docx" in raw
     assert 'id="attempt-open"' in raw
     assert "<dialog id=\"attempt-modal\"" in raw

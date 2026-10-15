@@ -303,7 +303,7 @@ def test_cv_delete_keeps_its_bullets_unless_ticked_and_never_touches_unknown_pro
     numbers = impact_resume(career.first_profile.id, session, first_cv_id)
     # Two unknown: "Sin origen" and the fixture's own bullet, which no CV is proven
     # to have contributed either.
-    assert numbers == {"resumes": 1, "bullets": 1, "bullets_unknown": 2}
+    assert numbers == {"resumes": 1, "analyses": 0, "bullets": 1, "bullets_unknown": 2}
 
     # Without the tick: the CV goes and every bullet stays.
     assert client.post(f"/import/{first_cv_id}/delete", follow_redirects=False).status_code == 303

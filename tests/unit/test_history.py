@@ -223,6 +223,55 @@ def test_the_history_page_renders_the_table_and_its_links(client, session, caree
     )
 
 
+def test_the_ajuste_number_takes_its_bands_colour(client, session, career, history):
+    """Design v3 §4 (amended 2026-10-12): the one score surface outside the report — the
+    history's *Ajuste* column — carries its band's colour class, like the report's numbers.
+    The unscored row keeps its dash, so nothing claims a band it has not got."""
+    login(client, career.first.email)
+
+    page = client.get("/applications").text
+
+    assert '<span class="band-number-adequate">71</span>' in page, "71 is the Adecuado band"
+    assert '<span class="band-number-weak">34</span>' in page, "34 is the Débil band"
+    assert page.count("band-number-") == 2, "two scored rows; the third shows a dash"
+
+
+def test_the_history_table_scrolls_in_its_box_and_collapses_the_prompts(
+    client, session, career, history
+):
+    """S2c2 fix: a wide table scrolls inside the card instead of clipping at the right
+    edge, and the prompt versions are a collapsed `<details>` (Geist Mono, 12 px slate),
+    so a row stays one or two lines tall instead of wrapping one character per line."""
+    application = application_fixture(
+        career.first_profile.id,
+        title="Con prompts",
+        company="Banco Demo 2",
+        score=60,
+        created_at=datetime(2026, 9, 21, 15, 0, tzinfo=UTC),
+    )
+    application.prompt_versions = {
+        "jd_extract": "jd_extract_v2",
+        "evidence_grade": "evidence_grade_v4",
+    }
+    session.add(application)
+    session.commit()
+
+    login(client, career.first.email)
+    page = client.get("/applications").text
+
+    wrapper = page.index('<div class="relative mt-6 max-w-full overflow-x-auto')
+    table = page.index("<table", wrapper)
+    assert table > wrapper, "the table scrolls inside its own box"
+
+    marker = page.index("jd_extract=jd_extract_v2")
+    opened = page.rindex("<details", 0, marker)
+    assert page.index("</details>", marker) > marker, "the versions sit inside a details"
+    assert " open" not in page[opened : page.index(">", opened)], "and it starts collapsed"
+    assert "break-all" not in page[table : page.index("</table>", wrapper)], (
+        "the prompts must not wrap one character per line"
+    )
+
+
 def test_the_history_carries_the_sub_scores_both_scans_prompts_and_cost(
     client, session, career, history
 ):

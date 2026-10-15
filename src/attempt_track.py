@@ -39,7 +39,7 @@ from src.ingest.merge import (
     _bullet_candidates,
     diff_draft,
 )
-from src.models import Application, Bullet, Role
+from src.models import Application, Bullet, Role, Track
 from src.normalize.text import match_key
 from src.roles import list_roles
 from src.tracks import get_track
@@ -54,6 +54,9 @@ class BulletSnapshot:
     temporary: bool
     role_id: str
     text: str
+    # Position in the file's order, counting every bullet of every role (F11, §12.7):
+    # the highlight map finds a cited bullet in the CV pane through it.
+    ordinal: int = 0
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -61,6 +64,7 @@ class BulletSnapshot:
             "temporary": self.temporary,
             "role_id": self.role_id,
             "text": self.text,
+            "ordinal": self.ordinal,
         }
 
 
@@ -82,6 +86,23 @@ class EphemeralTrack:
     snapshots: tuple[BulletSnapshot, ...]
     roles: tuple[Role, ...] = ()
     role_matching: tuple[dict[str, object], ...] = ()
+    # Master bullets the file carries: unchanged, or reworded (a "changed" candidate
+    # keeps its `existing_id` though it is scored from the file under a temporary id).
+    # F11.5 and F7.2 ask "is this master bullet in the CV?" and a reworded one is.
+    represented_ids: tuple[str, ...] = ()
+
+
+def _transient_id(profile_id: uuid.UUID, text: str, occurrence: int) -> uuid.UUID:
+    """The temporary id of a file bullet that is not a master row.
+
+    Derived from the profile and the text, not drawn at random: the same file read twice
+    gives the same ids, so the grading input — which names its bullets — is the same and
+    the content-hash cache answers it. That is what lets a CV saved from an attempt score
+    exactly as the attempt did with no new grading call (F11.11 criterion 4), and what
+    keeps a re-analysis of a CV with new bullets free. `occurrence` tells apart a line the
+    file repeats.
+    """
+    return uuid.uuid5(profile_id, f"file-bullet:{occurrence}:{text}")
 
 
 def _transient_bullet(
@@ -90,6 +111,7 @@ def _transient_bullet(
     column: str,
     text: str,
     chips: Sequence[str],
+    occurrence: int = 0,
 ) -> Bullet:
     """A bullet that exists only for this run: never added to a session, never stored.
 
@@ -99,7 +121,7 @@ def _transient_bullet(
     """
     values: dict[str, object] = {"text_en": None, "text_es": None, column: text}
     return Bullet(
-        id=uuid.uuid4(),
+        id=_transient_id(profile_id, text, occurrence),
         profile_id=profile_id,
         role_id=role_id,
         skills=list(chips),
@@ -206,14 +228,7 @@ def ephemeral_track(
     application: Application,
     draft: ResumeDraft,
 ) -> EphemeralTrack:
-    """Match the file's bullets to master bullets and build the document (A4/F10.3).
-
-    An **unchanged** bullet — the same text after normalisation, or the F2.5 diff's
-    unchanged label — reuses the master row, id and all: that is what makes an
-    unchanged export reproduce the analysis's grading input exactly. A new or changed
-    bullet gets a temporary id and its text is snapshotted. The headline, summary and
-    skills come from the master unless the file's differ.
-    """
+    """An attempt's file as a track: the application's track and posting language."""
     track = (
         get_track(profile_id, session, application.track_id)
         if application.track_id
@@ -221,6 +236,29 @@ def ephemeral_track(
     )
     jd_dict = application.report.get("jd") if application.report else None
     lang = str((jd_dict or {}).get("language") or draft.language or "es")
+    return build_ephemeral(profile_id, session, track=track, lang=lang, draft=draft)
+
+
+def build_ephemeral(
+    profile_id: uuid.UUID,
+    session: Session,
+    *,
+    track: Track | None,
+    lang: str,
+    draft: ResumeDraft,
+) -> EphemeralTrack:
+    """Match the file's bullets to master bullets and build the document (A4/F10.3).
+
+    An **unchanged** bullet — the same text after normalisation, or the F2.5 diff's
+    unchanged label — reuses the master row, id and all: that is what makes an
+    unchanged export reproduce the analysis's grading input exactly. A new or changed
+    bullet gets a temporary id and its text is snapshotted. The headline, summary and
+    skills come from the master unless the file's differ.
+
+    Both readers of a file share this: an attempt (`ephemeral_track`, which supplies the
+    application's track and the posting's language) and a stored CV (F11.2, which
+    supplies the CV's track). `lang` is the language the document is read in.
+    """
     column = "text_en" if (draft.language or "es") == "en" else "text_es"
 
     matches, _plan = match_roles(profile_id, session, draft)
@@ -231,6 +269,8 @@ def ephemeral_track(
     snapshots: list[BulletSnapshot] = []
     transient_roles: list[Role] = []
     role_matching: list[dict[str, object]] = []
+    represented: dict[str, None] = {}
+    repeats: dict[str, int] = {}
     for matched in matches:
         role, by = matched.plan, matched.by
         candidates: Sequence[BulletCandidate] = role.bullets
@@ -259,20 +299,30 @@ def ephemeral_track(
         )
         for candidate in candidates:
             existing = master.get(str(candidate.existing_id)) if candidate.existing_id else None
+            if existing is not None:
+                represented.setdefault(str(existing.id))
             if candidate.label == "unchanged" and existing is not None:
                 bullets.append(existing)
                 snapshots.append(
                     BulletSnapshot(
-                        str(existing.id), False, str(existing.role_id), candidate.text
+                        str(existing.id),
+                        False,
+                        str(existing.role_id),
+                        candidate.text,
+                        len(snapshots),
                     )
                 )
             else:
+                occurrence = repeats.get(candidate.text, 0)
+                repeats[candidate.text] = occurrence + 1
                 fresh = _transient_bullet(
-                    profile_id, role_id, column, candidate.text, candidate.chips
+                    profile_id, role_id, column, candidate.text, candidate.chips, occurrence
                 )
                 bullets.append(fresh)
                 snapshots.append(
-                    BulletSnapshot(str(fresh.id), True, str(role_id), candidate.text)
+                    BulletSnapshot(
+                        str(fresh.id), True, str(role_id), candidate.text, len(snapshots)
+                    )
                 )
 
     base = track_document(profile_id, session, track, lang)
@@ -302,4 +352,5 @@ def ephemeral_track(
         snapshots=tuple(snapshots),
         roles=tuple(transient_roles),
         role_matching=tuple(role_matching),
+        represented_ids=tuple(represented),
     )

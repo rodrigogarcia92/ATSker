@@ -126,10 +126,13 @@ def test_the_skill_check_counts_distinct_canonicals():
     assert not verdict("Uso sql, python y tableau.", short("sql", "python"))
 
 
-def test_the_length_check_counts_words_not_sentences():
-    assert check_length(" ".join(["palabra"] * 80))["ok"]
-    assert not check_length(" ".join(["palabra"] * 81))["ok"]
-    assert check_length("Una. Dos. Tres. Cuatro. Cinco.")["ok"]
+def test_the_length_check_counts_words_between_sixty_and_a_hundred():
+    assert not check_length(" ".join(["palabra"] * 59))["ok"]
+    assert check_length(" ".join(["palabra"] * 60))["ok"]
+    assert check_length(" ".join(["palabra"] * 100))["ok"]
+    assert not check_length(" ".join(["palabra"] * 101))["ok"]
+    assert not check_length("Una. Dos. Tres. Cuatro. Cinco.")["ok"], "words, not sentences"
+    assert check_length(" ".join(["palabra"] * 61))["detail"] == "61"
 
 
 # --- the prompt --------------------------------------------------------------------
@@ -167,8 +170,31 @@ class Queue:
         return self.calls[index]["messages"][-1]["content"]
 
 
-GOOD = "Analista de datos que automatizó el reporte con Python."
-NO_TITLE = "Automaticé el reporte con Python."
+GOOD = (
+    "Analista de datos que automatizó el reporte con Python. Durante cinco años trabajé "
+    "junto a equipos de negocio para convertir sus preguntas en informes que se leen rápido "
+    "y decisiones que se toman a tiempo. Reduje el tiempo del reporte mensual y dejé el "
+    "proceso en manos de quien lo usa cada día. Cuidé la calidad de los números antes de "
+    "publicarlos y expliqué cada resultado en una frase. Busco un puesto donde medir y "
+    "contar lo que dicen los datos sea parte del trabajo de cada semana."
+)
+NO_TITLE = (
+    "Automaticé el reporte con Python. Durante cinco años trabajé junto a equipos de "
+    "negocio para convertir sus preguntas en informes que se leen rápido y decisiones que "
+    "se toman a tiempo. Reduje el tiempo del reporte mensual y dejé el proceso en manos de "
+    "quien lo usa cada día. Cuidé la calidad de los números antes de publicarlos y expliqué "
+    "cada resultado en una frase. Busco un puesto donde medir y contar lo que dicen los "
+    "datos sea parte del trabajo de cada semana."
+)
+
+ALSO_NO_TITLE = (
+    "Automaticé cada semana el reporte con Python para el equipo comercial. Durante cinco "
+    "años trabajé junto a equipos de negocio para convertir sus preguntas en informes que "
+    "se leen rápido y en decisiones que se toman a tiempo. Reduje el tiempo del reporte "
+    "mensual y dejé el proceso en manos de quien lo usa cada día. Cuidé la calidad de los "
+    "números antes de publicarlos y expliqué cada resultado en una frase. Busco un puesto "
+    "donde medir y contar lo que dicen los datos sea parte del trabajo de cada semana."
+)
 
 
 @pytest.fixture
@@ -204,20 +230,21 @@ def test_a_failed_title_makes_one_retry_that_names_the_rule(client, session, car
     page = generate(client, application).text
 
     assert len(stub.calls) == 2
-    assert "title exactly as given" in stub.user(1) and NO_TITLE in stub.user(1)
+    assert "must open with the career title exactly as written" in stub.user(1)
+    assert NO_TITLE in stub.user(1)
     assert "broke these rules" not in stub.user(0)
     assert GOOD in page, "the second answer satisfies more rules and is shown"
 
 
 def test_never_a_third_call_and_a_tie_keeps_the_second(client, session, career, queue):
-    stub = queue(NO_TITLE, "Reporte automático con Python, sin título.")
+    stub = queue(NO_TITLE, ALSO_NO_TITLE)
     application = stored_application(session, career)
     login(client, career.first.email)
 
     page = generate(client, application).text
 
     assert len(stub.calls) == 2
-    assert "Reporte automático con Python, sin título." in page
+    assert ALSO_NO_TITLE in page
 
 
 def test_both_calls_are_in_the_ledger(client, session, career, queue):
@@ -230,7 +257,7 @@ def test_both_calls_are_in_the_ledger(client, session, career, queue):
     generate(client, application)
 
     rows = session.query(LlmCall).filter_by(purpose="generate_summary").all()
-    assert [row.prompt_version for row in rows] == ["summary_v5", "summary_v5"]
+    assert [row.prompt_version for row in rows] == ["summary_v6", "summary_v6"]
 
 
 def test_the_prompt_receives_the_base_and_says_when_there_is_none(client, session, career, queue):

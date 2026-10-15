@@ -4,33 +4,36 @@
    Apareces / No apareces tag and the whole query, and the excluding term and the clauses
    sit inside. #}
 {% import "_ui.html" as ui with context %}
-<section id="recruiter">
-<h2 class="mt-8 text-lg font-semibold">{{ t('recall.title', lang) }}</h2>
-<p class="mt-1 text-xs text-text-3">{{ t('recall.intro', lang) }}</p>
+<section id="recruiter" class="mt-10">
+<div class="flex flex-wrap items-baseline justify-between gap-x-3">
+<h2 class="text-3xl leading-tight tracking-[-0.01em] md:text-4xl">{{ t('recall.title', lang) }}</h2>
+</div>
+<p class="mt-2 text-sm text-text-2">{{ t('recall.intro', lang) }}</p>
 
 {% if recall.rows %}
-<p class="mt-2 text-sm text-text-2">
+<p class="mt-1 text-sm text-text-2">
   {{ t('recall.appear_summary', lang, passed=recall.rows | selectattr('passed') | list | length,
         total=recall.rows | length) }}
 </p>
-<ul class="mt-3 space-y-2">
+<ul class="mt-4 border-b border-border">
   {% for query in recall.rows %}
-  <li>
-    <details class="disclosure rounded-control border border-card-border bg-surface-1 px-3 text-sm">
+  <li class="border-t border-border">
+    <details class="disclosure text-sm">
       <summary>
         <span class="flex min-w-0 flex-1 flex-col gap-1 py-2">
           <span class="flex flex-wrap items-center gap-2">
-            <span class="font-medium">{{ query.label or t('recall.unlabelled', lang) }}</span>
-            {# N8.8: the same score palette the section's verdict used, so both read as one
-               system. The words and the clause glyphs stay: colour is never the only
-               signal. #}
-            <span class="rounded-tag border px-2 py-0.5 text-xs {% if query.passed %}border-score-strong text-score-strong{% else %}border-score-weak text-score-weak{% endif %}">
+            <span class="text-text-2">{{ query.label or t('recall.unlabelled', lang) }}</span>
+            {# Design v3 §4, Result colours: a pass is a forest-outlined tag, a fail a
+               brick-outlined one, the same two bands the score uses. The words and the
+               clause glyphs stay: colour is never the only signal. #}
+            <span class="{% if query.passed %}tag tag-strong{% else %}tag tag-danger{% endif %}">
+              <span aria-hidden="true">{{ '✓' if query.passed else '✕' }}</span>
               {{ t('recall.appears', lang) if query.passed else t('recall.not_appears', lang) }}
             </span>
           </span>
           {# A.9.2: the recruiter's own line, to paste into the ATS. #}
           {% if query.query_text %}
-          <code class="break-all font-mono text-xs text-text-2">{{ query.query_text }}</code>
+          <code class="break-all font-mono text-[0.8125rem] text-text">{{ query.query_text }}</code>
           {% endif %}
         </span>
       </summary>
@@ -41,12 +44,15 @@
         {% if query.clauses %}
         <ul class="space-y-1">
           {% for clause in query.clauses %}
-          <li class="text-xs {% if clause.matched %}text-text-2{% else %}text-text-3{% endif %}">
+          {# §12.7: on a CV report the clause that passed points at the words that satisfied
+             it, so it carries its query's key — the mark the pane drew for that query. #}
+          <li class="text-xs {% if clause.matched %}text-text-2{% else %}text-text-3{% endif %}"
+              {%- if clause.matched and cv_keys is defined %} data-key="query:{{ query.key }}@recruiter" tabindex="0"{% endif %}>
             {% if clause.matched %}
-            <span aria-hidden="true" class="text-score-strong">✓</span> {{ t('recall.clause_met', lang, term=clause.term, unit=clause.unit) }}
+            <span aria-hidden="true">✓</span> {{ t('recall.clause_met', lang, term=clause.term, unit=clause.unit) }}
             {% if clause.text %}<span class="block text-text-3">{{ clause.text }}</span>{% endif %}
             {% else %}
-            <span aria-hidden="true" class="text-score-weak">✗</span> {{ t('recall.clause_missing', lang, term=clause.term) }}
+            <span aria-hidden="true">✕</span> {{ t('recall.clause_missing', lang, term=clause.term) }}
             {% endif %}
           </li>
           {% endfor %}
@@ -58,7 +64,7 @@
            is not a separate control. #}
         {% if query.query_text %}
         <button type="button"
-                class="min-h-11 rounded-control border border-border px-3 text-xs text-text-2 hover:bg-surface-2"
+                class="btn btn-secondary text-xs"
                 onclick="navigator.clipboard.writeText(this.closest('details').querySelector('summary code').textContent.trim())">
           {{ t('recall.copy', lang) }}
         </button>
@@ -69,7 +75,7 @@
   {% endfor %}
 </ul>
 {% else %}
-<p class="mt-3 rounded-control border border-card-border bg-surface-1 px-3 py-2 text-sm text-text-2">
+<p class="mt-3 rounded-card border border-card-border px-4 py-3 text-sm text-text-2">
   {{ t('recall.empty', lang) }}
 </p>
 {% endif %}

@@ -186,18 +186,29 @@ def keyword_advice(
     lang = str(_mapping(report.get("jd")).get("language") or "es")
     skills = _skill_rows(session)
     bullets = list_bullets(profile_id, session, active_only=True)
-    in_track = (
-        {str(bullet.id) for bullet in track_bullets(profile_id, session, track.id)}
-        if track is not None and not for_file
-        else set()
-    )
+    cv = _mapping(report.get("cv"))
+    if cv:
+        # F11.4: the document is the CV. Its own master bullets are the ones to name
+        # first (reworded ones included); only an *unchanged* one can make a keyword
+        # stale, because a reworded line may be exactly where the keyword was lost.
+        in_track = {str(item) for item in cv.get("represented_ids") or []}
+        unchanged = {str(item) for item in cv.get("matched_ids") or []}
+    else:
+        in_track = (
+            {str(bullet.id) for bullet in track_bullets(profile_id, session, track.id)}
+            if track is not None and not for_file
+            else set()
+        )
+        unchanged = in_track
     pool = set(profile.skills or [])
     held = pool | {skill for bullet in bullets for skill in bullet.skills}
 
     items: list[KeywordItem] = []
     unsupported: list[Candidate] = []
     for candidate in candidates:
-        verdict, item = _classify(candidate, pool, held, bullets, in_track, skills, aliases, lang)
+        verdict, item = _classify(
+            candidate, pool, held, bullets, in_track, unchanged, skills, aliases, lang
+        )
         if verdict == "item" and item is not None:
             items.append(item)
         elif verdict == "unsupported":
@@ -213,6 +224,7 @@ def _classify(
     held: set[str],
     bullets: Sequence[Bullet],
     in_track: set[str],
+    unchanged: set[str],
     skills: Mapping[str, Skill],
     aliases: Mapping[str, str],
     lang: str,
@@ -226,7 +238,7 @@ def _classify(
     canonical = candidate.canonical
     if canonical is None:
         return "unsupported", None
-    if any(str(b.id) in in_track and _says(b, canonical, aliases, lang) for b in bullets):
+    if any(str(b.id) in unchanged and _says(b, canonical, aliases, lang) for b in bullets):
         return "stale", None
 
     def item(basis: str, where: str, **extra: object) -> tuple[str, KeywordItem]:

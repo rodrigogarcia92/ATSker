@@ -3,12 +3,12 @@
 {% block content %}
 <a href="/roles/{{ role.id }}" class="text-sm text-text-2 underline">{{ role.title }}</a>
 
-<h1 class="mt-3 text-2xl font-semibold tracking-tight">
+<h1 class="mt-3 text-4xl leading-[1.11] tracking-[-0.02em] md:text-5xl">
   {{ t('bullets.new', lang) if not bullet else t('bullets.edit', lang) }}
 </h1>
 
 {% if detected %}
-<p class="mt-4 rounded-control border border-card-border bg-surface-1 px-3 py-2 text-sm text-text">
+<p class="mt-4 rounded-card border border-card-border bg-surface-1 px-3 py-2 text-sm text-text">
   {{ t('bullets.detected', lang, names=detected | join(', ')) }}
 </p>
 {% endif %}
@@ -16,26 +16,26 @@
 <form method="post" action="{{ '/roles/' ~ role.id ~ '/bullets' if not bullet else '/bullets/' ~ bullet.id }}"
       class="mt-6 space-y-4 rounded-card border border-card-border bg-surface-1 p-5">
   <div>
-    <label for="text_es" class="mb-1 block text-sm font-medium">{{ t('bullets.text_es', lang) }}</label>
+    <label for="text_es" class="field-label">{{ t('bullets.text_es', lang) }}</label>
     <textarea id="text_es" name="text_es" rows="2"
-              class="w-full rounded-control border border-border px-3 py-2 text-sm">{{ bullet.text_es if bullet and bullet.text_es else '' }}</textarea>
+              class="w-full">{{ bullet.text_es if bullet and bullet.text_es else '' }}</textarea>
   </div>
   <div>
-    <label for="text_en" class="mb-1 block text-sm font-medium">{{ t('bullets.text_en', lang) }}</label>
+    <label for="text_en" class="field-label">{{ t('bullets.text_en', lang) }}</label>
     <textarea id="text_en" name="text_en" rows="2"
-              class="w-full rounded-control border border-border px-3 py-2 text-sm">{{ bullet.text_en if bullet and bullet.text_en else '' }}</textarea>
+              class="w-full">{{ bullet.text_en if bullet and bullet.text_en else '' }}</textarea>
   </div>
   <div>
-    <label for="chips" class="mb-1 block text-sm font-medium">{{ t('bullets.skills', lang) }}</label>
+    <label for="chips" class="field-label">{{ t('bullets.skills', lang) }}</label>
     <input id="chips" name="chips" value="{{ chips }}"
-           class="w-full rounded-control border border-border px-3 py-2 text-sm">
-    <p class="mt-1 text-xs text-text-3">{{ t('bullets.skills_hint', lang) }}</p>
+           class="w-full">
+    <p class="field-hint">{{ t('bullets.skills_hint', lang) }}</p>
     {% if pending %}
     {# F2.9: the chips the vocabulary does not know. They are in the field above —
        saving keeps them — and this says which of them are stored as pending. #}
     <p class="mt-2 flex flex-wrap gap-1">
       {% for term in pending %}
-      <span class="rounded-control border border-dashed border-sev-warning bg-surface-1 px-2 py-0.5 text-xs text-sev-warning">{{ t('vocabulary.pending', lang) }}: {{ term }}</span>
+      <span class="rounded-control border border-dashed border-slate bg-surface-1 px-2 py-0.5 text-xs text-slate">{{ t('vocabulary.pending', lang) }}: {{ term }}</span>
       {% endfor %}
     </p>
     {% endif %}
@@ -49,16 +49,16 @@
   {% endif %}
 
   <div class="flex flex-wrap items-center gap-4">
-    <button type="submit" class="rounded-control bg-link px-3 py-2 text-sm font-medium text-bg hover:opacity-90">
+    <button type="submit" class="btn btn-primary">
       {{ t('common.save', lang) }}
     </button>
     <button type="submit" formaction="/bullets/detect" formnovalidate
-            class="rounded-control border border-border px-3 py-2 text-sm">
+            class="btn btn-secondary">
       {{ t('bullets.detect', lang) }}
     </button>
     <a href="/roles/{{ role.id }}" class="text-sm underline">{{ t('common.cancel', lang) }}</a>
     {% if bullet %}
-    <a href="/bullets/{{ bullet.id }}/delete" class="text-sm text-sev-blocker underline">{{ t('common.delete', lang) }}</a>
+    <a href="/bullets/{{ bullet.id }}/delete" class="text-sm text-ink underline">{{ t('common.delete', lang) }}</a>
     {% endif %}
   </div>
 

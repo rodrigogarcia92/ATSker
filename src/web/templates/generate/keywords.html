@@ -4,8 +4,8 @@
 {% block title %}{{ t('keywords.infer.title', lang) }} — {{ t('app.name', lang) }}{% endblock %}
 {% block width %}max-w-3xl{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-semibold tracking-tight">{{ t('keywords.infer.title', lang) }}</h1>
-<p class="mt-1 text-xs text-text-3">{{ application.title or t('report.title', lang) }}</p>
+<h1 class="text-4xl leading-[1.11] tracking-[-0.02em] md:text-5xl">{{ t('keywords.infer.title', lang) }}</h1>
+<p class="field-hint">{{ application.title or t('report.title', lang) }}</p>
 
 {% include "generate/_keywords_body.html" %}
 

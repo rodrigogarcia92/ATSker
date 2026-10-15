@@ -5,8 +5,8 @@
    checks where the characters are the only way to act, what each box hides. The
    characters are read from the archived original when this page opens and stored
    nowhere. #}
-<h1 class="text-2xl font-semibold tracking-tight">{{ finding.label }}</h1>
-<p class="mt-1 text-xs uppercase tracking-wide text-text-3">{{ finding.severity_label }} · {{ t('import.location_title', lang) }}</p>
+<h1 class="text-4xl leading-[1.11] tracking-[-0.02em] md:text-5xl">{{ finding.label }}</h1>
+<p class="field-hint">{{ finding.severity_label }} · {{ t('import.location_title', lang) }}</p>
 <p class="mt-2 text-sm text-text">{{ finding.detail }}</p>
 
 <div class="mt-4 rounded-card border border-card-border bg-surface-1 p-2">
@@ -16,12 +16,12 @@
 <p class="mt-2 text-xs text-text-3">{{ t('import.location_hint', lang) }}</p>
 
 {% if characters %}
-<h2 class="mt-6 text-lg font-semibold">{{ t('import.location_characters', lang) }}</h2>
+<h2 class="mt-6 text-3xl leading-tight tracking-[-0.01em] md:text-4xl">{{ t('import.location_characters', lang) }}</h2>
 <ul class="mt-2 space-y-1 text-sm text-text">
   {% for text in characters %}
   <li>
     <span class="text-xs text-text-3">{{ t('import.location_box', lang) }} {{ loop.index }}:</span>
-    {% if text %}<code class="break-all rounded-control bg-surface-2 px-1">{{ text }}</code>
+    {% if text %}<code class="break-all rounded-sm bg-surface-2 px-1">{{ text }}</code>
     {% else %}{{ t('import.location_empty_box', lang) }}{% endif %}
   </li>
   {% endfor %}

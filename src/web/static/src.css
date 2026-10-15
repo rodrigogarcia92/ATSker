@@ -4,174 +4,497 @@
 @source "../templates";
 @source "../routes";
 
-/* §12.1 — the approved design's tokens, named so a template says what a colour means
-   rather than what it looks like. Dark theme only; the light toggle is a later pass. */
+/* Visual system v3 (private_docs/q_design_v3.md §1): greys for everything, forest for what
+   matters, lime only as the highlighter. The raw values live once, here, as custom
+   properties on :root; a dark set (pinned) is a second block of the same names under a
+   selector, nothing else changes. tests/unit/test_contrast.py parses this block and holds
+   the WCAG ratios, so edit a value only together with that test. */
+:root {
+  /* Surfaces */
+  --paper: #ffffff; /* page canvas, cards, the CV sheet */
+  --vellum: #f3f3f3; /* secondary surfaces, tertiary pills, wells, hover */
+  --hairline: #e5e7eb; /* every border and divider */
+  --stone: #c7c7c7; /* decorative fills only: never text, never a border that must be seen */
+  /* Text */
+  --ash: #a0a0a0; /* disabled text only (exempt): 2.6:1, not for text */
+  --slate: #6f6f6f; /* secondary text and metadata; never on lime */
+  --pewter: #5e5e5e; /* helper text needing more weight; text on lime when grey is needed */
+  --ink: #171717; /* primary text, icons, outlines that signal */
+  /* Brand */
+  --forest: #1f4a3d; /* primary button, the Fuerte band, focus ring; white text on it */
+  --lime: #c4f07a; /* the highlighter, intense; the selected requirement chip */
+  --highlight: #e7f9ca; /* the highlighter, base */
+  /* The two other score bands (design v3 §1, §4): the number, the band word, the filled
+     segments and the sub-score bar take them, on score surfaces only. */
+  --ochre: #8c5e0a; /* the Adecuado band, and a requirement at level 1 */
+  --brick: #a3431f; /* the Débil band, and a requirement at level 0 */
+}
+
+/* Names by meaning, kept from §12.1 so a template says what a colour is for; each now points
+   at the :root set above. Tertiary text merges into slate; ash and stone are deliberately
+   not exposed as colour utilities, so no template can set them as text. */
 @theme {
   /* Surfaces and text */
-  --color-bg: #101211;
-  --color-surface-1: #181b1a;
-  --color-surface-2: #232826;
-  --color-border: #2f3633;
-  --color-card-border: #262b29;
-  --color-text: #e6e9e7;
-  --color-text-2: #aeb6b2;
-  --color-text-3: #8b9490;
-  /* Interactive: links and controls only */
-  --color-link: #8fb3ff;
-  /* Score: a three-stop scale, used as fill and only on score surfaces */
-  --color-score-strong: #3fcf8e;
-  --color-score-adequate: #e5a23b;
-  --color-score-weak: #ef6f55;
-  /* Severity: outlined tags only, never fill */
-  --color-sev-blocker: #f472b6;
-  --color-sev-warning: #a78bfa;
-  --color-sev-info: #94a3b8;
-  /* Radii */
-  --radius-card: 10px;
-  --radius-control: 6px;
-  --radius-tag: 4px;
-  /* Type */
-  --font-display: "Newsreader", ui-serif, Georgia, "Times New Roman", serif;
-  --font-sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --color-bg: var(--paper);
+  --color-surface-1: var(--paper);
+  --color-surface-2: var(--vellum);
+  --color-border: var(--hairline);
+  --color-card-border: var(--hairline);
+  --color-text: var(--ink);
+  --color-text-2: var(--slate);
+  --color-text-3: var(--slate);
+  /* v3 names */
+  --color-paper: var(--paper);
+  --color-vellum: var(--vellum);
+  --color-hairline: var(--hairline);
+  --color-slate: var(--slate);
+  --color-pewter: var(--pewter);
+  --color-ink: var(--ink);
+  --color-sheet: var(--paper);
+  --color-forest: var(--forest);
+  --color-lime: var(--lime);
+  --color-highlight-base: var(--highlight);
+  --color-highlight-intense: var(--lime);
+  /* Interactive */
+  --color-link: var(--ink);
+  --color-focus: var(--forest);
+  /* Score: one colour per band (design v3 §4, amended 2026-10-12). The band word and the
+     filled segments still say the band, so colour is never the only signal. */
+  --color-score-strong: var(--forest);
+  --color-score-adequate: var(--ochre);
+  --color-score-weak: var(--brick);
+  /* Severity: outlined tags, told apart by shape and word, never by colour alone */
+  --color-sev-blocker: var(--ink);
+  --color-sev-warning: var(--slate);
+  --color-sev-info: var(--pewter);
+  /* Radii (§3): cards 20, large cards 24, small cards and code wells 8, controls pill */
+  --radius-card: 20px;
+  --radius-lg: 24px;
+  --radius-sm: 8px;
+  --radius-pill: 9999px;
+  --radius-control: var(--radius-pill);
+  --radius-tag: var(--radius-pill);
+  /* Type (§2): one family, Hanken Grotesk 400, for everything; Geist Mono for recruiter
+     queries, hashes and code-like strings only. */
+  --font-sans: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
-/* Every number is tabular (§12.1): scores, counts, dates and hashes line up. */
+/* Every number is tabular (§12.1): scores, counts, dates and hashes line up. Hanken Grotesk
+   loads 400 and 600 (§2, amended 2026-10-13); 600 is used only by the dialog subheadings
+   (`.dialog-subhead`), so anywhere else `font-semibold` and `font-medium` change nothing
+   visible and hierarchy comes from size, ink and spacing. */
 body {
   font-variant-numeric: tabular-nums;
+  font-synthesis-weight: none;
 }
 
-/* Dark controls by default, so a field added without a class still reads in the theme
-   rather than as a white box on a dark page. */
-input,
-textarea,
-select {
-  background: var(--color-surface-2);
-  color: var(--color-text);
-  border-color: var(--color-border);
-}
-input::placeholder,
-textarea::placeholder {
-  color: var(--color-text-3);
-}
-input[type="checkbox"],
-input[type="radio"] {
-  accent-color: var(--color-link);
+/* Element defaults (design v3 §4), in the base layer so any utility class still wins:
+   pill inputs and selects, a 20px textarea, hairline borders, one focus ring everywhere. */
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--forest);
+    outline-offset: 3px;
+  }
+  input,
+  select,
+  textarea {
+    background: var(--paper);
+    color: var(--ink);
+    border: 1px solid var(--hairline);
+    font: inherit;
+  }
+  select,
+  input:not([type="checkbox"], [type="radio"], [type="file"], [type="hidden"], [type="submit"]) {
+    min-height: 2.75rem;
+    padding: 0 1rem;
+    border-radius: var(--radius-pill);
+  }
+  textarea {
+    padding: 0.75rem 1rem;
+    border-radius: var(--radius-card);
+  }
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--slate);
+  }
+  input[type="checkbox"],
+  input[type="radio"] {
+    accent-color: var(--forest);
+  }
+  a.underline {
+    text-underline-offset: 3px;
+  }
 }
 
-/* The shell (§12.1). A 64px icon rail on desktop; a top bar with a menu button under
-   640px. Labels appear when `body.rail-open` is toggled — no storage, no state. */
-.shell {
-  min-height: 100vh;
+/* Buttons and cards (design v3 §3–§4). Four buttons, one shape: primary is the forest pill
+   (at most one per view), secondary is white with a hairline, tertiary is vellum, and
+   destructive is white with an ink outline. Never a red or a severity fill. */
+@layer components {
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 2.75rem;
+    padding: 0 1.25rem;
+    border: 1px solid transparent;
+    border-radius: var(--radius-pill);
+    font-size: 0.875rem;
+    line-height: 1.2;
+    text-align: center;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .btn-lg {
+    min-height: 3rem;
+    padding: 0 1.75rem;
+    font-size: 0.9375rem;
+  }
+  .btn-primary {
+    background: var(--forest);
+    color: #fff;
+  }
+  .btn-primary:hover {
+    background: color-mix(in srgb, var(--forest) 88%, #000);
+  }
+  .btn-secondary {
+    background: var(--paper);
+    border-color: var(--hairline);
+    color: var(--ink);
+  }
+  .btn-secondary:hover {
+    background: var(--vellum);
+  }
+  .btn-tertiary {
+    background: var(--vellum);
+    color: var(--ink);
+  }
+  .btn-tertiary:hover {
+    background: color-mix(in srgb, var(--vellum) 92%, #000);
+  }
+  .btn-danger {
+    background: var(--paper);
+    border-color: var(--ink);
+    color: var(--ink);
+  }
+  .btn-danger:hover {
+    background: var(--vellum);
+  }
+  .btn:disabled,
+  .btn[aria-disabled="true"] {
+    background: var(--vellum);
+    border-color: transparent;
+    color: var(--ash); /* disabled text is exempt from contrast */
+    cursor: not-allowed;
+  }
+  .link {
+    color: var(--ink);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .card {
+    background: var(--paper);
+    border: 1px solid var(--hairline);
+    border-radius: var(--radius-card);
+    padding: 1.5rem;
+  }
+  .well {
+    background: var(--vellum);
+    border-radius: var(--radius-card);
+    padding: 1.5rem;
+  }
+  .code-well {
+    background: var(--vellum);
+    border-radius: var(--radius-sm);
+    padding: 0.625rem 0.75rem;
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;
+  }
+  .field-label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    color: var(--ink);
+  }
+  .field-hint {
+    font-size: 0.75rem;
+    color: var(--slate);
+  }
+  /* A labelled divider: a hairline with its label centred in a gap. */
+  .divider-label {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    color: var(--slate);
+    font-size: 0.875rem;
+  }
+  .divider-label::before,
+  .divider-label::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--hairline);
+  }
+}
+@media (min-width: 768px) {
+  .card {
+    padding: 2rem;
+  }
+}
+
+/* The shell (design v3 §5): a white top bar with a hairline under it. Wordmark left, the
+   links in the centre, the avatar menu right. Under 1024px the links and the avatar fold
+   into one circular button that opens a full-width sheet. Both menus are native <details>. */
+.topbar {
+  position: relative;
+  z-index: 30;
+  background: var(--paper);
+  border-bottom: 1px solid var(--hairline);
+}
+.topbar-inner {
   display: flex;
-  flex-direction: column;
-}
-.rail {
-  display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 0.25rem;
-  padding: 0.5rem;
-  background: var(--color-surface-1);
-  border-bottom: 1px solid var(--color-border);
-}
-.rail-toggle,
-.rail-icon-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.5rem;
-  border-radius: var(--radius-control);
-  color: var(--color-text-2);
-  background: none;
-  border: 0;
-  cursor: pointer;
-}
-.rail-toggle:hover,
-.rail-icon-button:hover {
-  background: var(--color-surface-2);
-  color: var(--color-text);
-}
-.rail-body {
-  display: none;
-  flex-basis: 100%;
-  flex-direction: column;
+  justify-content: space-between;
   gap: 1rem;
-  padding: 0.5rem 0.25rem 0.75rem;
+  max-width: 1360px;
+  margin: 0 auto;
+  padding: 0.75rem 1rem;
 }
-body.rail-open .rail-body {
-  display: flex;
-}
-.rail-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-.rail-group-title {
-  margin: 0.25rem 0 0;
-  padding: 0 0.5rem;
-  color: var(--color-text-3);
-  font-size: 0.6875rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-.rail-link {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.5rem;
-  border-radius: var(--radius-control);
-  color: var(--color-text-2);
+.wordmark {
+  font-size: 1.25rem;
+  letter-spacing: -0.01em;
+  color: var(--ink);
   text-decoration: none;
 }
-.rail-link:hover,
-.rail-link:focus-visible {
-  background: var(--color-surface-2);
-  color: var(--color-text);
-}
-.rail-icon {
-  width: 1.25rem;
-  height: 1.25rem;
-  flex: none;
-}
-.rail-label {
-  white-space: nowrap;
-}
-.rail-collapsed {
+.topnav {
   display: none;
-}
-.main {
-  flex: 1;
-  width: 100%;
-  padding: 1.5rem 1rem;
-}
-
-/* The score component (§12.1): fill on the number and the segments, a band word beside
-   them, and never colour alone. Band colours are keyed on the band, not a utility, so a
-   threshold change is one edit here. */
-.score-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.75rem;
-}
-.score-label {
-  color: var(--color-text-2);
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.25rem 1.5rem;
   font-size: 0.875rem;
 }
+.nav-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  color: var(--slate);
+  text-decoration: none;
+}
+.nav-link:hover {
+  color: var(--ink);
+}
+.nav-link[aria-current="page"] {
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.menu > summary {
+  list-style: none;
+  cursor: pointer;
+}
+.menu > summary::-webkit-details-marker {
+  display: none;
+}
+.avatar-menu {
+  display: none;
+  position: relative;
+}
+.avatar,
+.menu-button-round {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 9999px;
+  background: var(--vellum);
+  color: var(--ink);
+  font-size: 0.8125rem;
+}
+.menu-panel {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  min-width: 13rem;
+  padding: 0.5rem;
+  background: var(--paper);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-card);
+}
+.menu-link {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0 0.75rem;
+  border-radius: var(--radius-pill);
+  background: none;
+  border: 0;
+  font-size: 0.875rem;
+  color: var(--ink);
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+.menu-link:hover,
+.sheet-link:hover {
+  background: var(--vellum);
+}
+.menu-link[aria-current="page"],
+.sheet-link[aria-current="page"] {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.lang-switch {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-height: 2.75rem;
+  padding: 0 0.75rem;
+  font-size: 0.875rem;
+}
+.lang-label {
+  margin-right: auto;
+  color: var(--slate);
+}
+.lang-option {
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: none;
+  color: var(--slate);
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+.lang-option[aria-current="true"] {
+  background: var(--vellum);
+  color: var(--ink);
+}
+.menu-button {
+  font: inherit;
+  font-size: 0.875rem;
+}
+/* The phone sheet: full width under the bar, the page behind it locked. */
+.sheet {
+  position: fixed;
+  inset: 0;
+  top: var(--topbar-h, 4.25rem);
+  z-index: 40;
+  overflow-y: auto;
+  padding: 1rem;
+  background: var(--paper);
+}
+.sheet-links {
+  display: flex;
+  flex-direction: column;
+}
+.sheet-account {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--hairline);
+}
+.sheet-link {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 3rem;
+  padding: 0 0.75rem;
+  border-radius: var(--radius-pill);
+  background: none;
+  border: 0;
+  font-size: 1.125rem;
+  color: var(--ink);
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+body.sheet-open {
+  overflow: hidden;
+}
+.main {
+  width: 100%;
+  padding: 1.5rem 1rem 3rem;
+}
+@media (min-width: 768px) {
+  .topbar-inner {
+    padding: 0.75rem 2rem;
+  }
+  .main {
+    padding: 2.5rem 2rem 5rem;
+  }
+}
+/* Eight Spanish links are about 660px wide; with the wordmark, the avatar and the gutters the
+   bar needs about 860px on one line. From lg (1024) it fits with room to spare; below that the
+   links and the avatar menu stay folded into the circular button and the sheet. */
+@media (min-width: 1024px) {
+  .topnav,
+  .avatar-menu {
+    display: flex;
+  }
+  .sheet-menu {
+    display: none;
+  }
+}
+
+/* The score component (design v3 §4): a 12px slate label above, the number in ink, the band
+   word beside it (Fuerte in forest, the others in ink), five segments below — filled ones
+   forest, empty ones hairline. The word carries the band; colour is never the only signal. */
+.score-head {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.score-label {
+  color: var(--slate);
+  font-size: 0.75rem;
+}
+.score-line {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+}
+/* One colour per band (design v3 §4, amended 2026-10-12): the number (hero and stat), the
+   band word, the filled segments, the sub-score bar below it and the Job Match bar's own
+   fill. The empty segments stay hairline and the band word still says the band, so colour
+   is never the only signal. The variable is set on `[data-band]`, not on `.score`, because
+   the Job Match bar carries its own band attribute and needs the same value. */
+[data-band="strong"] {
+  --band-color: var(--forest);
+}
+[data-band="adequate"] {
+  --band-color: var(--ochre);
+}
+[data-band="weak"] {
+  --band-color: var(--brick);
+}
+.score-number,
+.score-band {
+  color: var(--band-color, var(--ink));
+}
 .score-number {
-  font-size: 1.75rem;
-  font-weight: 600;
-  line-height: 1.1;
+  font-size: 2.25rem;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
 }
-.score[data-band="strong"] .score-number {
-  color: var(--color-score-strong);
+.score-hero .score-number {
+  font-size: 4.5rem;
+  line-height: 1;
+  letter-spacing: -0.03em;
 }
-.score[data-band="adequate"] .score-number {
-  color: var(--color-score-adequate);
+.score-scale {
+  font-size: 0.875rem;
+  color: var(--slate);
 }
-.score[data-band="weak"] .score-number {
-  color: var(--color-score-weak);
+.score-band {
+  margin: 0;
+  font-size: 1rem;
 }
 .score-segments {
   display: flex;
@@ -180,33 +503,58 @@ body.rail-open .rail-body {
 }
 .score-segment {
   height: 0.375rem;
-  flex: 1;
-  border-radius: var(--radius-tag);
-  background: var(--color-surface-2);
+  width: 2.25rem;
+  border-radius: var(--radius-pill);
+  background: var(--hairline);
 }
-.score-band {
-  margin: 0.375rem 0 0;
-  color: var(--color-text-3);
-  font-size: 0.75rem;
+/* A sub-score's own progress bar: the band colour on a vellum track (design v3 §4). */
+.score-bar {
+  height: 0.375rem;
+  margin-top: 0.5rem;
+  border-radius: var(--radius-pill);
+  background: var(--vellum);
+  overflow: hidden;
+}
+.score-bar span {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--band-color, var(--forest));
+}
+/* A bare score number outside the Score component (design v3 §4: the band colours are on
+   score surfaces): the history's *Ajuste* column and an attempt's sub-score values take
+   their band's colour, so every score in the app reads the same way. */
+.band-number-strong {
+  color: var(--forest);
+}
+.band-number-adequate {
+  color: var(--ochre);
+}
+.band-number-weak {
+  color: var(--brick);
 }
 .score-caption {
-  margin: 0.25rem 0 0;
-  color: var(--color-text-2);
-  font-size: 0.8125rem;
+  margin: 0.375rem 0 0;
+  color: var(--slate);
+  font-size: 0.75rem;
 }
-.score-scale {
-  font-size: 0.875rem;
-  font-weight: 400;
-  color: var(--color-text-3);
+.is-on {
+  background: var(--forest);
+}
+/* A filled score segment takes its band's colour; the level bars above keep the forest. */
+.score-segment.is-on {
+  background: var(--band-color, var(--forest));
 }
 /* The Job Match bar: the score it would have without the cap, the score it has, and the
-   cap marked only as a tick (§12.1's item 2). */
+   cap marked only as a tick. Its fill takes the same band colour as the number and the
+   segments above it, so one band never shows two colours; the uncapped remainder stays
+   stone. */
 .match {
   position: relative;
-  height: 0.5rem;
-  margin-top: 0.75rem;
-  border-radius: var(--radius-tag);
-  background: var(--color-surface-2);
+  height: 0.375rem;
+  margin-top: 1rem;
+  border-radius: var(--radius-pill);
+  background: var(--vellum);
   overflow: hidden;
 }
 .match-uncapped,
@@ -217,110 +565,128 @@ body.rail-open .rail-body {
   left: 0;
 }
 .match-uncapped {
-  background: var(--color-border);
+  background: var(--stone);
 }
 .match-fill {
-  background: var(--color-text-3);
-}
-.match[data-band="strong"] .match-fill {
-  background: var(--color-score-strong);
-}
-.match[data-band="adequate"] .match-fill {
-  background: var(--color-score-adequate);
-}
-.match[data-band="weak"] .match-fill {
-  background: var(--color-score-weak);
+  background: var(--band-color, var(--forest));
 }
 .match-tick {
   position: absolute;
-  top: -0.125rem;
-  bottom: -0.125rem;
+  top: 0;
+  bottom: 0;
   width: 2px;
-  background: var(--color-text);
+  background: var(--ink);
 }
 /* The Skills split: direct against transfer, two segments of one bar. */
 .split-bar {
   display: flex;
-  height: 0.5rem;
+  height: 0.375rem;
   margin-top: 0.5rem;
-  border-radius: var(--radius-tag);
+  border-radius: var(--radius-pill);
   overflow: hidden;
-  background: var(--color-surface-2);
+  background: var(--vellum);
 }
 .split-direct {
-  background: var(--color-score-strong);
+  background: var(--forest);
 }
 .split-transfer {
-  background: var(--color-score-adequate);
+  background: var(--stone);
 }
 
-.band-strong.is-on {
-  background: var(--color-score-strong);
-}
-.band-adequate.is-on {
-  background: var(--color-score-adequate);
-}
-.band-weak.is-on {
-  background: var(--color-score-weak);
-}
-
-/* Shared tags: outlined, never a fill, so a tag reads as a label and not as a state. */
+/* Tags and chips: pills. A tag is a hairline label; a chip says whether a term is in the
+   file — present is vellum with a ✓, missing is a dashed slate outline with a ✕ (shape and
+   mark, never colour alone). */
 .tag {
   display: inline-block;
-  padding: 0.125rem 0.5rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-tag);
+  padding: 0.125rem 0.625rem;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-pill);
   font-size: 0.75rem;
-  color: var(--color-text-2);
+  color: var(--slate);
 }
 .tag-strong {
-  border-color: var(--color-score-strong);
-  color: var(--color-score-strong);
+  border-color: var(--forest);
+  color: var(--forest);
 }
 .tag-warning {
-  border-color: var(--color-sev-warning);
-  color: var(--color-sev-warning);
+  border-color: var(--slate);
+  color: var(--slate);
 }
 .tag-danger {
-  border-color: var(--color-sev-blocker);
-  color: var(--color-sev-blocker);
+  /* A failed recruiter search: the Débil colour, in outline (design v3 §4, Result colours). */
+  border-color: var(--brick);
+  color: var(--brick);
+}
+.tag-proposal {
+  border-color: var(--lime);
+  background: var(--lime);
+  color: var(--ink);
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.75rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  background: var(--vellum);
+  color: var(--ink);
+  font-size: 0.75rem;
+}
+.chip-missing {
+  background: none;
+  border: 1px dashed var(--slate);
+  color: var(--pewter);
+}
+/* §12.1 item 3, amended 2026-10-13: level 1 is *mentioned*, not missing — the skills list
+   or the summary names it and no bullet shows it. A solid ochre hairline, the same colour a
+   requirement at level 1 takes; the glyph and the words carry the state. */
+.chip-mentioned {
+  background: none;
+  border: 1px solid var(--ochre);
+  color: var(--ink);
 }
 
-/* Severity (§12.1): outlined, never filled, and in its own palette. */
+/* Design v3 §2, amended 2026-10-13: the one place 600 is loaded — the subheadings inside a
+   dialog or pop-up (*Qué cambió*, *Nuevo en este documento*, *Qué queda*). 18 px ink,
+   nothing else in the interface is bold. */
+.dialog-subhead {
+  font-size: 1.125rem;
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/* Severity: told apart by shape and word — Bloqueo an ink outline with an octagon, Aviso a
+   slate outline with a triangle, Info a vellum fill with a circle. No uppercase, no fill
+   colour beyond vellum. */
 .sev-tag {
   display: inline-flex;
   align-items: center;
   gap: 0.375rem;
-  padding: 0.125rem 0.5rem;
-  border: 1px solid; /* colour set per level below */
-  border-radius: var(--radius-tag);
-  font-size: 0.6875rem;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  background: none;
+  padding: 0.125rem 0.625rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  font-size: 0.75rem;
 }
 .sev-icon {
-  width: 0.875rem;
-  height: 0.875rem;
+  width: 0.75rem;
+  height: 0.75rem;
   flex: none;
 }
-.sev-label {
-  font-weight: 500;
-}
 .sev-blocker {
-  border-color: var(--color-sev-blocker);
-  color: var(--color-sev-blocker);
+  border-color: var(--ink);
+  color: var(--ink);
 }
 .sev-warning {
-  border-color: var(--color-sev-warning);
-  color: var(--color-sev-warning);
+  border-color: var(--slate);
+  color: var(--ink);
 }
 .sev-info {
-  border-color: var(--color-sev-info);
-  color: var(--color-sev-info);
+  background: var(--vellum);
+  color: var(--pewter);
 }
 
-/* Evidence levels 0–3: three bars, filled to the level, with the number. */
+/* Evidence levels 0–3: three bars, filled forest to the level, with the number. */
 .level-bars {
   display: inline-flex;
   align-items: center;
@@ -329,45 +695,13 @@ body.rail-open .rail-body {
 .level-bar {
   width: 0.75rem;
   height: 0.375rem;
-  border-radius: var(--radius-tag);
-  background: var(--color-surface-2);
+  border-radius: var(--radius-pill);
+  background: var(--hairline);
 }
 .level-number {
   margin-left: 0.25rem;
-  color: var(--color-text-2);
+  color: var(--slate);
   font-size: 0.75rem;
-}
-
-@media (min-width: 640px) {
-  .shell {
-    flex-direction: row;
-  }
-  .rail {
-    flex-direction: column;
-    flex-wrap: nowrap;
-    align-items: stretch;
-    width: 4rem;
-    padding: 0.75rem 0.5rem;
-    border-bottom: 0;
-    border-right: 1px solid var(--color-border);
-  }
-  .rail-body {
-    display: flex;
-    flex-basis: auto;
-    padding: 0;
-  }
-  body.rail-open .rail {
-    width: 13rem;
-  }
-  body:not(.rail-open) .rail-label {
-    display: none;
-  }
-  body:not(.rail-open) .rail-collapsed {
-    display: flex;
-  }
-  .main {
-    padding: 2rem;
-  }
 }
 
 /* N8.4: the letter's variant blocks. The inline script shows one at a time; the rule
@@ -377,26 +711,26 @@ body.rail-open .rail-body {
 }
 
 /* F10.1 (C.1): the attempt modal. A native `<dialog>` — focus trapping, Escape and the
-   backdrop are the platform's — sized for a desktop panel and a full-screen sheet on a
-   phone (≤ 640 px, the width the design review uses). */
+   backdrop are the platform's — a white sheet over a 25 % ink scrim, no heavy shadow (design
+   v3 §3); a full-screen sheet on a phone (≤ 640 px). */
 .attempt-modal {
   /* Preflight zeroes every margin, which drops the UA's `margin: auto` centring. */
   margin: auto;
   width: min(42rem, 92vw);
   max-height: 88vh;
   overflow-y: auto;
-  border: 1px solid var(--color-card-border);
-  border-radius: var(--radius-card);
-  background: var(--color-surface-1);
-  color: var(--color-text);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
+  background: var(--paper);
+  color: var(--ink);
 }
 .attempt-modal::backdrop {
-  background: rgb(0 0 0 / 0.6);
+  background: rgb(23 23 23 / 0.25);
 }
 
 /* §12.4: the document drop zone. A dashed card that is a <label> for a visually hidden but
    focusable file input, so the keyboard ring is drawn on the card. Dragging a file over it
-   turns the outline to the interactive colour (never the score palette). */
+   turns the outline forest. The dash is slate (3:1 on paper), so the edge can be seen. */
 .dropzone {
   display: flex;
   flex-direction: column;
@@ -405,15 +739,15 @@ body.rail-open .rail-body {
   gap: 0.25rem;
   width: 100%;
   min-height: 5.5rem;
-  padding: 1rem;
+  padding: 1.25rem 1rem;
   text-align: center;
   cursor: pointer;
-  color: var(--color-text-2);
-  border: 2px dashed var(--color-border);
+  color: var(--ink);
+  border: 1px dashed var(--slate);
   border-radius: var(--radius-card);
 }
 .dropzone:hover {
-  border-color: var(--color-text-3);
+  background: var(--vellum);
 }
 .dropzone-icon {
   width: 1.5rem;
@@ -421,11 +755,11 @@ body.rail-open .rail-body {
 }
 .dropzone-formats {
   font-size: 0.75rem;
-  color: var(--color-text-3);
+  color: var(--slate);
 }
-.dropzone-input:focus + .dropzone {
-  outline: 2px solid var(--color-link);
-  outline-offset: 2px;
+.dropzone-input:focus-visible + .dropzone {
+  outline: 2px solid var(--forest);
+  outline-offset: 3px;
 }
 .dropzone-input:disabled + .dropzone {
   cursor: not-allowed;
@@ -437,13 +771,13 @@ body.rail-open .rail-body {
   align-items: center;
   gap: 0.25rem 0.75rem;
   padding: 0.5rem 1rem;
-  border: 2px dashed var(--color-border);
+  border: 1px dashed var(--slate);
   border-radius: var(--radius-card);
 }
 [data-dropzone-root][data-over] .dropzone,
 [data-dropzone-root][data-over] .dropzone-chosen {
-  border-color: var(--color-link);
-  color: var(--color-link);
+  border-color: var(--forest);
+  background: var(--vellum);
 }
 
 @media (max-width: 640px) {
@@ -467,13 +801,13 @@ body.rail-open .rail-body {
   width: min(42rem, 92vw);
   max-height: 88vh;
   overflow-y: auto;
-  border: 1px solid var(--color-card-border);
-  border-radius: var(--radius-card);
-  background: var(--color-surface-1);
-  color: var(--color-text);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
+  background: var(--paper);
+  color: var(--ink);
 }
 .dialog-sheet::backdrop {
-  background: rgb(0 0 0 / 0.6);
+  background: rgb(23 23 23 / 0.25);
 }
 @media (max-width: 640px) {
   .dialog-sheet {
@@ -509,7 +843,7 @@ body.rail-open .rail-body {
   margin: 0 0.25rem;
   border-right: 1.6px solid currentColor;
   border-bottom: 1.6px solid currentColor;
-  color: var(--color-text-2);
+  color: var(--slate);
   transform: rotate(-45deg);
   transition: transform 0.15s;
 }
@@ -517,55 +851,699 @@ body.rail-open .rail-body {
   transform: rotate(45deg);
 }
 .disclosure > summary:focus-visible {
-  outline: 2px solid var(--color-link);
-  outline-offset: 2px;
-  border-radius: var(--radius-control);
+  border-radius: var(--radius-pill);
 }
 
-/* §12.1 item 5: a requirement is a button outlined in its level's score colour; the
-   selected one gets a fill and an underline in the same colour, and aria-pressed is the
-   state — there is no class for a script to forget. */
+/* Collapsed sections (design v3 §4): a full-width row between hairlines — the title at 18px
+   on the left, a 14px slate summary on the right with a ▾ that turns when it is open. A
+   `.row-section` is also a `.disclosure`, so the chevron on the left is switched off. */
+.row-section {
+  border-top: 1px solid var(--hairline);
+}
+.row-section.row-last {
+  border-bottom: 1px solid var(--hairline);
+}
+.disclosure.row-section > summary {
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-height: 3.5rem;
+  padding: 0.75rem 0;
+  font-size: 1.125rem;
+}
+.disclosure.row-section > summary::before {
+  display: none;
+}
+.row-summary {
+  margin-left: auto;
+  color: var(--slate);
+  font-size: 0.875rem;
+  text-align: right;
+}
+.disclosure.row-section > summary::after {
+  content: "▾";
+  flex: none;
+  color: var(--slate);
+  font-size: 0.875rem;
+  transition: transform 0.15s;
+}
+.disclosure.row-section[open] > summary::after {
+  transform: rotate(180deg);
+}
+
+/* Requirement chips (design v3 §4): a pill with a hairline border and `Name · n/3`; level 0
+   has a dashed slate border; the selected one is lime-filled and aria-pressed is the state —
+   there is no class for a script to forget. */
 .req-chip {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
   min-height: 2.75rem;
-  padding: 0 0.875rem;
-  border: 1px solid var(--req-color, var(--color-border));
-  border-radius: var(--radius-control);
-  background: transparent;
-  color: var(--color-text);
+  padding: 0 1rem;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-pill);
+  background: var(--paper);
+  color: var(--ink);
   font-size: 0.875rem;
   text-align: left;
   cursor: pointer;
 }
 .req-chip:hover {
-  background: var(--color-surface-2);
+  background: var(--vellum);
 }
-.req-chip:focus-visible {
-  outline: 2px solid var(--color-link);
-  outline-offset: 2px;
+/* The level's colour, on the chip's border and on its `n/3` (design v3 §4, Result colours):
+   levels 2–3 forest, 1 ochre, 0 brick with a dashed border. The requirement's name stays
+   ink, and the selected chip keeps the lime fill, so colour is never the only signal. The
+   detail's level line carries the same two classes, so it takes the same colour. */
+.req-chip.req-strong {
+  border-color: var(--forest);
+}
+.req-chip.req-adequate {
+  border-color: var(--ochre);
+}
+.req-chip.req-weak {
+  border: 1px dashed var(--brick);
 }
 .req-chip[aria-pressed="true"] {
-  background: var(--color-surface-2);
-  box-shadow: inset 0 -2px 0 var(--req-color, var(--color-border));
+  background: var(--lime);
+  border-color: var(--lime);
 }
 .req-level {
-  color: var(--color-text-2);
+  color: var(--pewter);
   font-size: 0.75rem;
 }
-.req-strong {
-  --req-color: var(--color-score-strong);
+.req-level.req-strong {
+  color: var(--forest);
 }
-.req-adequate {
-  --req-color: var(--color-score-adequate);
+.req-level.req-adequate {
+  color: var(--ochre);
 }
-.req-weak {
-  --req-color: var(--color-score-weak);
+.req-level.req-weak {
+  color: var(--brick);
+}
+
+/* §12.7: the report's two panes. The CV is a white sheet on the canvas, sticky with its
+   own scroll (≥ 1280 px); the commentary is the same blocks as the single column. */
+.cv-column {
+  position: sticky;
+  top: 1.5rem;
+  /* The A4 sheet is taller than the viewport, so the pane itself is the scroll box; the
+     script finds it when it walks up from a mark. */
+  max-height: calc(100vh - 3rem);
+  overflow-y: auto;
+}
+.cv-pane {
+  display: flex;
+  flex-direction: column;
+}
+.cv-swatch {
+  display: inline-block;
+  width: 1rem;
+  height: 0.5rem;
+  border-radius: 2px;
+  background: var(--lime);
+}
+.cv-step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-pill);
+  background: var(--paper);
+  color: var(--ink);
+  cursor: pointer;
+}
+.cv-step:hover {
+  background: var(--vellum);
+}
+.cv-chip {
+  cursor: pointer;
+}
+
+/* Texto / Archivo original: a segmented pill of two radios, switched with `:has()` so it
+   works without JavaScript (design v3 §4). */
+.cv-toggle {
+  display: inline-flex;
+  background: var(--vellum);
+  border-radius: var(--radius-pill);
+  padding: 4px;
+}
+.cv-toggle-option {
+  border-radius: var(--radius-pill);
+  padding: 6px 14px;
+  font-size: 0.8125rem;
+  color: var(--slate);
+  cursor: pointer;
+}
+.cv-views:has(#cv-view-text:checked) label[for="cv-view-text"],
+.cv-views:has(#cv-view-file:checked) label[for="cv-view-file"] {
+  background: var(--paper);
+  color: var(--ink);
+}
+.cv-view {
+  display: none;
+}
+.cv-views:has(#cv-view-text:checked) .cv-view-text,
+.cv-views:has(#cv-view-file:checked) .cv-view-file {
+  display: block;
+}
+
+/* The sheet: the stored draft as text, on the one soft shadow (design v3 §3), with the
+   mark map as a track down its right edge. The body scrolls inside the pane. */
+.cv-sheet {
+  position: relative;
+  /* The sheet is the container: its own width is what the body's type is sized against. */
+  container-type: inline-size;
+  background: var(--paper);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-card);
+  box-shadow:
+    rgba(207, 207, 207, 0.01) 0 132px 53px,
+    rgba(207, 207, 207, 0.05) 0 74px 44px,
+    rgba(207, 207, 207, 0.09) 0 33px 33px,
+    rgba(207, 207, 207, 0.1) 0 8px 18px;
+}
+.cv-sheet-body {
+  padding: 2.5rem 2.75rem 2.75rem 2.5rem;
+  /* The drawer and the phone sheet keep readable text: never under 13 px. */
+  font-size: max(13px, 1.85cqw);
+  line-height: 1.4;
+  max-height: calc(100vh - 24rem);
+  overflow-y: auto;
+}
+/* The CV as an A4 page (design v3 §5, amended 2026-10-12). In the inline pane only: the
+   sheet is paper — A4 width-to-height as its minimum height, margins at 9.5 % of its width,
+   type sized to the sheet like a printed CV, and a faint dashed page-break line at every A4
+   height, so a CV longer than a page shows where its pages would break. The pane scrolls. */
+.cv-column .cv-sheet-body {
+  padding: 9.5cqw;
+  /* Type sized to the sheet like a printed CV, with the same 13 px floor the drawer and
+     the phone sheet keep: a 1280 px window is where 1.85cqw would fall under it. */
+  font-size: max(13px, 1.85cqw);
+  min-height: calc(100cqw * 297 / 210);
+  max-height: none;
+  overflow: visible;
+  background-image:
+    linear-gradient(to right, transparent 0 6px, var(--paper) 6px 12px),
+    linear-gradient(to bottom, transparent 0 calc(100% - 1px), var(--hairline) calc(100% - 1px));
+  background-size: 12px 100%, 100% calc(100cqw * 297 / 210);
+  background-position: 0 0;
+  background-repeat: repeat, repeat;
+  /* The hairline is the last pixel of each A4-tall tile, not its first: a line at the
+     tile's top would also fall at y = 0, because the tiles repeat upwards as well, and the
+     top edge of the first page would carry a page break that is not one. */
+}
+.cv-mark-map {
+  position: absolute;
+  top: 1.25rem;
+  bottom: 1.25rem;
+  right: 0.75rem;
+  width: 3px;
+  border-radius: var(--radius-pill);
+  background: var(--vellum);
+}
+.cv-tick {
+  position: absolute;
+  right: 0;
+  width: 3px;
+  height: 12px;
+  border-radius: var(--radius-pill);
+  background: var(--lime);
+}
+.cv-headline {
+  /* The CV's name: 2.4× the body, so it scales with the sheet like a printed CV. */
+  font-size: 2.4em;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+}
+.cv-summary {
+  margin-top: 1.25rem;
+}
+.cv-caption {
+  margin-top: 1.75rem;
+  /* A section label: 1.1× the body. */
+  font-size: 1.1em;
+  color: var(--slate);
+}
+/* The role line is one run of text: a flex row made every word (and every `<mark>`) its
+   own item and spread the header across the sheet. One block, marks inline. */
+.cv-role {
+  margin-top: 0.5rem;
+}
+.cv-bullets {
+  margin: 0.375rem 0 0;
+  padding-left: 1.125rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+.cv-skills,
+.cv-entry {
+  margin-top: 0.375rem;
+}
+.cv-page {
+  width: 100%;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-card);
+}
+.cv-page + .cv-page {
+  margin-top: 1rem;
+}
+
+/* The two tones (design v3 §4): base is the lighter highlight fill, every mark without
+   script; weaker evidence is a dashed forest underline and never a fill. Every mark also
+   carries an underline, so it still reads as a mark when its section is not the one on
+   screen. The intense tone (lime) is the word(s) of the item the user points at, and the
+   section on screen lights its own marks with a left-to-right sweep (≈ 350 ms) — both S3c:
+   `data-active` comes from the observer, `data-intense` from the script. */
+.hl {
+  background: var(--highlight);
+  color: var(--ink);
+  padding: 0 0.05em;
+  border-radius: 3px;
+  text-decoration: underline;
+  text-decoration-color: var(--lime);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 2px;
+}
+.hl-weak {
+  background: none;
+  border-bottom: 2px dashed var(--forest);
+  border-radius: 0;
+  text-decoration: none;
+}
+/* With script the fill follows the section on screen: one colour drawn as a gradient whose
+   width is what transitions, so the fill sweeps in from the left instead of appearing. */
+.cv-js .hl:not(.hl-weak) {
+  background-image: linear-gradient(var(--hl-fill, transparent), var(--hl-fill, transparent));
+  background-repeat: no-repeat;
+  background-position: left center;
+  background-size: var(--hl-sweep, 0%) 100%;
+  background-color: transparent;
+  transition: background-size 350ms ease;
+}
+/* `:where()` keeps these selectors at the weight of their own part, so the intense rule
+   below always wins over the section rule however they are ordered. */
+:where(.cv-js [data-cv-pane][data-active="components"]) .hl[data-section~="components"],
+:where(.cv-js [data-cv-pane][data-active="recruiter"]) .hl[data-section~="recruiter"],
+:where(.cv-js [data-cv-pane][data-active="requirements"]) .hl[data-section~="requirements"],
+:where(.cv-js [data-cv-pane][data-active="recommendations"]) .hl[data-section~="recommendations"] {
+  --hl-fill: var(--highlight);
+  --hl-sweep: 100%;
+}
+.cv-js .hl[data-intense] {
+  --hl-fill: var(--lime);
+  --hl-sweep: 100%;
+}
+.cv-js .hl-weak[data-intense] {
+  /* Weak evidence is never a fill: pointing at it strengthens the dashed underline. */
+  border-bottom-color: var(--ink);
+}
+.cv-js .hl:focus {
+  outline: 2px solid var(--forest);
+  outline-offset: 3px;
+}
+/* The focus fade (design v3 §5, amended 2026-10-12): while a section is active the sheet's
+   unmarked text turns slate and the marked words keep ink on their fill, so the highlights
+   stand out in a full page. Both conditions are the script's — no `.cv-js` and no
+   `data-active` means no fade — and reduced motion keeps the colour, not the transition. */
+.cv-js [data-cv-pane][data-active] .cv-sheet-body {
+  color: var(--slate);
+  transition: color 350ms ease;
+}
+.cv-js [data-cv-pane][data-active] .cv-sheet-body .cv-headline {
+  color: var(--ink);
+}
+/* One pulse when a jump lands on a mark; the underline and the dashed border stay put. */
+@keyframes cv-pulse {
+  from {
+    box-shadow: 0 0 0 3px rgb(196 240 122 / 0.85);
+  }
+  to {
+    box-shadow: 0 0 0 3px rgb(196 240 122 / 0);
+  }
+}
+.cv-js .hl[data-pulse] {
+  animation: cv-pulse 600ms ease-out;
+}
+/* Reduced motion (§12.7, design v3): no sweep and no pulse. The script also refuses to
+   pulse or to scroll smoothly — this is the stylesheet's own promise. */
+@media (prefers-reduced-motion: reduce) {
+  .cv-js .hl:not(.hl-weak) {
+    transition: none;
+  }
+  .cv-js .hl[data-pulse] {
+    animation: none;
+  }
+  /* The fade still greys the unmarked text; it just does not animate. */
+  .cv-js [data-cv-pane][data-active] .cv-sheet-body {
+    transition: none;
+  }
+}
+/* The mark map's ticks (design v3 §4): lime, and forest for the section on screen. */
+:where(.cv-js [data-cv-pane][data-active="components"]) .cv-tick[data-section~="components"],
+:where(.cv-js [data-cv-pane][data-active="recruiter"]) .cv-tick[data-section~="recruiter"],
+:where(.cv-js [data-cv-pane][data-active="requirements"]) .cv-tick[data-section~="requirements"],
+:where(.cv-js [data-cv-pane][data-active="recommendations"]) .cv-tick[data-section~="recommendations"] {
+  background: var(--forest);
+}
+
+/* The tablet drawer's opener and the two dialogs the phone and tablet use; the script loads
+   the pane fragment into them and opens them. The opener is fixed near the bottom of the
+   viewport between 768 and 1279 px — a sticky element at the end of the flow only stuck
+   inside its own box, which left the control off screen — and the report reserves 4rem of
+   room for it, so it never hides the last row. */
+.cv-drawer-open {
+  align-items: center;
+  justify-content: center;
+  position: fixed;
+  left: 1rem;
+  bottom: calc(1rem + env(safe-area-inset-bottom));
+  z-index: 10;
+  min-height: 2.75rem;
+  padding: 0 1.25rem;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-pill);
+  background: var(--paper);
+  color: var(--ink);
+  cursor: pointer;
+}
+.cv-drawer-dialog,
+.cv-sheet-dialog {
+  background: var(--paper);
+  color: var(--ink);
+  padding: 0;
+}
+.cv-drawer-dialog::backdrop,
+.cv-sheet-dialog::backdrop {
+  background: rgb(23 23 23 / 0.25);
+}
+/* Tablet: the drawer comes from the left (design v3 §5). */
+.cv-drawer-dialog {
+  margin: 0 auto 0 0;
+  height: 100vh;
+  max-height: 100vh;
+  width: min(30rem, 92vw);
+  max-width: none;
+  border: 0;
+  border-right: 1px solid var(--hairline);
+  border-radius: 0;
+  overflow-y: auto;
+}
+/* Phone: the bottom sheet, 24px top radius (design v3 §3). */
+.cv-sheet-dialog {
+  margin: auto 0 0;
+  width: 100%;
+  max-width: none;
+  max-height: 80vh;
+  border: 0;
+  border-top: 1px solid var(--hairline);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  overflow-y: auto;
+}
+/* The drawer's and the sheet's own header: the mark the steps are on, and the controls.
+   It carries the sheet's side padding, so the status line never touches the dialog's edge
+   (16px on the phone sheet, 24px in the tablet drawer). */
+.cv-pane-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0 1rem 0.75rem;
+  margin-bottom: 0.75rem;
+  border-bottom: 1px solid var(--hairline);
+  font-size: 0.8125rem;
+  color: var(--slate);
+}
+.cv-drawer-dialog .cv-pane-head {
+  padding-inline: 1.5rem;
+}
+/* The phone sheet's grab handle (design v3 §5); the drawer has none. */
+.cv-sheet-handle {
+  width: 2.5rem;
+  height: 0.25rem;
+  margin: 0.625rem auto 0;
+  border-radius: var(--radius-pill);
+  background: var(--hairline);
+}
+
+/* The header strip's Job Match pill (design v3 §5): vellum, the number, and a dot in the
+   Job Match's own band colour (design v3 §4). */
+.job-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--vellum);
+  border-radius: var(--radius-pill);
+  padding: 0.5rem 0.875rem;
+  font-size: 0.875rem;
+}
+.job-pill-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: var(--radius-pill);
+  background: var(--forest);
+}
+.job-pill[data-band="strong"] .job-pill-dot {
+  background: var(--forest);
+}
+.job-pill[data-band="adequate"] .job-pill-dot {
+  background: var(--ochre);
+}
+.job-pill[data-band="weak"] .job-pill-dot {
+  background: var(--brick);
 }
 
 /* §12.1 item 6: an advice item's evidence is clamped to two lines, and "Ver más" opens
    the full text in its place — the clamped copy hides while its <details> is open. */
 .advice-evidence:has(details[open]) > .advice-clamp {
   display: none;
+}
+
+/* The landing's preview card (§12.8, design v3 §3): the one soft shadow in the system, the
+   same four layers as the CV sheet. Every other card on the page stays flat. */
+.landing-card {
+  box-shadow:
+    rgba(207, 207, 207, 0.01) 0 132px 53px,
+    rgba(207, 207, 207, 0.05) 0 74px 44px,
+    rgba(207, 207, 207, 0.09) 0 33px 33px,
+    rgba(207, 207, 207, 0.1) 0 8px 18px;
+}
+
+/* The landing hero's ribbon (§12.8): one decorative stroke of stone behind the headline,
+   drawn as an inline SVG that is hidden from assistive technology. Stone is a fill here,
+   never a border and never text. */
+.ribbon-fade {
+  stop-color: var(--stone);
+  stop-opacity: 0;
+}
+.ribbon-soft {
+  stop-color: var(--stone);
+  stop-opacity: 0.45;
+}
+.ribbon-strong {
+  stop-color: var(--stone);
+  stop-opacity: 0.55;
+}
+
+/* The landing's reveal on scroll (§12.8, design v3 §5): a fade and a short rise, and nothing
+   hidden on its own. Two paths, both inside `prefers-reduced-motion: no-preference`:
+   - a browser with scroll-driven animations animates each element against its own entry,
+     with no script at all;
+   - otherwise the landing's script adds the class `reveal-js` to <html> and the class
+     `is-visible` to each element as it enters. Without JavaScript neither class exists, so
+     the page is simply visible. */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes landing-reveal {
+    from {
+      opacity: 0;
+      transform: translateY(16px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  @supports (animation-timeline: view()) {
+    .reveal {
+      animation: landing-reveal linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 30%;
+    }
+  }
+  @supports not (animation-timeline: view()) {
+    .reveal-js .reveal {
+      opacity: 0;
+      transform: translateY(16px);
+      transition: opacity 0.6s ease, transform 0.6s ease;
+    }
+    .reveal-js .reveal.is-visible {
+      opacity: 1;
+      transform: none;
+    }
+  }
+}
+
+/* The logged-in home (§12.8, design v3 §5): the greeting and the question, three cards
+   with their state lines, then the last report beside the activity. Same greys, forest
+   for the posting card, and one soft shadow only where the design asks for one (nowhere
+   on this page). */
+.home-hero {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  align-items: center;
+  padding-top: 2rem;
+  text-align: center;
+}
+.home-greeting {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--slate);
+}
+.home-title {
+  margin: 0;
+  font-size: 2.25rem;
+  line-height: 1.11;
+  letter-spacing: -0.02em;
+}
+.home-cards {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+  margin-top: 3rem;
+}
+.home-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 1.5rem;
+  min-height: 220px;
+  padding: 1.75rem;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-card);
+  color: var(--ink);
+  text-decoration: none;
+}
+.home-card:hover {
+  background: var(--vellum);
+}
+.home-card-primary {
+  background: var(--forest);
+  border-color: transparent;
+  color: var(--paper);
+}
+.home-card-primary:hover {
+  background: color-mix(in srgb, var(--forest) 88%, #000);
+}
+.home-card-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: var(--radius-pill);
+  background: var(--vellum);
+}
+.home-card-primary .home-card-icon {
+  background: rgba(255, 255, 255, 0.14);
+}
+.home-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+.home-card-title {
+  font-size: 2.25rem;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+}
+.home-card-state {
+  font-size: 0.875rem;
+  color: var(--slate);
+}
+.home-card-primary .home-card-state {
+  color: rgba(255, 255, 255, 0.8);
+}
+.home-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 3rem;
+  margin-top: 4rem;
+}
+.home-section-title {
+  margin: 0 0 1rem;
+  font-size: 1.125rem;
+  line-height: 1.38;
+}
+.home-continue {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.5rem;
+  border-radius: var(--radius-card);
+  background: var(--vellum);
+  color: var(--ink);
+  text-decoration: none;
+}
+.home-continue:hover {
+  background: color-mix(in srgb, var(--vellum) 92%, #000);
+}
+.home-continue-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+.home-continue-title {
+  font-size: 1rem;
+}
+.home-continue-meta {
+  font-size: 0.8125rem;
+  color: var(--slate);
+}
+.home-continue-score {
+  font-size: 2.25rem;
+  line-height: 1;
+}
+.home-activity {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.home-activity li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.875rem 0;
+  border-top: 1px solid var(--hairline);
+  font-size: 0.875rem;
+}
+.home-activity li:last-child {
+  border-bottom: 1px solid var(--hairline);
+}
+.home-activity-when {
+  color: var(--slate);
+  white-space: nowrap;
+}
+.home-empty {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--slate);
+}
+@media (min-width: 768px) {
+  .home-title {
+    font-size: 3.75rem;
+    line-height: 1.1;
+  }
+  .home-cards {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (min-width: 900px) {
+  .home-columns {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }

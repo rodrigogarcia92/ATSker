@@ -16,6 +16,278 @@ STRINGS: dict[str, dict[str, str]] = {
         "es": "Evaluación de ajuste entre tu currículum y una oferta",
         "en": "How well your résumé matches a job posting",
     },
+    # §12.8 landing (lane C)
+    # The logged-out page at `/`: its copy is the approved mockup's
+    # (`private_docs/design/v3/Landing.dc.html`), which follows §12.8 and the README. The
+    # preview card is static sample data — no product image exists until N8.18 — so its
+    # figures and terms are literals here, not a second report.
+    "landing.announce": {
+        "es": "La demo pública, gratis y sin registro, está en camino.",
+        "en": "The public demo, free and without sign-up, is on its way.",
+    },
+    "landing.announce.link": {"es": "Ver el proyecto", "en": "See the project"},
+    "landing.nav.label": {"es": "Secciones", "en": "Sections"},
+    "landing.nav.gaps": {"es": "Brechas", "en": "Gaps"},
+    "landing.nav.how": {"es": "Cómo funciona", "en": "How it works"},
+    "landing.nav.privacy": {"es": "Privacidad", "en": "Privacy"},
+    "landing.login": {"es": "Iniciar sesión", "en": "Log in"},
+    "landing.demo": {"es": "Probar la demo", "en": "Try the demo"},
+    "landing.hero.eyebrow": {
+        "es": "Con IA · En español y en inglés",
+        "en": "AI-powered · Spanish and English",
+    },
+    "landing.hero.headline": {
+        "es": "Tú controlas tu CV. ATSker te ayuda a afinarlo para cada oferta.",
+        "en": "You control your CV. ATSker helps you tune it for every job.",
+    },
+    "landing.hero.subline": {
+        "es": (
+            "Tu puntaje, sin caja negra. Tus brechas, a la vista. "
+            "Consejos que puedes aplicar hoy."
+        ),
+        "en": "Your score, no black box. Your gaps, in plain sight. Advice you can apply today.",
+    },
+    "landing.github": {"es": "Ver en GitHub", "en": "See it on GitHub"},
+    "landing.preview.role": {"es": "Analista de datos", "en": "Data analyst"},
+    # The `{term}` placeholder is the highlighted word in each bullet; the template wraps
+    # it in the §12.7 mark, so the sentence stays whole in one string.
+    "landing.preview.bullet.one": {
+        "es": (
+            "Automaticé el reporte semanal de cobranzas con Python y {term}, "
+            "reduciendo 30% el tiempo de cierre."
+        ),
+        "en": (
+            "I automated the weekly collections report with Python and {term}, "
+            "cutting close time by 30%."
+        ),
+    },
+    "landing.preview.bullet.two": {
+        "es": "{term} para el data mart de riesgo.",
+        "en": "{term} for the risk data mart.",
+    },
+    "landing.preview.bullet.two.term": {
+        "es": "Modelé un esquema dimensional",
+        "en": "I modelled a dimensional schema",
+    },
+    "landing.preview.bullet.three": {
+        "es": "Diseñé tableros en {term} para el equipo comercial.",
+        "en": "I designed {term} dashboards for the sales team.",
+    },
+    "landing.preview.caption": {"es": "Ajuste general · ejemplo", "en": "Overall fit · example"},
+    "landing.preview.sub.skills": {"es": "Habilidades", "en": "Skills"},
+    "landing.preview.sub.experience": {"es": "Experiencia", "en": "Experience"},
+    "landing.preview.sub.title": {"es": "Título", "en": "Title"},
+    "landing.preview.sub.keywords": {"es": "Palabras", "en": "Keywords"},
+    "landing.preview.sample": {"es": "Datos de ejemplo", "en": "Sample data"},
+    "landing.gaps.divider": {"es": "El análisis de brechas", "en": "The gap analysis"},
+    "landing.gaps.title": {
+        "es": "Antes de postular, conoce tus brechas",
+        "en": "Before you apply, know your gaps",
+    },
+    "landing.gaps.discard.title": {"es": "Lo que te descarta", "en": "What rules you out"},
+    "landing.gaps.discard.body": {
+        "es": "Los requisitos imprescindibles que tu CV no muestra, primero.",
+        "en": "The must-have requirements your CV does not show, first.",
+    },
+    "landing.gaps.transfer.title": {"es": "Lo cubierto por transferencia", "en": "What transfers"},
+    "landing.gaps.transfer.body": {
+        "es": (
+            "Lo que acreditas con una herramienta equivalente, y el argumento "
+            "que conviene preparar."
+        ),
+        "en": "What you can prove with an equivalent tool, and the argument worth preparing.",
+    },
+    "landing.gaps.close.title": {
+        "es": "Lo que puedes cerrar hoy",
+        "en": "What you can close today",
+    },
+    "landing.gaps.close.body": {
+        "es": (
+            "Lo que tu material ya cubre y tu CV no dice, separado de lo que "
+            "solo la experiencia cerrará."
+        ),
+        "en": (
+            "What your material already covers and your CV does not say, apart "
+            "from what only experience will close."
+        ),
+    },
+    "landing.questions.ats.title": {
+        "es": "¿El ATS puede leer tu CV?",
+        "en": "Can the ATS read your CV?",
+    },
+    "landing.questions.ats.body": {
+        "es": (
+            "Texto oculto, contacto en el encabezado, tablas y columnas, cada "
+            "uno con «muéstrame dónde»."
+        ),
+        "en": (
+            "Hidden text, contact details in the header, tables and columns, "
+            "each with “show me where”."
+        ),
+    },
+    "landing.questions.recruiter.title": {
+        "es": "¿Te encuentra el reclutador?",
+        "en": "Will the recruiter find you?",
+    },
+    "landing.questions.recruiter.body": {
+        "es": (
+            "Las búsquedas que correría un reclutador, listas para copiar, con "
+            "«apareces» o «no apareces»."
+        ),
+        "en": (
+            "The searches a recruiter would run, ready to copy, with “you appear” "
+            "or “you do not”."
+        ),
+    },
+    "landing.what.divider": {"es": "Qué hace", "en": "What it does"},
+    "landing.what.import.title": {"es": "Importa una vez", "en": "Import once"},
+    "landing.what.import.body": {
+        "es": "Revisas lo extraído antes de guardar nada.",
+        "en": "You review what was extracted before anything is saved.",
+    },
+    "landing.what.tracks.title": {"es": "Líneas de carrera", "en": "Career tracks"},
+    "landing.what.tracks.body": {
+        "es": "La misma experiencia, para cada tipo de puesto.",
+        "en": "The same experience, for each kind of role.",
+    },
+    "landing.what.report.title": {"es": "El informe", "en": "The report"},
+    "landing.what.report.body": {
+        "es": "De 0 a 100, en cuatro partes que un reclutador reconoce.",
+        "en": "From 0 to 100, in four parts a recruiter recognises.",
+    },
+    "landing.what.ceiling.title": {
+        "es": "Prueba el archivo que vas a enviar",
+        "en": "Test the file you will send",
+    },
+    "landing.what.ceiling.body": {
+        "es": "Compáralo con el techo de tu material.",
+        "en": "Compare it with the ceiling of your material.",
+    },
+    "landing.what.writing.title": {
+        "es": "Ayuda para escribir que no inventa",
+        "en": "Writing help that does not invent",
+    },
+    "landing.what.writing.body": {
+        "es": "Resumen y carta que citan lo que escribiste.",
+        "en": "A summary and a letter that cite what you wrote.",
+    },
+    "landing.honest.eyebrow": {
+        "es": "Con IA, honesto por diseño",
+        "en": "AI-powered, honest by design",
+    },
+    "landing.honest.title": {
+        "es": (
+            "La IA lee tus documentos y evalúa tu evidencia; el código calcula "
+            "el puntaje y revisa cada frase."
+        ),
+        "en": (
+            "The AI reads your documents and assesses your evidence; the code "
+            "computes the score and checks every sentence."
+        ),
+    },
+    "landing.honest.provenance.title": {"es": "Procedencia", "en": "Provenance"},
+    "landing.honest.provenance.body": {
+        "es": "Cada frase cita un bullet, una historia o un resumen tuyo.",
+        "en": "Every sentence cites a bullet, a story or a summary of yours.",
+    },
+    "landing.honest.literal.title": {"es": "Preservación literal", "en": "Literal preservation"},
+    "landing.honest.literal.body": {
+        "es": "Cada número, fecha y nombre propio está en esa fuente.",
+        "en": "Every number, date and proper noun is in that source.",
+    },
+    "landing.honest.closure.title": {"es": "Cierre de habilidades", "en": "Skill closure"},
+    "landing.honest.closure.body": {
+        "es": "Solo nombra habilidades que tienes.",
+        "en": "It only names skills you have.",
+    },
+    "landing.how.title": {"es": "Cómo funciona", "en": "How it works"},
+    "landing.how.cv.title": {"es": "Tu CV", "en": "Your CV"},
+    "landing.how.cv.body": {
+        "es": "Lo subes una vez, en español o en inglés.",
+        "en": "You upload it once, in Spanish or in English.",
+    },
+    "landing.how.posting.title": {"es": "La oferta", "en": "The posting"},
+    "landing.how.posting.body": {
+        "es": "Pegas el texto de cualquier aviso.",
+        "en": "You paste the text of any posting.",
+    },
+    "landing.how.report.title": {"es": "El informe", "en": "The report"},
+    "landing.how.report.body": {
+        "es": "Puntaje, brechas y qué cambiar, en una página.",
+        "en": "Score, gaps and what to change, on one page.",
+    },
+    "landing.privacy.title": {
+        "es": "Privacidad, en palabras simples",
+        "en": "Privacy, in plain words",
+    },
+    "landing.privacy.body": {
+        "es": (
+            "Tus datos se guardan en infraestructura gestionada en EE. UU. y pasan por un "
+            "proveedor de modelos. Antes de enviar texto al modelo se quitan nombres, correos "
+            "y teléfonos. Los registros guardan solo hashes e identificadores. Eliminar es "
+            "eliminar."
+        ),
+        "en": (
+            "Your data is stored on managed infrastructure in the United States and goes "
+            "through a model provider. Names, e-mails and phone numbers are removed before "
+            "text is sent to the model. Logs keep only hashes and identifiers. Deleting means "
+            "deleting."
+        ),
+    },
+    "landing.footer.note": {
+        "es": "atsker · proyecto de portafolio de Rodrigo García Sánchez",
+        "en": "atsker · a portfolio project by Rodrigo García Sánchez",
+    },
+    "landing.footer.github": {"es": "GitHub", "en": "GitHub"},
+    # The logged-in home (PRD §12.8, design v3 §5): the greeting, the three cards and
+    # their state lines, the last report, and the activity. The state lines are parts —
+    # the page joins them with the separator the mockup uses, never a sentence built in
+    # Python (PRD 8).
+    "home.greeting": {"es": "Hola, {name}", "en": "Hello, {name}"},
+    "home.title": {"es": "¿Cómo quieres continuar?", "en": "How do you want to continue?"},
+    "home.card.dashboard": {"es": "Ir a tu panel", "en": "Go to your dashboard"},
+    "home.card.dashboard.label": {"es": "Último análisis:", "en": "Last analysis:"},
+    "home.card.dashboard.empty": {"es": "Todavía sin análisis", "en": "No analysis yet"},
+    "home.card.import": {"es": "Importar CV", "en": "Import CV"},
+    "home.card.import.state": {"es": "Último: {when}", "en": "Last: {when}"},
+    "home.card.import.empty": {"es": "Todavía sin CV", "en": "No CV yet"},
+    "home.card.analyze": {"es": "Analizar oferta", "en": "Analyse a posting"},
+    "home.card.analyze.line": {"es": "1 línea", "en": "1 track"},
+    "home.card.analyze.lines": {"es": "{n} líneas", "en": "{n} tracks"},
+    "home.card.analyze.cv": {"es": "CV más reciente: {name}", "en": "Most recent CV: {name}"},
+    "home.continue.title": {
+        "es": "Continuar donde lo dejaste",
+        "en": "Continue where you left off",
+    },
+    "home.continue.untitled": {"es": "Oferta sin título", "en": "Untitled posting"},
+    "home.continue.attempt": {"es": "intento {n} de {max}", "en": "attempt {n} of {max}"},
+    "home.continue.empty": {
+        "es": "Todavía no has analizado ninguna oferta.",
+        "en": "You have not analysed a posting yet.",
+    },
+    "home.activity.title": {"es": "Actividad reciente", "en": "Recent activity"},
+    "home.activity.empty": {
+        "es": "Todavía no hay actividad.",
+        "en": "There is no activity yet.",
+    },
+    "home.activity.analysis": {"es": "Analizaste {subject}", "en": "You analysed {subject}"},
+    "home.activity.import": {
+        "es": "Importaste {filename}",
+        "en": "You imported {filename}",
+    },
+    "home.activity.attempt": {
+        "es": "Subiste «Intento {n}» a {subject}",
+        "en": "You uploaded “Attempt {n}” to {subject}",
+    },
+    "home.activity.subject_empty": {"es": "una oferta", "en": "a posting"},
+    # A moment as its distance from now, for the state lines and the activity: minutes,
+    # then hours, then days, and the date itself after a week.
+    "time.minute": {"es": "hace 1 minuto", "en": "1 minute ago"},
+    "time.minutes": {"es": "hace {n} minutos", "en": "{n} minutes ago"},
+    "time.hour": {"es": "hace 1 hora", "en": "1 hour ago"},
+    "time.hours": {"es": "hace {n} horas", "en": "{n} hours ago"},
+    "time.day": {"es": "hace 1 día", "en": "1 day ago"},
+    "time.days": {"es": "hace {n} días", "en": "{n} days ago"},
     # Shell — the 64px icon rail of §12.1: three groups, nine links, and the account
     # controls. Vocabulario is not a rail destination; Perfil links to it.
     "nav.dashboard": {"es": "Inicio", "en": "Home"},
@@ -34,6 +306,8 @@ STRINGS: dict[str, dict[str, str]] = {
     "nav.group.material": {"es": "Tu material", "en": "Your material"},
     "nav.group.account": {"es": "Cuenta", "en": "Account"},
     "nav.menu": {"es": "Menú", "en": "Menu"},
+    "nav.main": {"es": "Principal", "en": "Main"},
+    "nav.account": {"es": "Tu cuenta", "en": "Your account"},
     # Shared
     # §12.5: the shared proposal dialog.
     "dialog.close": {"es": "Cerrar", "en": "Close"},
@@ -117,10 +391,12 @@ STRINGS: dict[str, dict[str, str]] = {
     # Analysis (M5b) — the form, and the report the analysis leaves behind
     "analyze.title": {"es": "Analizar una oferta", "en": "Analyse a posting"},
     "analyze.intro": {
-        "es": "Pega el texto de la oferta. Se extraen los requisitos, se contrastan "
-        "con tus bullets y el informe queda guardado.",
-        "en": "Paste the posting. Its requirements are extracted, graded against your "
-        "bullets, and the report is kept.",
+        "es": "Elige una línea de carrera y uno de sus CV, y pega la oferta. Se puntúa ese "
+        "archivo: se extraen los requisitos, se contrastan con sus bullets y el informe "
+        "queda guardado.",
+        "en": "Choose a track and one of its CVs, and paste the posting. That file is "
+        "scored: the requirements are extracted, graded against its bullets, and the "
+        "report is kept.",
     },
     "analyze.jd": {"es": "Descripción del puesto", "en": "Job description"},
     "analyze.jd_hint": {
@@ -152,32 +428,72 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "No active bullets: without them there is no evidence to cite and "
         "coverage will be zero.",
     },
-    "analyze.track": {"es": "Línea de carrera (opcional)", "en": "Track (optional)"},
-    "analyze.track_none": {
-        "es": "Sin línea: todos los bullets activos",
-        "en": "No track: every active bullet",
-    },
+    "applications.cv": {"es": "CV", "en": "CV"},
+    "applications.cv_deleted": {"es": "eliminado", "en": "deleted"},
+    "analyze.track": {"es": "Línea de carrera", "en": "Track"},
+    "analyze.track_pick": {"es": "Elige una línea de carrera", "en": "Choose a track"},
     "analyze.track_hint": {
-        "es": "Con una línea de carrera, la puntuación usa solo sus bullets y, si la tiene, su "
-        "titular.",
-        "en": "With a track, the score uses only its bullets and, when set, its headline.",
+        "es": "La línea decide qué CV puedes elegir y de qué material sacan consejos las "
+        "recomendaciones.",
+        "en": "The track decides which CVs you can choose and which material the "
+        "recommendations draw on.",
     },
-    # F7.1: the recommendation, for the user who has not decided which track to apply
-    # with. It only acts when no track is chosen.
-    "analyze.recommend": {"es": "Recomendar línea de carrera", "en": "Recommend a track"},
-    "analyze.recommend_hint": {
-        "es": "Puntúa la oferta contra tus líneas de carrera, hasta seis, y te dice cuál gana y "
-        "por qué. Solo se usa si no eliges una línea arriba.",
-        "en": "Scores the posting against up to six of your tracks and says which one "
-        "wins and why. Used only when no track is chosen above.",
+    "analyze.need_track": {
+        "es": "Elige una línea de carrera y uno de sus CV.",
+        "en": "Choose a track and one of its CVs.",
     },
-    "analyze.recommend_na": {
-        "es": "No aplica: elegiste una línea.",
-        "en": "Not applicable: you chose a track.",
+    "analyze.load_cvs": {"es": "Ver los CV de esta línea", "en": "Show this track's CVs"},
+    # F11.3: the CV picker, its first option and the track with no CV.
+    "analyze.cv": {"es": "CV", "en": "CV"},
+    "analyze.cv_pick_track": {
+        "es": "Elige una línea de carrera para ver sus CV.",
+        "en": "Choose a track to see its CVs.",
     },
-    "analyze.recommend_off": {
-        "es": "Sin línea, al escribir la carta tendrás que elegir una.",
-        "en": "Without a target role, you'll pick one when you write the cover letter.",
+    "analyze.no_cv": {
+        "es": "Esta línea de carrera no tiene ningún CV. Importa uno para poder analizar.",
+        "en": "This track has no CV. Import one to be able to analyse.",
+    },
+    "analyze.no_cv_link": {
+        "es": "Importar CV con esta línea",
+        "en": "Import a CV into this track",
+    },
+    "analyze.cv_latest": {
+        "es": "Último CV de la línea ({name})",
+        "en": "Latest CV of the track ({name})",
+    },
+    "analyze.cv_option": {"es": "{name} — {date}", "en": "{name} — {date}"},
+    "analyze.cv_hint": {
+        "es": "Se puntúa este archivo, no toda la línea. «Último CV de la línea» se "
+        "resuelve al analizar.",
+        "en": "This file is scored, not the whole track. “Latest CV of the track” is "
+        "resolved when you analyse.",
+    },
+    # F11.6: "Proponer línea", a cheap ranking before the analysis.
+    "analyze.propose": {"es": "Proponer línea", "en": "Suggest a track"},
+    "analyze.propose_prompt": {
+        "es": "¿No sabes qué línea usar?",
+        "en": "Not sure which track to use?",
+    },
+    "analyze.propose_hint": {
+        "es": "Ordena tus líneas por el título y las palabras clave de su último CV. "
+        "Extrae la oferta (una llamada que el análisis reutiliza); no puntúa evidencia.",
+        "en": "Ranks your tracks by the title and keywords of their latest CV. It "
+        "extracts the posting (one call the analysis reuses); it does not grade evidence.",
+    },
+    "analyze.propose_result": {
+        "es": "Tus líneas, según su último CV",
+        "en": "Your tracks, by their latest CV",
+    },
+    "analyze.propose_first": {"es": "Propuesta", "en": "Suggested"},
+    "analyze.propose_title": {"es": "Título", "en": "Title"},
+    "analyze.propose_keywords": {"es": "Palabras clave", "en": "Keywords"},
+    "analyze.propose_estimate": {
+        "es": "estimación sin evaluar tu evidencia",
+        "en": "estimate without grading your evidence",
+    },
+    "analyze.propose_none": {
+        "es": "Ninguna de tus líneas tiene un CV todavía.",
+        "en": "None of your tracks has a CV yet.",
     },
     # Application history (F9)
     "applications.title": {"es": "Historial", "en": "History"},
@@ -212,6 +528,7 @@ STRINGS: dict[str, dict[str, str]] = {
     "applications.readability": {"es": "Lectura", "en": "Readability"},
     "applications.boolean": {"es": "Búsqueda", "en": "Search"},
     "applications.prompts": {"es": "Prompts", "en": "Prompts"},
+    "applications.prompts_count": {"es": "{count} versiones", "en": "{count} versions"},
     "applications.cost": {"es": "Coste", "en": "Cost"},
     # F.1: the history can be narrowed to the analyses still waiting on a result.
     "applications.filter.none": {"es": "Sin resultado", "en": "No outcome"},
@@ -509,25 +826,22 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "New in this document",
     },
     "attempt.flags.none": {
-        "es": "Nada nuevo: el documento dice lo que dice tu material.",
-        "en": "Nothing new: the document says what your material says.",
+        "es": "Nada nuevo frente a tu material.",
+        "en": "Nothing new against your material.",
     },
-    "attempt.flags.skills": {
-        "es": "Habilidades que tu material no tiene: {items}",
-        "en": "Skills your material does not have: {items}",
-    },
-    "attempt.flags.claims": {
-        "es": "Cifras, fechas o nombres sin respaldo: {items}",
-        "en": "Figures, dates or names with no support: {items}",
+    "attempt.flags.new_skills": {
+        "es": "Habilidades y palabras clave nuevas:",
+        "en": "New skills and keywords:",
     },
     "attempt.flags.titles": {
-        "es": "Puestos que no están en tu material: {items}",
-        "en": "Roles your material does not carry: {items}",
+        "es": "Puestos nuevos: {items}",
+        "en": "New roles: {items}",
     },
-    "attempt.flags.above_ceiling": {
-        "es": "Este CV puntúa por encima de lo que tu material permite; revisa las "
-        "afirmaciones nuevas.",
-        "en": "This CV scores above what your material allows; check the new claims.",
+    "attempt.flags.confirm": {
+        "es": "Revisa que sea cierto. Si lo es, agrégalo a tu material para que los próximos "
+        "análisis lo usen.",
+        "en": "Check that it is true. If it is, add it to your material so the next "
+        "analyses use it.",
     },
     "attempt.left.title": {"es": "Qué queda", "en": "What's left"},
     "attempt.left.none": {
@@ -617,24 +931,53 @@ STRINGS: dict[str, dict[str, str]] = {
     "report.legend.sample": {"es": "término", "en": "term"},
     "report.legend.found": {"es": "aparece en tu CV", "en": "appears in your CV"},
     "report.legend.missing": {"es": "falta en tu CV", "en": "missing from your CV"},
-    "report.legend.toggle": {"es": "Cómo leer los colores", "en": "How to read the colours"},
+    "report.legend.toggle": {"es": "Cómo leer las marcas", "en": "How to read the marks"},
     "report.legend.scores": {
-        "es": "Puntuaciones: verde desde 75, ámbar de 50 a 74, rojo por debajo de 50.",
-        "en": "Scores: green from 75, amber 50 to 74, red below 50.",
+        "es": "Puntuaciones: «Fuerte» desde 75, «Adecuado» de 50 a 74, «Débil» por debajo "
+        "de 50; cada segmento vale 20 puntos.",
+        "en": "Scores: “Strong” from 75, “Adequate” 50 to 74, “Weak” below 50; each "
+        "segment is worth 20 points.",
     },
-    "report.legend.purple": {
-        "es": "Morado: algo falta o necesita atención "
+    "report.legend.dashed": {
+        "es": "Borde discontinuo con ✕: algo falta o necesita atención "
         "(un término que falta, una brecha decisiva, una advertencia).",
-        "en": "Purple: something is missing or needs attention "
+        "en": "Dashed outline with ✕: something is missing or needs attention "
         "(a missing term, a blocking gap, a warning).",
     },
-    "report.legend.gray": {"es": "Gris: está presente.", "en": "Gray: it is present."},
+    "report.legend.filled": {
+        "es": "Fondo gris con ✓: está presente.",
+        "en": "Grey fill with ✓: it is present.",
+    },
+    "report.legend.mentioned": {
+        "es": "Contorno ocre con ~: solo mencionado — está en tu lista de habilidades o en el "
+        "resumen, y ningún bullet muestra cómo lo usaste.",
+        "en": "Ochre outline with ~: mentioned only — it is in your skills list or summary, "
+        "and no bullet shows how you used it.",
+    },
+    "report.divider.screens": {"es": "Las dos pantallas", "en": "The two screens"},
+    "report.row.keywords": {"es": "{n} palabras clave", "en": "{n} keywords"},
+    "report.row.keywords_one": {"es": "1 palabra clave", "en": "1 keyword"},
+    "report.row.advice": {"es": "{n} recomendaciones", "en": "{n} recommendations"},
+    "report.row.advice_none": {
+        "es": "Sin recomendaciones para este análisis.",
+        "en": "No recommendations for this analysis.",
+    },
+    "report.row.advice_one": {"es": "1 recomendación", "en": "1 recommendation"},
     "report.legend.severity": {
         "es": "Los iconos de octágono, triángulo y círculo son del análisis de legibilidad.",
         "en": "The octagon, triangle and circle icons are for the readability scan.",
     },
     "report.term.found": {"es": "encontrada", "en": "found"},
     "report.term.missing": {"es": "falta", "en": "missing"},
+    # §12.1 item 3, amended 2026-10-13: a term at level 1 is shown as mentioned, never as
+    # missing, and the line that carries it says what would make it count.
+    "report.term.mentioned": {"es": "solo mencionado", "en": "mentioned only"},
+    "report.mention_line": {
+        "es": "«{skill}» solo aparece en tu lista de habilidades o en el resumen: escríbelo "
+        "en un bullet que muestre cómo lo usaste para que cuente como evidencia.",
+        "en": "«{skill}» only appears in your skills list or summary: write it into a bullet "
+        "that shows how you used it, so it counts as evidence.",
+    },
     # F7.1: the table the recommendation produces, above the components, with the
     # chosen track marked. The justification is a code-built line, not prose from a
     # model: the winner, the sub-score it leads on, and the track's own "when to use".
@@ -779,7 +1122,7 @@ STRINGS: dict[str, dict[str, str]] = {
     },
     "report.grades": {"es": "Requisitos evaluados", "en": "Graded requirements"},
     "report.grades_hint": {
-        "es": "0 ausente · 1 mencionado · 2 aplicado · 3 demostrado. Cada nivel cita la "
+        "es": "0 ausente · 1 mencionado · 2 aplicado · 3 demostrado. Cada nivel cita el "
         "bullet que lo sostiene.",
         "en": "0 absent · 1 mentioned · 2 applied · 3 demonstrated. Every level cites "
         "the bullet that supports it.",
@@ -1044,16 +1387,12 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "Use in this track: {name}",
     },
     "generate.check.title": {
-        "es": "Título exacto de la oferta",
-        "en": "Exact posting title",
+        "es": "Título de carrera: {title}",
+        "en": "Career title: {title}",
     },
     "generate.check.skills": {
         "es": "Habilidades clave nombradas ({n})",
         "en": "Key skills named ({n})",
-    },
-    "generate.check.length": {
-        "es": "Máximo 80 palabras ({n})",
-        "en": "At most 80 words ({n})",
     },
     "generate.check.ok": {"es": "cumple", "en": "met"},
     "generate.check.fail": {"es": "no cumple", "en": "not met"},
@@ -1083,10 +1422,6 @@ STRINGS: dict[str, dict[str, str]] = {
     },
     "generate.langname.es": {"es": "español", "en": "Spanish"},
     "generate.langname.en": {"es": "inglés", "en": "English"},
-    "generate.title_note": {
-        "es": "«{title}» es el título de la oferta; no figura entre los que has tenido.",
-        "en": "«{title}» is the posting's title; it is not among the titles you have held.",
-    },
     "generate.shortlist_short": {
         "es": "Habilidades clave que tu CV respalda directamente en esta oferta: {n}.",
         "en": "Key skills your CV directly backs for this posting: {n}.",
@@ -1767,19 +2102,22 @@ STRINGS: dict[str, dict[str, str]] = {
     "delete.title": {"es": "¿Eliminar para siempre?", "en": "Delete permanently?"},
     "delete.impact.resume": {
         "es": (
-            "Se eliminarán el archivo del CV y su borrador. Aportó {bullets} balas, que se "
-            "conservan salvo que marques la casilla. {bullets_unknown} balas tienen procedencia "
-            "desconocida y la casilla nunca las elimina."
+            "Se eliminarán el archivo del CV y su borrador. Aportó {bullets} bullets, que se "
+            "conservan salvo que marques la casilla. {bullets_unknown} bullets tienen procedencia "
+            "desconocida y la casilla nunca las elimina. {analyses} análisis hechos sobre este "
+            "CV se conservan con el nombre del archivo, pero ya no se podrá volver a puntuar "
+            "sobre él."
         ),
         "en": (
             "The archived CV file and its draft will be deleted. It contributed {bullets} "
             "bullets, which are kept unless you tick the box. {bullets_unknown} bullets have "
-            "unknown provenance and the box never deletes those."
+            "unknown provenance and the box never deletes those. {analyses} analyses made on "
+            "this CV are kept with the file's name, but nothing can be scored on it again."
         ),
     },
     "delete.impact.role": {
         "es": (
-            "Se eliminarán el puesto, sus {bullets} balas y sus {revisions} revisiones. Quedan "
+            "Se eliminarán el puesto, sus {bullets} bullets y sus {revisions} revisiones. Quedan "
             "{stories} historias con el enlace al puesto vacío."
         ),
         "en": (
@@ -1788,7 +2126,7 @@ STRINGS: dict[str, dict[str, str]] = {
         ),
     },
     "delete.impact.bullet": {
-        "es": "La bala está en {tracks} líneas y citada por {analyses} análisis; los análisis "
+        "es": "El bullet está en {tracks} líneas y citado por {analyses} análisis; los análisis "
         "conservan su copia. Se eliminan además sus {story_links} enlaces a historias y sus "
         "{revisions} revisiones.",
         "en": (
@@ -1807,7 +2145,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "The pool summary will be deleted. {tracks} tracks lose that slot.",
     },
     "delete.impact.track": {
-        "es": "Se eliminarán la línea y su selección de {selection} balas. {analyses} análisis "
+        "es": "Se eliminarán la línea y su selección de {selection} bullets. {analyses} análisis "
         "conservan el nombre de la línea.",
         "en": (
             "The track and its selection of {selection} bullets will be deleted. {analyses} "
@@ -1815,7 +2153,7 @@ STRINGS: dict[str, dict[str, str]] = {
         ),
     },
     "delete.impact.story": {
-        "es": "Se eliminarán la historia y sus {links} enlaces a balas.",
+        "es": "Se eliminarán la historia y sus {links} enlaces a bullets.",
         "en": "The story and its {links} bullet links will be deleted.",
     },
     "delete.impact.letter": {
@@ -1833,7 +2171,7 @@ STRINGS: dict[str, dict[str, str]] = {
         ),
     },
     "delete.impact.everything": {
-        "es": "Se eliminará todo lo del perfil: {resumes} CV, {roles} puestos, {bullets} balas, "
+        "es": "Se eliminará todo lo del perfil: {resumes} CV, {roles} puestos, {bullets} bullets, "
         "{summaries} resúmenes, {tracks} líneas, {stories} historias, {letter_templates} "
         "plantillas, {applications} análisis, {application_attempts} intentos y {skills} "
         "habilidades del pool. Se vaciarán {ledger_redacted} respuestas personales del registro "
@@ -1859,7 +2197,7 @@ STRINGS: dict[str, dict[str, str]] = {
         ),
     },
     "delete.cv_option": {
-        "es": "Eliminar también las balas que solo aportó este CV.",
+        "es": "Eliminar también los bullets que solo aportó este CV.",
         "en": "Also delete the bullets only this CV contributed.",
     },
     "delete.typed_label": {
@@ -1874,7 +2212,7 @@ STRINGS: dict[str, dict[str, str]] = {
     "profile.skills_none": {"es": "El pool está vacío.", "en": "The pool is empty."},
     "profile.delete_all": {"es": "Eliminar todo", "en": "Delete everything"},
     "profile.delete_all_hint": {
-        "es": "Elimina todo lo del perfil: CV, puestos, balas, resúmenes, líneas, historias, "
+        "es": "Elimina todo lo del perfil: CV, puestos, bullets, resúmenes, líneas, historias, "
         "plantillas, análisis y las respuestas personales del registro de modelos. Tu cuenta y tu "
         "fila de perfil se quedan, vacías.",
         "en": (
@@ -1927,7 +2265,6 @@ STRINGS: dict[str, dict[str, str]] = {
         "es": "Tu CV puede estar en español o en inglés.",
         "en": "Your CV can be in Spanish or English.",
     },
-    "import.track": {"es": "Línea de carrera (opcional)", "en": "Target track (optional)"},
     "import.track_hint": {
         "es": "La experiencia con la que piensas usar este currículum. Si lo dejas vacío, la "
         "importación crea una línea de carrera con el nombre del archivo.",
@@ -2031,6 +2368,57 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "The location view is only available for PDF.",
     },
     "import.location_title": {"es": "Dónde está", "en": "Where it is"},
+    # F11.7: a CV saved from an attempt has no file, so there is no page to show.
+    # F11.7: "Subir a esta línea", the CV an attempt becomes, and what to do next.
+    "attempt.save_cv": {"es": "Subir a esta línea", "en": "Save to this track"},
+    "attempt.save_cv.name": {
+        "es": "Intento {n} — {title}",
+        "en": "Attempt {n} — {title}",
+    },
+    "attempt.save_cv.title": {"es": "CV guardado en la línea", "en": "CV saved to the track"},
+    "attempt.save_cv.done": {
+        "es": "«{name}» es ahora un CV de la línea «{track}», el más reciente.",
+        "en": "“{name}” is now a CV of the track “{track}”, the newest one.",
+    },
+    "attempt.save_cv.exists": {
+        "es": "Este intento ya estaba guardado como CV de la línea «{track}»: «{name}».",
+        "en": "This attempt was already saved as a CV of the track “{track}”: “{name}”.",
+    },
+    "attempt.save_cv.no_file": {
+        "es": "El archivo no se conservó (los intentos nunca lo guardan). «Archivo original» "
+        "lo dirá; si quieres verlo, impórtalo con Importar CV.",
+        "en": "The file was not kept (attempts never store it). “Original file” will say so; "
+        "to see it, import it with Import CV.",
+    },
+    "attempt.save_cv.incorporate": {
+        "es": "Incorporar también su contenido a mi material",
+        "en": "Also incorporate its content into my material",
+    },
+    "attempt.save_cv.incorporate_hint": {
+        "es": "Guardar el CV no cambia tu material: eso es la revisión de siempre.",
+        "en": "Saving the CV does not change your material: that is the usual review.",
+    },
+    "attempt.save_cv.analyse": {"es": "Analizar con este CV", "en": "Analyse with this CV"},
+    "attempt.save_cv.analyse_hint": {
+        "es": "Una nueva puntuación de la misma oferta (hasta 2 llamadas).",
+        "en": "A new analysis of the same posting (up to 2 calls).",
+    },
+    "attempt.save_cv.unavailable": {
+        "es": "Este intento no se puede subir a una línea: no está terminado, su borrador se "
+        "descartó o la línea ya no existe.",
+        "en": "This attempt cannot be saved to a track: it is not finished, its draft was "
+        "discarded or the track no longer exists.",
+    },
+    "analyze.reanalyse_no_track": {
+        "es": "Esta oferta se analizó sin línea de carrera: elige una línea y uno de sus CV.",
+        "en": "This posting was analysed without a track: choose a track and one of its CVs.",
+    },
+    "import.file_not_kept": {
+        "es": "Este CV se guardó desde un intento: el archivo no se conservó, así que no "
+        "hay página que mostrar. Impórtalo con Importar CV si quieres verlo.",
+        "en": "This CV was saved from an attempt: the file was not kept, so there is no "
+        "page to show. Import it with Import CV if you want to see it.",
+    },
     "import.location_hint": {
         "es": "Los recuadros marcan lo que el chequeo señaló. Se lee del archivo "
         "original al abrir esta página; no se guarda en ningún sitio.",
@@ -2489,6 +2877,45 @@ STRINGS: dict[str, dict[str, str]] = {
         "en": "Select one to see its evidence.",
     },
     "report.req.level_of": {"es": "nivel {level} de 3", "en": "level {level} of 3"},
+    # F11.3/F11.8: which file an analysis scored, and the old analyses that scored a track.
+    "report.cv": {"es": "CV analizado: {name}", "en": "Analysed CV: {name}"},
+    "report.cv_deleted": {"es": "CV eliminado: {name}", "en": "CV deleted: {name}"},
+    "report.cv_legacy": {
+        "es": "Analizado sobre la línea (antes de elegir CV)",
+        "en": "Analysed on the track (before choosing a CV)",
+    },
+    "report.cv_edited": {
+        "es": "El CV se editó después de este análisis; las cifras son las de entonces.",
+        "en": "The CV was edited after this analysis; the figures are the ones from then.",
+    },
+    "report.reanalyse_label": {"es": "Analizar con otro CV", "en": "Analyse with another CV"},
+    "report.reanalyse": {"es": "Re-analizar", "en": "Re-analyse"},
+    "report.reanalyse_hint": {
+        "es": "re-analizar (hasta 2 llamadas)",
+        "en": "re-analyse (up to 2 calls)",
+    },
+    # F11.5: the requirement note, and the section summary's count of them. "Estimado":
+    # it is the Skills ceiling's rule, not a grade, and it never moves the score.
+    "report.req.note": {
+        "es": "Con tu material: nivel {level} (estimado) — bullet «{text}» de {role}, "
+        "no está en este CV",
+        "en": "With your material: level {level} (estimated) — bullet “{text}” from {role}, "
+        "not in this CV",
+    },
+    "report.req.note_equivalent": {
+        "es": "Con tu material: nivel {level} (estimado, equivalente) — bullet «{text}» de "
+        "{role}, no está en este CV",
+        "en": "With your material: level {level} (estimated, equivalent) — bullet “{text}” "
+        "from {role}, not in this CV",
+    },
+    "report.req.could_rise_one": {
+        "es": "{n} podría subir con tu material",
+        "en": "{n} could rise with your material",
+    },
+    "report.req.could_rise": {
+        "es": "{n} podrían subir con tu material",
+        "en": "{n} could rise with your material",
+    },
     # §12.1 item 6 (queue U5): the recommendations in one column, grouped under headings
     # with counts. `add_file` is the same group worded for a document (an attempt).
     "report.advice.group.promote": {"es": "Ordena tus bullets", "en": "Order your bullets"},
@@ -2673,6 +3100,47 @@ STRINGS: dict[str, dict[str, str]] = {
     },
     "report.actions.letter_short": {"es": "Escribir carta", "en": "Write letter"},
     "report.on_this_page": {"es": "En esta página", "en": "On this page"},
+    # §12.7 — the CV pane: its toolbar, the section legend, the two views and the marks.
+    "report.cv_pane.aria": {"es": "Tu CV", "en": "Your CV"},
+    "report.cv_pane.controls": {"es": "Tú controlas tu CV", "en": "You control your CV"},
+    "report.cv_pane.selector": {"es": "Línea y CV", "en": "Track and CV"},
+    "report.cv_pane.view": {"es": "Vista del CV", "en": "CV view"},
+    "report.cv_pane.text": {"es": "Texto", "en": "Text"},
+    "report.cv_pane.file": {"es": "Archivo original", "en": "Original file"},
+    "report.cv_pane.no_file": {"es": "archivo no guardado", "en": "file not saved"},
+    "report.cv_pane.no_pages": {
+        "es": "Sin imagen de página para este formato",
+        "en": "No page image for this format",
+    },
+    "report.cv_pane.showing_one": {
+        "es": "Mostrando: {section} · {n} marca",
+        "en": "Showing: {section} · {n} mark",
+    },
+    "report.cv_pane.showing": {
+        "es": "Mostrando: {section} · {n} marcas",
+        "en": "Showing: {section} · {n} marks",
+    },
+    "report.cv_pane.previous": {"es": "Marca anterior", "en": "Previous mark"},
+    "report.cv_pane.next": {"es": "Marca siguiente", "en": "Next mark"},
+    "report.cv_pane.open": {"es": "Ver CV", "en": "View CV"},
+    "report.cv_pane.see_in_cv": {"es": "Ver en mi CV ({n})", "en": "See in my CV ({n})"},
+    "report.cv_pane.sheet_marks": {
+        "es": "{section} · marca {index} de {n}",
+        "en": "{section} · mark {index} of {n}",
+    },
+    "report.cv_pane.try": {"es": "Probar nuevo CV", "en": "Try a new CV"},
+    "report.cv_pane.letter": {"es": "Carta de presentación", "en": "Cover letter"},
+    "report.cv_pane.summary": {"es": "Proponer resumen", "en": "Propose a summary"},
+    "report.cv_pane.section.experience": {"es": "Experiencia", "en": "Experience"},
+    "report.cv_pane.section.skills": {"es": "Habilidades", "en": "Skills"},
+    "report.cv_pane.section.education": {"es": "Formación", "en": "Education"},
+    "report.cv_pane.section.certifications": {"es": "Certificaciones", "en": "Certifications"},
+    "report.cv_pane.mark": {"es": "evidencia: {term}", "en": "evidence: {term}"},
+    "report.job_match": {"es": "Job Match", "en": "Job Match"},
+    # §12.7's phone bottom bar: the three toolbar buttons, short.
+    "report.actions.try_cv_bar": {"es": "Probar CV", "en": "Try CV"},
+    "report.actions.letter_bar": {"es": "Carta", "en": "Letter"},
+    "report.actions.summary_bar": {"es": "Resumen", "en": "Summary"},
     # §12.3 — the line under a paid form's button while the provider works. Honest
     # ranges and a live counter; no invented steps.
     "progress.analyze": {

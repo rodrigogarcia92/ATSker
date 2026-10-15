@@ -65,7 +65,7 @@ def _page(
     error: str | None = None,
     retry: bool = False,
 ):
-    application, _report, _track, attempt = target
+    application, report, _track, attempt = target
     suffix = f"?attempt={attempt.id}" if attempt is not None else ""
     return render(
         request,
@@ -74,7 +74,8 @@ def _page(
         profile=profile,
         application=application,
         attempt=attempt,
-        for_file=attempt is not None,
+        # A file, not a track: an attempt, or an analysis of a stored CV (F11.4).
+        for_file=attempt is not None or bool(report.get("cv")),
         dialog=dialog,
         remaining=len(prepared.candidates) if prepared is not None else 0,
         items=items,
@@ -99,7 +100,11 @@ def _open(request, user, profile, session, application_id, attempt_id, *, dialog
         return render(request, "not_found.html", user=user, status_code=404)
     _application, report, track, attempt = target
     prepared = prepare_inference(
-        profile.id, session, report=report, track=track, for_file=attempt is not None
+        profile.id,
+        session,
+        report=report,
+        track=track,
+        for_file=attempt is not None or bool(report.get("cv")),
     )
     error = None
     if prepared is not None and not model_configured():
@@ -152,7 +157,11 @@ def keywords_infer(
     _application, report, track, attempt_row = target
     popup = dialog == "1"
     prepared = prepare_inference(
-        profile.id, session, report=report, track=track, for_file=attempt_row is not None
+        profile.id,
+        session,
+        report=report,
+        track=track,
+        for_file=attempt_row is not None or bool(report.get("cv")),
     )
     if prepared is None:
         return _page(request, user, profile, session, target, dialog=popup, prepared=None)

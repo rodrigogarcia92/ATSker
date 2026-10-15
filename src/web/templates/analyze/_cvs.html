@@ -1,0 +1,28 @@
+{# F11.3: the CV picker for the chosen track — a partial, so the form can reload it when
+   the track changes (GET /analyze/cvs, no provider call) and the page can include it.
+   `cv_track` is the chosen track or None; `cvs` its CVs, newest first; `cv_choice` is
+   "latest" or a résumé id. A track with no CV cannot be analysed: the message says so and
+   links to Importar CV with that track chosen. #}
+<div id="cv-picker" data-cv-picker class="field-label">
+  <label for="resume_id">{{ t('analyze.cv', lang) }}</label>
+  {% if cv_track is none %}
+  <p class="rounded-card border border-border px-4 py-3 text-sm text-text-2">{{ t('analyze.cv_pick_track', lang) }}</p>
+  {% elif not cvs %}
+  <p class="rounded-card border border-ink px-4 py-3 text-sm" role="status">
+    {{ t('analyze.no_cv', lang) }}
+    <a href="/import?track_id={{ cv_track.id }}" class="ml-1 underline">{{ t('analyze.no_cv_link', lang) }}</a>
+  </p>
+  {% else %}
+  <select id="resume_id" name="resume_id" class="min-h-12">
+    <option value="latest" {% if cv_choice in ('', 'latest') %}selected{% endif %}>
+      {{ t('analyze.cv_latest', lang, name=cvs[0].filename) }}
+    </option>
+    {% for cv in cvs %}
+    <option value="{{ cv.id }}" {% if cv_choice == cv.id | string %}selected{% endif %}>
+      {{ t('analyze.cv_option', lang, name=cv.filename, date=(cv.merged_at or cv.uploaded_at).strftime('%Y-%m-%d')) }}
+    </option>
+    {% endfor %}
+  </select>
+  <p class="field-hint">{{ t('analyze.cv_hint', lang) }}</p>
+  {% endif %}
+</div>

@@ -24,6 +24,10 @@ class Settings(BaseSettings):
 
     env: str = "development"
     ui_default_lang: str = "es"
+    # The public demo (§12.8) is built after §12.7 ships (N8.18), so the landing shows only
+    # "Iniciar sesión" until an operator turns this on. When it is on the landing also shows
+    # "Probar la demo", which links to the demo route; either way a GET calls no provider.
+    demo_enabled: bool = False
 
     database_url: SecretStr | None = None
     openrouter_api_key: SecretStr | None = None

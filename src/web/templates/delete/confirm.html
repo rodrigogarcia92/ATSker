@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ t('delete.title', lang) }} — {{ t('app.name', lang) }}{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-semibold tracking-tight">{{ t('delete.title', lang) }}</h1>
+<h1 class="text-4xl leading-[1.11] tracking-[-0.02em] md:text-5xl">{{ t('delete.title', lang) }}</h1>
 
 {# F2.8: every Eliminar goes through this screen, and it states its consequences in
    numbers before anything happens. #}
@@ -20,14 +20,14 @@
   {% endif %}
   {% if typed_word %}
   <div>
-    <label for="confirm_word" class="mb-1 block text-sm font-medium">{{ t('delete.typed_label', lang) }}</label>
+    <label for="confirm_word" class="field-label">{{ t('delete.typed_label', lang) }}</label>
     <input id="confirm_word" name="confirm_word" required autocomplete="off"
-           class="w-full rounded-control border border-border px-3 py-2 text-sm">
+           class="w-full">
   </div>
   {% endif %}
-  {% if error %}<p class="text-sm text-sev-blocker">{{ error }}</p>{% endif %}
+  {% if error %}<p class="text-sm text-ink">{{ error }}</p>{% endif %}
   <div class="flex items-center gap-4">
-    <button type="submit" class="rounded-control bg-sev-blocker px-3 py-2 text-sm font-medium text-bg hover:opacity-90">
+    <button type="submit" class="btn btn-danger">
       {{ t('common.delete', lang) }}
     </button>
     <a href="{{ cancel }}" class="text-sm underline">{{ t('common.cancel', lang) }}</a>

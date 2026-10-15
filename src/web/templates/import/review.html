@@ -4,7 +4,7 @@
 {% block content %}
 <a href="/import" class="text-sm text-text-2 underline">{{ t('import.go_back', lang) }}</a>
 
-<h1 class="mt-3 text-2xl font-semibold tracking-tight">{{ t('import.review_title', lang) }}</h1>
+<h1 class="mt-3 text-4xl leading-[1.11] tracking-[-0.02em] md:text-5xl">{{ t('import.review_title', lang) }}</h1>
 {% if resume %}
 <p class="mt-1 text-sm text-text-2">{{ resume.filename }} ·
   {{ t('import.uploaded_at', lang) }} {{ resume.uploaded_at.strftime('%Y-%m-%d %H:%M') }}</p>
@@ -13,14 +13,14 @@
 {% include "_findings.html" %}
 
 {% if error %}
-<p class="mt-4 rounded-control border border-sev-warning bg-surface-1 px-3 py-2 text-sm text-sev-warning">{{ error }}</p>
+<p class="mt-4 rounded-card border border-ink bg-surface-1 px-4 py-3 text-sm text-ink">{{ error }}</p>
 {% endif %}
 
 {% if can_retry %}
 {# F2.3.1: the file and its findings are archived, so a failed extraction is retried
    from the stored bytes instead of asking for the upload again. #}
 <form method="post" action="/import/{{ resume.id }}/retry" data-progress="import" class="mt-4">
-  <button type="submit" class="rounded-control bg-link px-3 py-2 text-sm font-medium text-bg hover:opacity-90">
+  <button type="submit" class="btn btn-primary">
     {{ t('import.retry', lang) }}
   </button>
   {{ ui.progress('import') }}
@@ -36,30 +36,30 @@
 
   <section class="space-y-4 rounded-card border border-card-border bg-surface-1 p-5">
     <div>
-      <label for="headline" class="mb-1 block text-sm font-medium">{{ t('import.headline', lang) }}</label>
+      <label for="headline" class="field-label">{{ t('import.headline', lang) }}</label>
       <input id="headline" name="headline" value="{{ draft.headline or '' }}"
-             class="w-full rounded-control border border-border px-3 py-2 text-sm">
+             class="w-full">
       {% if draft.headline and (draft.headline | length) > headline_limit %}
-      <p class="mt-1 rounded-control border border-sev-warning bg-surface-1 px-2 py-1 text-xs text-sev-warning">
+      <p class="mt-1 rounded-card border border-ink bg-surface-1 px-3 py-2 text-xs text-ink">
         {{ t('import.headline_not_set', lang, count=(draft.headline | length), limit=headline_limit) }}
       </p>
       {% endif %}
     </div>
     <div>
-      <label for="summary" class="mb-1 block text-sm font-medium">{{ t('import.summary', lang) }}</label>
+      <label for="summary" class="field-label">{{ t('import.summary', lang) }}</label>
       <textarea id="summary" name="summary" rows="3"
-                class="w-full rounded-control border border-border px-3 py-2 text-sm">{{ draft.summary or '' }}</textarea>
+                class="w-full">{{ draft.summary or '' }}</textarea>
     </div>
     <div>
-      <label for="skills" class="mb-1 block text-sm font-medium">{{ t('import.skills', lang) }}</label>
+      <label for="skills" class="field-label">{{ t('import.skills', lang) }}</label>
       <input id="skills" name="skills" value="{{ draft.skills | join(', ') }}"
-             class="w-full rounded-control border border-border px-3 py-2 text-sm">
-      <p class="mt-1 text-xs text-text-3">{{ t('import.skills_hint', lang) }}</p>
+             class="w-full">
+      <p class="field-hint">{{ t('import.skills_hint', lang) }}</p>
     </div>
   </section>
 
   <section>
-    <h2 class="text-lg font-semibold">{{ t('import.roles', lang) }}</h2>
+    <h2 class="text-3xl leading-tight tracking-[-0.01em] md:text-4xl">{{ t('import.roles', lang) }}</h2>
     <input type="hidden" name="role_count" value="{{ draft.roles | length }}">
     <div class="mt-3 space-y-4">
       {% for role in draft.roles %}
@@ -67,41 +67,41 @@
       <div class="rounded-card border border-card-border bg-surface-1 p-5">
         <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
-            <label for="role-{{ ri }}-employer" class="mb-1 block text-sm font-medium">{{ t('import.employer', lang) }}</label>
+            <label for="role-{{ ri }}-employer" class="field-label">{{ t('import.employer', lang) }}</label>
             <input id="role-{{ ri }}-employer" name="role_{{ ri }}_employer" value="{{ role.employer }}"
-                   class="w-full rounded-control border border-border px-3 py-2 text-sm">
+                   class="w-full">
           </div>
           <div>
-            <label for="role-{{ ri }}-title" class="mb-1 block text-sm font-medium">{{ t('import.position', lang) }}</label>
+            <label for="role-{{ ri }}-title" class="field-label">{{ t('import.position', lang) }}</label>
             <input id="role-{{ ri }}-title" name="role_{{ ri }}_title" value="{{ role.title }}"
-                   class="w-full rounded-control border border-border px-3 py-2 text-sm">
+                   class="w-full">
           </div>
           <div class="grid grid-cols-2 gap-3">
             <div>
-              <label for="role-{{ ri }}-start" class="mb-1 block text-sm font-medium">{{ t('import.start', lang) }}</label>
+              <label for="role-{{ ri }}-start" class="field-label">{{ t('import.start', lang) }}</label>
               <input id="role-{{ ri }}-start" name="role_{{ ri }}_start" type="date" value="{{ role.start_date or '' }}"
-                     class="w-full rounded-control border border-border px-3 py-2 text-sm">
+                     class="w-full">
             </div>
             <div>
-              <label for="role-{{ ri }}-end" class="mb-1 block text-sm font-medium">{{ t('import.end', lang) }}</label>
+              <label for="role-{{ ri }}-end" class="field-label">{{ t('import.end', lang) }}</label>
               <input id="role-{{ ri }}-end" name="role_{{ ri }}_end" type="date" value="{{ role.end_date or '' }}"
-                     class="w-full rounded-control border border-border px-3 py-2 text-sm">
+                     class="w-full">
             </div>
           </div>
         </div>
 
-        <p class="mt-4 text-xs uppercase tracking-wide text-text-3">{{ t('import.bullets_of', lang) }}</p>
+        <p class="mt-4 text-xs text-text-3">{{ t('import.bullets_of', lang) }}</p>
         <input type="hidden" name="bullet_count_{{ ri }}" value="{{ role.bullets | length }}">
         <div class="mt-2 space-y-3">
           {% for bullet in role.bullets %}
-          <div class="rounded-control border border-card-border bg-surface-1 p-3">
+          <div class="rounded-card border border-card-border bg-surface-1 p-3">
             <label for="bullet-{{ ri }}-{{ loop.index0 }}" class="sr-only">{{ t('import.bullets_of', lang) }}</label>
             <textarea id="bullet-{{ ri }}-{{ loop.index0 }}" name="bullet_{{ ri }}_{{ loop.index0 }}_text" rows="2"
-                      class="w-full rounded-control border border-border px-3 py-2 text-sm">{{ bullet.text }}</textarea>
+                      class="w-full">{{ bullet.text }}</textarea>
             <label for="chips-{{ ri }}-{{ loop.index0 }}" class="sr-only">{{ t('bullets.skills', lang) }}</label>
             <input id="chips-{{ ri }}-{{ loop.index0 }}" name="bullet_{{ ri }}_{{ loop.index0 }}_chips"
                    value="{{ bullet.chips | join(', ') }}"
-                   class="mt-2 w-full rounded-control border border-border px-3 py-1 text-xs">
+                   class="mt-2 w-full">
           </div>
           {% endfor %}
         </div>
@@ -113,88 +113,88 @@
   </section>
 
   <section>
-    <h2 class="text-lg font-semibold">{{ t('import.credentials', lang) }}</h2>
+    <h2 class="text-3xl leading-tight tracking-[-0.01em] md:text-4xl">{{ t('import.credentials', lang) }}</h2>
     <input type="hidden" name="credential_count" value="{{ credentials | length }}">
-    <p class="mt-1 text-xs text-text-3">{{ t('import.needs_review_hint', lang) }}</p>
+    <p class="field-hint">{{ t('import.needs_review_hint', lang) }}</p>
     <div class="mt-3 space-y-4">
       {% for entry in credentials %}
       {% set ci = loop.index0 %}
       <div class="rounded-card border border-card-border bg-surface-1 p-5">
         {% if entry.needs_review %}
-        <p class="mb-3"><span class="rounded-control bg-surface-2 px-2 py-0.5 text-xs text-sev-warning">{{ t('import.needs_review', lang) }}</span></p>
+        <p class="mb-3"><span class="rounded-control bg-surface-2 px-2 py-0.5 text-xs text-slate">{{ t('import.needs_review', lang) }}</span></p>
         {% endif %}
         <input type="hidden" name="credential_{{ ci }}_review" value="{{ 'on' if entry.needs_review else 'off' }}">
         <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
-            <label for="cred-{{ ci }}-kind" class="mb-1 block text-sm font-medium">{{ t('import.kind', lang) }}</label>
+            <label for="cred-{{ ci }}-kind" class="field-label">{{ t('import.kind', lang) }}</label>
             <select id="cred-{{ ci }}-kind" name="credential_{{ ci }}_kind"
-                    class="w-full rounded-control border border-border px-3 py-2 text-sm">
+                    class="w-full">
               <option value="education" {% if entry.kind == 'education' %}selected{% endif %}>{{ t('import.kind.education', lang) }}</option>
               <option value="certification" {% if entry.kind == 'certification' %}selected{% endif %}>{{ t('import.kind.certification', lang) }}</option>
             </select>
           </div>
           <div>
-            <label for="cred-{{ ci }}-name" class="mb-1 block text-sm font-medium">{{ t('import.name_award', lang) }}</label>
+            <label for="cred-{{ ci }}-name" class="field-label">{{ t('import.name_award', lang) }}</label>
             <input id="cred-{{ ci }}-name" name="credential_{{ ci }}_name" value="{{ entry.name }}"
-                   class="w-full rounded-control border border-border px-3 py-2 text-sm">
+                   class="w-full">
           </div>
           <div>
-            <label for="cred-{{ ci }}-issuer" class="mb-1 block text-sm font-medium">{{ t('import.institution_issuer', lang) }}</label>
+            <label for="cred-{{ ci }}-issuer" class="field-label">{{ t('import.institution_issuer', lang) }}</label>
             <input id="cred-{{ ci }}-issuer" name="credential_{{ ci }}_issuer" value="{{ entry.issuer }}"
-                   class="w-full rounded-control border border-border px-3 py-2 text-sm">
+                   class="w-full">
           </div>
           <div>
-            <label for="cred-{{ ci }}-field" class="mb-1 block text-sm font-medium">
+            <label for="cred-{{ ci }}-field" class="field-label">
               {{ t('import.field', lang) }} <span class="text-text-3">({{ t('import.only_education', lang) }})</span>
             </label>
             <input id="cred-{{ ci }}-field" name="credential_{{ ci }}_field" value="{{ entry.field }}"
-                   class="w-full rounded-control border border-border px-3 py-2 text-sm">
+                   class="w-full">
           </div>
           <div class="grid grid-cols-2 gap-3">
             <div>
-              <label for="cred-{{ ci }}-start" class="mb-1 block text-sm font-medium">
+              <label for="cred-{{ ci }}-start" class="field-label">
                 {{ t('import.start', lang) }} <span class="text-text-3">({{ t('import.only_education', lang) }})</span>
               </label>
               <input id="cred-{{ ci }}-start" name="credential_{{ ci }}_start" type="date" value="{{ entry.start }}"
-                     class="w-full rounded-control border border-border px-3 py-2 text-sm">
+                     class="w-full">
             </div>
             <div>
-              <label for="cred-{{ ci }}-end" class="mb-1 block text-sm font-medium">
+              <label for="cred-{{ ci }}-end" class="field-label">
                 {{ t('import.end', lang) }} <span class="text-text-3">({{ t('import.only_education', lang) }})</span>
               </label>
               <input id="cred-{{ ci }}-end" name="credential_{{ ci }}_end" type="date" value="{{ entry.end }}"
-                     class="w-full rounded-control border border-border px-3 py-2 text-sm">
+                     class="w-full">
             </div>
           </div>
           <div class="grid grid-cols-2 gap-3">
             <div>
-              <label for="cred-{{ ci }}-issued" class="mb-1 block text-sm font-medium">
+              <label for="cred-{{ ci }}-issued" class="field-label">
                 {{ t('import.issued', lang) }} <span class="text-text-3">({{ t('import.only_certification', lang) }})</span>
               </label>
               <input id="cred-{{ ci }}-issued" name="credential_{{ ci }}_issued" type="date" value="{{ entry.issued }}"
-                     class="w-full rounded-control border border-border px-3 py-2 text-sm">
+                     class="w-full">
             </div>
             <div>
-              <label for="cred-{{ ci }}-expiry" class="mb-1 block text-sm font-medium">
+              <label for="cred-{{ ci }}-expiry" class="field-label">
                 {{ t('import.expiry', lang) }} <span class="text-text-3">({{ t('import.only_certification', lang) }})</span>
               </label>
               <input id="cred-{{ ci }}-expiry" name="credential_{{ ci }}_expiry" type="date" value="{{ entry.expiry }}"
-                     class="w-full rounded-control border border-border px-3 py-2 text-sm">
+                     class="w-full">
             </div>
           </div>
           <div>
-            <label for="cred-{{ ci }}-id" class="mb-1 block text-sm font-medium">
+            <label for="cred-{{ ci }}-id" class="field-label">
               {{ t('import.credential_id', lang) }} <span class="text-text-3">({{ t('import.only_certification', lang) }})</span>
             </label>
             <input id="cred-{{ ci }}-id" name="credential_{{ ci }}_credential_id" value="{{ entry.credential_id }}"
-                   class="w-full rounded-control border border-border px-3 py-2 text-sm">
+                   class="w-full">
           </div>
           <div>
-            <label for="cred-{{ ci }}-url" class="mb-1 block text-sm font-medium">
+            <label for="cred-{{ ci }}-url" class="field-label">
               {{ t('import.credential_url', lang) }} <span class="text-text-3">({{ t('import.only_certification', lang) }})</span>
             </label>
             <input id="cred-{{ ci }}-url" name="credential_{{ ci }}_credential_url" value="{{ entry.credential_url }}"
-                   class="w-full rounded-control border border-border px-3 py-2 text-sm">
+                   class="w-full">
           </div>
         </div>
       </div>
@@ -204,7 +204,7 @@
     </div>
   </section>
 
-  <button type="submit" class="rounded-control bg-link px-3 py-2 text-sm font-medium text-bg hover:opacity-90">
+  <button type="submit" class="btn btn-primary">
     {{ t('import.to_diff', lang) }}
   </button>
 </form>
