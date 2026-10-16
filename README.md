@@ -17,7 +17,7 @@ ATSker is the tool I wanted. You upload your CVs once, and it builds a master re
 
 Every number traces to a rule, and every generated sentence traces to something you entered. ATSker never invents a skill to raise your score.
 
-![The analysis report: Job Match, its four components, and the ceiling your own material allows](docs/figures/screenshots/01-report-desktop.png)
+![The report on a CV: the CV as an A4 page on the left, highlighted where the report draws its evidence; Job Match and the ceiling your own material allows on the right](docs/figures/screenshots/01-report-desktop.png)
 
 ---
 
@@ -40,7 +40,7 @@ Every number traces to a rule, and every generated sentence traces to something 
 | **Prompt engineering** | Versioned prompts with strict JSON contracts, mandatory citations and a rubric that rewards saying *"none"*. All public, with [design notes](docs/prompt_design.md) |
 | **Anti-fabrication** | Generated text must pass 3 validators: it cites its source, keeps every number and name from that source, and names only skills you have |
 | **Evaluation** | Rank agreement with labelled CV/posting pairs (Kendall τ-b 0.65 on the dev split), plus an ablation of each score |
-| **Quality** | About 1,250 offline tests (no network, no Postgres) and lint on every push |
+| **Quality** | About 1,500 offline tests (no network, no Postgres) and lint on every push |
 
 ### Tech stack
 
@@ -53,6 +53,8 @@ Every number traces to a rule, and every generated sentence traces to something 
 | Feature | Status |
 |---|---|
 | **Private app**: import, career database, tracks, analysis report, recommendations, CV testing, cover letters, Spanish and English | ✅ **Live**, in daily use |
+| **The report on your CV**: two panes, the CV as an A4 page with highlights linked to each section of the report, scores coloured by band | ✅ **Live** |
+| **Home and landing page**: *How do you want to continue?*, pick up where you left off, recent activity | ✅ **Live** |
 | **Public demo**: no sign-up, a free session in one click, data deleted 24 hours after you start, your CV file never stored, running on Claude Haiku 5.5 | 🚧 **In progress**: not live yet |
 | First-steps guide for new users (welcome screen, checklist, empty states that teach) | 📅 Planned |
 | **Potential**: what your CV could say using material you already have, with the projected score | 📅 Planned |
@@ -95,44 +97,54 @@ So I set one rule for every feature: **a higher score is never a reason to add a
 ### Import once, reuse everywhere
 Upload a CV (PDF or Word, Spanish or English). ATSker first checks whether an ATS can read it, then extracts your roles, bullets, education, certifications and skills into a review screen. Nothing is saved until you confirm. A second CV is merged, not overwritten: each item is marked *new*, *changed* or *unchanged*.
 
-![Import: readability findings first, then the extracted draft to review](docs/figures/screenshots/02-import-review.png)
+![Import: every item marked new, changed or unchanged before anything is saved (the real CV's text is blurred)](docs/figures/screenshots/02-import-review.png)
 
 ### Tracks: one career, several target roles
-A **track** is a saved selection of your bullets, skills, summary and headline for one kind of role, such as *Data Scientist*, *BI Analyst* or *Financial Analyst*. Tracks reference the master record instead of copying it, so fixing a bullet fixes it everywhere. If you don't pick a track, ATSker grades all of them and recommends one.
+A **track** is a saved selection of your bullets, skills, summary and headline for one kind of role, such as *Data Scientist*, *BI Analyst* or *Financial Analyst*. Tracks reference the master record instead of copying it, so fixing a bullet fixes it everywhere. Each track keeps the CVs you send for it; an analysis is always of one track and one CV, and *Propose a track* ranks your tracks against a posting when you are not sure which to use.
 
 ![Tracks: the same experience, arranged for different roles](docs/figures/screenshots/03-tracks.png)
 
-### The report
-Paste a job posting and get one page that reads top to bottom in the order you'd ask the questions:
+### The report, next to your CV
+Pick a track and one of its CVs, paste a job posting, and the report opens in two panes: **your CV as an A4 page** on the left, the analysis on the right. As you scroll the report, the CV highlights the words the section on screen rests on and greys the rest, so the evidence stands out on a full page. Click a requirement and the CV jumps to the bullet that proves it; click a highlight and the report jumps back. Scores are coloured by band (*Strong* green, *Adequate* ochre, *Weak* red), always with the word and the segments, so colour is never the only signal. On a tablet the CV opens as a drawer; on a phone, as a sheet under each section.
+
+The report reads top to bottom in the order you'd ask the questions:
 
 - **Job Match** and its four components, each with the terms it found and the ones it missed;
 - **the ceiling**: the best score your own material could reach for this posting, so you know when to stop editing;
 - **Would a recruiter find you?** The boolean searches a recruiter would plausibly run, written out so you can copy them, with *you appear / you don't*;
-- **Requirements and evidence**: every requirement graded 0–3, with the bullet that proves it;
+- **Requirements and evidence**: every requirement graded 0–3, with the bullet that proves it. A skill that only appears in your skills list counts as *mentioned only*, with a note to write it into a bullet that shows how you used it;
 - **Recommendations**: which bullets to move up, which to add, and a **keywords card** saying where each missing keyword could go *if it is true*;
 - **Can the ATS read your CV?**, with "show me where" for each problem it finds;
 - **Before you apply**: deal-breaking gaps, warnings, and the claims you should prepare to defend.
 
-![Would a recruiter find you: the searches, pass or fail, and the missing term named](docs/figures/screenshots/04-recruiter-search.png)
+![Would a recruiter find you: the searches, pass or fail, with the bullet or headline behind each term, while the CV lights the matching words](docs/figures/screenshots/04-recruiter-search.png)
 
-![Requirements and evidence: each requirement graded, with its citation](docs/figures/screenshots/05-requirements.png)
+![Requirements and evidence: chips coloured by level, the CV showing the cited bullet in bright lime, and the ATS readability check below](docs/figures/screenshots/05-requirements.png)
 
 ![Recommendations and the keywords card](docs/figures/screenshots/06-recommendations.png)
 
 ### Test the file you will actually send
-After editing your Word document for this posting, upload it. ATSker scores **that file** against the same posting and compares it to your ceiling. It also flags anything new in the document that isn't in your records, such as a number, a tool or a title. When the CV is as good as your material allows, it says so: *"CV optimised: what's left is experience ATSker has no record of."*
-
-![Testing a new CV version against the same posting](docs/figures/screenshots/07-attempt.png)
+After editing your Word document for this posting, upload it. ATSker scores **that file** against the same posting and compares it to your ceiling. A new CV is expected to carry new information, so ATSker lists the **new skills and keywords** it finds and asks you to check they're true; if they are, one click adds them to your material for the next analyses. When the CV is as good as your material allows, it says so: *"CV optimised: what's left is experience ATSker has no record of."*
 
 ### Writing help that can't make things up
-A tailored **summary**, a **cover letter** paragraph, a rephrased bullet: each one is a proposal you review and edit. Before you see it, each passes three validators. A list of AI clichés (*"I am excited to"*, *"leverage"*, *"me apasiona"*) is checked by code, not just requested.
+A tailored **summary**, a **cover letter** paragraph, a rephrased bullet: each one is a proposal you review and edit. The summary is written to get you a call: it opens with your **career title** (the posting's title only if you have held it, otherwise the title you chose for the track), names three or four of the posting's key skills inside what you actually did, and stays between 60 and 100 words. Before you see it, each passes three validators. A list of AI clichés (*"I am excited to"*, *"leverage"*, *"me apasiona"*) is checked by code, not just requested.
 
 ![Proposed summary with its checklist](docs/figures/screenshots/08-summary.png)
 
-### Built for the phone too
+### History, home and the phone
+Every analysis is a row in **History**, with its score in its band colour, its CV, its sub-scores and the prompt versions behind it: the table is the dataset that will say whether a higher Job Match leads to more callbacks. The **home** asks *How do you want to continue?*, with your last analysis, recent activity and one forest card to start the next one.
+
+![History: every analysis with its CV, sub-scores and prompt versions](docs/figures/screenshots/12-history.png)
+
+![Home: how do you want to continue?](docs/figures/screenshots/10-home.png)
+
 The whole flow works on a phone, including uploading a CV.
 
-<p align="center"><img src="docs/figures/screenshots/09-report-phone.png" alt="The report on a phone" width="320"></p>
+<p align="center">
+  <img src="docs/figures/screenshots/11-home-phone.png" alt="Home on a phone" width="300">
+  &nbsp;&nbsp;
+  <img src="docs/figures/screenshots/09-report-phone.png" alt="The report on a phone, with its bottom bar" width="300">
+</p>
 
 ---
 
@@ -180,13 +192,14 @@ The model does four jobs in ATSker: reading documents into structured data, grad
 - **Stable rules, variable data.** The rules sit in the system message, which is cached across postings at a fraction of the price. Only the data changes.
 - **Versioned like code.** A changed prompt gets a new version string, which busts the cache on purpose, so answers from different rules are never mixed. Old versions stay in the file, because saved reports name the prompt that produced them.
 
-Prompts are refined against real output. The summary generator went through five versions; the last three show how:
+Prompts are refined against real output. The summary generator went through six versions; the last four show how:
 
 | Version | What changed |
 |---|---|
 | v3 | The summary alone; the skills list moved to its own Keywords card |
 | v4 | Three ordered rules: open with the posting's exact title, name 3–4 skills from a shortlist chosen by code, and improve the user's own summary without adding facts |
 | v5 | Cite the bullet behind each skill named, and drop old-summary skills the posting doesn't ask for |
+| v6 | Open with a **career title** chosen by code (the posting's title only if held), 60–100 words, each key skill placed inside what the person did, and one stated goal: get the recruiter to call |
 
 ```text
 For any level above 0 you must say where the evidence is: the source (bullet,
@@ -249,7 +262,7 @@ Earlier rounds ruled out models that timed out or cited bullets that didn't exis
 
 ## 8. Privacy
 
-- **No personal data in this repository, except what I chose to show.** Tests use synthetic fixtures, and real CVs and reports never enter git. The screenshots in this README come from my own analysis, shared on purpose: names and employers are blurred wherever they appear, and no contact details are shown.
+- **No personal data in this repository, except what I chose to show.** Tests use synthetic fixtures, and real CVs and reports never enter git. The desktop screenshots in this README come from the synthetic test profile (Ana, Globex and Banco Andino are fictional); where a real CV appears on the import screen, its text is blurred. The two phone screenshots come from my own account, with my name and track blurred.
 - **Names, e-mails and phone numbers are removed** before any text is sent to a model provider.
 - **Logs hold hashes and ids only.** They never contain CV text, stories or job postings.
 - **Delete means delete.** Any item, or everything, can be permanently removed from the interface, including the model answers that quoted it.
