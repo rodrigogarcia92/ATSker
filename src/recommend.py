@@ -12,6 +12,7 @@ tracks are graded at all is a title + keywords computation, and the tie-break na
 the sub-score that actually differed.
 """
 
+import time
 import uuid
 from collections.abc import Sequence
 from dataclasses import replace
@@ -334,5 +335,9 @@ def recommend(
         cost_usd=cost,
         chosen_track_id=analyses[chosen][0].id,
     )
-    report["llm"] = llm_section(calls, cost)
+    # F12.4: the whole request's wall time, from the first read of the shared
+    # preparation — every candidate's calls are inside it.
+    report["llm"] = llm_section(
+        calls, cost, wall_ms=round((time.perf_counter() - prepared.started) * 1000)
+    )
     return replace(winner, report=report, cost_usd=cost)

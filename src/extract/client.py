@@ -232,6 +232,9 @@ class Completion:
     reasoning_effort: str | None = None
     fingerprint: str | None = None
     ledger_error: str | None = None
+    # What the request to the provider took, in milliseconds (F12.4): the same value
+    # the ledger row carries, and 0 when the cache answered instead of the provider.
+    latency_ms: int | None = None
 
 
 def _post(payload: dict[str, Any], api_key: str) -> dict[str, Any]:
@@ -629,6 +632,7 @@ def complete_json(
             prompt_version=prompt_version,
             model=chosen,
             reasoning_effort=effort,
+            latency_ms=0,
         )
 
     attempt = 0
@@ -722,6 +726,7 @@ def complete_json(
         reasoning_effort=effort,
         fingerprint=(str(body["system_fingerprint"]) if body.get("system_fingerprint") else None),
         ledger_error=ledger_error,
+        latency_ms=latency_ms,
     )
 
 

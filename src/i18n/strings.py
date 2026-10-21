@@ -1035,6 +1035,9 @@ STRINGS: dict[str, dict[str, str]] = {
     "report.calculation": {"es": "Cálculo", "en": "Calculation"},
     "report.model": {"es": "Modelo", "en": "Model"},
     "report.calls_cost": {"es": "Llamadas y coste", "en": "Calls and cost"},
+    # F12.4: what the analysis took end to end, beside the calls it made. A report
+    # stored before the timing existed shows neither.
+    "report.wall_time": {"es": "· {s} s", "en": "· {s} s"},
     "report.evidence_language": {"es": "Idioma de la evidencia", "en": "Evidence language"},
     "report.analyse_another": {
         "es": "Analizar con otra línea",

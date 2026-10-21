@@ -99,8 +99,15 @@ class Analysis:
     queries: BooleanQuerySet | None = None
 
 
-def llm_section(calls: Sequence[Completion], cost: Decimal) -> dict[str, object]:
-    """The cost ledger for this analysis, as it will be shown on the report page."""
+def llm_section(
+    calls: Sequence[Completion], cost: Decimal, *, wall_ms: int | None = None
+) -> dict[str, object]:
+    """The cost ledger for this analysis, as it will be shown on the report page.
+
+    F12.4: every call names the milliseconds it took (0 for a cache hit, which made
+    no request), and `wall_ms` is what the whole analysis took — less than the sum of
+    the calls once two of them run beside each other.
+    """
     return {
         "cost_usd": str(cost),
         "calls": [
@@ -115,9 +122,11 @@ def llm_section(calls: Sequence[Completion], cost: Decimal) -> dict[str, object]
                 "cost_usd": str(call.cost_usd),
                 "fingerprint": call.fingerprint,
                 "ledger_error": call.ledger_error,
+                "latency_ms": call.latency_ms,
             }
             for call in calls
         ],
+        "wall_ms": wall_ms,
     }
 
 
@@ -693,7 +702,13 @@ def score_track(
         # query is a gate, like a disqualifier, not a percentage.
         "recall": _recall_payload(recall, queries.queries),
         "score": score.to_dict(),
-        "llm": llm_section(calls, cost),
+        # F12.4: from the preparation's first read to this line — what the user waited
+        # for, never the sum of the calls (the first two overlap).
+        "llm": llm_section(
+            calls,
+            cost,
+            wall_ms=round((time.perf_counter() - prepared.started) * 1000),
+        ),
     }
     if cv is not None:
         # F11.3: which file this is, and how it was read (F10.3 step 3's snapshots).

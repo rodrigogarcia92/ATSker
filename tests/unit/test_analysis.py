@@ -475,6 +475,8 @@ def test_a_second_analysis_of_the_same_pair_makes_no_call_and_costs_nothing(
     assert first.cost_usd == 4 * Decimal(COST_PER_CALL)
     assert second.cost_usd == 0
     assert all(call["cached"] is True for call in second.report["llm"]["calls"])
+    # F12.4: a cache hit made no request, so it says 0 ms rather than a time nobody spent.
+    assert [call["latency_ms"] for call in second.report["llm"]["calls"]] == [0, 0, 0, 0]
 
 
 def messages_for(provider: Provider, schema_name: str) -> list[list[dict]]:
@@ -1515,8 +1517,14 @@ def test_two_identical_runs_produce_identical_reports(session, career, provider)
     second = analyze(career.first_profile.id, session, jd_text=POSTING, options=options)
 
     def digest(report: dict) -> str:
+        """The report without its clock: F12.4 records how long it took, and two
+        identical runs never take the same milliseconds."""
+        untimed = json.loads(json.dumps(report))
+        untimed["llm"].pop("wall_ms", None)
+        for call in untimed["llm"]["calls"]:
+            call.pop("latency_ms", None)
         return hashlib.sha256(
-            json.dumps(report, sort_keys=True, ensure_ascii=False).encode("utf-8")
+            json.dumps(untimed, sort_keys=True, ensure_ascii=False).encode("utf-8")
         ).hexdigest()
 
     assert digest(first.report) == digest(second.report)
@@ -1952,3 +1960,42 @@ def test_a_failed_extraction_still_awaits_the_derivation(session, career, timed_
         prepare(career.first_profile.id, session, jd_text=POSTING)
 
     assert stub.finished == ["BooleanQuerySet"]
+
+
+# --- Timing in the report (PRD F12.4) ----------------------------------------
+
+
+def test_the_report_records_the_wall_time_and_each_calls_latency(session, career, provider):
+    analysis = analyze(career.first_profile.id, session, jd_text=POSTING)
+    llm = analysis.report["llm"]
+
+    assert llm["wall_ms"] > 0, "the analysis took measurable time from read to report"
+    latencies = [call["latency_ms"] for call in llm["calls"]]
+    assert len(latencies) == 4, "one latency per call"
+    assert all(latency is not None for latency in latencies)
+
+
+def test_the_page_shows_the_seconds_and_an_old_report_shows_none(
+    client, session, career, provider
+):
+    """F12.4: `· 12.3 s` beside the cost; a report stored before it has no such line."""
+    login(client, career.first.email)
+    posted = client.post(
+        "/analyze", data=analysis_form(session, career, jd_text=POSTING), follow_redirects=False
+    )
+    application = session.query(Application).one()
+    timed = client.get(posted.headers["location"]).text
+
+    assert re.search(r"· \d+\.\d s", timed), "the header names how long the analysis took"
+
+    # The same report as one stored before F12.4: no `wall_ms`, so no seconds — and
+    # no "None" either.
+    old = json.loads(json.dumps(application.report))
+    old["llm"].pop("wall_ms")
+    application.report = old
+    session.commit()
+
+    untimed = client.get(f"/applications/{application.id}").text
+
+    assert not re.search(r"· \d+\.\d s", untimed)
+    assert "None" not in untimed
