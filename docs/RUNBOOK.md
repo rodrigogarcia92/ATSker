@@ -43,8 +43,8 @@ Settings are read from the environment. Values come from `.env` locally and from
 | `SESSION_SECRET` | Signs session cookies. A secret in production. |
 | `SESSION_MAX_AGE` | Session lifetime. |
 | `OPENROUTER_API_KEY` | Model provider key. A secret in production. |
-| `OPENROUTER_MODEL` | Model identifier, for example `google/gemini-3.8-flash`. |
-| `OPENROUTER_REASONING_EFFORT` | Reasoning effort. Defaults to `low`; the private app runs `low`. |
+| `OPENROUTER_MODEL` | Model identifier, for example `anthropic/claude-haiku-5.5`. |
+| `OPENROUTER_REASONING_EFFORT` | Reasoning effort for a model without a profile (§7). Defaults to `low`. |
 | `OPENROUTER_TIMEOUT_SECONDS` | Timeout per model request. Defaults to 60. |
 | `UI_DEFAULT_LANG` | Default interface language. |
 | `GCP_PROJECT_ID`, `GCP_REGION` | Deployment targets, used by the workflow. |
@@ -95,9 +95,13 @@ Before any production migration, take a snapshot of the Neon project (`<NEON_PRO
 
 ## 7. Model settings and the answer cache
 
-- **Model and effort:** `OPENROUTER_MODEL` and `OPENROUTER_REASONING_EFFORT`. Change them in the deploy command, in one commit, with the reason in the commit message. The private app runs `google/gemini-3.8-flash` at `low`.
-- **Per-model request fields:** `src/extract/model_params.json` maps a model identifier to the request fields that must be left out for that model. It is a data file. An empty object means nothing is left out.
-- **The cache:** every model call is cached under a key made of the purpose, the prompt version, the model, the effort and the input. A repeated analysis is served from the cache and costs nothing. Changing the model or the effort therefore never serves an old answer. Changing a prompt means bumping its version.
+- **Model and effort:** `OPENROUTER_MODEL` names the model; `OPENROUTER_REASONING_EFFORT` is the effort for a model without a profile. Change them in the deploy command, in one commit, with the reason in the commit message. The private app runs `anthropic/claude-haiku-5.5`: its profile sends `low` for extraction and every generation call, and no reasoning for recruiter queries, gap notes, bullet pairing and story tagging.
+- **Profiles:** `src/extract/model_profiles.json` maps a model identifier to what the client must send for it, as data: `omit` (payload keys it refuses), `provider` (OpenRouter's routing block), `reasoning` (an effort per purpose, `default` for the rest, `"off"` for none), `max_tokens` and `cache_system` (mark the system prompt for caching). The file is read once at import; a malformed entry stops the app at startup naming the model and the key. A model absent from the file gets the plain request.
+- **Rolling back to Gemini:** set the model on the service and nothing else; the `google/gemini-3.8-flash` profile already exists and sends `low`. Operator instruction, not to be run by an agent:
+  `gcloud run services update atsker --region=<region> --update-env-vars=OPENROUTER_MODEL=google/gemini-3.8-flash`.
+  Cached answers are keyed by model, so no Haiku answer is ever served under Gemini.
+- **Adding a model:** add a profile entry, then check it with the free `fixtures/ops/check_model.py`; `verify_prices` (also printed at the start of a model-selection run) names the entry to add when a provider drops a parameter.
+- **The cache:** every model call is cached under a key made of the purpose, the prompt version, the model, the effort and the input. Provider, `max_tokens` and `cache_system` are transport, not content, and stay out of the key. A repeated analysis is served from the cache and costs nothing. Changing the model, the effort or a profile's reasoning therefore never serves an old answer; changing a prompt means bumping its version.
 
 ## 8. Cost ledger and purging a cached answer
 

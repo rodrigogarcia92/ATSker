@@ -52,3 +52,22 @@ google/gemini-3.8-flash    (all purposes)          7      0       16289       54
 
 - Haiku ran two analyses and Gemini one (the other posting's Gemini analysis came from the cache), so compare per analysis, not totals.
 - Latency was not recorded in this ledger; each call now stores it (`llm_calls.latency_ms`).
+
+## 2026-10-19 — Haiku 5.5 for the private app
+
+Round 3 of the benchmark, on dev, settled the default: the private app now runs `anthropic/claude-haiku-5.5`.
+The evidence, three lines:
+
+- **Latency:** extraction plus grading took 17.0 s under Haiku against 13.8 s under Gemini — slower, which is why
+  latency stays a first-class criterion; the ledger's per-call `latency_ms` is what the next round reads.
+- **Job Match:** 34–37 under Haiku against 33–38 under Gemini, overlapping ranges.
+- **Reliability:** no invented citation (0) and strict JSON in 6 of 6 runs.
+
+The golden set was not re-scored for this switch: the scorer is frozen, no prompt text or version changed, and a model
+swap is a deployment setting, not a scoring change. The round-3 bench is the evidence, and the golden set stays the
+reference for the scorer itself.
+
+The rollback is one variable: the `google/gemini-3.8-flash` profile stays in
+[`src/extract/model_profiles.json`](../src/extract/model_profiles.json) at `low`, and the runbook's §7 carries the
+`gcloud run services update` line. Haiku sends no `temperature` and no reasoning for the calls that do not score, and
+caches its system prompt; all of that is data in that file, not code.
