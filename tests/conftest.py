@@ -6,13 +6,14 @@ treatment by overriding `get_db`. PostgreSQL-specific behaviour (migrations,
 pgvector) is exercised against the Neon dev branch, not here.
 """
 
+import shutil
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
-from sqlalchemy.pool import StaticPool
 
 from src.auth.accounts import create_account
 from src.bullets import create_bullet
@@ -56,14 +57,38 @@ def test_settings(monkeypatch):
     get_settings.cache_clear()
 
 
-@pytest.fixture
-def session_factory():
-    engine = create_engine(
-        "sqlite://",
-        poolclass=StaticPool,
-        connect_args={"check_same_thread": False},
+def _file_engine(path: Path):
+    return create_engine(
+        f"sqlite:///{path.as_posix()}", connect_args={"check_same_thread": False}
     )
+
+
+@pytest.fixture(scope="session")
+def schema_file(tmp_path_factory) -> Path:
+    """The schema, built once and copied per test.
+
+    Building it per test costs most of a second on Windows; copying a file costs
+    milliseconds. WAL is set here and travels with the copy: with more than one
+    connection to the same file, a reader must not block a writer.
+    """
+    path = tmp_path_factory.mktemp("schema") / "schema.db"
+    engine = _file_engine(path)
+    with engine.connect() as connection:
+        assert connection.exec_driver_sql("PRAGMA journal_mode=WAL").scalar() == "wal"
     Base.metadata.create_all(engine)
+    engine.dispose()
+    return path
+
+
+@pytest.fixture
+def session_factory(tmp_path, schema_file):
+    # A file, not `sqlite://` with `StaticPool`: an analysis makes its extraction and
+    # its recruiter queries in two threads (F12.2), and two sessions over one
+    # in-memory connection would share — and undo — each other's transactions. A file
+    # gives each thread a connection of its own, as the deployed engine does.
+    path = tmp_path / "test.db"
+    shutil.copyfile(schema_file, path)
+    engine = _file_engine(path)
     return sessionmaker(bind=engine, expire_on_commit=False)
 
 

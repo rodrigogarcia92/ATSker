@@ -210,7 +210,12 @@ def analyze_propose_track(
         return _form(request, user, session, profile, values=values, error=message)
     try:
         prepared = prepare(
-            profile.id, session, jd_text=jd_text, options=CallOptions(profile_id=profile.id)
+            profile.id,
+            session,
+            jd_text=jd_text,
+            options=CallOptions(profile_id=profile.id),
+            # F11.6 is a ranking, not an analysis: one extraction, no derivation.
+            derive_queries=False,
         )
     except NoModelConfigured:
         message = t("analyze.no_model", user.ui_lang)

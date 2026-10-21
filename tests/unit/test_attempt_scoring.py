@@ -64,6 +64,23 @@ def test_an_unchanged_export_makes_no_grading_call_and_scores_the_analysis(
     assert attempt.report["score"] == analysis.report["score"]
 
 
+def test_an_attempt_reuses_the_stored_queries_and_derives_nothing(
+    client, session, career, provider
+):
+    """F10.3/F12.2: the report carries the trees; the derivation was already paid for."""
+    login(client, career.first.email)
+    application, analysis = analyzed_application(session, career, provider)
+    before = len(provider.calls_for("BooleanQuerySet"))
+
+    upload(client, application.id, docx_bytes("Experiencia", career.first_bullet.text_es))
+
+    assert len(provider.calls_for("BooleanQuerySet")) == before, "no derivation call"
+    attempt = _attempt(session)
+    assert [row["query_text"] for row in attempt.report["recall"]["queries"]] == [
+        row["query_text"] for row in analysis.report["recall"]["queries"]
+    ]
+
+
 def test_one_changed_bullet_makes_one_grading_call(client, session, career, provider):
     login(client, career.first.email)
     application, _analysis = analyzed_application(session, career, provider)

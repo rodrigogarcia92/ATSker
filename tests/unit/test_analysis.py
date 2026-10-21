@@ -9,16 +9,19 @@ import hashlib
 import html
 import json
 import re
+import threading
+import time
 from datetime import date
 from decimal import Decimal
 
+import httpx
 import pytest
 
-from src.analysis import analyze
+from src.analysis import analyze, prepare
 from src.applications import create_application, get_application
 from src.bullets import create_bullet, set_bullet_active, update_bullet
 from src.extract import client as extract_client
-from src.extract.client import CallOptions
+from src.extract.client import CallOptions, ProviderUnavailable
 from src.extract.grading import grade_evidence
 from src.extract.jd import extract_jd
 from src.jd import StructuredJD, jd_hash
@@ -170,8 +173,18 @@ def test_an_analysis_records_its_weights_prompts_and_cost(session, career, provi
 
     # Cost instrumentation is part of the milestone: the ledger rows exist and the
     # analysis carries what it actually spent — four calls since N5's gap analysis.
+    # The derivation runs beside the extraction (F12.2), so which ledger row was
+    # written first is the threads' business; the four calls are what this asserts.
     calls = session.query(LlmCall).order_by(LlmCall.id).all()
-    assert [call.purpose for call in calls] == [
+    assert sorted(call.purpose for call in calls) == [
+        "boolean_queries",
+        "evidence_grade",
+        "gap_interpret",
+        "jd_extract",
+    ]
+    # The report's list keeps the order it has always had: extraction, grading,
+    # queries, gap notes — only *when* the queries run changed.
+    assert [call["purpose"] for call in analysis.report["llm"]["calls"]] == [
         "jd_extract",
         "evidence_grade",
         "boolean_queries",
@@ -748,7 +761,8 @@ def test_an_empty_posting_is_refused_before_any_call(client, session, career, pr
 def test_a_provider_failure_is_reported_and_the_ledger_keeps_what_was_spent(
     client, session, career, monkeypatch
 ):
-    """Extraction succeeded, grading could not be reached: no report, but a paid call."""
+    """Extraction and the queries succeeded, grading could not be reached: no report,
+    but the calls that were paid for stay in the ledger."""
     import httpx
 
     stub = Provider(str(career.first_bullet.id))
@@ -767,7 +781,12 @@ def test_a_provider_failure_is_reported_and_the_ledger_keeps_what_was_spent(
     assert response.status_code == 200
     assert "no se pudo completar" in text_of(response.text)
     assert session.query(Application).count() == 0
-    assert [call.purpose for call in session.query(LlmCall).all()] == ["jd_extract"]
+    # F12.2: the derivation runs beside the extraction and was paid for before the
+    # grading call failed, so both rows are kept — in whichever order they landed.
+    assert sorted(call.purpose for call in session.query(LlmCall).all()) == [
+        "boolean_queries",
+        "jd_extract",
+    ]
 
 
 # --- Per-track analysis (PRD F4) --------------------------------------------
@@ -1841,3 +1860,95 @@ def test_the_form_prefills_from_an_application_and_refuses_another_profiles(
     login(client, career.second.email)
 
     assert client.get(f"/analyze?application={application.id}").status_code == 404
+
+
+# --- The two posting calls beside each other (PRD F12.2) ---------------------
+
+
+class TimedProvider(Provider):
+    """The usual answers, recording the thread each call ran on and whether it ended.
+
+    `delay` makes each call spend that long before answering, which is what makes a
+    sequential pair measurably slower than a simultaneous one; `fail` names the schema
+    whose call is refused at the transport, after the delay.
+    """
+
+    def __init__(self, bullet_id: str, *, delay: float = 0.0, fail: str | None = None):
+        super().__init__(bullet_id)
+        self.delay = delay
+        self.fail = fail
+        self.threads: list[tuple[str, str]] = []
+        self.finished: list[str] = []
+
+    def __call__(self, payload: dict, api_key: str) -> dict:
+        name = payload["response_format"]["json_schema"]["name"]
+        self.threads.append((name, threading.current_thread().name))
+        if self.delay:
+            time.sleep(self.delay)
+        if name == self.fail:
+            raise httpx.ConnectError("provider unreachable")
+        self.finished.append(name)
+        return {
+            "choices": [{"message": {"content": self.answers[name]}}],
+            "usage": {"prompt_tokens": 2200, "completion_tokens": 140, "cost": self.cost},
+        }
+
+
+@pytest.fixture
+def timed_provider(monkeypatch, test_settings, career):
+    """A factory: each test names its own delay and failure, one stub per test."""
+
+    def build(*, delay: float = 0.0, fail: str | None = None) -> TimedProvider:
+        stub = TimedProvider(str(career.first_bullet.id), delay=delay, fail=fail)
+        monkeypatch.setattr(extract_client, "_post", stub)
+        return stub
+
+    return build
+
+
+def test_the_extraction_and_the_queries_run_on_two_threads(
+    session, career, timed_provider
+):
+    stub = timed_provider()
+
+    analysis = analyze(career.first_profile.id, session, jd_text=POSTING)
+
+    on = dict(stub.threads)
+    assert on["JDProposal"] != on["BooleanQuerySet"], "one thread each, not one after another"
+    assert on["JDProposal"] != threading.current_thread().name
+    assert [call["purpose"] for call in analysis.report["llm"]["calls"]] == [
+        "jd_extract",
+        "evidence_grade",
+        "boolean_queries",
+        "gap_interpret",
+    ], "the report lists the calls in the order it always has"
+
+
+def test_the_two_calls_overlap_instead_of_waiting_for_each_other(session, career, timed_provider):
+    """0.2 s per call: side by side it is one 0.2 s, one after another at least 0.4 s."""
+    timed_provider(delay=0.2)
+
+    started = time.perf_counter()
+    prepare(career.first_profile.id, session, jd_text=POSTING)
+    elapsed = time.perf_counter() - started
+
+    assert elapsed < 0.35, f"the two calls ran one after another ({elapsed:.2f} s)"
+
+
+def test_a_failed_derivation_still_awaits_the_extraction(session, career, timed_provider):
+    """The extraction is a paid call: its answer is awaited before the error goes up."""
+    stub = timed_provider(delay=0.2, fail="BooleanQuerySet")
+
+    with pytest.raises(ProviderUnavailable):
+        prepare(career.first_profile.id, session, jd_text=POSTING)
+
+    assert stub.finished == ["JDProposal"]
+
+
+def test_a_failed_extraction_still_awaits_the_derivation(session, career, timed_provider):
+    stub = timed_provider(delay=0.2, fail="JDProposal")
+
+    with pytest.raises(ProviderUnavailable):
+        prepare(career.first_profile.id, session, jd_text=POSTING)
+
+    assert stub.finished == ["BooleanQuerySet"]

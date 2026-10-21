@@ -26,12 +26,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
 
-from src.analysis import (
-    preparation_from_report,
-    queries_from_report,
-    score_track,
-    shown_ceiling,
-)
+from src.analysis import preparation_from_report, score_track, shown_ceiling
 from src.attempt_flags import change_list, document_flags, new_terms, previous_attempt_report
 from src.attempt_track import ephemeral_track
 from src.extract.client import CallOptions, Completion
@@ -251,7 +246,6 @@ def run_pipeline(
         prepared=prepared,
         gate=extracted.loaded.gate,
         track=track,
-        queries=queries_from_report(application.report),
         bullets=list(ephemeral.bullets),
         document=list(ephemeral.document),
         options=CallOptions(profile_id=profile_id),

@@ -16,11 +16,14 @@ one call derives the boolean queries a recruiter would run, and the deterministi
 evaluator in `src.search` says which of them this track's text would be returned by.
 """
 
+import time
 import uuid
-from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from collections.abc import Callable, Mapping, Sequence
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal
+from functools import partial
 from typing import cast
 
 from sqlalchemy.orm import Session
@@ -144,10 +147,9 @@ class Preparation:
 
     A recommendation scores one posting against several tracks, and two of its calls
     are about the posting alone: the extraction, made here, and the recruiter's
-    queries, derived from the posting's text and passed to `score_track` by whoever
-    made the first one. A single analysis derives them itself, in the same place it
-    always did — which is what keeps a report produced before the split comparable
-    with one produced now.
+    queries, derived from the posting's text beside it (F12.2). Both travel here so
+    that no caller derives them a second time, and `score_track` records the calls
+    once, in the order the report has always listed them.
     """
 
     jd: StructuredJD
@@ -155,6 +157,31 @@ class Preparation:
     aliases: dict[str, str]
     vocabulary_hash: str
     today: date
+    # F12.2: the recruiter's queries. None only when the caller asked for the
+    # extraction alone (`derive_queries=False`) or the preparation came from a stored
+    # report that predates the query trees; `score_track` then derives them as before.
+    queries: BooleanQuerySet | None = None
+    recall_call: Completion | None = None
+    # F12.4: when this preparation started, so the report can say how long the calls
+    # took from the first read to the last one. Never stored as such.
+    started: float = field(default_factory=time.perf_counter)
+
+
+def _in_own_session(bind, work: Callable[[Session], object]) -> object:
+    """One provider call on a session of the calling thread's own (F12.2).
+
+    A `Session` is not shared across threads, and `complete_json` refuses to run
+    inside a transaction the caller owns: this session starts empty, commits what the
+    call wrote (its unmapped-term notes) and closes here, in the same thread.
+    """
+    with Session(bind=bind) as worker:
+        try:
+            value = work(worker)
+        except Exception:
+            worker.rollback()
+            raise
+        worker.commit()
+        return value
 
 
 def prepare(
@@ -164,12 +191,19 @@ def prepare(
     jd_text: str,
     model: str | None = None,
     options: CallOptions | None = None,
+    derive_queries: bool = True,
 ) -> Preparation:
-    """Extract the posting and derive the recruiter's queries, once (F7.1).
+    """Extract the posting and derive the recruiter's queries, once (F7.1, F12.2).
 
     Transaction boundaries are the unit of work's: the reads end before each provider
-    call (`client.complete_json` refuses to run inside a transaction).
+    call (`client.complete_json` refuses to run inside a transaction). The queries
+    need only the posting's text, so they run while the posting is extracted — two
+    threads, two sessions, one wall time instead of two.
+
+    `derive_queries=False` is for the caller that only wants the posting: "Proponer
+    línea" (F11.6) ranks tracks on it and has never paid for a derivation.
     """
+    started = time.perf_counter()
     profile = session.get(Profile, profile_id)
     if profile is None:
         raise RuntimeError("an analysis needs a profile that exists")
@@ -181,13 +215,48 @@ def prepare(
     today = date.today()
 
     session.commit()
-    jd, extraction = extract_jd(session, jd_text, model=model, options=options)
+    bind = session.get_bind()
+    jd_work = partial(extract_jd, text=jd_text, model=model, options=options)
+    queries_work = partial(
+        derive_boolean_queries, jd_text=jd_text, model=model, options=options
+    )
+    jd_failure: Exception | None = None
+    queries_failure: Exception | None = None
+    queries: BooleanQuerySet | None = None
+    recall_call: Completion | None = None
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        jd_future = pool.submit(_in_own_session, bind, jd_work)
+        queries_future = (
+            pool.submit(_in_own_session, bind, queries_work) if derive_queries else None
+        )
+        # Both results are awaited even when one call fails: the other is a paid
+        # call, and leaving it running would orphan its answer and its ledger row.
+        try:
+            jd, extraction = cast("tuple[StructuredJD, Completion]", jd_future.result())
+        except Exception as exc:
+            jd_failure = exc
+        if queries_future is not None:
+            try:
+                queries, recall_call = cast(
+                    "tuple[BooleanQuerySet, Completion]", queries_future.result()
+                )
+            except Exception as exc:
+                queries_failure = exc
+    # The extraction's failure is the one that propagates first, as when the calls
+    # ran one after another; either exception is re-raised unchanged.
+    if jd_failure is not None:
+        raise jd_failure
+    if queries_failure is not None:
+        raise queries_failure
     return Preparation(
         jd=jd,
         extraction=extraction,
         aliases=aliases,
         vocabulary_hash=vocab_hash,
         today=today,
+        queries=queries,
+        recall_call=recall_call,
+        started=started,
     )
 
 
@@ -262,7 +331,8 @@ def score_track(
 
     `queries` is the recruiter's derivation when somebody else already made it — F7.1
     derives it once and hands the same answer to every candidate track. Without one,
-    this derives it here, exactly where a single analysis always has.
+    the preparation's own is used (F12.2); only a preparation that carries none of
+    them derives it here, after the grading call, where an analysis always did.
 
     `bullets` and `document` override the evidence and the text read (F10's ephemeral
     track, A4): an attempt scores a file instead of a track, through this same path, so
@@ -319,10 +389,14 @@ def score_track(
         known_names=[profile.display_name] if profile.display_name else None,
         options=options,
     )
-    # The extraction wrote its unmapped-term notes; the derivation must not carry
-    # them across the network either. F7.1 derives the queries once and passes them
-    # in; a single analysis derives them here, after the grading call, as before.
+    # F12.2: the derivation travels with the preparation, made beside the extraction;
+    # F7.1 passes the first track's answer to the rest; an attempt passes the stored
+    # report's. Only a preparation that has no queries at all — one built from a
+    # report that predates the trees — derives them here, after the grading call.
     recall_call: Completion | None = None
+    if queries is None:
+        queries = prepared.queries
+        recall_call = prepared.recall_call
     if queries is None:
         session.commit()
         queries, recall_call = derive_boolean_queries(
@@ -702,7 +776,8 @@ def preparation_from_report(
     """Reuse a stored report's posting, without extracting it again (F10.3).
 
     `extraction` is the call that *did* happen — an attempt's own résumé extraction —
-    so the report's ledger names what was paid for.
+    so the report's ledger names what was paid for. The recruiter's queries travel
+    too, with no call of their own: the derivation was paid for by the analysis.
     """
     jd = StructuredJD(**report["jd"])  # type: ignore[arg-type]
     return Preparation(
@@ -711,6 +786,7 @@ def preparation_from_report(
         aliases=alias_map(session),
         vocabulary_hash=vocabulary_hash(session),
         today=date.today(),
+        queries=queries_from_report(report),
     )
 
 

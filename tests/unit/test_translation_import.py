@@ -450,6 +450,8 @@ def test_the_route_offers_the_option_and_applies_the_pairs(client, session, care
     profile_id = career.first_profile.id
     draft = english_draft()
     resume = make_resume(session, profile_id, draft, "cv-en", career.first_track.id)
+    # The app writes on a connection of its own: commit the setup before its requests.
+    session.commit()
     stub = pairing([[{"existing": 0, "draft": 0}]])
     login(client, career.first.email)
 
@@ -495,6 +497,7 @@ def test_a_failed_pairing_says_so_and_leaves_the_merge_available(client, session
     profile_id = career.first_profile.id
     draft = english_draft()
     resume = make_resume(session, profile_id, draft, "cv-en", career.first_track.id)
+    session.commit()
     pairing([[{"existing": 9, "draft": 0}]])
     login(client, career.first.email)
 
@@ -518,6 +521,7 @@ def test_a_failed_pairing_on_apply_says_so_and_writes_nothing(
     profile_id = career.first_profile.id
     draft = english_draft()
     resume = make_resume(session, profile_id, draft, "cv-en", career.first_track.id)
+    session.commit()
     login(client, career.first.email)
     before = _row_counts(session, profile_id)
     monkeypatch.setattr(extract_client, "_post", Down())
@@ -555,6 +559,7 @@ def test_an_import_in_the_same_language_is_not_a_translation(client, session, ca
         ],
     )
     resume = make_resume(session, profile_id, draft, "cv-es", career.first_track.id)
+    session.commit()
     login(client, career.first.email)
 
     merge_page = client.post(
