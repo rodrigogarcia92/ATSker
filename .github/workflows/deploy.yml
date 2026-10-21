@@ -73,8 +73,8 @@ jobs:
 
       - name: Deploy to Cloud Run
         # OPENROUTER_MODEL is a model name, not a secret, so it is set here rather
-        # than in Secret Manager. The model and reasoning effort were chosen by the
-        # evaluation in docs/methodology.md (section 8).
+        # than in Secret Manager. The profile file decides the per-purpose reasoning
+        # effort; OPENROUTER_REASONING_EFFORT is the fallback for a model without one.
         run: |
           gcloud run deploy atsker \
             --image="$IMAGE" \
@@ -87,7 +87,7 @@ jobs:
             --memory=512Mi \
             --timeout=300 \
             --service-account="${RUNTIME_SERVICE_ACCOUNT}" \
-            --set-env-vars=ENV=production,OPENROUTER_MODEL=google/gemini-3.8-flash,OPENROUTER_REASONING_EFFORT=low \
+            --set-env-vars=ENV=production,OPENROUTER_MODEL=anthropic/claude-haiku-5.5,OPENROUTER_REASONING_EFFORT=low \
             --set-secrets=OPENROUTER_API_KEY=openrouter-api-key:latest,DATABASE_URL=neon-database-url:latest,SESSION_SECRET=session-secret:latest
 
       - name: Report service URL
