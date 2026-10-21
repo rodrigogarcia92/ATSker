@@ -141,6 +141,31 @@ def test_the_cache_is_capped_and_evicts_the_least_recently_used(monkeypatch):
     assert drawn.count(bytes_of(2)) == 2, "the view untouched longest was the one evicted"
 
 
+def test_cache_survives_eight_threads(monkeypatch):
+    """Get, move, set and evict under one lock: no `KeyError`, no corrupted order.
+
+    Eight worker threads mix one page that always hits with 40 cold pages whose stores
+    evict; without a lock around the cache, `move_to_end` can raise when another thread
+    popped the key between the `get` and the move.
+    """
+    monkeypatch.setattr(locations, "PAGE_CACHE_SIZE", 4)
+    monkeypatch.setattr(
+        locations, "_draw_page", lambda data, **_kwargs: PNG_SIGNATURE + data
+    )
+
+    def render(number: int) -> bytes:
+        return locations.render_page_png(
+            bytes_of(number), page_number=1, boxes=[], severity="info"
+        )
+
+    calls = [0 if index % 2 == 0 else 1 + index % 40 for index in range(400)]
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        results = list(pool.map(render, calls))
+
+    assert results == [PNG_SIGNATURE + bytes_of(number) for number in calls]
+    assert len(locations._PAGE_CACHE) <= 4
+
+
 # --- the pane ---
 
 

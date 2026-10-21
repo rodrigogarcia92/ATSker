@@ -57,6 +57,9 @@ _PDFIUM_LOCK = threading.Lock()
 # page never collide. The value is only the PNG: small, per process, capped.
 PAGE_CACHE_SIZE = 32
 _PAGE_CACHE: OrderedDict[tuple[Any, ...], bytes] = OrderedDict()
+# Guards the cache's get/move/set/evict across FastAPI's worker threads — never the
+# drawing: a slow page must not hold up a cache hit for another one.
+_CACHE_LOCK = threading.Lock()
 
 
 def finding_page(finding: Mapping[str, Any]) -> int | None:
@@ -106,16 +109,22 @@ def render_page_png(
     drawn as outlines in the severity's colour, never filled, so the flagged words stay
     readable underneath. A render identical to one already made is served from
     `_PAGE_CACHE`; everything else goes through `_draw_page`, which owns the PDFium lock.
+    The cache's own lookup and store each take `_CACHE_LOCK`; the drawing happens with
+    neither lock held, so a slow page never holds up a cache hit for another one. Two
+    threads may therefore draw the same missing page at once: the second store overwrites
+    the first with identical bytes.
     """
     key = (hashlib.sha256(data).hexdigest(), page_number, RESOLUTION, tuple(boxes), severity)
-    cached = _PAGE_CACHE.get(key)
-    if cached is not None:
-        _PAGE_CACHE.move_to_end(key)
-        return cached
+    with _CACHE_LOCK:
+        cached = _PAGE_CACHE.get(key)
+        if cached is not None:
+            _PAGE_CACHE.move_to_end(key)
+            return cached
     png = _draw_page(data, page_number=page_number, boxes=boxes, severity=severity)
-    _PAGE_CACHE[key] = png
-    while len(_PAGE_CACHE) > PAGE_CACHE_SIZE:
-        _PAGE_CACHE.popitem(last=False)
+    with _CACHE_LOCK:
+        _PAGE_CACHE[key] = png
+        while len(_PAGE_CACHE) > PAGE_CACHE_SIZE:
+            _PAGE_CACHE.popitem(last=False)
     return png
 
 
