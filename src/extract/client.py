@@ -15,8 +15,8 @@ import hashlib
 import json
 import time
 import uuid
-from collections.abc import Callable
-from dataclasses import dataclass
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass, field
 from decimal import Decimal
 from functools import cache
 from pathlib import Path
@@ -33,13 +33,16 @@ from src.models import LlmCall
 
 ENDPOINT = "https://openrouter.ai/api/v1/chat/completions"
 
-# Payload keys the client omits for a given model (PRD §7): data, not code, so a model
-# that refuses one — a reasoning model that rejects `temperature` with a 400 — is one
-# line here rather than a branch. It starts empty on purpose: nobody guesses which models
-# refuse what, and `model_selection.verify_prices` prints the entry to add.
-MODEL_PARAMS_PATH = Path(__file__).with_name("model_params.json")
+# What each model needs, as data (PRD §7): data, not code, so a model that refuses a
+# payload key — a reasoning model that rejects `temperature` with a 400 — or needs its
+# providers pinned is one entry here rather than a branch. A model absent from the file
+# behaves exactly as the client always has.
+MODEL_PROFILES_PATH = Path(__file__).with_name("model_profiles.json")
 # The request is meaningless without these, so a model cannot be configured to lose them.
 _NEVER_OMITTED = frozenset({"model", "messages"})
+# What OpenRouter accepts as a reasoning effort, plus `off` for no reasoning at all.
+REASONING_LEVELS = frozenset({"off", "minimal", "low", "medium", "high"})
+_PROFILE_KEYS = frozenset({"omit", "provider", "reasoning", "max_tokens", "cache_system"})
 # The default `Settings.openrouter_timeout_seconds` starts from, kept importable so
 # `fixtures/golden/probe_model.py` can measure against the app's own budget.
 TIMEOUT_SECONDS = 60.0
@@ -47,37 +50,93 @@ TIMEOUT_SECONDS = 60.0
 SchemaT = TypeVar("SchemaT", bound=BaseModel)
 
 
-class ModelParamsError(RuntimeError):
-    """`model_params.json` is unreadable or not a map of model id to payload keys."""
+class ModelProfileError(RuntimeError):
+    """`model_profiles.json` is unreadable or holds an entry the request cannot use."""
 
 
-def load_model_params(path: Path = MODEL_PARAMS_PATH) -> dict[str, frozenset[str]]:
-    """Read the per-model omissions, or fail naming the file and what is wrong with it."""
+@dataclass(frozen=True)
+class ModelProfile:
+    """One model's request requirements (PRD §7).
+
+    `omit` names payload keys to leave out; `provider` is OpenRouter's routing block,
+    copied as written; `reasoning` maps a purpose to an effort (`"off"` sends
+    `enabled: false`), with `"default"` for every purpose not named; `max_tokens`
+    caps the answer; `cache_system` marks the system prompt for prompt caching.
+    """
+
+    omit: frozenset[str] = frozenset()
+    provider: dict[str, Any] | None = None
+    reasoning: Mapping[str, str] = field(default_factory=dict)
+    max_tokens: int | None = None
+    cache_system: bool = False
+
+
+def load_model_profiles(path: Path = MODEL_PROFILES_PATH) -> dict[str, ModelProfile]:
+    """Read the per-model profiles, or fail naming the file, the model and the key."""
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
-        raise ModelParamsError(f"{path.name} cannot be read as JSON: {exc}") from exc
+        raise ModelProfileError(f"{path.name} cannot be read as JSON: {exc}") from exc
     if not isinstance(raw, dict):
-        raise ModelParamsError(
-            f'{path.name} must be an object mapping a model id to a list of payload keys, e.g. '
-            '{"openai/gpt-6.1-sol": ["temperature"]}'
+        raise ModelProfileError(
+            f'{path.name} must be an object mapping a model id to a profile, e.g. '
+            '{"anthropic/claude-haiku-5.5": {"reasoning": {"default": "low"}}}'
         )
-    params: dict[str, frozenset[str]] = {}
-    for model, keys in raw.items():
-        if not isinstance(keys, list) or not all(isinstance(key, str) for key in keys):
-            raise ModelParamsError(f"{path.name}: {model!r} must map to a list of payload keys")
-        forbidden = sorted(_NEVER_OMITTED & set(keys))
-        if forbidden:
-            raise ModelParamsError(
-                f"{path.name}: {model!r} cannot omit {', '.join(forbidden)}; the request needs it"
+
+    def bad(model: str, key: str, detail: str) -> ModelProfileError:
+        return ModelProfileError(f"{path.name}: {model!r}: {key}: {detail}")
+
+    profiles: dict[str, ModelProfile] = {}
+    for model, entry in raw.items():
+        if not isinstance(entry, dict):
+            raise bad(model, "profile", "must be an object")
+        unknown = sorted(set(entry) - _PROFILE_KEYS)
+        if unknown:
+            raise bad(
+                model,
+                unknown[0],
+                f"unknown key; a profile has {', '.join(sorted(_PROFILE_KEYS))}",
             )
-        params[model] = frozenset(keys)
-    return params
+        omit = entry.get("omit", [])
+        if not isinstance(omit, list) or not all(isinstance(key, str) for key in omit):
+            raise bad(model, "omit", "must be a list of payload keys")
+        forbidden = sorted(_NEVER_OMITTED & set(omit))
+        if forbidden:
+            raise bad(model, "omit", f"cannot contain {', '.join(forbidden)}; the request needs it")
+        provider = entry.get("provider")
+        if provider is not None and not isinstance(provider, dict):
+            raise bad(model, "provider", "must be an object")
+        reasoning = entry.get("reasoning", {})
+        if not isinstance(reasoning, dict):
+            raise bad(model, "reasoning", "must be an object mapping a purpose to an effort")
+        for purpose, level in reasoning.items():
+            if not isinstance(level, str) or level not in REASONING_LEVELS:
+                raise bad(
+                    model,
+                    f"reasoning[{purpose!r}]",
+                    f"{level!r} is not one of {', '.join(sorted(REASONING_LEVELS))}",
+                )
+        max_tokens = entry.get("max_tokens")
+        if max_tokens is not None and (
+            not isinstance(max_tokens, int) or isinstance(max_tokens, bool) or max_tokens <= 0
+        ):
+            raise bad(model, "max_tokens", "must be a positive integer")
+        cache_system = entry.get("cache_system", False)
+        if not isinstance(cache_system, bool):
+            raise bad(model, "cache_system", "must be true or false")
+        profiles[model] = ModelProfile(
+            omit=frozenset(omit),
+            provider=provider,
+            reasoning=dict(reasoning),
+            max_tokens=max_tokens,
+            cache_system=cache_system,
+        )
+    return profiles
 
 
 # Read once, when the client is first imported: a malformed file stops the app at
 # startup with the file's name, never on the first paid call.
-OMIT_BY_MODEL: dict[str, frozenset[str]] = load_model_params()
+MODEL_PROFILES: dict[str, ModelProfile] = load_model_profiles()
 
 
 class NoModelConfigured(RuntimeError):
@@ -514,7 +573,7 @@ def complete_json(
         payload["seed"] = opts.seed
     if effort is not None:
         payload["reasoning"] = {"effort": effort}
-    for omitted in OMIT_BY_MODEL.get(chosen, ()):
+    for omitted in MODEL_PROFILES.get(chosen, ModelProfile()).omit:
         payload.pop(omitted, None)
 
     attempt = 0

@@ -15,8 +15,8 @@ one, and every answer is then checked by code that does not trust the prompt.
 **A contract, not a conversation.** Every call returns structured output against a strict JSON schema, derived from
 the same Pydantic model the code parses it with (`strict_schema` in [`client.py`](../src/extract/client.py)). There is
 no free-text parsing. `temperature` is always 0. A model that refuses that parameter is listed in
-[`model_params.json`](../src/extract/model_params.json), so the exception is recorded as data instead of disappearing
-inside the code.
+[`model_profiles.json`](../src/extract/model_profiles.json), so the exception is recorded as data instead of
+disappearing inside the code.
 
 **Cite or don't claim.** The model sees every bullet with an id, and any judgement above zero must name the id that
 supports it. "Never cite an id you were not given" is in every prompt that cites, and the code rejects an answer that

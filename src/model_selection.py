@@ -556,10 +556,11 @@ def verify_prices(
             note = f"{candidate.model}: provider no longer advertises {', '.join(sorted(missing))}"
             if "temperature" in missing:
                 # The client always sends temperature 0; a model that refuses it is one
-                # line of data (src/extract/model_params.json), not a code change.
+                # profile entry (src/extract/model_profiles.json), not a code change.
+                profile = {candidate.model: {"omit": ["temperature"]}}
                 note += (
-                    f'; to stop sending it, add {json.dumps(candidate.model)}: ["temperature"] '
-                    "to src/extract/model_params.json"
+                    f"; to stop sending it, add the profile entry "
+                    f"{json.dumps(profile)} to src/extract/model_profiles.json"
                 )
             notes.append(note)
         # What the runtime request is built from (PRD §7): a reasoning effort, a strict

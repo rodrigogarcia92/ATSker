@@ -1,0 +1,17 @@
+{
+  "anthropic/claude-haiku-5.5": {
+    "omit": ["temperature"],
+    "provider": {"order": ["azure", "anthropic"], "allow_fallbacks": true},
+    "reasoning": {"default": "low", "boolean_queries": "off", "gap_interpret": "off", "bullet_pairing": "off", "story_suggest": "off"},
+    "max_tokens": 8000,
+    "cache_system": true
+  },
+  "google/gemini-3.8-flash": {
+    "reasoning": {"default": "low"}
+  },
+  "deepseek/deepseek-v4.1-flash-1017": {
+    "provider": {"order": ["together", "baseten"], "allow_fallbacks": false, "data_collection": "deny"},
+    "reasoning": {"default": "off"},
+    "max_tokens": 8000
+  }
+}

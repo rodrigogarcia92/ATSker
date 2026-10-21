@@ -857,8 +857,10 @@ def test_the_price_check_warns_when_temperature_is_missing():
     )
 
     assert any("no longer advertises temperature" in note for note in notes)
-    assert '"openai/gpt-6.1-sol": ["temperature"]' in notes[0], "the exact entry to add"
-    assert "src/extract/model_params.json" in notes[0]
+    assert (
+        '{"openai/gpt-6.1-sol": {"omit": ["temperature"]}}' in notes[0]
+    ), "the exact profile entry to add"
+    assert "src/extract/model_profiles.json" in notes[0]
 
 
 def test_the_price_check_warns_when_the_effort_is_not_advertised():
