@@ -81,7 +81,11 @@
          the pane never has two rasterisations of one file in flight at once. #}
       <img class="cv-page" src="/applications/{{ application.id }}/cv/page/{{ page }}.png"
            loading="lazy" decoding="async"
-           alt="{{ t('report.cv_pane.aria', lang) }} · {{ page }}">
+           alt="{{ t('report.cv_pane.aria', lang) }} · {{ page }}"
+           onerror="this.hidden=true;this.nextElementSibling.hidden=false">
+      {# A page PDFium refuses is a 404 (N6.6): without this line the browser shows its
+         broken-image icon. Without JavaScript the icon stays, as before. #}
+      <p class="field-hint" hidden>{{ t('report.cv_pane.no_pages', lang) }} · {{ page }}</p>
       {% endfor %}
       {% else %}
       <p class="field-hint">{{ t('report.cv_pane.no_pages', lang) }}</p>

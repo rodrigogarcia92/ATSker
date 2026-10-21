@@ -11,7 +11,10 @@
 
 <div class="mt-4 rounded-card border border-card-border bg-surface-1 p-2">
   <img src="/import/{{ resume.id }}/findings/{{ index }}/page.png"
-       alt="{{ finding.label }}" class="w-full">
+       alt="{{ finding.label }}" class="w-full"
+       onerror="this.hidden=true;this.nextElementSibling.hidden=false">
+  {# A page PDFium refuses is a 404: say so instead of the browser's broken-image icon. #}
+  <p class="field-hint" hidden>{{ t('report.cv_pane.no_pages', lang) }} · {{ page }}</p>
 </div>
 <p class="mt-2 text-xs text-text-3">{{ t('import.location_hint', lang) }}</p>
 

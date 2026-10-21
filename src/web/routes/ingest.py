@@ -928,6 +928,7 @@ def finding_location(
         profile=profile,
         resume=resume,
         index=index,
+        page=page,
         finding=finding_rows(resume.gate or {}, user.ui_lang)[index],
         characters=characters,
     )

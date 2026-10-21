@@ -143,6 +143,12 @@ def test_the_location_view_renders_the_page_and_the_hidden_characters(
     assert HIDDEN not in json.dumps(resume.gate), "the stored finding keeps boxes, no text"
     assert HIDDEN not in caplog.text, "no résumé text in a log"
 
+    # A page PDFium refuses is a 404: the image hides itself and the text says so.
+    image = re.search(r'<img[^>]*src="[^"]*/page\.png"[^>]*>\s*(<p[^>]*>[^<]*</p>)', view.text)
+    assert image is not None
+    assert 'onerror="this.hidden=true;this.nextElementSibling.hidden=false"' in image.group(0)
+    assert re.search(r"·\s*1</p>", image.group(1)), "the fallback names the page"
+
 
 def test_another_profile_cannot_open_the_location_view_or_its_image(
     client, session, career, monkeypatch
