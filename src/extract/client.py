@@ -28,7 +28,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from src.config import get_settings
+from src.config import Settings, get_settings
 from src.models import LlmCall
 
 ENDPOINT = "https://openrouter.ai/api/v1/chat/completions"
@@ -495,6 +495,78 @@ def _record_unparsed(
         pass
 
 
+def effective_effort(
+    profile: ModelProfile | None, purpose: str, opts: CallOptions, settings: Settings
+) -> str | None:
+    """The reasoning effort this call is made with, first source that names one.
+
+    An explicit option wins; then the model's own entry for this purpose, its
+    default, the environment's setting. `None` sends no `reasoning` key at all,
+    leaving the provider's own default — which is what a model without a profile
+    has always done.
+    """
+    if opts.reasoning_effort:
+        return opts.reasoning_effort
+    if profile is not None:
+        if purpose in profile.reasoning:
+            return profile.reasoning[purpose]
+        if "default" in profile.reasoning:
+            return profile.reasoning["default"]
+    return settings.openrouter_reasoning_effort or None
+
+
+def build_payload(
+    chosen: str,
+    purpose: str,
+    system: str,
+    user: str,
+    schema: type[BaseModel],
+    opts: CallOptions,
+    settings: Settings,
+) -> tuple[dict[str, Any], str | None]:
+    """The request body for one call, and the effort it is being made with (PRD §7).
+
+    The model's profile decides what it needs beyond the common shape: a provider
+    routing block, an answer cap, prompt caching for the system message, and the
+    payload keys it refuses. A model without a profile gets the payload the client
+    has always sent.
+    """
+    profile = MODEL_PROFILES.get(chosen)
+    effort = effective_effort(profile, purpose, opts, settings)
+
+    system_content: str | list[dict[str, Any]] = system
+    if profile is not None and profile.cache_system:
+        # The system prompt is the stable half of every call and the larger one: an
+        # ephemeral breakpoint is what lets the provider serve it from its cache.
+        system_content = [
+            {"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}
+        ]
+
+    payload: dict[str, Any] = {
+        "model": chosen,
+        "temperature": 0,
+        "messages": [
+            {"role": "system", "content": system_content},
+            {"role": "user", "content": user},
+        ],
+        "response_format": {"type": "json_schema", "json_schema": _schema_for(schema)},
+        "usage": {"include": True},
+    }
+    if opts.seed is not None:
+        payload["seed"] = opts.seed
+    if effort is not None:
+        # `off` is not an effort the API knows: it is no reasoning at all.
+        payload["reasoning"] = {"enabled": False} if effort == "off" else {"effort": effort}
+    if profile is not None:
+        if profile.provider is not None:
+            payload["provider"] = profile.provider
+        if profile.max_tokens is not None:
+            payload["max_tokens"] = profile.max_tokens
+        for omitted in profile.omit:
+            payload.pop(omitted, None)
+    return payload, effort
+
+
 def complete_json(
     session: Session,
     *,
@@ -516,11 +588,11 @@ def complete_json(
     if settings.openrouter_api_key is None:
         raise NoModelConfigured("OPENROUTER_API_KEY is not set")
 
-    # Left alone, the provider runs its own default effort — high, medium and max
-    # across the current candidates — which is a cost and latency variable nobody
-    # chose. The setting pins the lowest advertised effort; an explicit option wins.
-    effort = opts.reasoning_effort or settings.openrouter_reasoning_effort or None
+    payload, effort = build_payload(chosen, purpose, system, user, schema, opts, settings)
 
+    # The key is what the caller asked for, never how it is transported: the model's
+    # provider routing, answer cap and prompt caching do not change the answer, so
+    # they stay out of the hash and a cached answer survives a profile edit.
     key = [purpose, prompt_version, chosen, system, user]
     if opts.seed is not None:
         key.append(f"seed={opts.seed}")
@@ -558,23 +630,6 @@ def complete_json(
             model=chosen,
             reasoning_effort=effort,
         )
-
-    payload: dict[str, Any] = {
-        "model": chosen,
-        "temperature": 0,
-        "messages": [
-            {"role": "system", "content": system},
-            {"role": "user", "content": user},
-        ],
-        "response_format": {"type": "json_schema", "json_schema": _schema_for(schema)},
-        "usage": {"include": True},
-    }
-    if opts.seed is not None:
-        payload["seed"] = opts.seed
-    if effort is not None:
-        payload["reasoning"] = {"effort": effort}
-    for omitted in MODEL_PROFILES.get(chosen, ModelProfile()).omit:
-        payload.pop(omitted, None)
 
     attempt = 0
     while True:

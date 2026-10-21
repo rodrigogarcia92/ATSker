@@ -5,6 +5,7 @@ Everything here runs against a stubbed transport: the live run is the operator's
 a model absent from the file behaves exactly as the client always has.
 """
 
+import hashlib
 import json
 
 import pytest
@@ -100,6 +101,140 @@ def test_omitting_a_key_does_not_change_the_cache_key(session, test_settings, mo
 
     assert (first.cached, second.cached) == (False, True)
     assert len(seen) == 1
+
+
+def test_haiku_grading_carries_its_provider_cap_and_cached_system_prompt(
+    session, test_settings, monkeypatch
+):
+    seen = stub(monkeypatch, Answer(ANSWER))
+
+    completion = call(session, model=HAIKU, purpose="evidence_grade")
+
+    (payload,) = seen
+    assert "temperature" not in payload, "the profile omits it"
+    assert payload["reasoning"] == {"effort": "low"}
+    assert payload["provider"] == {"order": ["azure", "anthropic"], "allow_fallbacks": True}
+    assert payload["max_tokens"] == 8000
+    assert payload["messages"][0] == {
+        "role": "system",
+        "content": [
+            {"type": "text", "text": "system", "cache_control": {"type": "ephemeral"}}
+        ],
+    }
+    assert payload["messages"][1] == {"role": "user", "content": "user"}
+    assert completion.reasoning_effort == "low"
+
+
+def test_haiku_turns_reasoning_off_for_a_gap_interpretation(session, test_settings, monkeypatch):
+    seen = stub(monkeypatch, Answer(ANSWER))
+
+    completion = call(session, model=HAIKU, purpose="gap_interpret")
+
+    (payload,) = seen
+    assert payload["reasoning"] == {"enabled": False}
+    assert completion.reasoning_effort == "off"
+
+
+def test_gemini_sends_exactly_todays_payload(session, test_settings, monkeypatch):
+    seen = stub(monkeypatch, Answer(ANSWER))
+
+    call(session, model=GEMINI)
+
+    expected = {
+        "model": GEMINI,
+        "temperature": 0,
+        "messages": [
+            {"role": "system", "content": "system"},
+            {"role": "user", "content": "user"},
+        ],
+        "response_format": {
+            "type": "json_schema",
+            "json_schema": client._schema_for(StorySuggestionSchema),
+        },
+        "usage": {"include": True},
+        "reasoning": {"effort": "low"},
+    }
+    assert seen == [expected]
+
+
+def test_deepseek_sends_no_reasoning_through_named_providers(session, test_settings, monkeypatch):
+    seen = stub(monkeypatch, Answer(ANSWER))
+
+    call(session, model=DEEPSEEK)
+
+    (payload,) = seen
+    assert payload["reasoning"] == {"enabled": False}
+    assert payload["provider"] == {
+        "order": ["together", "baseten"],
+        "allow_fallbacks": False,
+        "data_collection": "deny",
+    }
+    assert payload["max_tokens"] == 8000
+    assert payload["temperature"] == 0, "the profile does not omit it"
+
+
+def test_an_explicit_effort_wins_over_the_profile(session, test_settings, monkeypatch):
+    seen = stub(monkeypatch, Answer(ANSWER))
+
+    completion = call(
+        session, model=HAIKU, purpose="gap_interpret", options=CallOptions(reasoning_effort="high")
+    )
+
+    (payload,) = seen
+    assert payload["reasoning"] == {"effort": "high"}
+    assert completion.reasoning_effort == "high"
+
+
+def test_a_retry_appends_to_a_cached_system_message(session, test_settings, monkeypatch):
+    answers = iter([Answer("not json"), Answer(ANSWER)])
+    seen: list[dict] = []
+
+    def fake_post(payload, api_key):
+        seen.append(payload)
+        return next(answers).response(payload)
+
+    monkeypatch.setattr(client, "_post", fake_post)
+
+    call(session, model=HAIKU, purpose="evidence_grade", retries=1)
+
+    assert len(seen) == 2
+    messages = seen[-1]["messages"]
+    assert [message["role"] for message in messages] == ["system", "user", "assistant", "user"]
+    assert isinstance(messages[0]["content"], list), "still the cached text part"
+    assert messages[1] == {"role": "user", "content": "user"}
+
+
+def _old_digest(*parts: str) -> str:
+    """The cache key as the client computed it before profiles existed."""
+    return hashlib.sha256("\x00".join(parts).encode("utf-8")).hexdigest()
+
+
+def test_gemini_keeps_the_cache_digest_history_gave_it(session, test_settings, monkeypatch):
+    stub(monkeypatch, Answer(ANSWER))
+
+    call(session, model=GEMINI, purpose="evidence_grade")
+    session.commit()
+
+    (row,) = session.query(LlmCall).all()
+    assert row.input_hash == _old_digest(
+        "evidence_grade", "test_v1", GEMINI, "system", "user", "reasoning=low"
+    )
+
+
+def test_haiku_hashes_each_purpose_with_its_own_effort(session, test_settings, monkeypatch):
+    stub(monkeypatch, Answer(ANSWER))
+
+    call(session, model=HAIKU, purpose="evidence_grade")
+    call(session, model=HAIKU, purpose="gap_interpret")
+    session.commit()
+
+    hashes = {row.purpose: row.input_hash for row in session.query(LlmCall)}
+    assert hashes["evidence_grade"] == _old_digest(
+        "evidence_grade", "test_v1", HAIKU, "system", "user", "reasoning=low"
+    )
+    assert hashes["gap_interpret"] == _old_digest(
+        "gap_interpret", "test_v1", HAIKU, "system", "user", "reasoning=off"
+    )
 
 
 @pytest.mark.parametrize(
