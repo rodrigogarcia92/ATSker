@@ -117,6 +117,29 @@ def test_the_page_post_fills_the_notes_and_stores_them(client, session, career, 
     assert f'action="{location}/gap-notes"' not in page, "nothing left to ask for"
 
 
+def test_the_notes_call_is_recorded_beside_the_analysis_cost(client, session, career, provider):
+    """F12.3, F12.4: the deferred call is part of the report's cost — and only of the cost."""
+    login(client, career.first.email)
+    location = submit(client, session, career)
+    before = stored(session).report["llm"]
+    assert "deferred" not in before
+
+    fill(client, location)
+
+    after = stored(session).report["llm"]
+    (call,) = after["deferred"]["calls"]
+    assert call["purpose"] == "gap_interpret"
+    assert call["cost_usd"] == "0.000123"
+    assert call["latency_ms"] is not None, "the call names what it took, like every other"
+    assert after["deferred"]["cost_usd"] == "0.000123"
+    assert after["calls"] == before["calls"], "the analysis's own calls never move"
+    assert after["cost_usd"] == before["cost_usd"] == "0.000369"
+    assert after["wall_ms"] == before["wall_ms"], "the report appeared before this call"
+
+    page = client.get(location).text
+    assert "4 · $0.000492" in page, "the line adds the notes to the three analysis calls"
+
+
 def test_notes_already_there_are_returned_and_never_paid_again(client, session, career, provider):
     """F12.6.4: the POST on a report that already has its notes makes no call."""
     login(client, career.first.email)
@@ -129,6 +152,7 @@ def test_notes_already_there_are_returned_and_never_paid_again(client, session, 
     assert NOTE in again.text
     assert len(provider.calls_for("GapInterpretation")) == 1
     assert session.query(LlmCall).filter(LlmCall.purpose == "gap_interpret").count() == 1
+    assert len(stored(session).report["llm"]["deferred"]["calls"]) == 1, "no second entry"
 
 
 def test_without_script_the_button_posts_and_lands_on_the_report(client, session, career, provider):
@@ -161,9 +185,10 @@ def test_a_failed_call_is_stored_as_failed_and_the_section_offers_a_retry(
     assert response.status_code == 200
     assert "Reintentar" in response.text
     assert "No se pudieron explicar las brechas." in response.text
-    block = stored(session).report["gaps"]
-    assert block["notes_status"] == "failed"
-    assert [row["interpretation"] for row in block["gaps"]] == [""]
+    report = stored(session).report
+    assert report["gaps"]["notes_status"] == "failed"
+    assert [row["interpretation"] for row in report["gaps"]["gaps"]] == [""]
+    assert "deferred" not in report["llm"], "a failure is never recorded as a call"
 
     retried = fill(client, location)
 

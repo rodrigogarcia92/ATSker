@@ -11,7 +11,7 @@ from typing import Annotated
 from fastapi import APIRouter, Form, HTTPException, Request, Response
 from fastapi.responses import RedirectResponse
 
-from src.analysis import interpret_stored_gaps, prepare, shown_ceiling
+from src.analysis import interpret_stored_gaps, llm_with_deferred, prepare, shown_ceiling
 from src.applications import create_application, get_application
 from src.attempts import application_attempts_report
 from src.attempts import list_attempts as list_attempt_rows
@@ -410,13 +410,20 @@ def application_gap_notes(
     same posting and CV costs the notes once. A provider or schema failure stores
     `"failed"` and the section offers *Reintentar*. Answered with the gap section for the
     page's script, and with the report again when the button was a plain form post.
+
+    The call is paid for after the report was stored, so it is recorded beside that cost
+    (`llm.deferred`), never inside the analysis's own `wall_ms`, `calls` or `cost_usd`:
+    the page shows both, and a failure adds nothing (F12.3).
     """
     application = get_application(profile.id, session, application_id)
     if application is None:
         return render(request, "not_found.html", user=user, status_code=404)
-    block = interpret_stored_gaps(profile.id, session, application.report)
-    if block is not None:
-        application.report = {**application.report, "gaps": block}
+    fill = interpret_stored_gaps(profile.id, session, application.report)
+    if fill is not None:
+        report = {**application.report, "gaps": fill.gaps}
+        if fill.calls:
+            report["llm"] = llm_with_deferred(report.get("llm") or {}, fill.calls)
+        application.report = report
         session.commit()
     if request.headers.get("x-requested-with", "").lower() == "fetch":
         return render(

@@ -105,6 +105,27 @@ class Analysis:
     queries: BooleanQuerySet | None = None
 
 
+def call_payload(call: Completion) -> dict[str, object]:
+    """One paid call, as the report records and the page reads it (F12.4).
+
+    Shared by `llm_section` and the deferred gap notes (F12.3), so a call recorded after
+    the report was stored has exactly the fields of the ones it was stored with.
+    """
+    return {
+        "purpose": call.purpose,
+        "prompt_version": call.prompt_version,
+        "model": call.model,
+        "reasoning_effort": call.reasoning_effort,
+        "cached": call.cached,
+        "prompt_tokens": call.prompt_tokens,
+        "completion_tokens": call.completion_tokens,
+        "cost_usd": str(call.cost_usd),
+        "fingerprint": call.fingerprint,
+        "ledger_error": call.ledger_error,
+        "latency_ms": call.latency_ms,
+    }
+
+
 def llm_section(
     calls: Sequence[Completion], cost: Decimal, *, wall_ms: int | None = None
 ) -> dict[str, object]:
@@ -116,24 +137,27 @@ def llm_section(
     """
     return {
         "cost_usd": str(cost),
-        "calls": [
-            {
-                "purpose": call.purpose,
-                "prompt_version": call.prompt_version,
-                "model": call.model,
-                "reasoning_effort": call.reasoning_effort,
-                "cached": call.cached,
-                "prompt_tokens": call.prompt_tokens,
-                "completion_tokens": call.completion_tokens,
-                "cost_usd": str(call.cost_usd),
-                "fingerprint": call.fingerprint,
-                "ledger_error": call.ledger_error,
-                "latency_ms": call.latency_ms,
-            }
-            for call in calls
-        ],
+        "calls": [call_payload(call) for call in calls],
         "wall_ms": wall_ms,
     }
+
+
+def llm_with_deferred(
+    llm: Mapping[str, object], calls: Sequence[Completion]
+) -> dict[str, object]:
+    """The report's `llm` block with the gap notes' own calls beside it (F12.3).
+
+    The notes are paid for after the report was stored, so they cannot be part of what it
+    cost *then*: `calls`, `cost_usd` and `wall_ms` keep saying what the run before the page
+    said, and `deferred` holds the call that arrived later. The page adds the two when it
+    shows *Llamadas y coste*, so the line never understates what the analysis spent.
+    """
+    block = dict(llm)
+    block["deferred"] = {
+        "calls": [call_payload(call) for call in calls],
+        "cost_usd": str(sum((call.cost_usd for call in calls), Decimal("0"))),
+    }
+    return block
 
 
 def _recall_payload(recall: RecallReport, queries: Sequence[BooleanQuery]) -> dict[str, object]:
@@ -804,17 +828,29 @@ def score_track(
     )
 
 
+@dataclass(frozen=True)
+class GapFill:
+    """What one deferred fill wrote: the gaps block, and the calls it paid for (F12.3).
+
+    `calls` is empty when the notes could not be produced — the block then says
+    `"failed"` — so the report's cost never claims a call the run did not get.
+    """
+
+    gaps: dict[str, object]
+    calls: tuple[Completion, ...] = ()
+
+
 def interpret_stored_gaps(
     profile_id: uuid.UUID,
     session: Session,
     report: Mapping[str, object],
-) -> dict[str, object] | None:
+) -> GapFill | None:
     """Fill a stored report's deferred gap notes, as its analysis would have (F12.3).
 
-    Returns the `gaps` block to store, or None when there is nothing to pay for: the
-    notes are already there (`"ready"`), or the report is one no POST ever fills — an
-    attempt's, which never interpreted its gaps (F10.3), or one stored before F12,
-    which keeps the notes it was saved with.
+    Returns the `gaps` block to store and the calls it paid for, or None when there is
+    nothing to pay for: the notes are already there (`"ready"`), or the report is one no
+    POST ever fills — an attempt's, which never interpreted its gaps (F10.3), or one
+    stored before F12, which keeps the notes it was saved with.
 
     The call is the one `score_track` makes inline, from the same stored rows, the same
     profile material and the same prompt version, so its content hash is the one the
@@ -859,14 +895,14 @@ def interpret_stored_gaps(
         )
     except (NoModelConfigured, ProviderUnavailable, StructuredOutputError, GapViolation):
         block["notes_status"] = "failed"
-        return block
+        return GapFill(gaps=block)
     for row, note in zip(rows, reading.notes, strict=True):
         row["blocking"] = note.blocking
         row["interpretation"] = note.interpretation
     block["warning"] = {"text": reading.warning.text, "handling": reading.warning.handling}
     block["not_found"] = reading.not_found
     block["notes_status"] = "ready"
-    return block
+    return GapFill(gaps=block, calls=reading.calls)
 
 
 def preparation_from_report(

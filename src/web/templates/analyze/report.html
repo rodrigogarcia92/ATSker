@@ -89,8 +89,12 @@
       <dd>{{ application.weights_version }}</dd></div>
     <div class="flex gap-1"><dt>{{ t('report.model', lang) }}</dt>
       <dd>{{ report.llm.calls | map(attribute='model') | unique | join(', ') or t('common.none', lang) }}</dd></div>
+    {# F12.3: the gap notes are paid for after this report was stored, so they sit beside
+       its cost (`llm.deferred`) and are added here — the line never understates the run.
+       `wall_ms` stays what the user waited for before the page appeared. #}
+    {% set deferred = report.llm.deferred if report.llm.deferred is defined else none %}
     <div class="flex gap-1"><dt>{{ t('report.calls_cost', lang) }}</dt>
-      <dd>{{ report.llm.calls | length }} · ${{ '%.6f'|format(application.token_cost_usd) }}{% if report.llm.wall_ms is defined and report.llm.wall_ms is not none %} {{ t('report.wall_time', lang, s='%.1f'|format(report.llm.wall_ms / 1000)) }}{% endif %}</dd></div>
+      <dd>{{ (report.llm.calls | length) + (deferred.calls | length if deferred else 0) }} · ${{ '%.6f'|format((application.token_cost_usd | float) + (deferred.cost_usd | float if deferred else 0.0)) }}{% if report.llm.wall_ms is defined and report.llm.wall_ms is not none %} {{ t('report.wall_time', lang, s='%.1f'|format(report.llm.wall_ms / 1000)) }}{% endif %}</dd></div>
     <div class="flex gap-1"><dt>{{ t('report.evidence_language', lang) }}</dt>
       <dd>{{ report.jd.language or t('common.none', lang) }}</dd></div>
   </dl>
