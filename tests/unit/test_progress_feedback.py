@@ -183,10 +183,20 @@ def test_the_script_handles_the_back_forward_cache(client, career):
     assert "localStorage" not in page and "sessionStorage" not in page, "nothing is stored"
 
 
+# The range each paid run states (§12.3). F12's amendment gives the analyse and
+# re-analyse line the measured p50–p95, rounded to 5 s — and since F12.3 that range is
+# the wait for the score itself, because the gap notes fill in on the report afterwards.
+RANGES = {
+    "analyze": "10–20 s",
+    "import": "20–40 s",
+    "generate": "10–30 s",
+    "letter": "10–30 s",
+}
+
+
 @pytest.mark.parametrize("key", PROGRESS_KEYS)
 def test_the_strings_exist_in_both_languages_with_an_honest_range(key):
     entry = STRINGS[f"progress.{key}"]
-    expected = "20–40 s" if key in ("analyze", "import") else "10–30 s"
 
     assert set(entry) == {"es", "en"}
-    assert expected in entry["es"] and expected in entry["en"]
+    assert RANGES[key] in entry["es"] and RANGES[key] in entry["en"]

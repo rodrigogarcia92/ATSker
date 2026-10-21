@@ -3158,9 +3158,12 @@ STRINGS: dict[str, dict[str, str]] = {
     "report.actions.summary_bar": {"es": "Resumen", "en": "Summary"},
     # §12.3 — the line under a paid form's button while the provider works. Honest
     # ranges and a live counter; no invented steps.
+    # F12 (§12.3, amended 2026-10-19): the analyse and re-analyse lines state the
+    # measured range — p50 to p95, rounded to 5 s — and since F12.3 that range is the
+    # wait for the score: the gap notes fill in on the report afterwards.
     "progress.analyze": {
-        "es": "Analizando la oferta… suele tardar 20–40 s",
-        "en": "Analysing the posting… usually takes 20–40 s",
+        "es": "Analizando la oferta… suele tardar 10–20 s",
+        "en": "Analysing the posting… usually takes 10–20 s",
     },
     "progress.import": {
         "es": "Leyendo tu CV… suele tardar 20–40 s",
