@@ -16,6 +16,7 @@ one call derives the boolean queries a recruiter would run, and the deterministi
 evaluator in `src.search` says which of them this track's text would be returned by.
 """
 
+import logging
 import time
 import uuid
 from collections.abc import Callable, Mapping, Sequence
@@ -75,6 +76,8 @@ from src.search.boolean import RecallReport, evaluate
 from src.search.sources import searchable_units
 from src.stories import list_stories
 from src.vocabulary import alias_map, vocabulary_hash
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -863,6 +866,8 @@ def interpret_stored_gaps(
     profile_id: uuid.UUID,
     session: Session,
     report: Mapping[str, object],
+    *,
+    application_id: uuid.UUID | str | None = None,
 ) -> GapFill | None:
     """Fill a stored report's deferred gap notes, as its analysis would have (F12.3).
 
@@ -877,6 +882,11 @@ def interpret_stored_gaps(
     the notes once (F12.6.3). A provider or schema failure comes back as `"failed"` and
     the page offers a retry; it is never raised at the caller, which has no better
     answer than the retry the block already names.
+
+    A failure leaves one warning naming the application and the error's class, so a
+    pattern of them shows up in Cloud Run. Nothing else is logged on purpose: the
+    exception's message can quote the model's answer, and this module never logs the
+    posting, the CV or the profile's material.
     """
     gaps_block = report.get("gaps")
     if not isinstance(gaps_block, Mapping):
@@ -912,7 +922,16 @@ def interpret_stored_gaps(
             known_names=[profile.display_name] if profile.display_name else None,
             options=CallOptions(profile_id=profile_id),
         )
-    except (NoModelConfigured, ProviderUnavailable, StructuredOutputError, GapViolation):
+    except (
+        NoModelConfigured,
+        ProviderUnavailable,
+        StructuredOutputError,
+        GapViolation,
+    ) as exc:
+        # The class only: the message can carry the model's answer (F12.3).
+        logger.warning(
+            "gap notes failed: application=%s error=%s", application_id, type(exc).__name__
+        )
         block["notes_status"] = "failed"
         return GapFill(gaps=block)
     for row, note in zip(rows, reading.notes, strict=True):

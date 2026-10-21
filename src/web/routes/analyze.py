@@ -418,7 +418,9 @@ def application_gap_notes(
     application = get_application(profile.id, session, application_id)
     if application is None:
         return render(request, "not_found.html", user=user, status_code=404)
-    fill = interpret_stored_gaps(profile.id, session, application.report)
+    fill = interpret_stored_gaps(
+        profile.id, session, application.report, application_id=application.id
+    )
     if fill is not None:
         report = {**application.report, "gaps": fill.gaps}
         if fill.calls:

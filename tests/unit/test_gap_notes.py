@@ -8,6 +8,7 @@ below is a paid call that was, or was not, made.
 """
 
 import json
+import logging
 import uuid
 from decimal import Decimal
 
@@ -196,6 +197,31 @@ def test_a_failed_call_is_stored_as_failed_and_the_section_offers_a_retry(
     assert NOTE in retried.text
     assert stored(session).report["gaps"]["notes_status"] == "ready"
     assert len(provider.calls_for("GapInterpretation")) == 1, "the failed attempt paid nothing"
+
+
+def test_a_failed_call_leaves_one_warning_with_the_id_and_the_error_class(
+    client, session, career, provider, monkeypatch, caplog
+):
+    """F12.3: a pattern of failures must show up in Cloud Run — without the material."""
+    login(client, career.first.email)
+    location = submit(client, session, career)
+    application_id = location.rsplit("/", 1)[-1]
+
+    def failing(payload, api_key):
+        if payload["response_format"]["json_schema"]["name"] == "GapInterpretation":
+            raise httpx.ConnectError(f"the answer quoted {career.first_bullet.text_es}")
+        return provider(payload, api_key)
+
+    with monkeypatch.context() as patch, caplog.at_level(logging.WARNING, logger="src.analysis"):
+        patch.setattr(extract_client, "_post", failing)
+        fill(client, location)
+
+    records = [record for record in caplog.records if record.name == "src.analysis"]
+    assert len(records) == 1, "one warning per failed call"
+    assert records[0].levelname == "WARNING"
+    assert application_id in records[0].getMessage()
+    assert "ProviderUnavailable" in records[0].getMessage()
+    assert career.first_bullet.text_es not in caplog.text, "never the material or the message"
 
 
 def test_another_profiles_application_is_a_404_and_pays_nothing(client, session, career, provider):
