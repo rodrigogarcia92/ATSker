@@ -1,0 +1,169 @@
+"""`scripts/latency_report.py`: response time read from the stored reports (PRD F12.4).
+
+Synthetic reports on the test's SQLite: the percentiles are arithmetic, the cache
+hits are excluded by the rule the script documents, and a report stored before the
+timing existed is counted as skipped rather than guessed at.
+"""
+
+from contextlib import contextmanager
+from datetime import UTC, datetime, timedelta
+from decimal import Decimal
+
+import pytest
+
+import scripts.latency_report as latency_report
+from src.applications import create_application
+
+
+@pytest.fixture
+def reports(monkeypatch, session):
+    """The script reads the test session, never a developer's DATABASE_URL."""
+
+    @contextmanager
+    def scope():
+        try:
+            yield session
+            session.commit()
+        except Exception:
+            session.rollback()
+            raise
+
+    monkeypatch.setattr(latency_report, "session_scope", scope)
+    return session
+
+
+def call(purpose, latency_ms, *, cached=False, model="model/a"):
+    return {"purpose": purpose, "latency_ms": latency_ms, "cached": cached, "model": model}
+
+
+def store(session, profile_id, *, wall_ms=None, calls=(), days_ago=0):
+    """One stored report, with `created_at` where the window needs it."""
+    report: dict = {"llm": {"calls": list(calls)}}
+    if wall_ms is not None:
+        report["llm"]["wall_ms"] = wall_ms
+    application = create_application(
+        profile_id,
+        session,
+        jd_text="Una oferta",
+        jd_hash="sha256:synthetic",
+        report=report,
+        weights_version="w4",
+        prompt_versions={},
+        token_cost_usd=Decimal("0"),
+    )
+    application.created_at = datetime.now(UTC) - timedelta(days=days_ago)
+    session.commit()
+    return application
+
+
+@pytest.mark.parametrize(
+    ("values", "p50", "p95"),
+    [
+        ([5], 5, 5),
+        ([1, 2], 1, 2),
+        (list(range(1, 11)), 5, 10),
+        (list(range(1, 21)), 10, 19),
+    ],
+)
+def test_nearest_rank_percentiles(values, p50, p95):
+    """Rank ceil(f × n), 1-based, no interpolation: always a value that happened."""
+    assert latency_report.percentile(values, 0.50) == p50
+    assert latency_report.percentile(values, 0.95) == p95
+
+
+def test_a_percentile_needs_a_value():
+    with pytest.raises(ValueError):
+        latency_report.percentile([], 0.50)
+
+
+def test_wall_time_is_p50_p95_and_max_over_the_window(career, reports, capsys):
+    for wall in (1000, 2000, 10000):
+        store(reports, career.first_profile.id, wall_ms=wall, calls=[call("jd_extract", wall)])
+
+    assert latency_report.cmd_report("7d", None) == 0
+
+    out = capsys.readouterr().out
+    assert "analyses: 3" in out
+    assert "p50 2.0s" in out
+    assert "p95 10.0s" in out
+    assert "max 10.0s" in out
+
+
+def test_cache_hits_are_excluded_from_the_latencies_and_counted(career, reports, capsys):
+    store(
+        reports,
+        career.first_profile.id,
+        wall_ms=4000,
+        calls=[
+            call("jd_extract", 1000),
+            call("jd_extract", 3000),
+            call("jd_extract", 0, cached=True),
+            call("evidence_grade", 500),
+        ],
+    )
+
+    latency_report.cmd_report("7d", None)
+
+    rows = {
+        words[0]: words[1:]
+        for words in (line.split() for line in capsys.readouterr().out.splitlines())
+        if words
+    }
+    assert rows["jd_extract"] == ["2", "1", "1.0s", "3.0s"], "n, cached, p50, p95"
+    assert rows["evidence_grade"] == ["1", "0", "0.5s", "0.5s"]
+
+
+def test_a_report_stored_before_the_timing_is_skipped_and_counted(career, reports, capsys):
+    store(reports, career.first_profile.id, wall_ms=1000, calls=[call("jd_extract", 1000)])
+    store(reports, career.first_profile.id, calls=[call("jd_extract", 1000)])
+
+    latency_report.cmd_report("7d", None)
+
+    out = capsys.readouterr().out
+    assert "analyses: 1" in out
+    assert "skipped (no timing): 1" in out
+
+
+def test_the_window_leaves_out_older_analyses(career, reports, capsys):
+    store(reports, career.first_profile.id, wall_ms=1000, calls=[call("jd_extract", 1000)])
+    store(
+        reports,
+        career.first_profile.id,
+        wall_ms=9000,
+        calls=[call("jd_extract", 9000)],
+        days_ago=30,
+    )
+
+    latency_report.cmd_report("7d", None)
+
+    out = capsys.readouterr().out
+    assert "analyses: 1" in out
+    assert "max 1.0s" in out
+
+
+def test_the_model_filter_keeps_only_that_models_calls(career, reports, capsys):
+    store(
+        reports,
+        career.first_profile.id,
+        wall_ms=1000,
+        calls=[
+            call("jd_extract", 1000, model="model/a"),
+            call("gap_interpret", 2000, model="model/b"),
+        ],
+    )
+    store(
+        reports,
+        career.first_profile.id,
+        wall_ms=8000,
+        calls=[call("jd_extract", 8000, model="model/a")],
+    )
+
+    latency_report.cmd_report("7d", "model/b")
+
+    out = capsys.readouterr().out
+    assert "analyses: 1" in out
+    assert "max 1.0s" in out
+    assert "gap_interpret" in out
+    assert "jd_extract" not in out
+    # The second report has no call of that model, so it is outside the filter.
+    assert "skipped (no timing): 1" in out
