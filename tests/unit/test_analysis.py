@@ -544,7 +544,9 @@ def test_the_report_page_shows_the_total_its_cost_and_its_components(
     assert "se renormaliza" not in page, "w2 has nothing to renormalise"
     assert "Habilidades" in page and "Palabras clave" in page
     assert "Ajuste semántico" not in page
-    assert "$0.000492" in page, "the cost of the analysis that produced the report"
+    # F12.3: extraction, grading and the recruiter's queries — the gap prose is the
+    # report's own POST and never part of the analysis's stored cost.
+    assert "$0.000369" in page, "the cost of the analysis that produced the report"
     assert "jd_extract_v3" in page
     assert career.first_bullet.text_es in page, "the citation is shown"
     disqualifier = application.report["jd"]["hard_requirements"][0]
@@ -553,7 +555,12 @@ def test_the_report_page_shows_the_total_its_cost_and_its_components(
 
 
 def test_the_report_page_renders_the_gap_summary_and_the_detail(client, session, career, provider):
-    """F6's two views: a summary of the headline problems, expandable to every gap."""
+    """F6's two views: a summary of the headline problems, expandable to every gap.
+
+    Since F12.3 the prose is not part of the analysis: the page is on screen with the
+    bands, asks for the notes with its own POST — exactly the one the section sends on
+    load — and the report is read again with them.
+    """
     login(client, career.first.email)
 
     posted = client.post(
@@ -561,14 +568,22 @@ def test_the_report_page_renders_the_gap_summary_and_the_detail(client, session,
         data=analysis_form(session, career, jd_text=POSTING, company="Banco Demo 1"),
         follow_redirects=False,
     )
+    location = posted.headers["location"]
 
-    page = text_of(client.get(posted.headers["location"]).text)
+    assert "Explicar brechas" in text_of(client.get(location).text), (
+        "the notes are not paid for until the page asks for them"
+    )
+    section = client.post(f"{location}/gap-notes", headers={"X-Requested-With": "fetch"})
+    assert section.status_code == 200
+
+    page = text_of(client.get(location).text)
     rows = session.query(Application).one().report["gaps"]["gaps"]
     assert [row["requirement"] for row in rows] == ["machine learning"]
     assert rows[0]["level"] == 0 and rows[0]["must_have"] is False
 
     # The summary view: the interpretation line, with the blocking flag when set.
     assert "Machine learning está mencionado sin una historia que lo demuestre." in page
+    assert "Explicar brechas" not in page, "there is nothing left to ask for"
     # The detailed list behind the "Brechas" toggle: level, weight class, requirement text.
     assert "Brechas · 1" in page
     assert "machine learning" in page
@@ -576,6 +591,9 @@ def test_the_report_page_renders_the_gap_summary_and_the_detail(client, session,
     assert "Salto hacia banca privada" in page, "the single warning, with its handling"
     assert "Llévalo como transferencia de método analítico." in page
     assert "No hay historias sobre despliegue de modelos." in page
+    assert "Machine learning está mencionado sin una historia que lo demuestre." in text_of(
+        section.text
+    ), "the answer is the section itself, which is what replaces it"
     # Extraction folds hard requirements, so compare against what is stored.
     application = session.query(Application).one()
     assert application.report["disqualifiers"] == [

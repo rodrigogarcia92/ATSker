@@ -1,8 +1,8 @@
 """Analysis on a stored CV (PRD F11.2–F11.4): the headline number describes a file.
 
 The provider is stubbed at `client._post`. A CV analysis makes no extraction call for the
-CV (its draft is stored), one grading call, the recruiter's queries and the gap prose;
-nothing here reads the track's whole selection.
+CV (its draft is stored), one grading call and the recruiter's queries; the gap prose is
+the report's own POST since F12.3 and nothing here reads the track's whole selection.
 """
 
 import json
@@ -117,7 +117,9 @@ def test_a_cv_analysis_makes_no_extraction_and_no_scan_call(session, career, pro
 
     assert provider.calls_for("ResumeExtraction") == [], "the draft is stored (F11.2)"
     purposes = sorted(call.purpose for call in session.query(LlmCall))
-    assert purposes == ["boolean_queries", "evidence_grade", "gap_interpret", "jd_extract"]
+    # F12.3: the gap prose is not this run's — the report asks for it with its own POST,
+    # and only a report that carries it was ever paid for it.
+    assert purposes == ["boolean_queries", "evidence_grade", "jd_extract"]
 
 
 def test_the_bullet_only_in_cv_b_is_not_credited_to_cv_a(session, career, provider, ml_bullet):

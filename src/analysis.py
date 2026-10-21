@@ -41,8 +41,14 @@ from src.documents import (
 )
 from src.education import list_educations
 from src.extract.boolean import BooleanQuery, BooleanQuerySet, derive_boolean_queries
-from src.extract.client import CallOptions, Completion
-from src.extract.gaps import GapInput, interpret_gaps
+from src.extract.client import (
+    CallOptions,
+    Completion,
+    NoModelConfigured,
+    ProviderUnavailable,
+    StructuredOutputError,
+)
+from src.extract.gaps import GapInput, GapViolation, interpret_gaps
 from src.extract.grading import grade_evidence
 from src.extract.jd import extract_jd
 from src.extract.prompts import (
@@ -280,6 +286,7 @@ def analyze(
     model: str | None = None,
     options: CallOptions | None = None,
     track: Track | None = None,
+    notes: str = "inline",
 ) -> Analysis:
     """Run the whole pipeline for one pasted posting.
 
@@ -314,6 +321,7 @@ def analyze(
         model=model,
         options=options,
         track=track,
+        notes=notes,
     )
 
 
@@ -332,7 +340,7 @@ def score_track(
     queries: BooleanQuerySet | None = None,
     bullets: Sequence[Bullet] | None = None,
     document: Sequence[DocumentUnit] | None = None,
-    interpret: bool = True,
+    notes: str = "inline",
     extra_roles: Sequence[Role] = (),
     cv: CvContext | None = None,
 ) -> Analysis:
@@ -345,10 +353,13 @@ def score_track(
 
     `bullets` and `document` override the evidence and the text read (F10's ephemeral
     track, A4): an attempt scores a file instead of a track, through this same path, so
-    the two can never score differently. `interpret` is False for an attempt, which
-    detects gaps but does not pay for the prose about them. `extra_roles` are the file's
-    jobs that match no master role (a transient `Role`, never stored): their bullets'
-    citations count in Experience like any other role's. The analysis passes none.
+    the two can never score differently. `notes` says when the prose about the gaps is
+    paid for (F12.3): `"inline"` in this run; `"deferred"` for the interface's analysis,
+    which is stored with `gaps.notes_status = "pending"` and filled by the report's own
+    POST; `"none"` for an attempt, which detects gaps and never interprets them.
+    `extra_roles` are the file's jobs that match no master role (a transient `Role`,
+    never stored): their bullets' citations count in Experience like any other role's.
+    The analysis passes none.
 
     `cv` marks the file as a stored CV (F11): the readability cap is the file's own gate
     and is never borrowed from the track's latest upload, the F4.2 alert compares the
@@ -359,6 +370,8 @@ def score_track(
     profile = session.get(Profile, profile_id)
     if profile is None:
         raise RuntimeError("an analysis needs a profile that exists")
+    if notes not in ("inline", "deferred", "none"):
+        raise ValueError(f"unknown notes mode {notes!r}")
 
     jd = prepared.jd
     roles = list_roles(profile_id, session, active_only=True)
@@ -612,9 +625,11 @@ def score_track(
     # The reads above end before the provider call starts, like every other call here.
     session.commit()
     # F10.3: an attempt detects its gaps but does not pay for the prose about them —
-    # `interpret` is False there, and the report carries the bands with empty wording.
+    # `notes` is "none" there, and the report carries the bands with empty wording.
+    # F12.3: the interface's analysis stores the bands the same way and its report's own
+    # POST pays for the prose, so the user reads the score before the notes exist.
     reading = None
-    if interpret:
+    if notes == "inline":
         reading = interpret_gaps(
             session,
             [
@@ -629,7 +644,7 @@ def score_track(
             model=model,
             options=options,
         )
-    notes: list[object] = list(reading.notes) if reading is not None else [None] * len(gaps)
+    gap_notes: list[object] = list(reading.notes) if reading is not None else [None] * len(gaps)
 
     calls = (
         prepared.extraction,
@@ -638,6 +653,44 @@ def score_track(
         *([*reading.calls] if reading is not None else []),
     )
     cost = sum((call.cost_usd for call in calls), Decimal("0"))
+
+    gaps_block: dict[str, object] = {
+        "gaps": [
+            {
+                "requirement": gap.requirement,
+                "level": gap.level,
+                "must_have": gap.must_have,
+                "bullet_id": gap.bullet_id,
+                "bullet_text": gap.bullet_text,
+                "blocking": bool(getattr(note, "blocking", False)),
+                "interpretation": str(getattr(note, "interpretation", "")),
+            }
+            for gap, note in zip(gaps, gap_notes, strict=True)
+        ],
+        "covered_by_transfer": [
+            {
+                "requirement": gap.requirement,
+                "level": gap.level,
+                "must_have": gap.must_have,
+                "bullet_id": gap.bullet_id,
+                "bullet_text": gap.bullet_text,
+                "transfer_reason": gap.transfer_reason,
+            }
+            for gap in covered
+        ],
+        "warning": {
+            "text": reading.warning.text if reading is not None else "",
+            "handling": reading.warning.handling if reading is not None else "",
+        },
+        "alerts": alerts,
+        "not_found": reading.not_found if reading is not None else "",
+        "stories_used": len(stories),
+    }
+    if notes == "deferred":
+        # F12.3: the report is stored as soon as the score exists; the page's own POST
+        # fills the notes in and moves this to "ready" (or "failed", which offers a
+        # retry). A report stored before F12 has its notes and no status at all.
+        gaps_block["notes_status"] = "pending"
 
     report: dict[str, object] = {
         "jd": jd.model_dump(mode="json"),
@@ -659,38 +712,7 @@ def score_track(
         # are detection's, in F6.1's band order, with the interpretation's blocking
         # flag and one line merged in — the model never reorders and never adds.
         # F6.1's fifth band and its alerts sit beside them, never inside the list.
-        "gaps": {
-            "gaps": [
-                {
-                    "requirement": gap.requirement,
-                    "level": gap.level,
-                    "must_have": gap.must_have,
-                    "bullet_id": gap.bullet_id,
-                    "bullet_text": gap.bullet_text,
-                    "blocking": bool(getattr(note, "blocking", False)),
-                    "interpretation": str(getattr(note, "interpretation", "")),
-                }
-                for gap, note in zip(gaps, notes, strict=True)
-            ],
-            "covered_by_transfer": [
-                {
-                    "requirement": gap.requirement,
-                    "level": gap.level,
-                    "must_have": gap.must_have,
-                    "bullet_id": gap.bullet_id,
-                    "bullet_text": gap.bullet_text,
-                    "transfer_reason": gap.transfer_reason,
-                }
-                for gap in covered
-            ],
-            "warning": {
-                "text": reading.warning.text if reading is not None else "",
-                "handling": reading.warning.handling if reading is not None else "",
-            },
-            "alerts": alerts,
-            "not_found": reading.not_found if reading is not None else "",
-            "stories_used": len(stories),
-        },
+        "gaps": gaps_block,
         # F6.1's disqualifiers, beside the score and never inside it (F5.5). The
         # verdict is `unverified` unless the stored education rows decide it.
         "disqualifiers": [
@@ -780,6 +802,71 @@ def score_track(
         calls=calls,
         queries=queries,
     )
+
+
+def interpret_stored_gaps(
+    profile_id: uuid.UUID,
+    session: Session,
+    report: Mapping[str, object],
+) -> dict[str, object] | None:
+    """Fill a stored report's deferred gap notes, as its analysis would have (F12.3).
+
+    Returns the `gaps` block to store, or None when there is nothing to pay for: the
+    notes are already there (`"ready"`), or the report is one no POST ever fills — an
+    attempt's, which never interpreted its gaps (F10.3), or one stored before F12,
+    which keeps the notes it was saved with.
+
+    The call is the one `score_track` makes inline, from the same stored rows, the same
+    profile material and the same prompt version, so its content hash is the one the
+    analysis would have written: a second analysis of the same posting and CV pays for
+    the notes once (F12.6.3). A provider or schema failure comes back as `"failed"` and
+    the page offers a retry; it is never raised at the caller, which has no better
+    answer than the retry the block already names.
+    """
+    gaps_block = report.get("gaps")
+    if not isinstance(gaps_block, Mapping):
+        return None
+    if gaps_block.get("notes_status") not in ("pending", "failed"):
+        return None
+    profile = session.get(Profile, profile_id)
+    if profile is None:
+        raise RuntimeError("an analysis needs a profile that exists")
+    rows = [dict(row) for row in gaps_block.get("gaps") or []]
+    inputs = [
+        GapInput(
+            str(row.get("requirement") or ""),
+            int(row.get("level") or 0),
+            bool(row.get("must_have")),
+            cast("str | None", row.get("bullet_text")),
+        )
+        for row in rows
+    ]
+    jd = StructuredJD(**cast("dict[str, object]", report["jd"]))
+    stories = list_stories(profile_id, session)
+    # The reads end before the provider call, as everywhere else.
+    session.commit()
+    block: dict[str, object] = {**gaps_block, "gaps": rows}
+    try:
+        reading = interpret_gaps(
+            session,
+            inputs,
+            jd,
+            standing_risks=profile.standing_risks,
+            stories=stories,
+            language=jd.language,
+            known_names=[profile.display_name] if profile.display_name else None,
+            options=CallOptions(profile_id=profile_id),
+        )
+    except (NoModelConfigured, ProviderUnavailable, StructuredOutputError, GapViolation):
+        block["notes_status"] = "failed"
+        return block
+    for row, note in zip(rows, reading.notes, strict=True):
+        row["blocking"] = note.blocking
+        row["interpretation"] = note.interpretation
+    block["warning"] = {"text": reading.warning.text, "handling": reading.warning.handling}
+    block["not_found"] = reading.not_found
+    block["notes_status"] = "ready"
+    return block
 
 
 def preparation_from_report(

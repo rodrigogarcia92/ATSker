@@ -78,7 +78,9 @@ def analyze_cv(
         track=track,
         bullets=list(ephemeral.bullets),
         document=list(ephemeral.document),
-        interpret=True,
+        # F12.3: the page the user is waiting for is ready at the score; the prose about
+        # the gaps is one POST the report sends once it is on screen.
+        notes="deferred",
         extra_roles=ephemeral.roles,
         cv=cv_context(resume, ephemeral, chosen=chosen),
     )

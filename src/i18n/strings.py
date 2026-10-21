@@ -2868,6 +2868,18 @@ STRINGS: dict[str, dict[str, str]] = {
         "es": "Ningún requisito se cubre por transferencia.",
         "en": "No requirement is covered by transfer.",
     },
+    # F12.3: the analysis is stored before the prose about its gaps, and the report asks
+    # for it with one POST of its own. The button is what a browser without script has.
+    "report.gaps_pending": {
+        "es": "Explicando las brechas…",
+        "en": "Explaining the gaps…",
+    },
+    "report.gaps_explain": {"es": "Explicar brechas", "en": "Explain the gaps"},
+    "report.gaps_failed": {
+        "es": "No se pudieron explicar las brechas.",
+        "en": "The gaps could not be explained.",
+    },
+    "report.gaps_retry": {"es": "Reintentar", "en": "Retry"},
     # §12.1 item 5 (queue U4): the requirements as buttons, with their summary.
     "report.req.n_one": {"es": "{n} requisito", "en": "{n} requirement"},
     "report.req.n": {"es": "{n} requisitos", "en": "{n} requirements"},

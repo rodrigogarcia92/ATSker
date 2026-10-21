@@ -249,7 +249,7 @@ def run_pipeline(
         bullets=list(ephemeral.bullets),
         document=list(ephemeral.document),
         options=CallOptions(profile_id=profile_id),
-        interpret=False,
+        notes="none",
         extra_roles=ephemeral.roles,
     )
     report = dict(analysis.report)

@@ -383,5 +383,36 @@
       });
     })();
   </script>
+  <script>
+    // F12.3: the report is stored as soon as the score exists, and the prose about its
+    // gaps arrives from the section's own POST. The form is what a browser without
+    // script keeps — it posts and lands on the report again — so here it is sent once,
+    // as soon as the page is on screen, and the answer replaces the whole section. A
+    // report whose notes are already there (or one stored before F12) has no
+    // `data-gap-notes="pending"` form and sends nothing.
+    (function () {
+      var form = document.querySelector('form[data-gap-notes="pending"]');
+      var section = document.getElementById('before');
+      if (!form || !section) { return; }
+      var button = form.querySelector('button[type="submit"]');
+      if (button) { button.disabled = true; }
+      fetch(form.action, {method: 'POST', headers: {'X-Requested-With': 'fetch'}})
+        .then(function (response) {
+          if (!response.ok) { throw new Error(response.status); }
+          return response.text();
+        })
+        .then(function (html) {
+          var holder = document.createElement('div');
+          holder.innerHTML = html;
+          var fresh = holder.querySelector('#before');
+          if (fresh) { section.replaceWith(fresh); }
+        })
+        .catch(function () {
+          // The section keeps its own retry: the button is the same POST a plain form
+          // would send, and the report still says the notes are missing.
+          if (button) { button.disabled = false; }
+        });
+    })();
+  </script>
 </body>
 </html>

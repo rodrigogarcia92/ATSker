@@ -11,7 +11,7 @@ from typing import Annotated
 from fastapi import APIRouter, Form, HTTPException, Request, Response
 from fastapi.responses import RedirectResponse
 
-from src.analysis import prepare, shown_ceiling
+from src.analysis import interpret_stored_gaps, prepare, shown_ceiling
 from src.applications import create_application, get_application
 from src.attempts import application_attempts_report
 from src.attempts import list_attempts as list_attempt_rows
@@ -391,6 +391,42 @@ def application_reanalyze(
     return _run_analysis(
         request, user, session, profile, values=values, track=track, resume=resume, choice=choice
     )
+
+
+@router.post("/applications/{application_id}/gap-notes")
+def application_gap_notes(
+    application_id: str,
+    request: Request,
+    user: SignedInUser,
+    session: DbSession,
+    profile: OwnProfile,
+):
+    """The second half of an analysis the user started: the prose about its gaps (F12.3).
+
+    The report is on screen before these notes exist, so the page sends this once by
+    itself and, without script, a button sends it. Scoped to the profile like every other
+    route (a foreign id is a 404) and idempotent: notes already there are returned, never
+    paid again, and the call itself is content-hash cached — a second analysis of the
+    same posting and CV costs the notes once. A provider or schema failure stores
+    `"failed"` and the section offers *Reintentar*. Answered with the gap section for the
+    page's script, and with the report again when the button was a plain form post.
+    """
+    application = get_application(profile.id, session, application_id)
+    if application is None:
+        return render(request, "not_found.html", user=user, status_code=404)
+    block = interpret_stored_gaps(profile.id, session, application.report)
+    if block is not None:
+        application.report = {**application.report, "gaps": block}
+        session.commit()
+    if request.headers.get("x-requested-with", "").lower() == "fetch":
+        return render(
+            request,
+            "analyze/_gaps.html",
+            user=user,
+            application=application,
+            report=application.report,
+        )
+    return RedirectResponse(f"/applications/{application.id}", status_code=303)
 
 
 @router.get("/applications/{application_id}")

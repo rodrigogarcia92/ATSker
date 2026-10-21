@@ -1,0 +1,195 @@
+{# §12.1 item 8 — Before applying: the knock-out requirements stay visible, then one
+   summary line and three closed toggles — the gaps in band order, the single warning with
+   its alerts, and the claims that are only transferable. An empty group keeps its toggle.
+
+   Its own partial because F12.3's POST re-renders exactly this section: the report goes
+   up with the notes pending and the answer replaces it in place. #}
+{% set gap_data = report.gaps or {} %}
+{% set gap_rows = gap_data.gaps or [] %}
+{% set transfer_rows = gap_data.covered_by_transfer or [] %}
+{% set warning = gap_data.warning or {} %}
+{% set alert_rows = gap_data.alerts or [] %}
+{# The count is the warning itself — 0 or 1. The alerts sit inside the toggle but are not
+   counted in it or in the summary line (§12.1 item 8: "the single warning and its alerts"). #}
+{% set warning_count = 1 if warning.text else 0 %}
+<section id="before" class="mt-10">
+<h2 class="text-3xl leading-tight tracking-[-0.01em] md:text-4xl">{{ t('report.before_applying', lang) }}</h2>
+
+{% if report.disqualifiers %}
+<p class="mt-3 text-sm">{{ t('report.disqualifiers', lang) }}</p>
+<p class="field-hint">{{ t('report.disqualifiers_hint', lang) }}</p>
+{# F6.1: three-way verdicts, beside the score and never inside it. `unverified` is
+   the honest default and is never rendered as `met`. #}
+<ul class="mt-2 space-y-2">
+  {% for item in report.disqualifiers %}
+  <li class="flex flex-wrap items-center justify-between gap-2 rounded-card border border-slate px-3 py-2 text-sm">
+    <span>{{ item.requirement }}</span>
+    <span class="chip">{{ t('report.verdict.' ~ item.verdict, lang) }}</span>
+  </li>
+  {% endfor %}
+</ul>
+{% if report.disqualifiers | selectattr('verdict', 'equalto', 'unverified') | list %}
+<p class="mt-2 text-xs text-text-3">{{ t('report.disqualifiers_unverified_hint', lang) }}</p>
+{% endif %}
+{% elif report.jd.hard_requirements %}
+<ul class="mt-3 space-y-2">
+  {% for item in report.jd.hard_requirements %}
+  <li class="rounded-card border border-slate px-3 py-2 text-sm">{{ item }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
+
+{% if report.gaps %}
+<p class="mt-3 text-sm text-text-2">
+  {{ t('report.before.gaps_one' if gap_rows | length == 1 else 'report.before.gaps', lang, n=gap_rows | length) }}
+  · {{ t('report.before.warnings_one' if warning_count == 1 else 'report.before.warnings', lang, n=warning_count) }}
+  · {{ t('report.before.transfer_one' if transfer_rows | length == 1 else 'report.before.transfer', lang, n=transfer_rows | length) }}
+</p>
+
+{% set notes_status = gap_data.notes_status | default('') %}
+{% if notes_status == 'pending' or notes_status == 'failed' %}
+{# F12.3: the analysis is stored as soon as the score exists, so the prose about the gaps
+   arrives from this POST. The report's script sends it once on load; without script the
+   button is the whole mechanism — the same POST, then the report again. A failure says
+   so, and the button asks to retry, paying only for what the cache does not hold. A
+   report stored before F12 carries no status and shows nothing here. #}
+<form method="post" action="/applications/{{ application.id }}/gap-notes"
+      class="mt-4 flex flex-wrap items-center gap-3 text-sm" data-gap-notes="{{ notes_status }}">
+  <button type="submit" class="btn btn-secondary">
+    {{ t('report.gaps_retry' if notes_status == 'failed' else 'report.gaps_explain', lang) }}
+  </button>
+  <span class="text-xs text-text-2">
+    {{ t('report.gaps_failed' if notes_status == 'failed' else 'report.gaps_pending', lang) }}
+  </span>
+</form>
+{% endif %}
+
+<div class="mt-4">
+  <details class="disclosure row-section">
+    <summary>
+      <span>{{ t('report.before.gaps_toggle', lang) }}</span>
+      <span class="row-summary">· {{ gap_rows | length }}{% if gap_rows | length > 1 %}, {{ t('report.before.gaps_order', lang) }}{% endif %}</span>
+    </summary>
+    <div class="pb-6">
+      {% if gap_rows %}
+      {# F6's detailed list, in F6.1's band order: the level, the requirement text, whether a
+         bullet came close, and the blocking flag. #}
+      <ul class="space-y-2">
+        {% for gap in gap_rows %}
+        <li class="rounded-card border border-card-border p-3">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <span class="text-sm">{{ gap.requirement }}</span>
+            <span class="flex flex-wrap items-center gap-2 text-xs text-text-3">
+              {{ t('report.must_have', lang) if gap.must_have else t('report.nice_to_have', lang) }}
+              · {{ t('report.level_label', lang) }} {{ gap.level }}
+              {% if gap.blocking %}<span class="tag tag-warning">{{ t('report.gap_blocking', lang) }}</span>{% endif %}
+            </span>
+          </div>
+          {% if gap.level == 1 %}
+          {# Amended 2026-10-13: at level 1 the citation is the skills list or the summary
+             itself, not a bullet that came close, so the line says where the term is and
+             what would make it count (§12.1 item 3). #}
+          <p class="mt-1 text-sm text-text-2">{{ t('report.mention_line', lang, skill=gap.requirement) }}</p>
+          {% elif gap.bullet_text %}
+          <p class="mt-1 text-sm text-text-2">{{ t('report.came_close', lang) }}: {{ gap.bullet_text }}</p>
+          {% endif %}
+          {% if gap.interpretation %}
+          <p class="mt-1 text-sm text-text-2">{{ gap.interpretation }}</p>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="text-sm text-text-2">{{ t('report.no_gaps', lang) }}</p>
+      {% endif %}
+    </div>
+  </details>
+
+  <details class="disclosure row-section">
+    <summary>
+      <span>{{ t('report.before.warning_toggle', lang) }}</span>
+      <span class="row-summary">· {{ warning_count }}</span>
+    </summary>
+    <div class="space-y-2 pb-6">
+      {% if warning.text %}
+      <div class="rounded-card border border-slate px-3 py-2 text-sm">
+        <p>{{ t('report.gap_warning', lang) }} {{ warning.text }}</p>
+        {% if warning.handling %}
+        <p class="mt-1">{{ t('report.gap_handling', lang) }} {{ warning.handling }}</p>
+        {% endif %}
+      </div>
+      {% else %}
+      <p class="text-sm text-text-2">{{ t('report.before.no_warning', lang) }}</p>
+      {% endif %}
+      {% if alert_rows %}
+      {# F6.1's alerts beside the single warning, never inside the gap list and never in
+         the score: seniority in either direction (F5.5.2) and location. #}
+      <p class="text-sm">{{ t('report.alerts', lang) }}</p>
+      <ul class="space-y-2">
+        {% for alert in alert_rows %}
+        <li class="rounded-card border border-slate px-3 py-2 text-sm">
+          {% if alert.kind == 'over_seniority' %}
+          {{ t('report.alert.over_seniority', lang) }}
+          {% elif alert.kind == 'under_seniority' %}
+          {{ t('report.alert.under_seniority', lang, jd_rung=alert.jd_rung) }}
+          {% elif alert.kind == 'language_mismatch' %}
+          {# F4.2 (A.9.3): the posting's language and the counts, in words a reader knows —
+             the stored report keeps the ISO codes, and the list of what fell back is
+             joined by the language's own conjunction. #}
+          {{ language_alert(alert, lang) }}
+          {% else %}
+          {{ t('report.alert.location', lang, requirement=alert.requirement) }}
+          <span class="chip">{{ t('report.verdict.' ~ alert.verdict, lang) }}</span>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+    </div>
+  </details>
+
+  <details class="disclosure row-section row-last">
+    <summary>
+      <span>{{ t('report.transfer_band', lang) }}</span>
+      <span class="row-summary">· {{ transfer_rows | length }}</span>
+    </summary>
+    <div class="pb-6">
+      {% if transfer_rows %}
+      {# F6.1's fifth band: not a gap in the score's sense — the claim most likely to be
+         questioned, listed so the user can prepare the argument. #}
+      <p class="text-xs text-text-3">{{ t('report.transfer_band_hint', lang) }}</p>
+      <ul class="mt-2 space-y-2">
+        {% for gap in transfer_rows %}
+        <li class="rounded-card border border-card-border p-3">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <span class="text-sm">{{ gap.requirement }}</span>
+            <span class="flex flex-wrap items-center gap-2 text-xs text-text-3">
+              {{ t('report.must_have', lang) if gap.must_have else t('report.nice_to_have', lang) }}
+              · {{ t('report.level_label', lang) }} {{ gap.level }}
+            </span>
+          </div>
+          {% if gap.transfer_reason %}
+          <p class="mt-1 text-sm text-text-2">{{ t('report.transfer_reason', lang) }} {{ gap.transfer_reason }}</p>
+          {% endif %}
+          {% if gap.bullet_text %}
+          <p class="mt-1 text-sm text-text-2">{{ gap.bullet_text }}</p>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="text-sm text-text-2">{{ t('report.before.no_transfer', lang) }}</p>
+      {% endif %}
+    </div>
+  </details>
+</div>
+{% if not gap_data.stories_used %}
+{# Said by the pipeline, not by the model: when the table was empty the output
+   names that, rather than implying none of the stories were relevant. #}
+<p class="mt-2 text-sm text-text-2">{{ t('report.no_stories_available', lang) }}</p>
+{% endif %}
+{% if gap_data.not_found %}
+<p class="mt-2 text-sm text-text-2">{{ gap_data.not_found }}</p>
+{% endif %}
+{% endif %}
+</section>
