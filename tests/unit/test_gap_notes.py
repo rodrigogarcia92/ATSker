@@ -141,6 +141,21 @@ def test_the_notes_call_is_recorded_beside_the_analysis_cost(client, session, ca
     assert "4 · $0.000492" in page, "the line adds the notes to the three analysis calls"
 
 
+def test_the_single_column_report_adds_the_notes_too(client, session, career, provider):
+    """The other template (`report.html`): the same total, with no CV pane above it."""
+    login(client, career.first.email)
+    location = submit(client, session, career)
+    fill(client, location)
+    application = stored(session)
+    # F11.3: a report whose CV was deleted keeps the one-column page.
+    application.resume_id = None
+    session.commit()
+
+    page = client.get(location).text
+
+    assert "4 · $0.000492" in page
+
+
 def test_notes_already_there_are_returned_and_never_paid_again(client, session, career, provider):
     """F12.6.4: the POST on a report that already has its notes makes no call."""
     login(client, career.first.email)
