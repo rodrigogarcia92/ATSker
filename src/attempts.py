@@ -250,6 +250,7 @@ def run_pipeline(
         document=list(ephemeral.document),
         options=CallOptions(profile_id=profile_id),
         notes="none",
+        kind="attempt",
         extra_roles=ephemeral.roles,
     )
     report = dict(analysis.report)

@@ -62,6 +62,7 @@ def test_an_unchanged_export_makes_no_grading_call_and_scores_the_analysis(
     attempt = _attempt(session)
     assert attempt.status == "done"
     assert attempt.report["score"] == analysis.report["score"]
+    assert attempt.report["llm"]["kind"] == "attempt", "its wall time is its own (F12.4)"
 
 
 def test_an_attempt_reuses_the_stored_queries_and_derives_nothing(

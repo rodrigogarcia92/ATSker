@@ -8,11 +8,18 @@ analyses actually run, not one spinner reading.
     uv run python scripts/latency_report.py
     uv run python scripts/latency_report.py --since 30d
     uv run python scripts/latency_report.py --since 7d --model anthropic/claude-haiku-5.5
+    uv run python scripts/latency_report.py --kind all
 
 Read-only: it opens the database the app uses (`DATABASE_URL`, as `llm_costs.py`
 does), reads `applications.report` and prints. A report stored before F12.4 has no
 timing and is counted as skipped, never guessed at. A cache hit made no provider
 request, so its 0 ms is excluded from the latencies and counted as `cached`.
+
+F12.4: a report names its `kind` — the page's analysis, F7.1's recommendation or an
+attempt — and the three wall times answer different questions (a recommendation's
+starts at the shared preparation, an attempt's excludes the extraction it reused), so
+only one kind is read unless `--kind all` asks otherwise. A report stored before kinds
+counts as an analysis, which is what it was.
 """
 
 import argparse
@@ -27,6 +34,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from sqlalchemy import select  # noqa: E402
 
 from scripts.llm_costs import parse_since  # noqa: E402
+from src.analysis import REPORT_KINDS  # noqa: E402
 from src.db import session_scope  # noqa: E402
 from src.models import Application  # noqa: E402
 
@@ -62,6 +70,13 @@ def _is_number(value: object) -> bool:
     return isinstance(value, (int, float)) and not isinstance(value, bool)
 
 
+def _kind(report: object) -> str:
+    """A report's kind (F12.4); one stored before kinds counts as the analysis it was."""
+    llm = report.get("llm") if isinstance(report, dict) else None
+    kind = llm.get("kind") if isinstance(llm, dict) else None
+    return kind if isinstance(kind, str) else "analysis"
+
+
 def _timing(report: object, model: str | None) -> tuple[int | None, dict[str, _Purpose]]:
     """One report's wall time and per-purpose latencies, restricted to `model`.
 
@@ -93,8 +108,12 @@ def _timing(report: object, model: str | None) -> tuple[int | None, dict[str, _P
     return round(wall), purposes
 
 
-def cmd_report(since_raw: str, model: str | None) -> int:
-    """Print the wall and per-purpose distributions of the reports in the window."""
+def cmd_report(since_raw: str, model: str | None, kind: str = "analysis") -> int:
+    """Print the wall and per-purpose distributions of the reports in the window.
+
+    `kind` is one of `REPORT_KINDS`, or "all": the three wall times measure different
+    waits, so one p50 over all of them would describe none of them (F12.4).
+    """
     since = parse_since(since_raw)
     with session_scope() as session:
         rows = list(
@@ -109,6 +128,8 @@ def cmd_report(since_raw: str, model: str | None) -> int:
     skipped = 0
     purposes: dict[str, _Purpose] = {}
     for row in rows:
+        if kind != "all" and _kind(row.report) != kind:
+            continue
         wall, call_stats = _timing(row.report, model)
         if wall is None:
             skipped += 1
@@ -150,8 +171,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         help=f"ISO date or timestamp, or a window (2d, 48h); default {DEFAULT_SINCE}",
     )
     parser.add_argument("--model", default=None, help="only analyses that used this model")
+    parser.add_argument(
+        "--kind",
+        default="analysis",
+        choices=("all", *REPORT_KINDS),
+        help="which reports to read: analysis (default), recommendation, attempt, or all",
+    )
     args = parser.parse_args(argv)
-    return cmd_report(args.since, args.model)
+    return cmd_report(args.since, args.model, args.kind)
 
 
 if __name__ == "__main__":

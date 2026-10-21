@@ -36,11 +36,13 @@ def call(purpose, latency_ms, *, cached=False, model="model/a"):
     return {"purpose": purpose, "latency_ms": latency_ms, "cached": cached, "model": model}
 
 
-def store(session, profile_id, *, wall_ms=None, calls=(), days_ago=0):
+def store(session, profile_id, *, wall_ms=None, calls=(), days_ago=0, kind=None):
     """One stored report, with `created_at` where the window needs it."""
     report: dict = {"llm": {"calls": list(calls)}}
     if wall_ms is not None:
         report["llm"]["wall_ms"] = wall_ms
+    if kind is not None:
+        report["llm"]["kind"] = kind
     application = create_application(
         profile_id,
         session,
@@ -167,3 +169,63 @@ def test_the_model_filter_keeps_only_that_models_calls(career, reports, capsys):
     assert "jd_extract" not in out
     # The second report has no call of that model, so it is outside the filter.
     assert "skipped (no timing): 1" in out
+
+
+def test_only_the_analyses_own_kind_is_read_by_default(career, reports, capsys):
+    """F12.4: a recommendation's wall time starts at the shared preparation and an
+    attempt's excludes the extraction it reused; neither belongs in an analysis p50.
+
+    A report stored before kinds (every other test here) counts as the analysis it was.
+    """
+    store(
+        reports,
+        career.first_profile.id,
+        wall_ms=1000,
+        calls=[call("jd_extract", 1000)],
+        kind="analysis",
+    )
+    store(
+        reports,
+        career.first_profile.id,
+        wall_ms=9000,
+        calls=[call("evidence_grade", 9000)],
+        kind="recommendation",
+    )
+    store(
+        reports,
+        career.first_profile.id,
+        wall_ms=5000,
+        calls=[call("evidence_grade", 5000)],
+        kind="attempt",
+    )
+
+    latency_report.cmd_report("7d", None)
+
+    out = capsys.readouterr().out
+    assert "analyses: 1" in out and "max 1.0s" in out
+    assert "skipped (no timing): 0" in out, "another kind is out of scope, not skipped"
+
+
+def test_all_reads_every_kind_and_attempt_reads_only_attempts(career, reports, capsys):
+    store(reports, career.first_profile.id, wall_ms=1000, calls=[call("jd_extract", 1000)])
+    store(
+        reports,
+        career.first_profile.id,
+        wall_ms=9000,
+        calls=[call("evidence_grade", 9000)],
+        kind="recommendation",
+    )
+    store(
+        reports,
+        career.first_profile.id,
+        wall_ms=5000,
+        calls=[call("evidence_grade", 5000)],
+        kind="attempt",
+    )
+
+    latency_report.cmd_report("7d", None, "all")
+    assert "analyses: 3" in capsys.readouterr().out
+
+    latency_report.cmd_report("7d", None, "attempt")
+    out = capsys.readouterr().out
+    assert "analyses: 1" in out and "max 5.0s" in out

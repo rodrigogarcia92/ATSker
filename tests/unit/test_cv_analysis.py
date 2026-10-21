@@ -108,6 +108,7 @@ def test_a_cv_analysis_stores_which_cv_it_scored(session, career, provider):
     assert analysis.report["cv"]["chosen"] == "latest"
     assert analysis.report["cv"]["draft_sha"], "the offsets the highlights use are tied to it"
     assert analysis.report["track"]["id"] == str(career.first_track.id)
+    assert analysis.report["llm"]["kind"] == "analysis", "the page's own run (F12.4)"
 
 
 def test_a_cv_analysis_makes_no_extraction_and_no_scan_call(session, career, provider):

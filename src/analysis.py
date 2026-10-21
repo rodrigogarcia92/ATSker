@@ -126,19 +126,32 @@ def call_payload(call: Completion) -> dict[str, object]:
     }
 
 
+# The kinds of report `llm.kind` names (F12.4): the analysis the page runs, F7.1's
+# recommendation, and an attempt's own scoring. `scripts/latency_report.py` reads them,
+# because their wall times answer different questions and must not share a p50.
+REPORT_KINDS = ("analysis", "recommendation", "attempt")
+
+
 def llm_section(
-    calls: Sequence[Completion], cost: Decimal, *, wall_ms: int | None = None
+    calls: Sequence[Completion],
+    cost: Decimal,
+    *,
+    wall_ms: int | None = None,
+    kind: str = "analysis",
 ) -> dict[str, object]:
     """The cost ledger for this analysis, as it will be shown on the report page.
 
     F12.4: every call names the milliseconds it took (0 for a cache hit, which made
     no request), and `wall_ms` is what the whole analysis took — less than the sum of
-    the calls once two of them run beside each other.
+    the calls once two of them run beside each other. `kind` says which of `REPORT_KINDS`
+    the report is: a recommendation's wall time starts at the shared preparation, so
+    mixing the two kinds would describe neither.
     """
     return {
         "cost_usd": str(cost),
         "calls": [call_payload(call) for call in calls],
         "wall_ms": wall_ms,
+        "kind": kind,
     }
 
 
@@ -365,6 +378,7 @@ def score_track(
     bullets: Sequence[Bullet] | None = None,
     document: Sequence[DocumentUnit] | None = None,
     notes: str = "inline",
+    kind: str = "analysis",
     extra_roles: Sequence[Role] = (),
     cv: CvContext | None = None,
 ) -> Analysis:
@@ -380,7 +394,9 @@ def score_track(
     the two can never score differently. `notes` says when the prose about the gaps is
     paid for (F12.3): `"inline"` in this run; `"deferred"` for the interface's analysis,
     which is stored with `gaps.notes_status = "pending"` and filled by the report's own
-    POST; `"none"` for an attempt, which detects gaps and never interprets them.
+    POST; `"none"` for an attempt, which detects gaps and never interprets them. `kind` is the
+    report's own tag (F12.4, `REPORT_KINDS`): the page's analysis, F7.1's recommendation
+    or an attempt, which is what keeps the three wall times from sharing one median.
     `extra_roles` are the file's jobs that match no master role (a transient `Role`,
     never stored): their bullets' citations count in Experience like any other role's.
     The analysis passes none.
@@ -396,6 +412,8 @@ def score_track(
         raise RuntimeError("an analysis needs a profile that exists")
     if notes not in ("inline", "deferred", "none"):
         raise ValueError(f"unknown notes mode {notes!r}")
+    if kind not in REPORT_KINDS:
+        raise ValueError(f"unknown report kind {kind!r}")
 
     jd = prepared.jd
     roles = list_roles(profile_id, session, active_only=True)
@@ -754,6 +772,7 @@ def score_track(
             calls,
             cost,
             wall_ms=round((time.perf_counter() - prepared.started) * 1000),
+            kind=kind,
         ),
     }
     if cv is not None:

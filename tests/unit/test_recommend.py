@@ -317,6 +317,17 @@ def test_the_cost_is_the_sum_of_every_candidate_call(session, career, stub):
     assert analysis.report["recommendation"]["cost_usd"] == str(analysis.cost_usd)
 
 
+def test_a_recommendation_names_itself(session, career, stub):
+    """F12.4: its wall time starts at the shared preparation, so it is not an analysis's."""
+    retire(session, career)
+    for name in ("Uno", "Dos"):
+        make_track(session, career, name, [f"Python {STRONG} para {name}"])
+
+    analysis = recommend(career.first_profile.id, session, jd_text=POSTING)
+
+    assert analysis.report["llm"]["kind"] == "recommendation"
+
+
 def test_the_shared_extraction_is_counted_once(session, career, stub):
     """D.7.1: the posting's own call is one call, however many tracks were graded."""
     profile_id = career.first_profile.id

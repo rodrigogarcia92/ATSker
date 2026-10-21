@@ -170,6 +170,8 @@ def test_an_analysis_records_its_weights_prompts_and_cost(session, career, provi
         "boolean_queries": "boolean_recall_v2",
         "gap_interpret": "gap_interpret_v1",
     }
+    # F12.4: the report says which kind of run it was; this path is the page's analysis.
+    assert analysis.report["llm"]["kind"] == "analysis"
 
     # Cost instrumentation is part of the milestone: the ledger rows exist and the
     # analysis carries what it actually spent — four calls since N5's gap analysis.

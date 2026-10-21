@@ -280,6 +280,7 @@ def recommend(
             options=options,
             track=track,
             queries=queries,
+            kind="recommendation",
         )
         # F7.1: the recruiter's queries are about the posting, so the first track's
         # answer is every other track's too — one derivation for the whole request.
@@ -287,6 +288,8 @@ def recommend(
         analyses.append((track, analysis))
 
     if not analyses:
+        # Nothing to choose between: this is the ordinary analysis, kind and all — its
+        # wall time is a real analysis's, not a recommendation's (F12.4).
         analysis = score_track(
             profile_id,
             session,
@@ -338,6 +341,9 @@ def recommend(
     # F12.4: the whole request's wall time, from the first read of the shared
     # preparation — every candidate's calls are inside it.
     report["llm"] = llm_section(
-        calls, cost, wall_ms=round((time.perf_counter() - prepared.started) * 1000)
+        calls,
+        cost,
+        wall_ms=round((time.perf_counter() - prepared.started) * 1000),
+        kind="recommendation",
     )
     return replace(winner, report=report, cost_usd=cost)
