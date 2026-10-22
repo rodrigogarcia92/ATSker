@@ -22,7 +22,10 @@ from tests.unit.attempt_support import (
 )
 from tests.unit.test_ingest_routes import DOCX_TYPE, docx_bytes, plain
 
-NEW_BULLET = "Entrené un modelo de machine learning en producción"
+# K2 (F5.5.3): the file names the held term and one the material does not, so its
+# Keywords share is above the ceiling's — present ÷ kept is coarse, and one extra
+# held term is what makes the comparison readable.
+NEW_BULLET = "Entrené un modelo de machine learning con Python en producción"
 
 
 @pytest.fixture

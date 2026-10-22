@@ -27,7 +27,7 @@ from src.extract.jd import extract_jd
 from src.jd import StructuredJD, jd_hash
 from src.models import Application, LlmCall
 from src.roles import update_role
-from src.score.weights import W4
+from src.score.weights import W5
 from src.summaries import create_summary
 from src.tracks import create_track, set_track_bullets, update_track
 from src.vocabulary import vocabulary_hash
@@ -146,7 +146,8 @@ def test_an_analysis_records_its_weights_prompts_and_cost(session, career, provi
     analysis = analyze(career.first_profile.id, session, jd_text=POSTING, company="Banco Demo 1")
     score = analysis.report["score"]
 
-    assert analysis.weights_version == "w4"
+    assert analysis.weights_version == "w5"
+    assert score["keyword_rule"] == "K2", "the report names the Keywords rule beside its version"
     assert analysis.report["vocabulary_hash"] == vocabulary_hash(session), (
         "the report records the vocabulary it was scored against (F3.1)"
     )
@@ -155,7 +156,7 @@ def test_an_analysis_records_its_weights_prompts_and_cost(session, career, provi
     assert list(score["sub_scores"]) == ["skills", "experience", "title", "keywords"]
     assert sum(score["effective_weights"].values()) == pytest.approx(1.0)
     assert score["effective_weights_hash"].startswith("sha256:")
-    assert score["weights_hash"] == W4.config_hash(), (
+    assert score["weights_hash"] == W5.config_hash(), (
         "the config hash covers the four weights and the basis credits"
     )
     assert score["effective_weights"] == {
@@ -458,7 +459,7 @@ def test_the_total_is_the_hand_computed_weighted_sum_of_the_four(session, career
     score = analysis.report["score"]
     values = {name: entry["value"] for name, entry in score["sub_scores"].items()}
 
-    expected = sum(getattr(W4, name) * value for name, value in values.items())
+    expected = sum(getattr(W5, name) * value for name, value in values.items())
 
     assert score["weighted"] == pytest.approx(expected)
     assert score["uncapped"] == round(100 * expected)
@@ -515,8 +516,8 @@ def test_the_invariant_prompt_prefix_is_byte_identical_across_postings(
     other = StructuredJD(
         title="Otro puesto", must_have=["machine learning"], nice_to_have=["python"]
     )
-    grade_evidence(session, jd, [career.first_bullet], basis_credit=W4.basis_credit)
-    grade_evidence(session, other, [career.first_bullet], basis_credit=W4.basis_credit)
+    grade_evidence(session, jd, [career.first_bullet], basis_credit=W5.basis_credit)
+    grade_evidence(session, other, [career.first_bullet], basis_credit=W5.basis_credit)
 
     first, second = messages_for(provider, "EvidenceGrading")[:2]
     assert first[0]["content"] == second[0]["content"]

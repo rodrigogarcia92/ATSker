@@ -441,10 +441,10 @@ def test_a_fresh_form_draws_no_box_without_tracks(client, session, career, stub)
     assert recommend_box(client.get("/analyze").text) is None
 
 
-# D.7.3's tie fixture: two tracks that tie on Job Match, in the order the pre-rank
-# puts them — "Zeta" leads because its shorter line scores the keywords higher, and
-# the pre-rank is title + keywords. `BASE` and `PADDED` differ by four words nobody
-# asked for, which is under the point of Job Match but enough to order the pre-rank.
+# D.7.3's tie fixture: two tracks that tie on Job Match exactly. Under K2 the pre-rank
+# (title + keywords) ties too — keywords no longer reward the shorter line, since the
+# same words in one unit are present either way — so the name decides which is graded
+# first. `BASE` and `PADDED` differ by four words nobody asked for.
 BASE = "Analista de datos con Python y machine learning, reportes para dirección"
 PADDED = BASE + " extra extra extra extra"
 TIE_FIXTURE = {
@@ -476,7 +476,9 @@ def test_the_table_marks_the_track_that_was_stored(session, career, stub):
 
     payload = analysis.report["recommendation"]
     rows = payload["candidates"]
-    assert [row["name"] for row in rows[:2]] == ["Zeta", "Alfa"], "a tie, and Zeta led"
+    assert [row["name"] for row in rows[:2]] == ["Alfa", "Zeta"], (
+        "a tie on Job Match and on the pre-rank; the name ordered the graded pair"
+    )
     assert rows[0]["job_match"] == rows[1]["job_match"]
     assert payload["margin"] == 0, "the chosen row comes first, so the margin cannot be negative"
     assert [row["chosen"] for row in rows].count(True) == 1

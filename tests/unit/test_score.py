@@ -14,9 +14,19 @@ from src.score.experience import (
     relevant_experience_score,
     years_held,
 )
-from src.score.keywords import keyword_context
+from src.score.keywords import keyword_context, keyword_context_k1
 from src.score.title import seniority_of, title_alignment
-from src.score.weights import W1, W2, W3, W4, Weights, WeightsV2, WeightsV3, WeightsV4
+from src.score.weights import (
+    W1,
+    W2,
+    W3,
+    W4,
+    W5,
+    Weights,
+    WeightsV2,
+    WeightsV3,
+    WeightsV4,
+)
 
 TODAY = date(2026, 1, 1)
 
@@ -241,6 +251,102 @@ def test_no_bullets_scores_zero_and_names_every_keyword():
 
     assert score.value == 0.0
     assert score.missing == ["python", "sql"]
+
+
+def test_k2_a_term_is_present_only_when_all_its_words_are_in_one_unit():
+    """F5.5.3: a search matches words in a file, so *user experience* is not
+    evidenced by *experience* alone, and one bullet with both words is enough."""
+    term = jd(raw_keywords=["user experience"])
+
+    partial = keyword_context(term, ["Five years of experience in banking"])
+    one_unit = keyword_context(term, ["User research experience in banking"])
+
+    assert partial.missing == ["user experience"]
+    assert one_unit.matched == ["user experience"]
+
+
+def test_k2_words_split_across_two_units_do_not_make_a_match():
+    """F5.5.3: the match is per unit — the file's own words in one place — not the
+    union of everything the file says somewhere."""
+    term = jd(raw_keywords=["user experience"])
+
+    score = keyword_context(term, ["User research methods", "Five years of experience"])
+
+    assert score.missing == ["user experience"]
+    assert score.value == 0.0
+
+
+def test_k2_function_words_do_not_have_to_appear():
+    """F5.5.3: *attention to detail* is searched by *attention* and *detail*; *to*
+    is not a word a search weighs, and it is not required on the CV either."""
+    term = jd(raw_keywords=["attention to detail"])
+
+    assert keyword_context(term, ["Attention to detail"]).matched == ["attention to detail"]
+    assert keyword_context(term, ["Attention and care"]).missing == ["attention to detail"]
+    assert keyword_context(term, ["Detail-oriented"]).missing == ["attention to detail"]
+
+
+def test_k2_a_long_requirement_sentence_is_dropped_not_matched():
+    """F5.5.3: a recruiter types short terms, so a 12-word requirement goes to
+    `detail["dropped"]` and is neither present nor missing."""
+    long_term = "five years of experience building dashboards in power bi for finance teams"
+    score = keyword_context(
+        jd(must_have=["sql"], raw_keywords=[long_term]),
+        ["Administré Postgres y armé dashboards"],
+    )
+
+    assert score.detail["dropped"] == [long_term]
+    assert score.detail["terms"] == 1
+    assert long_term not in score.matched + score.missing
+    assert score.missing == ["sql"], "only the kept term is scored"
+
+
+def test_k2_an_alias_of_the_term_counts_and_an_equivalent_never_does():
+    """F5.5.3 keeps F5.5.1's literal screen: aliases are the same thing spelled
+    differently, equivalents are a different tool."""
+    aliases = {"postgres": "sql", "sql": "sql", "tableau": "tableau", "power bi": "power bi"}
+
+    spelled_differently = keyword_context(
+        jd(must_have=["SQL"]), ["Administré Postgres"], aliases=aliases
+    )
+    equivalent_tool = keyword_context(
+        jd(raw_keywords=["power bi"]), ["Mantuve tableros de Tableau"], aliases=aliases
+    )
+
+    assert spelled_differently.matched == ["SQL"]
+    assert equivalent_tool.missing == ["power bi"]
+
+
+def test_k2_scores_present_over_kept_with_equal_weight():
+    """F5.5.3: nine of fifteen terms present is 0.6 — no IDF, no BM25, no bonus for
+    the terms the file happens to say more often."""
+    terms = [f"skill{index}" for index in range(15)]
+    document = [" ".join(terms[:9])]
+
+    score = keyword_context(jd(raw_keywords=terms), document)
+
+    assert score.value == pytest.approx(0.6)
+    assert score.detail["present"] == 9
+    assert score.detail["terms"] == 15
+    assert score.detail["rule"] == "K2"
+
+
+def test_k2_no_kept_term_is_a_posting_that_asks_nothing():
+    score = keyword_context(jd(raw_keywords=["de la"]), ["Experiencia con SQL"])
+
+    assert score.value == 1.0
+    assert score.detail["reason"] == "no_keywords_in_jd"
+    assert score.matched == [] and score.missing == []
+
+
+def test_k1_stays_for_stored_w4_reports_and_keeps_its_bm25_detail():
+    """A stored `w4` report is never rescored with K2; the replay reads K1 from the
+    same function the stored number came from."""
+    score = keyword_context_k1(jd(raw_keywords=["python", "kubernetes"]), ["Python"])
+
+    assert score.detail["k1"] == 1.5
+    assert score.detail["b"] == 0.75
+    assert score.matched == ["python"] and score.missing == ["kubernetes"]
 
 
 def test_experience_penalty_is_a_quarter_per_year_short():
@@ -492,6 +598,22 @@ def test_w4_keeps_w3s_values_and_hashes_the_experience_split_with_them():
         experience_split={"years": 0.5, "tasks": 0.5},
     )
     assert moved.config_hash() != W4.config_hash(), "the split is hashed with the rest"
+
+
+def test_w5_keeps_w4s_values_and_only_moves_the_version():
+    """F5.5.3: only the Keywords rule moves, so the config — weights, credits and
+    split — is `w4`'s and hashes the same; the version string is what tells them
+    apart in a report."""
+    assert W5.version == "w5"
+    assert (W5.skills, W5.experience, W5.title, W5.keywords) == (
+        W4.skills,
+        W4.experience,
+        W4.title,
+        W4.keywords,
+    )
+    assert dict(W5.basis_credit) == dict(W4.basis_credit)
+    assert dict(W5.experience_split) == dict(W4.experience_split)
+    assert W5.config_hash() == W4.config_hash()
 
 
 def test_aggregation_matches_the_hand_computed_weighted_sum():

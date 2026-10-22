@@ -385,10 +385,10 @@ def _analysis(provider, pairs):
     )
 
 
-def test_a_repeat_equal_to_the_first_grading_reproduces_the_w4_total(provider, pairs):
+def test_a_repeat_equal_to_the_first_grading_reproduces_the_w5_total(provider, pairs):
     analysis = _analysis(provider, pairs)
 
-    assert analysis.report["score"]["weights_version"] == "w4"
+    assert analysis.report["score"]["weights_version"] == "w5"
     assert _total_with_evidence(analysis, _first_levels(analysis)) == (
         analysis.report["score"]["uncapped"]
     )

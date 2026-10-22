@@ -9,7 +9,7 @@ report is read from its own keys and its own version string, never re-aggregated
 import hashlib
 import json
 from collections.abc import Mapping
-from dataclasses import dataclass, field, fields
+from dataclasses import dataclass, field, fields, replace
 
 
 def hash_values(values: Mapping[str, float]) -> str:
@@ -158,3 +158,9 @@ W4 = WeightsV4(
     basis_credit={"direct": 1.00, "equivalent": 0.75, "transferable": 0.50, "none": 0.0},
     experience_split={"years": 0.6, "tasks": 0.4},
 )
+
+# `w5` — `w4` + K2 keywords (PRD F5.5.3): the same four weights, basis credits and
+# experience split, unchanged. What moves is what the Keywords sub-score reads — the
+# terms a recruiter would type and a match on all of a term's words in one unit — so
+# the same inputs produce different numbers and the version travels with the report.
+W5 = replace(W4, version="w5")

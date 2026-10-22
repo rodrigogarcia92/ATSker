@@ -27,26 +27,31 @@ only on the inputs, so two calls on the same report return byte-identical output
 
 import hashlib
 import json
-from collections.abc import Collection, Mapping, Sequence
+from collections.abc import Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date
 
 from src.jd import StructuredJD
 from src.normalize.text import fold
 from src.normalize.vocabulary import match_text
+from src.score.aggregate import SubScore
 from src.score.evidence import MAX_LEVEL, Level, evidence_coverage
 from src.score.experience import CitedLevel, RoleSpan, relevant_experience_score
-from src.score.keywords import keyword_context
+from src.score.keywords import keyword_context, keyword_context_k1
 from src.score.title import FUNCTION_WORDS, title_tokens
-from src.score.weights import W4, WeightSet
+from src.score.weights import W4, W5, WeightSet
 
 EXACT = "exact"
 ESTIMATE = "estimate"
 
 # Only the versions whose sub-scores and config the ceiling code actually knows (A5
-# fix 2): a `w1`/`w2`/`w3` report's sub-scores are not w4's, so scoring one under w4's
-# rules would be an invention. Any other version returns no ceiling.
-_CEILING_WEIGHTS: Mapping[str, WeightSet] = {"w4": W4}
+# fix 2): a `w1`/`w2`/`w3` report's sub-scores are not `w4`/`w5`'s, so scoring one
+# under their rules would be an invention. Any other version returns no ceiling.
+_CEILING_WEIGHTS: Mapping[str, WeightSet] = {"w4": W4, "w5": W5}
+
+# F5.5.3: a stored report is recomputed with the Keywords rule it was scored under —
+# K1 for `w4`, K2 for `w5` — so an old ceiling never silently moves to the new rule.
+_KEYWORD_RULES = {"w4": keyword_context_k1, "w5": keyword_context}
 
 
 @dataclass(frozen=True)
@@ -152,6 +157,7 @@ def _keyword_ceiling(
     aliases: Mapping[str, str],
     current: float,
     matched: Sequence[str],
+    keywords: Callable[..., SubScore],
 ) -> float:
     held = _held_canonicals(master, aliases)
     extra = [
@@ -159,7 +165,7 @@ def _keyword_ceiling(
         for label, key in _posting_terms(jd, aliases)
         if key in held and label not in matched
     ]
-    value = keyword_context(jd, [*document_texts, *extra], aliases=aliases).value
+    value = keywords(jd, [*document_texts, *extra], aliases=aliases).value
     return max(current, value)
 
 
@@ -505,14 +511,15 @@ def compute_ceiling(
     # Which posting terms the document the ceiling reads already matches: taken from
     # that document, not from the report's sub-scores, so an attempt that claims a term
     # the master material lacks cannot change what the ceiling adds (F10.10 criterion 2).
-    matched = tuple(keyword_context(jd, document_texts, aliases=aliases).matched)
+    keywords = _KEYWORD_RULES[chosen.version]
+    matched = tuple(keywords(jd, document_texts, aliases=aliases).matched)
 
     siblings = _family_siblings(master)
-    basis_credit = getattr(chosen, "basis_credit", W4.basis_credit)
-    experience_split = getattr(chosen, "experience_split", W4.experience_split)
+    basis_credit = getattr(chosen, "basis_credit", W5.basis_credit)
+    experience_split = getattr(chosen, "experience_split", W5.experience_split)
 
     keyword_value = _keyword_ceiling(
-        jd, document_texts, master, aliases, current("keywords"), matched
+        jd, document_texts, master, aliases, current("keywords"), matched, keywords
     )
     title_value = _title_ceiling(jd, master, aliases, current("title"))
     skills_value, unreachable = _skills_ceiling(
@@ -521,7 +528,7 @@ def compute_ceiling(
         aliases,
         siblings,
         basis_credit,
-        float(getattr(chosen, "skills", W4.skills)),
+        float(getattr(chosen, "skills", W5.skills)),
         current("skills"),
     )
     experience_value = _experience_ceiling(

@@ -90,6 +90,33 @@ def test_a_held_keyword_lifts_the_keyword_ceiling():
     assert ceiling["sub_scores"]["keywords"]["confidence"] == EXACT
 
 
+def test_a_w4_report_recomputes_keywords_with_k1_and_a_w5_report_with_k2():
+    """F5.5.3: a stored report keeps the rule it was scored under. *user experience*
+    over a file that says only *experience* is a K1 hit and not a K2 one."""
+    jd = StructuredJD(title="X", raw_keywords=["user experience"])
+    master = _master()
+    document = ["Five years of experience"]
+
+    old = compute_ceiling(
+        jd,
+        report=_report(sub_scores={"keywords": _sub(0.0)}, version="w4"),
+        document_texts=document,
+        master=master,
+        aliases={},
+    )
+    new = compute_ceiling(
+        jd,
+        report=_report(sub_scores={"keywords": _sub(0.0)}, version="w5"),
+        document_texts=document,
+        master=master,
+        aliases={},
+    )
+
+    assert old["weights_version"] == "w4" and new["weights_version"] == "w5"
+    assert old["sub_scores"]["keywords"]["ceiling"] > 0, "K1 matches the one word it finds"
+    assert new["sub_scores"]["keywords"]["ceiling"] == 0.0, "K2 needs both words in one unit"
+
+
 def test_a_keyword_the_user_does_not_hold_does_not_raise_the_score():
     jd = StructuredJD(title="X", must_have=["python"])
     report = _report(sub_scores={"keywords": _sub(0.0)})
@@ -362,4 +389,4 @@ def test_the_ceiling_is_deterministic_and_makes_no_model_call(session, career, p
     assert len(provider.calls) == before, "the ceiling makes no model call"
     assert first["low"] == first["high"], "the high end waits for F7.4"
     assert first["high_basis"] == "pending_f7_4"
-    assert first["weights_version"] == "w4"
+    assert first["weights_version"] == "w5"

@@ -63,7 +63,7 @@ from src.normalize.metrics import extract_metrics
 from src.normalize.text import fold
 from src.score.aggregate import SubScore, aggregate
 from src.score.evidence import Level, evidence_coverage
-from src.score.weights import W3, W4, WeightsV3
+from src.score.weights import W3, W4, W5, WeightsV3
 from src.vocabulary import resolve_bullet_terms, seed_vocabulary
 
 # Deterministic ids, so a rerun of the same fixture produces the same citation
@@ -830,9 +830,13 @@ class PairResult:
 
 
 # The weight sets a harness total can be rebuilt under, by the version a report records
-# (PRD §9). The src.score registry only knows w4 (the ceiling's), so the two sets the
+# (PRD §9). The src.score registry only knows w4/w5 (the ceiling's), so the two sets the
 # harness has ever scored with are named here.
-_WEIGHTS_BY_VERSION: dict[str, WeightsV3] = {W3.version: W3, W4.version: W4}
+_WEIGHTS_BY_VERSION: dict[str, WeightsV3] = {
+    W3.version: W3,
+    W4.version: W4,
+    W5.version: W5,
+}
 
 
 def _total_with_evidence(analysis: Analysis, levels: Sequence[Level]) -> int:
@@ -921,8 +925,8 @@ def run_pair(
             analysis.bullets,
             # The repeat is the same judge again, not a differently configured one:
             # the family backstop reads these credits, and a different table would
-            # show up as judge instability. `analyze` passes W4's.
-            basis_credit=W4.basis_credit,
+            # show up as judge instability. `analyze` passes W5's.
+            basis_credit=W5.basis_credit,
             summary_text=document_summary(analysis.document),
             skills_text=document_skills_list(analysis.document),
             language=analysis.jd.language,

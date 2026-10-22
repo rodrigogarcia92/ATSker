@@ -46,12 +46,12 @@ sys.path.insert(0, str(Path.cwd()))
 import golden_inputs  # noqa: E402
 
 from src.score.aggregate import SUB_SCORES  # noqa: E402
-from src.score.weights import W2, W3, W4  # noqa: E402
+from src.score.weights import W2, W3, W4, W5  # noqa: E402
 
 SEED = 20260923
 RESAMPLES = 2000
 BUCKET_ORDER = {"stretch": 0, "plausible": 1, "strong": 2}
-WEIGHT_SETS = {"w2": W2, "w3": W3, "w4": W4}
+WEIGHT_SETS = {"w2": W2, "w3": W3, "w4": W4, "w5": W5}
 
 # (label, CSV column, sheet column, rho reported too) — the queue's primary
 # comparison first, then capped vs score, each scale vs score_direct_only, and

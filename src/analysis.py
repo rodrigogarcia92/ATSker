@@ -69,9 +69,9 @@ from src.score.ceiling import compute_ceiling, requirement_notes
 from src.score.evidence import Level, evidence_coverage
 from src.score.experience import CitedLevel, RoleSpan, relevant_experience_score
 from src.score.gaps import Graded, detect_gaps, disqualifier_verdicts, location_requirements
-from src.score.keywords import keyword_context
+from src.score.keywords import KEYWORD_RULE, keyword_context
 from src.score.title import title_alignment
-from src.score.weights import W4
+from src.score.weights import W5
 from src.search.boolean import RecallReport, evaluate
 from src.search.sources import searchable_units
 from src.stories import list_stories
@@ -448,7 +448,7 @@ def score_track(
         session,
         jd,
         bullets,
-        basis_credit=W4.basis_credit,
+        basis_credit=W5.basis_credit,
         summary_text=document_summary(document),
         skills_text=document_skills_list(document),
         language=jd.language,
@@ -493,7 +493,7 @@ def score_track(
                 Level(entry.requirement, entry.level, entry.must_have, entry.basis)
                 for entry in grading.levels
             ],
-            basis_credit=W4.basis_credit,
+            basis_credit=W5.basis_credit,
         ),
         "keywords": keyword_context(jd, [unit.text for unit in document], aliases=aliases),
         "experience": relevant_experience_score(
@@ -529,11 +529,11 @@ def score_track(
                 )
                 for entry in grading.task_levels
             ],
-            split=W4.experience_split,
+            split=W5.experience_split,
             today=today,
         ),
     }
-    score = aggregate(sub_scores, W4, gate=gate)
+    score = aggregate(sub_scores, W5, gate=gate)
 
     # The snapshot (F5.4): what each citation showed, in the language it was shown
     # in, taken from the same document the judge read. Old report rows call this
@@ -737,6 +737,11 @@ def score_track(
         # retry). A report stored before F12 has its notes and no status at all.
         gaps_block["notes_status"] = "pending"
 
+    score_payload = score.to_dict()
+    # F5.5.3: the rule the Keywords number was computed under, beside its version —
+    # a stored `w4` report has no key and keeps its K1 number untouched.
+    score_payload["keyword_rule"] = KEYWORD_RULE
+
     report: dict[str, object] = {
         "jd": jd.model_dump(mode="json"),
         # F4.2 (A.9.3): what the document read, and how much of it had to fall back to
@@ -768,7 +773,7 @@ def score_track(
         # F5.2's recall is reported beside the score and never inside it: a recruiter's
         # query is a gate, like a disqualifier, not a percentage.
         "recall": _recall_payload(recall, queries.queries),
-        "score": score.to_dict(),
+        "score": score_payload,
         # F12.4: from the preparation's first read to this line — what the user waited
         # for, never the sum of the calls (the first two overlap).
         "llm": llm_section(
