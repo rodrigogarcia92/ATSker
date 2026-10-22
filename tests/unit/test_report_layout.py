@@ -13,6 +13,7 @@ import pytest
 
 from src.extract import client as extract_client
 from src.i18n import t
+from src.models import Application
 from tests.conftest import login
 from tests.unit.cv_support import analysis_form, ensure_first_cv
 from tests.unit.test_analysis import POSTING, Provider, store_flagged, text_of
@@ -285,6 +286,45 @@ def test_an_old_stored_report_still_renders(client, session, career):
     assert response.status_code == 200
     for name in ("fit", "components", "requirements", "ats", "before", "trace"):
         assert f'id="{name}"' in response.text
+
+
+def test_the_keywords_line_says_present_over_kept_for_a_w5_report(
+    client, session, career, provider
+):
+    """F5.5.3: the number is present ÷ kept terms, and the line under it says so."""
+    page = analysed_page(client, career)
+    application = session.query(Application).order_by(Application.created_at.desc()).first()
+    keywords = application.report["score"]["sub_scores"]["keywords"]
+    detail = keywords["detail"]
+
+    assert detail["rule"] == "K2"
+    components = text_of(section(page, "components"))
+    assert "Términos que un reclutador buscaría y que tu CV contiene:" in components
+    assert f"{detail['present']} de {detail['terms']}." in components
+
+
+def test_a_w4_report_keeps_the_keywords_line_it_was_shown_with(client, session, career, provider):
+    analysed_page(client, career)
+    application = session.query(Application).order_by(Application.created_at.desc()).first()
+    report = dict(application.report)
+    score = dict(report["score"])
+    score["weights_version"] = "w4"
+    sub_scores = dict(score["sub_scores"])
+    keywords = dict(sub_scores["keywords"])
+    keywords["detail"] = {
+        key: value for key, value in keywords["detail"].items() if key != "rule"
+    }
+    sub_scores["keywords"] = keywords
+    score["sub_scores"] = sub_scores
+    report["score"] = score
+    application.report = report
+    session.commit()
+
+    page = client.get(f"/applications/{application.id}").text
+    components = text_of(section(page, "components"))
+
+    assert "Términos de la oferta presentes en tu CV." in components
+    assert "un reclutador buscaría" not in components
 
 
 def test_the_page_stores_nothing_about_what_was_opened(client, career, provider):

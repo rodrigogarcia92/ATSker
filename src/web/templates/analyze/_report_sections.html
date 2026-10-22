@@ -107,7 +107,14 @@
   {% for name, sub in report.score.sub_scores.items() %}
   {% set has_experience = sub.detail is defined and sub.detail.relevant_years is defined %}
   <div class="min-w-0 border-t border-border pt-5">
-    {{ ui.score(sub.value, t('report.sub.' + name, lang), t('report.sub_caption.' + name, lang), false, false, true) }}
+    {# F5.5.3: a `w5` Keywords number is present ÷ kept terms, and the line says so;
+       a `w4` report has no rule in its detail and keeps the line it was shown with. #}
+    {% if name == 'keywords' and sub.detail is defined and sub.detail.rule == 'K2' %}
+    {% set caption = t('report.sub_caption.keywords_k2', lang, present=sub.detail.present, terms=sub.detail.terms) %}
+    {% else %}
+    {% set caption = t('report.sub_caption.' + name, lang) %}
+    {% endif %}
+    {{ ui.score(sub.value, t('report.sub.' + name, lang), caption, false, false, true) }}
     {# F10.2: each sub-score shows its own ceiling and says whether it is exact or an
        estimate. A ceiling stored without a confidence says neither. #}
     {% if ceiling and ceiling.sub_scores.get(name) %}

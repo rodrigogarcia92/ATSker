@@ -1083,6 +1083,10 @@ STRINGS: dict[str, dict[str, str]] = {
         "es": "Términos de la oferta presentes en tu CV.",
         "en": "Terms from the posting present in your CV.",
     },
+    "report.sub_caption.keywords_k2": {
+        "es": "Términos que un reclutador buscaría y que tu CV contiene: {present} de {terms}.",
+        "en": "Terms a recruiter would search for that your CV contains: {present} of {terms}.",
+    },
     "report.sub_caption.evidence": {
         "es": "Cobertura de evidencia del informe almacenado.",
         "en": "Evidence coverage, as the stored report recorded it.",
