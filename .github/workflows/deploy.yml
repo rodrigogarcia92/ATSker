@@ -87,7 +87,7 @@ jobs:
             --memory=512Mi \
             --timeout=300 \
             --service-account="${RUNTIME_SERVICE_ACCOUNT}" \
-            --set-env-vars=ENV=production,OPENROUTER_MODEL=anthropic/claude-haiku-5.5,OPENROUTER_REASONING_EFFORT=low \
+            --set-env-vars=ENV=production,OPENROUTER_MODEL=google/gemini-3.8-flash,OPENROUTER_REASONING_EFFORT=low \
             --set-secrets=OPENROUTER_API_KEY=openrouter-api-key:latest,DATABASE_URL=neon-database-url:latest,SESSION_SECRET=session-secret:latest
 
       - name: Report service URL
