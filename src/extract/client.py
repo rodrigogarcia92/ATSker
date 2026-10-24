@@ -176,6 +176,12 @@ class LedgerWriteError(RuntimeError):
     """
 
 
+# The paid call's id, kept inside `response_json` because `llm_calls` has no column
+# for it and queue R adds no migration. It is what makes the ledger write's retry
+# idempotent, and it is stripped before a cached row is served as an answer.
+CALL_ID_KEY = "_call_id"
+
+
 @dataclass(frozen=True)
 class CallOptions:
     """How a caller wants its model calls made.
@@ -405,9 +411,35 @@ def _refuse_held_transaction(session: Session, purpose: str) -> None:
         )
 
 
+def _ledger_has_call(session: Session, *, input_hash: str, call_id: uuid.UUID) -> bool:
+    """True when the row for `call_id` is already in the ledger.
+
+    A commit can *succeed* and still raise (SQLite's "commit returned NULL" under
+    threads is the sighting; Postgres can do the same on a lost response). The
+    retry then used to write the same paid call twice — a duplicate row and, worse,
+    a row the cache serves as if it were a second call.
+
+    The id lives in `response_json` (`_call_id`) rather than in a column of its own:
+    a column would need a migration, and queue R has none. The lookup reads the rows
+    of this input hash — at most a handful — and compares in Python, so no backend's
+    JSON syntax is involved.
+    """
+    try:
+        with _client_session(session) as reader:
+            rows = reader.scalars(
+                select(LlmCall.response_json).where(LlmCall.input_hash == input_hash)
+            ).all()
+        return any((row or {}).get(CALL_ID_KEY) == str(call_id) for row in rows)
+    except SQLAlchemyError:
+        # The database is unreachable: that is not evidence the row exists, so the
+        # retry goes ahead and reports the failure if it fails again.
+        return False
+
+
 def _write_ledger(
     session: Session,
     *,
+    call_id: uuid.UUID,
     purpose: str,
     prompt_version: str,
     model: str,
@@ -426,12 +458,18 @@ def _write_ledger(
     the record: it is what stops the next identical call from paying again. A fresh
     connection cannot be the one the database killed while the provider worked.
 
+    The retry is idempotent (R13.1): `call_id` is the paid call's own id, generated
+    once before its first attempt, so a commit that raised after writing is found on
+    the retry and not written again.
+
     `degenerate` is the caller's verdict on its own answer (F2.3.1). The row is
     written either way — the call was paid for — and the flag is what excludes it
     from the cache lookup.
     """
     error: SQLAlchemyError | None = None
-    for _ in range(2):
+    for attempt in range(2):
+        if attempt and _ledger_has_call(session, input_hash=input_hash, call_id=call_id):
+            return
         try:
             with _client_session(session) as ledger:
                 ledger.add(
@@ -440,7 +478,7 @@ def _write_ledger(
                         prompt_version=prompt_version,
                         model=model,
                         input_hash=input_hash,
-                        response_json=response_json,
+                        response_json={**response_json, CALL_ID_KEY: str(call_id)},
                         prompt_tokens=prompt_tokens,
                         completion_tokens=completion_tokens,
                         cost_usd=cost_usd,
@@ -459,6 +497,7 @@ def _write_ledger(
 def _record_unparsed(
     session: Session,
     *,
+    call_id: uuid.UUID,
     purpose: str,
     prompt_version: str,
     model: str,
@@ -482,6 +521,7 @@ def _record_unparsed(
     try:
         _write_ledger(
             session,
+            call_id=call_id,
             purpose=purpose,
             prompt_version=prompt_version,
             model=model,
@@ -622,8 +662,11 @@ def complete_json(
                 .order_by(LlmCall.id)
             )
     if cached is not None:
+        # R13.1: the row's own id is bookkeeping, never part of the answer.
+        data = dict(cached.response_json)
+        data.pop(CALL_ID_KEY, None)
         return Completion(
-            data=cached.response_json,
+            data=data,
             cached=True,
             prompt_tokens=0,
             completion_tokens=0,
@@ -637,6 +680,10 @@ def complete_json(
 
     attempt = 0
     while True:
+        # R13.1: one id per paid response, minted before its first ledger attempt.
+        # An answer the schema rejects and the next attempt's answer are two rows
+        # (each was paid for), so they cannot share an id; a retry of one write does.
+        call_id = uuid.uuid4()
         try:
             started = time.perf_counter()
             body = _post(payload, settings.openrouter_api_key.get_secret_value())
@@ -665,6 +712,7 @@ def complete_json(
             # the cost stays in the ledger and the answer is never served back.
             _record_unparsed(
                 session,
+                call_id=call_id,
                 purpose=purpose,
                 prompt_version=prompt_version,
                 model=chosen,
@@ -697,6 +745,7 @@ def complete_json(
     try:
         _write_ledger(
             session,
+            call_id=call_id,
             purpose=purpose,
             prompt_version=prompt_version,
             model=chosen,

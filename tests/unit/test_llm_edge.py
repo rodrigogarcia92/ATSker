@@ -5,6 +5,7 @@ from decimal import Decimal
 
 import pytest
 from sqlalchemy import create_engine, text
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from src.extract import client
@@ -291,6 +292,88 @@ def test_a_ledger_failure_keeps_the_answer_and_reports_it(
     assert completion.ledger_error is not None
     assert len(seen) == 1, "the provider answered once, and the answer was kept"
     assert session.query(LlmCall).count() == 0, "the missing row is reported, not hidden"
+
+
+class _LedgerSession:
+    """A stand-in for the client's own session: the retry path, stated as a class.
+
+    Wrapping a real session is the point — `add` and `commit` are the real ones, so
+    "the commit wrote the row and then raised" is what actually happens, not a mock
+    of it.
+    """
+
+    def __init__(self, inner: Session, *, write_then_fail: bool):
+        self.inner = inner
+        self.write_then_fail = write_then_fail
+        self.fired = False
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc_info):
+        self.inner.close()
+        return False
+
+    def add(self, row):
+        self.inner.add(row)
+
+    def commit(self):
+        if self.write_then_fail:
+            self.inner.commit()
+        if not self.fired:
+            self.fired = True
+            # The exact failure seen under threads: the commit landed, and the
+            # session still reported an error.
+            raise OperationalError("COMMIT", {}, Exception("sqlite3 commit returned NULL"))
+        if not self.write_then_fail:
+            self.inner.commit()
+
+
+@pytest.mark.parametrize("write_then_fail", [True, False], ids=["wrote-then-failed", "failed"])
+def test_a_ledger_retry_never_writes_the_same_call_twice(
+    session, test_settings, monkeypatch, write_then_fail
+):
+    """R13.1: a commit that raised after writing must not duplicate the row.
+
+    The row is also the cache entry and the cost record, so a retried write is a
+    second paid call as far as every reader of `llm_calls` is concerned.
+    """
+    stub(monkeypatch, Answer(ANSWER))
+    good = client._client_session
+    opened: list[int] = []
+
+    def flaky(bind_session):
+        opened.append(1)
+        # 1: the cache read, 2: the write that raises, 3: the lookup before the
+        # retry (and 4, only when the failed commit wrote nothing).
+        if len(opened) == 2:
+            return _LedgerSession(good(bind_session), write_then_fail=write_then_fail)
+        return good(bind_session)
+
+    monkeypatch.setattr(client, "_client_session", flaky)
+
+    completion = call(session)
+
+    assert completion.ledger_error is None, "the row exists, so the write is not a failure"
+    assert session.query(LlmCall).count() == 1, "exactly one row for one paid call"
+    assert len(opened) == (3 if write_then_fail else 4)
+
+
+def test_the_call_id_is_on_the_row_and_never_in_the_answer(
+    session, test_settings, monkeypatch
+):
+    """The id makes the retry idempotent; it is bookkeeping, so the cache strips it."""
+    seen = stub(monkeypatch, Answer(ANSWER))
+
+    fresh = call(session)
+    cached = call(session)
+
+    assert len(seen) == 1
+    row = session.query(LlmCall).one()
+    assert len(row.response_json[client.CALL_ID_KEY]) == 36, "a uuid4, on the row"
+    assert client.CALL_ID_KEY not in fresh.data
+    assert client.CALL_ID_KEY not in cached.data, "a cache hit serves the answer, not the row"
+    assert cached.data == fresh.data
 
 
 def test_missing_model_is_reported_rather_than_defaulted(session, test_settings, monkeypatch):
