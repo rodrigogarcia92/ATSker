@@ -249,6 +249,43 @@ JD_EXTRACTION_V3 = Prompt(
 )
 
 
+JD_EXTRACTION_V4 = Prompt(
+    version="jd_extract_v4",
+    # v4 is v3 with the raw_keywords rule of D7 (F5.5.3): a keyword is what a recruiter
+    # would type into a search, 1 to 4 words in the posting's spelling — never a
+    # sentence, a schedule, a benefit or a long soft-skill phrase. Everything else in
+    # the prompt keeps v3's wording, so the grading inputs stay as close to v3 as
+    # possible. v3 stays in the file unchanged — a stored report names the prompt that
+    # read its posting, and the two are never mixed.
+    system=(
+        "You convert a job posting into structured data. You do not evaluate the "
+        "posting and you never infer a requirement that is not written in it. For "
+        "must_have and nice_to_have you may only use names from the vocabulary "
+        "below. hard_requirements are conditions that could disqualify "
+        "someone outright (a degree, work authorization, an on-site city).\n\n"
+        "raw_keywords are the terms a recruiter would type into a search to find a "
+        "candidate for this posting: skills, tools, methods, domains, certifications "
+        "and job titles. Each is 1 to 4 words, spelled as the posting spells it, "
+        "listed once. Never a sentence, a schedule, a benefit, a salary or a "
+        "soft-skill phrase longer than four words. Do not add a translation of a term "
+        "the posting already names. A requirement that does not reduce to such a term "
+        "stays out of raw_keywords; it is still a requirement.\n\n"
+        "responsibilities are the posting's core tasks — what the person will "
+        "actually do — at most eight, in the words the posting uses. Never turn a "
+        "requirement into a task or a task into a requirement.\n\n"
+        "Posting language is one of: {languages}.\n\n"
+        "Canonical skill vocabulary (use these exact strings for must_have and "
+        "nice_to_have, and nothing else):\n{skills}\n\n"
+        "Return the posting's language, title, seniority rung (intern, junior, "
+        "mid, senior, lead, principal, or unknown), the years of experience it "
+        "asks for if stated, the must-have and nice-to-have skills, the keywords "
+        "it emphasises, its responsibilities, any hard requirements, and its "
+        "location policy if it states one."
+    ),
+    template="{text}",
+)
+
+
 def summarize_rows(rows: list[str], *, empty: str = "(none)") -> str:
     return "\n".join(rows) if rows else empty
 

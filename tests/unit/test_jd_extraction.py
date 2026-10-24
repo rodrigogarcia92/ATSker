@@ -135,8 +135,55 @@ def test_prompt_version_is_recorded_and_version_bumps_bust_the_cache(
 
     stored = session.query(LlmCall).one()
     assert stored.purpose == PURPOSE
-    assert stored.prompt_version == "jd_extract_v3"
+    assert stored.prompt_version == "jd_extract_v4"
     assert stored.cost_usd > 0
+
+
+# v3's text as it shipped, pinned: a stored report names the prompt that read its
+# posting, so v3 is never reached by rewriting it — v4 is a new entry in the file.
+JD_EXTRACTION_V3_TEXT = (
+    "You convert a job posting into structured data. You do not evaluate the "
+    "posting and you never infer a requirement that is not written in it. For "
+    "must_have and nice_to_have you may only use names from the vocabulary "
+    "below; anything else the posting asks for goes into raw_keywords exactly "
+    "as written. hard_requirements are conditions that could disqualify "
+    "someone outright (a degree, work authorization, an on-site city).\n\n"
+    "List each concept in raw_keywords once, in the words the posting uses. "
+    "Do not add a translation of a term the posting already names.\n\n"
+    "responsibilities are the posting's core tasks — what the person will "
+    "actually do — at most eight, in the words the posting uses. Never turn a "
+    "requirement into a task or a task into a requirement.\n\n"
+    "Posting language is one of: {languages}.\n\n"
+    "Canonical skill vocabulary (use these exact strings for must_have and "
+    "nice_to_have, and nothing else):\n{skills}\n\n"
+    "Return the posting's language, title, seniority rung (intern, junior, "
+    "mid, senior, lead, principal, or unknown), the years of experience it "
+    "asks for if stated, the must-have and nice-to-have skills, the keywords "
+    "it emphasises, its responsibilities, any hard requirements, and its "
+    "location policy if it states one."
+)
+
+
+def test_v4_asks_for_the_terms_a_recruiter_would_type_and_v3_keeps_its_text():
+    from src.extract.prompts import JD_EXTRACTION_V3, JD_EXTRACTION_V4
+
+    assert JD_EXTRACTION_V3.version == "jd_extract_v3" and JD_EXTRACTION_V4.version == (
+        "jd_extract_v4"
+    )
+    assert JD_EXTRACTION_V3.system == JD_EXTRACTION_V3_TEXT, "v3 is frozen for stored reports"
+    v4 = JD_EXTRACTION_V4.system
+    assert "1 to 4 words" in v4
+    assert "exactly as written" not in v4
+    assert "Do not add a translation of a term the posting already names." in v4
+    # D7 changes the raw_keywords rule only: the rest keeps v3's wording.
+    v3 = JD_EXTRACTION_V3.system
+    for shared in (
+        "must_have and nice_to_have you may only use names from the vocabulary",
+        "responsibilities are the posting's core tasks",
+        "Canonical skill vocabulary (use these exact strings",
+        "Return the posting's language, title, seniority rung",
+    ):
+        assert shared in v4 and shared in v3
 
 
 def test_a_schema_violation_is_retried_once_then_fails_loudly(

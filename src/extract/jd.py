@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from src.db import short_session
 from src.extract import redaction
 from src.extract.client import CallOptions, Completion, complete_json
-from src.extract.prompts import JD_EXTRACTION_V3
+from src.extract.prompts import JD_EXTRACTION_V4
 from src.jd import Seniority, StructuredJD, jd_hash, normalize_jd_text
 from src.models import Skill
 from src.normalize.text import fold
@@ -81,13 +81,13 @@ def extract_jd(
     # opened or ended here (client.complete_json refuses to run inside one).
     with short_session(session) as reader:
         canonicals = vocabulary_canonicals(reader)
-    system = JD_EXTRACTION_V3.render_system(skills="\n".join(canonicals), languages="es, en")
+    system = JD_EXTRACTION_V4.render_system(skills="\n".join(canonicals), languages="es, en")
     completion = complete_json(
         session,
         purpose=PURPOSE,
-        prompt_version=JD_EXTRACTION_V3.version,
+        prompt_version=JD_EXTRACTION_V4.version,
         system=system,
-        user=JD_EXTRACTION_V3.render(text=redaction.redact(normalized)),
+        user=JD_EXTRACTION_V4.render(text=redaction.redact(normalized)),
         schema=JDProposal,
         model=model,
         retries=RETRIES,

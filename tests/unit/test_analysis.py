@@ -166,7 +166,7 @@ def test_an_analysis_records_its_weights_prompts_and_cost(session, career, provi
         "keywords": 0.15,
     }, "nothing is renormalised under w3"
     assert analysis.prompt_versions == {
-        "jd_extract": "jd_extract_v3",
+        "jd_extract": "jd_extract_v4",
         "evidence_grade": "evidence_grade_v4",
         "boolean_queries": "boolean_recall_v2",
         "gap_interpret": "gap_interpret_v1",
@@ -550,7 +550,7 @@ def test_the_report_page_shows_the_total_its_cost_and_its_components(
     # F12.3: extraction, grading and the recruiter's queries — the gap prose is the
     # report's own POST and never part of the analysis's stored cost.
     assert "$0.000369" in page, "the cost of the analysis that produced the report"
-    assert "jd_extract_v3" in page
+    assert "jd_extract_v4" in page
     assert career.first_bullet.text_es in page, "the citation is shown"
     disqualifier = application.report["jd"]["hard_requirements"][0]
     assert disqualifier in page, "disqualifiers are reported separately"
