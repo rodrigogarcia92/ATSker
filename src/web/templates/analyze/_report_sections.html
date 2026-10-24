@@ -539,6 +539,10 @@
       {{ t('report.keywords.hint.pool_file' if for_file else 'report.keywords.hint.pool', lang) }}
       {% elif item.basis == 'bullet' %}
       {{ t('report.keywords.hint.bullet_' ~ ('add' if item.bullet_says else 'use') ~ ('_file' if for_file and item.bullet_says else ''), lang, text=item.bullet_text) }}
+      {% elif item.basis == 'graded' %}
+      {{ t('report.keywords.hint.graded', lang,
+            bullet=item.bullet_text or t('report.keywords.where.bullet', lang),
+            keyword=item.keyword) }}
       {% else %}
       {{ t('report.keywords.hint.equivalent', lang, sibling=item.sibling) }}
       {% endif %}
@@ -557,9 +561,21 @@
     · <span data-keywords-basis>{{ t('report.keywords.calculated', lang) }}</span>
   </p>
   {% if keywords.items %}
-  <ul class="mt-3 divide-y divide-card-border rounded-card border border-card-border">
-    {% for item in keywords.shown %}{{ keyword_item(item, advice_for_file) }}{% endfor %}
+  {# D7: "Dilo con sus palabras" first — a skill the user is already credited with but a
+     recruiter's search would miss. Equivalents are a different claim and follow, each
+     under its own label. An empty group renders nothing. #}
+  {% if keywords.say_it_shown %}
+  <p class="mt-4 text-sm font-semibold">{{ t('report.keywords.group.say_it', lang) }}</p>
+  <p class="mt-1 text-xs text-text-2">{{ t('report.keywords.group.say_it_line', lang) }}</p>
+  <ul class="mt-2 divide-y divide-card-border rounded-card border border-card-border">
+    {% for item in keywords.say_it_shown %}{{ keyword_item(item, advice_for_file) }}{% endfor %}
   </ul>
+  {% endif %}
+  {% if keywords.equivalent_shown %}
+  <ul class="mt-3 divide-y divide-card-border rounded-card border border-card-border">
+    {% for item in keywords.equivalent_shown %}{{ keyword_item(item, advice_for_file) }}{% endfor %}
+  </ul>
+  {% endif %}
   {% if keywords.rest %}
   <details class="disclosure mt-2 rounded-card border border-card-border px-3">
     <summary class="text-sm">{{ t('report.advice.see_all', lang, n=keywords['items'] | length) }}</summary>

@@ -2979,10 +2979,25 @@ STRINGS: dict[str, dict[str, str]] = {
         "es": "calculado con tu material actual",
         "en": "calculated from your current material",
     },
+    # D7's group: a skill already credited that a search would still miss.
+    "report.keywords.group.say_it": {
+        "es": "Dilo con sus palabras",
+        "en": "Say it their way",
+    },
+    "report.keywords.group.say_it_line": {
+        "es": "El evaluador ya te reconoce estas habilidades, pero un reclutador que busque "
+        "estas palabras no encontraría tu CV. Usa su término donde se indica, si es verdad.",
+        "en": "The grader already credits you with these skills, but a recruiter searching "
+        "for these words wouldn't find your CV. Use their term where shown, if it's true.",
+    },
     "report.keywords.basis.pool": {"es": "Lo tienes", "en": "You have it"},
     "report.keywords.basis.bullet": {
         "es": "Un bullet tuyo lo respalda",
         "en": "One of your bullets backs it",
+    },
+    "report.keywords.basis.graded": {
+        "es": "Lo tienes — dilo con sus palabras",
+        "en": "You have it — say it their way",
     },
     "report.keywords.basis.equivalent": {"es": "Equivalente", "en": "Equivalent"},
     "report.keywords.basis.inferred": {
@@ -3018,6 +3033,10 @@ STRINGS: dict[str, dict[str, str]] = {
     "report.keywords.hint.bullet_add_file": {
         "es": "tu bullet «{text}» ya lo dice; añádelo a tu documento.",
         "en": "your bullet “{text}” already says it; add it to your document.",
+    },
+    "report.keywords.hint.graded": {
+        "es": "el evaluador te lo reconoce en «{bullet}»; usa «{keyword}» en ese bullet.",
+        "en": "the grader credits it in “{bullet}”; use “{keyword}” in that bullet.",
     },
     "report.keywords.hint.equivalent": {
         "es": "tienes {sibling}; añádela solo si de verdad la has usado.",
