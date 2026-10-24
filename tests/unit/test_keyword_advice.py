@@ -1,10 +1,10 @@
 """F7.5's Keywords card, deterministic part (queue K5).
 
 Every candidate is a missing keyword of the report; the card says which basis the user's own
-data gives it — `pool`, then `bullet`, then `equivalent`, strongest first, never twice — and
-where it would go. A candidate with none of the three is counted in the footer and advised
-nowhere. The reports are hand-built: the module reads a stored report and the user's rows,
-makes no model call, and writes nothing.
+data gives it — `pool`, then `bullet`, then `graded`, then `equivalent`, strongest first,
+never twice — and where it would go. A candidate with none of the four is counted in the
+footer and advised nowhere. The reports are hand-built: the module reads a stored report and
+the user's rows, makes no model call, and writes nothing.
 """
 
 import copy
@@ -17,7 +17,7 @@ from src.keyword_advice import SHOWN, keyword_advice
 from src.models import Skill
 from src.tracks import set_track_bullets
 from tests.conftest import login
-from tests.unit.test_advice import bullet
+from tests.unit.test_advice import bullet, grade
 from tests.unit.test_advice import report as advice_report
 from tests.unit.test_analysis import text_of
 from tests.unit.test_report_layout import section, stored
@@ -145,6 +145,77 @@ def test_order_is_must_have_then_nice_then_the_rest_and_within_that_by_basis(ses
         ("machine learning", "nice_to_have", "bullet"),
     ]
     assert [c.keyword for c in card.unsupported] == ["Docker", "extra pool"]
+
+
+def test_a_credited_requirement_is_graded_and_names_the_bullet_it_cites(session, career):
+    """D7: the grader already credits the skill; the cited bullet is where the word goes."""
+    cited = bullet(session, career, "Puse modelos de crédito en producción", [])
+    first = grade(
+        "Machine learning aplicado al riesgo de crédito",
+        level=2,
+        bullet_id=cited.id,
+        text="Puse modelos de crédito en producción",
+    )
+    later = grade(
+        "Modelos de machine learning", level=3, bullet_id=career.first_bullet.id,
+        text="Otra viñeta",
+    )
+    report = keyword_report(["machine learning"], nice=["machine learning"])
+    report["grades"] = [first, later]
+
+    [item] = advise(session, career, report).items
+
+    assert (item.basis, item.where) == ("graded", "bullet")
+    assert item.bullet_id == str(cited.id), "the first credited requirement, in report order"
+    assert item.bullet_text == "Puse modelos de crédito en producción"
+    assert item.priority == "nice_to_have"
+
+
+def test_a_requirement_below_the_threshold_or_without_a_bullet_grades_nothing(session, career):
+    cited = bullet(session, career, "Puse modelos en producción", [])
+    report = keyword_report(["machine learning"])
+    report["grades"] = [
+        grade("Machine learning en el riesgo", level=1, bullet_id=cited.id, text="Puse modelos"),
+        grade("Modelos de machine learning", level=3, bullet_id=None),
+    ]
+
+    card = advise(session, career, report)
+
+    assert card.items == []
+    assert [c.keyword for c in card.unsupported] == ["machine learning"]
+
+
+def test_graded_outranks_an_equivalent_and_loses_to_a_tagged_bullet(session, career):
+    vocabulary(session, ("tableau", "bi"), ("power bi", "bi"))
+    career.first_profile.skills = ["tableau"]
+    tagged = bullet(session, career, "Puse modelos en producción", ["machine learning"])
+    session.commit()
+    report = keyword_report(["Power BI", "machine learning"], nice=["machine learning"])
+    report["grades"] = [
+        grade("Machine learning aplicado", level=2, bullet_id=tagged.id, text="Puse modelos"),
+        grade("Power BI dashboards", level=2, bullet_id=tagged.id, text="Puse modelos"),
+    ]
+
+    card = advise(session, career, report)
+
+    # Pool and bullet are stronger than a credit; a credit is stronger than a sibling.
+    assert [(i.keyword, i.basis) for i in card.items] == [
+        ("machine learning", "bullet"),
+        ("Power BI", "graded"),
+    ]
+
+
+def test_a_report_stored_before_w5_gets_the_same_graded_basis(session, career):
+    """The basis reads only `missing` and the stored grades: no rule or version key."""
+    cited = bullet(session, career, "Puse modelos en producción", [])
+    report = keyword_report(["machine learning"])
+    report.pop("keyword_rule", None)
+    report["score"].pop("weights_version", None)
+    report["grades"] = [grade("Machine learning aplicado", level=2, bullet_id=cited.id, text="X")]
+
+    [item] = advise(session, career, report).items
+
+    assert item.basis == "graded" and item.bullet_id == str(cited.id)
 
 
 def test_the_eight_shown_and_the_rest_behind_ver_todas(session, career):

@@ -12,14 +12,19 @@ user's data holds, strongest first, and never twice:
 
 * `pool` — its canonical is in the profile's skills pool and no bullet of the track says it;
 * `bullet` — an active master bullet is tagged with the canonical (it names that bullet);
+* `graded` — the grader already credits a requirement whose words are this keyword, at
+  `EVIDENCE_THRESHOLD` or above and with a cited bullet (D7, "say it their way"): the
+  user has the skill, the search would still miss it, and the cited bullet is where the
+  posting's own word goes;
 * `equivalent` — the user holds a family sibling (F5.4.1: Tableau ↔ Power BI).
 
-A candidate with none of the three is not advised: it stays in the gap list (F6), is counted
+A candidate with none of the four is not advised: it stays in the gap list (F6), is counted
 for the card's footer, and is what the on-demand inference (`extract.generation`, F7.5's
 *Probable*) is offered. Equivalence is a judgement here and nowhere in the scorer, so the
 card never moves a score.
 """
 
+import re
 import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
@@ -31,13 +36,14 @@ from src.bullets import bullet_text, list_bullets
 from src.models import Bullet, Profile, Skill, Track
 from src.normalize.text import fold
 from src.normalize.vocabulary import match_text
+from src.score.gaps import EVIDENCE_THRESHOLD
 from src.tracks import track_bullets
 from src.vocabulary import alias_map
 
 # F7.5: the first eight show; "Ver todas (N)" reveals the rest.
 SHOWN = 8
 
-BASES = ("pool", "bullet", "equivalent")
+BASES = ("pool", "bullet", "graded", "equivalent")
 PRIORITIES = ("must_have", "nice_to_have", "other")
 
 
@@ -84,6 +90,17 @@ class KeywordAdvice:
     @property
     def rest(self) -> list[KeywordItem]:
         return self.items[SHOWN:]
+
+    # D7's "Dilo con sus palabras" group: a skill the grader (or the pool, or a tagged
+    # bullet) already credits but a search would miss. Equivalence is a different claim
+    # and keeps its own label after the group.
+    @property
+    def say_it_shown(self) -> list[KeywordItem]:
+        return [item for item in self.shown if item.basis != "equivalent"]
+
+    @property
+    def equivalent_shown(self) -> list[KeywordItem]:
+        return [item for item in self.shown if item.basis == "equivalent"]
 
     @property
     def candidates(self) -> int:
@@ -160,6 +177,42 @@ def _says(bullet: Bullet, canonical: str, aliases: Mapping[str, str], lang: str)
     return canonical in match_text(bullet_text(bullet, lang), aliases, skip_ambiguous=True)
 
 
+# The words that carry no meaning of their own when a keyword meets a requirement's
+# text; `c++` and `c#` survive the split, as they do in `normalize.text.match_key`.
+_WORD = re.compile(r"[^a-z0-9+#]+")
+_STOPWORDS = frozenset(
+    {
+        "a", "al", "and", "con", "de", "del", "el", "en", "for", "la", "las", "los",
+        "o", "of", "on", "or", "para", "por", "the", "to", "un", "una", "with", "y",
+    }
+)
+
+
+def _meaningful(text: str) -> list[str]:
+    """The folded words of a term or a requirement that a match may rest on."""
+    return [word for word in _WORD.split(fold(text)) if word and word not in _STOPWORDS]
+
+
+def _graded_requirement(
+    candidate: Candidate, grades: Sequence[Mapping[str, object]]
+) -> Mapping[str, object] | None:
+    """The first stored grade that credits the keyword's words and cites a bullet (D7).
+
+    A requirement at `EVIDENCE_THRESHOLD` or above is one the grader already gives the
+    user credit for; its cited bullet is where the posting's own word belongs. Reading
+    the stored `grades` keeps the basis identical for reports stored before `w5`.
+    """
+    words = set(_meaningful(candidate.keyword))
+    if not words:
+        return None
+    for grade in grades:
+        if int(grade.get("level") or 0) < EVIDENCE_THRESHOLD or not grade.get("bullet_id"):
+            continue
+        if words <= set(_meaningful(str(grade.get("requirement") or ""))):
+            return grade
+    return None
+
+
 def keyword_advice(
     profile_id: uuid.UUID,
     session: Session,
@@ -203,11 +256,13 @@ def keyword_advice(
     pool = set(profile.skills or [])
     held = pool | {skill for bullet in bullets for skill in bullet.skills}
 
+    grades = [row for row in report.get("grades") or [] if isinstance(row, Mapping)]
+
     items: list[KeywordItem] = []
     unsupported: list[Candidate] = []
     for candidate in candidates:
         verdict, item = _classify(
-            candidate, pool, held, bullets, in_track, unchanged, skills, aliases, lang
+            candidate, pool, held, bullets, in_track, unchanged, skills, aliases, lang, grades
         )
         if verdict == "item" and item is not None:
             items.append(item)
@@ -228,18 +283,16 @@ def _classify(
     skills: Mapping[str, Skill],
     aliases: Mapping[str, str],
     lang: str,
+    grades: Sequence[Mapping[str, object]],
 ) -> tuple[str, KeywordItem | None]:
-    """`("item", it)` on `pool`, then `bullet`, then `equivalent`; `("unsupported", None)`
-    when none holds; `("stale", None)` when the track's own bullets already say it.
+    """`("item", it)` on `pool`, then `bullet`, then `graded`, then `equivalent`;
+    `("unsupported", None)` when none holds; `("stale", None)` when the track's own
+    bullets already say it.
 
     A stale keyword is no longer missing — the report is older than the material — so it is
     neither advised nor counted as unsupported.
     """
     canonical = candidate.canonical
-    if canonical is None:
-        return "unsupported", None
-    if any(str(b.id) in unchanged and _says(b, canonical, aliases, lang) for b in bullets):
-        return "stale", None
 
     def item(basis: str, where: str, **extra: object) -> tuple[str, KeywordItem]:
         return "item", KeywordItem(
@@ -251,19 +304,35 @@ def _classify(
             **extra,  # type: ignore[arg-type]
         )
 
-    if canonical in pool:
-        return item("pool", "skills")
-    tagged = [bullet for bullet in bullets if canonical in bullet.skills]
-    if tagged:
-        # The track's own bullet first, then the first by creation: the same one every time.
-        chosen = next((b for b in tagged if str(b.id) in in_track), tagged[0])
+    if canonical is not None:
+        if any(str(b.id) in unchanged and _says(b, canonical, aliases, lang) for b in bullets):
+            return "stale", None
+        if canonical in pool:
+            return item("pool", "skills")
+        tagged = [bullet for bullet in bullets if canonical in bullet.skills]
+        if tagged:
+            # The track's own bullet first, then the first by creation: the same one every
+            # time.
+            chosen = next((b for b in tagged if str(b.id) in in_track), tagged[0])
+            return item(
+                "bullet",
+                "bullet",
+                bullet_id=str(chosen.id),
+                bullet_text=bullet_text(chosen, lang),
+                bullet_says=_says(chosen, canonical, aliases, lang),
+            )
+    # D7: the grader already credits it; the bullet it cited is where to use the posting's
+    # word. Works without a canonical too — the stored requirement's text is the evidence.
+    graded = _graded_requirement(candidate, grades)
+    if graded is not None:
         return item(
+            "graded",
             "bullet",
-            "bullet",
-            bullet_id=str(chosen.id),
-            bullet_text=bullet_text(chosen, lang),
-            bullet_says=_says(chosen, canonical, aliases, lang),
+            bullet_id=str(graded["bullet_id"]),
+            bullet_text=str(graded.get("bullet_text") or "") or None,
         )
+    if canonical is None:
+        return "unsupported", None
     siblings = [name for name in _siblings(canonical, skills) if name in held]
     if siblings:
         return item("equivalent", "skills", sibling=siblings[0])
