@@ -14,7 +14,7 @@ from src.score.experience import (
     relevant_experience_score,
     years_held,
 )
-from src.score.keywords import keyword_context, keyword_context_k1
+from src.score.keywords import KEYWORD_RULE, keyword_context, keyword_context_k1
 from src.score.title import seniority_of, title_alignment
 from src.score.weights import (
     W1,
@@ -26,6 +26,7 @@ from src.score.weights import (
     WeightsV2,
     WeightsV3,
     WeightsV4,
+    keyword_rule,
 )
 
 TODAY = date(2026, 1, 1)
@@ -600,10 +601,9 @@ def test_w4_keeps_w3s_values_and_hashes_the_experience_split_with_them():
     assert moved.config_hash() != W4.config_hash(), "the split is hashed with the rest"
 
 
-def test_w5_keeps_w4s_values_and_only_moves_the_version():
-    """F5.5.3: only the Keywords rule moves, so the config — weights, credits and
-    split — is `w4`'s and hashes the same; the version string is what tells them
-    apart in a report."""
+def test_w5_keeps_w4s_values_and_hashes_the_keyword_rule_apart():
+    """F5.5.3 + R13.2: only the Keywords rule moves, and the config hash says so — a
+    reader of `weights_hash` alone must be able to tell the two numbers apart."""
     assert W5.version == "w5"
     assert (W5.skills, W5.experience, W5.title, W5.keywords) == (
         W4.skills,
@@ -613,7 +613,20 @@ def test_w5_keeps_w4s_values_and_only_moves_the_version():
     )
     assert dict(W5.basis_credit) == dict(W4.basis_credit)
     assert dict(W5.experience_split) == dict(W4.experience_split)
-    assert W5.config_hash() == W4.config_hash()
+    assert W5.config_hash() != W4.config_hash(), "the keyword rule is part of the config"
+
+
+# The hash a `w4` report stored before R13.2 carries (2026-10-24). Pinned: if it
+# moves, every report already stored under `w4` stops matching a fresh `W4`, and its
+# numbers would read as a configuration nobody scored.
+W4_HASH_AS_STORED = "sha256:9bbff83776538f63e0280108021df6162288295f283cb2d1783c36985f105162"
+
+
+def test_a_w4_report_still_matches_a_fresh_w4():
+    """R13.2 kept `K1` implicit on purpose: the baseline must hash as it always did."""
+    assert keyword_rule("w4") == "K1" and keyword_rule("w5") == "K2"
+    assert W4.config_hash() == W4_HASH_AS_STORED
+    assert keyword_rule(W5.version) == KEYWORD_RULE, "the hash and the scorer name one rule"
 
 
 def test_aggregation_matches_the_hand_computed_weighted_sum():

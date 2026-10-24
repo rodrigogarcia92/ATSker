@@ -18,6 +18,19 @@ def hash_values(values: Mapping[str, float]) -> str:
     return "sha256:" + hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
+# F5.5.3: the Keywords rule each version's number was computed under. The config hash
+# covers it (R13.2), so a reader of `weights_hash` alone can tell a `w4` number from a
+# `w5` one. A version that moves the rule declares it here; the baseline is `K1`, which
+# stays implicit in the hash because every `w4` report already carries that value.
+KEYWORD_RULES: Mapping[str, str] = {"w5": "K2"}
+DEFAULT_KEYWORD_RULE = "K1"
+
+
+def keyword_rule(version: str) -> str:
+    """The Keywords rule `version` was scored under (K1 unless declared otherwise)."""
+    return KEYWORD_RULES.get(version, DEFAULT_KEYWORD_RULE)
+
+
 @dataclass(frozen=True)
 class WeightSet:
     """Values, their hash, and the version string the report records beside them.
@@ -36,8 +49,18 @@ class WeightSet:
         return sum(value for name, value in self.as_dict().items() if name != "version")
 
     def config_hash(self) -> str:
-        """Hash of the weight values; the version is recorded beside it, not inside it."""
+        """Hash of the weight values and of the Keywords rule they are read under.
+
+        The version string is recorded beside the hash, not inside it; what a version
+        *means* for the hash is its rule (F5.5.3). `K1` is the baseline and stays
+        implicit: every report stored under `w4` carries that hash, and it must keep
+        matching a fresh `W4`. `w5`'s `K2` is added, so the two hashes differ and a
+        reader of the hash alone can tell the two numbers apart.
+        """
         values = {key: value for key, value in self.as_dict().items() if key != "version"}
+        rule = keyword_rule(self.version)
+        if rule != DEFAULT_KEYWORD_RULE:
+            values["keyword_rule"] = rule
         return hash_values(values)
 
 
