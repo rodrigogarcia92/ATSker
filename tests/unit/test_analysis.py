@@ -227,6 +227,52 @@ def test_an_analysis_records_its_weights_prompts_and_cost(session, career, provi
     assert application.report["score"]["unavailable"] == {}
 
 
+def test_the_report_says_where_its_wall_time_went(session, career, provider, monkeypatch):
+    """R13.3: `llm.steps_ms` names every step, and the steps are the wall time.
+
+    The stub sleeps in every call, so a step that forgot to count its paid call is
+    visible as a sum well below `wall_ms` — the question the 2026-10-23 run raised
+    when 28 s of wait had 18 s of calls in it.
+    """
+    delay = 0.05
+
+    def slow(payload, api_key):
+        time.sleep(delay)
+        return provider(payload, api_key)
+
+    monkeypatch.setattr(extract_client, "_post", slow)
+
+    analysis = analyze(career.first_profile.id, session, jd_text=POSTING)
+    llm = analysis.report["llm"]
+    steps = llm["steps_ms"]
+
+    assert list(steps) == [
+        "reads",
+        "prepare_calls",
+        "document",
+        "grading",
+        "scoring",
+        "notes",
+        "assemble",
+    ]
+    assert all(isinstance(value, int) and value >= 0 for value in steps.values())
+    assert steps["prepare_calls"] >= round(delay * 1000), "two calls beside each other"
+    assert steps["grading"] >= round(delay * 1000)
+    assert steps["notes"] >= round(delay * 1000), "the gap prose is a paid call of this run"
+    assert sum(steps.values()) == pytest.approx(
+        llm["wall_ms"], abs=max(5, llm["wall_ms"] * 0.05)
+    ), "the steps partition the wall time, not a sample of it"
+
+
+def test_a_deferred_report_leaves_the_notes_step_at_zero(session, career, provider):
+    """F12.3: the interface pays for the prose after storing, so that step is not taken."""
+    analysis = analyze(career.first_profile.id, session, jd_text=POSTING, notes="deferred")
+
+    steps = analysis.report["llm"]["steps_ms"]
+    assert steps["notes"] == 0, "no gap prose was paid for in this run"
+    assert analysis.report["gaps"]["notes_status"] == "pending"
+
+
 def test_a_refused_equivalence_is_listed_for_family_review(session, career, provider):
     """F5.5.2: a basis the family data could not confirm is not a silent
     downgrade — the pair lands in `report["family_candidates"]`, which is what
@@ -1538,10 +1584,11 @@ def test_two_identical_runs_produce_identical_reports(session, career, provider)
     second = analyze(career.first_profile.id, session, jd_text=POSTING, options=options)
 
     def digest(report: dict) -> str:
-        """The report without its clock: F12.4 records how long it took, and two
-        identical runs never take the same milliseconds."""
+        """The report without its clocks: F12.4 records how long it took, and two
+        identical runs never take the same milliseconds — per step (R13.3) either."""
         untimed = json.loads(json.dumps(report))
         untimed["llm"].pop("wall_ms", None)
+        untimed["llm"].pop("steps_ms", None)
         for call in untimed["llm"]["calls"]:
             call.pop("latency_ms", None)
         return hashlib.sha256(

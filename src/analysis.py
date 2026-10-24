@@ -134,6 +134,23 @@ def call_payload(call: Completion) -> dict[str, object]:
 # because their wall times answer different questions and must not share a p50.
 REPORT_KINDS = ("analysis", "recommendation", "attempt")
 
+# F12.4/R13.3: where an analysis' time goes, as `llm.steps_ms` names it. A step a run
+# does not take — an attempt reuses the extraction it never made — is recorded as 0,
+# so every report has the same keys and the script's table never changes shape.
+# `notes` is the inline gap prose (`analyze`); the interface defers it, so it is 0.
+STEP_NAMES = ("reads", "prepare_calls", "document", "grading", "scoring", "notes", "assemble")
+
+
+def _lap(steps: dict[str, int], name: str, since: float) -> float:
+    """Add the milliseconds since `since` to `steps[name]`, and return the new mark.
+
+    Laps accumulate rather than assign: `scoring` is taken either side of the notes
+    call and around the ceiling, and one bucket is still what the page reads.
+    """
+    now = time.perf_counter()
+    steps[name] = steps.get(name, 0) + round((now - since) * 1000)
+    return now
+
 
 def llm_section(
     calls: Sequence[Completion],
@@ -141,6 +158,7 @@ def llm_section(
     *,
     wall_ms: int | None = None,
     kind: str = "analysis",
+    steps_ms: Mapping[str, int] | None = None,
 ) -> dict[str, object]:
     """The cost ledger for this analysis, as it will be shown on the report page.
 
@@ -148,14 +166,19 @@ def llm_section(
     no request), and `wall_ms` is what the whole analysis took — less than the sum of
     the calls once two of them run beside each other. `kind` says which of `REPORT_KINDS`
     the report is: a recommendation's wall time starts at the shared preparation, so
-    mixing the two kinds would describe neither.
+    mixing the two kinds would describe neither. `steps_ms` (R13.3) is where that wall
+    time went, by `STEP_NAMES`; the recommendation rebuilds its block from the shared
+    preparation, so it records none — its wall time is every track's, not one step's.
     """
-    return {
+    block: dict[str, object] = {
         "cost_usd": str(cost),
         "calls": [call_payload(call) for call in calls],
         "wall_ms": wall_ms,
         "kind": kind,
     }
+    if steps_ms is not None:
+        block["steps_ms"] = dict(steps_ms)
+    return block
 
 
 def llm_with_deferred(
@@ -220,6 +243,10 @@ class Preparation:
     # F12.4: when this preparation started, so the report can say how long the calls
     # took from the first read to the last one. Never stored as such.
     started: float = field(default_factory=time.perf_counter)
+    # F12.4/R13.3: the milliseconds `prepare()` spent on the reads and on the two
+    # threads, for the report's `llm.steps_ms`. Empty for a preparation rebuilt from a
+    # stored report (an attempt): those reads were not made by this run.
+    steps_ms: Mapping[str, int] = field(default_factory=dict)
 
 
 def _in_own_session(bind, work: Callable[[Session], object]) -> object:
@@ -259,6 +286,7 @@ def prepare(
     línea" (F11.6) ranks tracks on it and has never paid for a derivation.
     """
     started = time.perf_counter()
+    steps = dict.fromkeys(STEP_NAMES, 0)
     profile = session.get(Profile, profile_id)
     if profile is None:
         raise RuntimeError("an analysis needs a profile that exists")
@@ -270,6 +298,9 @@ def prepare(
     today = date.today()
 
     session.commit()
+    # R13.3: the commit belongs to the reads — it is what releases them — and the
+    # threads are timed from here, so the two laps add up to the preparation's wall.
+    mark = _lap(steps, "reads", started)
     bind = session.get_bind()
     jd_work = partial(extract_jd, text=jd_text, model=model, options=options)
     queries_work = partial(
@@ -297,6 +328,7 @@ def prepare(
                 )
             except Exception as exc:
                 queries_failure = exc
+    _lap(steps, "prepare_calls", mark)
     # The extraction's failure is the one that propagates first, as when the calls
     # ran one after another; either exception is re-raised unchanged.
     if jd_failure is not None:
@@ -312,6 +344,7 @@ def prepare(
         queries=queries,
         recall_call=recall_call,
         started=started,
+        steps_ms=steps,
     )
 
 
@@ -410,6 +443,11 @@ def score_track(
     bullets the file carries, and the report records which CV it scored. Scoring itself
     is unchanged — what is scored is the file.
     """
+    # R13.3: one clock for the whole run. The preparation's two laps travel with it;
+    # every step below starts where the previous one ended, so the sum is the wall.
+    steps: dict[str, int] = {name: int(prepared.steps_ms.get(name, 0)) for name in STEP_NAMES}
+    mark = time.perf_counter()
+
     profile = session.get(Profile, profile_id)
     if profile is None:
         raise RuntimeError("an analysis needs a profile that exists")
@@ -444,6 +482,7 @@ def score_track(
     if document is None:
         document = track_document(profile_id, session, track, jd.language)
     session.commit()
+    mark = _lap(steps, "document", mark)
     grading = grade_evidence(
         session,
         jd,
@@ -456,6 +495,7 @@ def score_track(
         known_names=[profile.display_name] if profile.display_name else None,
         options=options,
     )
+    mark = _lap(steps, "grading", mark)
     # F12.2: the derivation travels with the preparation, made beside the extraction;
     # F7.1 passes the first track's answer to the rest; an attempt passes the stored
     # report's. Only a preparation that has no queries at all — one built from a
@@ -669,12 +709,14 @@ def score_track(
     stories = list_stories(profile_id, session)
     # The reads above end before the provider call starts, like every other call here.
     session.commit()
+    mark = _lap(steps, "scoring", mark)
     # F10.3: an attempt detects its gaps but does not pay for the prose about them —
     # `notes` is "none" there, and the report carries the bands with empty wording.
     # F12.3: the interface's analysis stores the bands the same way and its report's own
     # POST pays for the prose, so the user reads the score before the notes exist.
     reading = None
     if notes == "inline":
+        notes_started = mark
         reading = interpret_gaps(
             session,
             [
@@ -689,8 +731,10 @@ def score_track(
             model=model,
             options=options,
         )
+        mark = _lap(steps, "notes", notes_started)
     gap_notes: list[object] = list(reading.notes) if reading is not None else [None] * len(gaps)
 
+    assemble_started = mark
     calls = (
         prepared.extraction,
         *grading.calls,
@@ -774,20 +818,17 @@ def score_track(
         # query is a gate, like a disqualifier, not a percentage.
         "recall": _recall_payload(recall, queries.queries),
         "score": score_payload,
-        # F12.4: from the preparation's first read to this line — what the user waited
-        # for, never the sum of the calls (the first two overlap).
-        "llm": llm_section(
-            calls,
-            cost,
-            wall_ms=round((time.perf_counter() - prepared.started) * 1000),
-            kind=kind,
-        ),
+        # F12.4: filled at the end of the run — `wall_ms` is from the preparation's
+        # first read to the last step, and `steps_ms` (R13.3) says where it went.
+        # Never the sum of the calls: the first two overlap.
+        "llm": llm_section(calls, cost, kind=kind),
     }
     if cv is not None:
         # F11.3: which file this is, and how it was read (F10.3 step 3's snapshots).
         report["cv"] = cv.header()
         report["bullets"] = [dict(row) for row in cv.snapshots]
         report["role_matching"] = [dict(row) for row in cv.role_matching]
+    mark = _lap(steps, "assemble", assemble_started)
     # F7.2: the six edit rules, computed from the report just built and the user's own
     # rows — deterministic, free, and made no provider call, so this runs after the
     # last one. A stored report keeps the items; the sentences are the page's.
@@ -832,6 +873,15 @@ def score_track(
             cv.represented_ids,
             jd.language,
         )
+    # R13.3: the tail is scoring work too — the advice, the ceiling from the master
+    # data and, on a CV, the requirement notes — and it is the last thing the user
+    # waits for, so the wall time is taken here and not before them.
+    finished = _lap(steps, "scoring", mark)
+    report["llm"] = {
+        **cast("dict[str, object]", report["llm"]),
+        "wall_ms": round((finished - prepared.started) * 1000),
+        "steps_ms": steps,
+    }
 
     return Analysis(
         report=report,

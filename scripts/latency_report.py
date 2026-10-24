@@ -20,6 +20,11 @@ attempt — and the three wall times answer different questions (a recommendatio
 starts at the shared preparation, an attempt's excludes the extraction it reused), so
 only one kind is read unless `--kind all` asks otherwise. A report stored before kinds
 counts as an analysis, which is what it was.
+
+R13.3: a report also says where its wall time went (`llm.steps_ms`), so the second
+table is the same window, per step: p50 and p95 of each step over the reports that
+recorded it. A report stored before the steps, or a recommendation (whose wall time is
+every track's), simply has no row there.
 """
 
 import argparse
@@ -34,7 +39,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from sqlalchemy import select  # noqa: E402
 
 from scripts.llm_costs import parse_since  # noqa: E402
-from src.analysis import REPORT_KINDS  # noqa: E402
+from src.analysis import REPORT_KINDS, STEP_NAMES  # noqa: E402
 from src.db import session_scope  # noqa: E402
 from src.models import Application  # noqa: E402
 
@@ -108,6 +113,19 @@ def _timing(report: object, model: str | None) -> tuple[int | None, dict[str, _P
     return round(wall), purposes
 
 
+def _steps(report: object) -> dict[str, int]:
+    """One report's per-step milliseconds (R13.3); empty when it recorded none."""
+    llm = report.get("llm") if isinstance(report, dict) else None
+    raw = llm.get("steps_ms") if isinstance(llm, dict) else None
+    if not isinstance(raw, dict):
+        return {}
+    return {
+        str(name): round(value)
+        for name, value in raw.items()
+        if _is_number(value) and value >= 0
+    }
+
+
 def cmd_report(since_raw: str, model: str | None, kind: str = "analysis") -> int:
     """Print the wall and per-purpose distributions of the reports in the window.
 
@@ -127,6 +145,7 @@ def cmd_report(since_raw: str, model: str | None, kind: str = "analysis") -> int
     walls: list[int] = []
     skipped = 0
     purposes: dict[str, _Purpose] = {}
+    step_values: dict[str, list[int]] = {}
     for row in rows:
         if kind != "all" and _kind(row.report) != kind:
             continue
@@ -139,6 +158,8 @@ def cmd_report(since_raw: str, model: str | None, kind: str = "analysis") -> int
             merged = purposes.setdefault(purpose, _Purpose())
             merged.latencies.extend(stats.latencies)
             merged.cached += stats.cached
+        for step, milliseconds in _steps(row.report).items():
+            step_values.setdefault(step, []).append(milliseconds)
 
     if not walls:
         print("no timed analyses in that window")
@@ -154,6 +175,20 @@ def cmd_report(since_raw: str, model: str | None, kind: str = "analysis") -> int
             p50 = _seconds(percentile(stats.latencies, 0.50)) if stats.latencies else "–"
             p95 = _seconds(percentile(stats.latencies, 0.95)) if stats.latencies else "–"
             print(f"{purpose:<18}{len(stats.latencies):>4}{stats.cached:>8}{p50:>9}{p95:>9}")
+    if step_values:
+        # R13.3: the same window, by step — where the wall time between the calls goes.
+        known = [*STEP_NAMES, "save"]
+        ordered = [name for name in known if name in step_values]
+        ordered += sorted(set(step_values) - set(known))
+        print("")
+        print(f"{'step':<14}{'n':>4}{'p50':>9}{'p95':>9}")
+        for step in ordered:
+            values = step_values[step]
+            print(
+                f"{step:<14}{len(values):>4}"
+                f"{_seconds(percentile(values, 0.50)):>9}"
+                f"{_seconds(percentile(values, 0.95)):>9}"
+            )
     print(f"skipped (no timing): {skipped}")
     return 0
 

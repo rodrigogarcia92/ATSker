@@ -211,6 +211,18 @@ def test_an_explicit_cv_is_scored_and_recorded(client, session, career, provider
     assert application.report["cv"]["filename"] == "old.docx"
 
 
+def test_the_stored_report_says_how_long_storing_took(client, session, career, provider):
+    """R13.3: `save` is added after the commit — the one wait the pipeline cannot see."""
+    make_cv(session, career.first_profile, career.first_track, draft=own(career))
+    login(client, career.first.email)
+
+    assert post(client, career, resume_id="latest").status_code == 303
+
+    steps = session.query(Application).one().report["llm"]["steps_ms"]
+    assert isinstance(steps["save"], int) and steps["save"] >= 0
+    assert steps["notes"] == 0, "the interface pays for the gap prose after storing"
+
+
 def test_a_cv_analysis_makes_no_extraction_call(client, session, career, provider):
     make_cv(session, career.first_profile, career.first_track, draft=own(career))
     login(client, career.first.email)

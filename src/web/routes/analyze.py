@@ -6,10 +6,12 @@ drift from it.
 """
 
 import logging
+import time
 from typing import Annotated
 
 from fastapi import APIRouter, Form, HTTPException, Request, Response
 from fastapi.responses import RedirectResponse
+from sqlalchemy.orm.attributes import flag_modified
 
 from src.analysis import interpret_stored_gaps, llm_with_deferred, prepare, shown_ceiling
 from src.applications import create_application, get_application
@@ -323,6 +325,7 @@ def _run_analysis(request, user, session, profile, *, values, track, resume, cho
         message = t("analyze.failed", user.ui_lang)
         return _form(request, user, session, profile, values=values, error=message)
 
+    saving = time.perf_counter()
     application = create_application(
         profile.id,
         session,
@@ -345,6 +348,16 @@ def _run_analysis(request, user, session, profile, *, values, track, resume, cho
         scan_boolean=analysis.report.get("recall"),
     )
     session.commit()
+    # R13.3: storing is the one wait the pipeline cannot measure — it happens after the
+    # report exists. The row is already written; this UPDATE adds the number to it, so
+    # `latency_report.py` can say how much of the user's wait was the database.
+    llm = analysis.report.get("llm")
+    steps = llm.get("steps_ms") if isinstance(llm, dict) else None
+    if isinstance(steps, dict):
+        steps["save"] = round((time.perf_counter() - saving) * 1000)
+        application.report = analysis.report
+        flag_modified(application, "report")
+        session.commit()
     return RedirectResponse(f"/applications/{application.id}", status_code=303)
 
 

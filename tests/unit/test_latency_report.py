@@ -36,13 +36,15 @@ def call(purpose, latency_ms, *, cached=False, model="model/a"):
     return {"purpose": purpose, "latency_ms": latency_ms, "cached": cached, "model": model}
 
 
-def store(session, profile_id, *, wall_ms=None, calls=(), days_ago=0, kind=None):
+def store(session, profile_id, *, wall_ms=None, calls=(), days_ago=0, kind=None, steps_ms=None):
     """One stored report, with `created_at` where the window needs it."""
     report: dict = {"llm": {"calls": list(calls)}}
     if wall_ms is not None:
         report["llm"]["wall_ms"] = wall_ms
     if kind is not None:
         report["llm"]["kind"] = kind
+    if steps_ms is not None:
+        report["llm"]["steps_ms"] = dict(steps_ms)
     application = create_application(
         profile_id,
         session,
@@ -113,6 +115,41 @@ def test_cache_hits_are_excluded_from_the_latencies_and_counted(career, reports,
     }
     assert rows["jd_extract"] == ["2", "1", "1.0s", "3.0s"], "n, cached, p50, p95"
     assert rows["evidence_grade"] == ["1", "0", "0.5s", "0.5s"]
+
+
+def test_the_second_table_says_where_the_wall_time_went(career, reports, capsys):
+    """R13.3: p50/p95 per step, over the reports in the window that recorded one."""
+    for wall in (1000, 3000):
+        store(
+            reports,
+            career.first_profile.id,
+            wall_ms=wall,
+            calls=[call("jd_extract", wall)],
+            steps_ms={
+                "reads": 100,
+                "prepare_calls": wall - 400,
+                "document": 100,
+                "grading": 200,
+                "scoring": 0,
+                "notes": 0,
+                "assemble": 0,
+                "save": 20,
+            },
+        )
+    # A report from before the steps: it counts in the wall table and has no row here.
+    store(reports, career.first_profile.id, wall_ms=1000, calls=[call("jd_extract", 1000)])
+
+    assert latency_report.cmd_report("7d", None) == 0
+
+    rows = {
+        line.split()[0]: line.split()[1:]
+        for line in capsys.readouterr().out.splitlines()
+        if line.strip()
+    }
+    assert rows["analyses:"][0] == "3"
+    assert rows["reads"] == ["2", "0.1s", "0.1s"]
+    assert rows["prepare_calls"] == ["2", "0.6s", "2.6s"], "one p50 per step, not per call"
+    assert rows["save"] == ["2", "0.0s", "0.0s"], "the route's measured store is a step too"
 
 
 def test_a_report_stored_before_the_timing_is_skipped_and_counted(career, reports, capsys):
