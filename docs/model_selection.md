@@ -71,3 +71,23 @@ The rollback is one variable: the `google/gemini-3.8-flash` profile stays in
 [`src/extract/model_profiles.json`](../src/extract/model_profiles.json) at `low`, and the runbook's §7 carries the
 `gcloud run services update` line. Haiku sends no `temperature` and no reasoning for the calls that do not score, and
 caches its system prompt; all of that is data in that file, not code.
+
+## 2026-10-23 — Gemini 3.8 Flash stays the app's model (decision D8)
+
+The 2026-10-19 switch to Haiku never reached production. On dev, after the keyword rule changed (`w5`/K2,
+`jd_extract_v4`), the same posting ran on both models side by side (Haiku on one port, Gemini on another):
+
+| | Haiku 5.5 · low | Gemini 3.8 Flash · low |
+|---|---|---|
+| Keyword terms (✓ / total) | 9 / 21, about 6 of them phrases no recruiter types ("business problems", "analytics solutions") | 8 / 11, nearly all searchable terms |
+| Keywords score / Job Match | 43 / 57 | 73 / 71 |
+| Cost per analysis | $0.0032 | $0.0127 |
+| Wall time (report header) | 30.6 s | 28.2 s |
+
+Decision (operator): **Gemini 3.8 Flash `low` is the private app's model until a better one is found.** The
+deciding criterion was keyword quality from a recruiter's point of view: Gemini's terms are what a recruiter types,
+Haiku's list carried about 30 % descriptive noise that lowered the score without telling the user anything. Haiku
+stays profiled as the cheaper alternative. Open from this test: the Keywords score depends on how many terms the
+extraction lists (a scorer question, decision D9), the two judges' Job Match differed by 14 points on one posting, and
+both models spend 8–10 s outside model calls (timed in S13). One posting is a small sample; the golden set at n ≥ 20
+remains the reference.
