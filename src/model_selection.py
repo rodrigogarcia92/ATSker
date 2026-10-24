@@ -36,6 +36,7 @@ visible, and `verify_prices` reports when the advertised windows move.
 import json
 import math
 import random
+import tempfile
 import time
 import tomllib
 import uuid
@@ -51,7 +52,6 @@ import httpx
 from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
-from sqlalchemy.pool import StaticPool
 
 from src.analysis import Analysis, analyze
 from src.documents import document_skills_list, document_summary
@@ -219,12 +219,26 @@ def composition_notes(pairs: Sequence[GoldenPair], *, split: str | None = None) 
 
 
 def build_session(pair: GoldenPair) -> tuple[Session, uuid.UUID]:
-    """An in-memory profile holding exactly the pair's résumé snapshot."""
+    """A profile holding exactly the pair's résumé snapshot, on a database of its own.
+
+    A file, not `sqlite://` with `StaticPool`: an analysis makes its extraction and
+    its recruiter queries in two threads (F12.2), and two sessions over one in-memory
+    connection share a transaction — one thread's rollback can discard the other's
+    ledger row, and one thread's commit can write it twice. That was S12's duplicate
+    `boolean_queries` row and S13's missing one. The file is WAL so a reader never
+    blocks a writer, and it lives as long as the session object that owns it
+    (`session.info`) does.
+    """
+    workdir = tempfile.TemporaryDirectory(prefix="atsker-experiment-", ignore_cleanup_errors=True)
     engine = create_engine(
-        "sqlite://", poolclass=StaticPool, connect_args={"check_same_thread": False}
+        f"sqlite:///{(Path(workdir.name) / 'experiment.db').as_posix()}",
+        connect_args={"check_same_thread": False},
     )
+    with engine.connect() as connection:
+        connection.exec_driver_sql("PRAGMA journal_mode=WAL")
     Base.metadata.create_all(engine)
     session = sessionmaker(bind=engine, expire_on_commit=False)()
+    session.info["workdir"] = workdir
     seed_vocabulary(session, vocabulary_entries())
 
     # No password: the experiment never logs in, and hashing would only slow it.
