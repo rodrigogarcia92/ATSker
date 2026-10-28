@@ -89,7 +89,7 @@
     {{ t('report.legend.found', lang) }}
   </span>
   <span class="inline-flex items-center gap-2">
-    <span class="chip chip-missing"><span aria-hidden="true">✕</span> {{ t('report.legend.sample', lang) }}</span>
+    <span class="chip chip-missing"{% if cv_keys is defined and name == 'keywords' %} data-jd-term="{{ term }}" tabindex="0"{% endif %}><span aria-hidden="true">✕</span> {{ t('report.legend.sample', lang) }}</span>
     {{ t('report.legend.missing', lang) }}
   </span>
 </p>
@@ -178,7 +178,7 @@
       {# The Skills card's terms carry their level and basis (`python (L3, direct)`, F5.5.2);
          the pane's mark is keyed by the term's own name, so the key drops the annotation. #}
       {% set named = term | term_name %}
-      <span class="chip"{% if cv_keys is defined and name in ('keywords', 'skills') %} data-key="keyword:{{ named }}@components" tabindex="0"{% elif cv_keys is defined and name == 'title' %} data-key="title@components" tabindex="0"{% endif %}><span aria-hidden="true">✓</span> {{ term | localised_term(lang) }}<span class="sr-only"> ({{ t('report.term.found', lang) }})</span></span>
+      <span class="chip"{% if cv_keys is defined and name in ('keywords', 'skills') %} data-key="keyword:{{ named }}@components" tabindex="0"{% elif cv_keys is defined and name == 'title' %} data-key="title@components" tabindex="0"{% endif %}{% if cv_keys is defined and name == 'keywords' %} data-jd-term="{{ term }}" tabindex="0"{% endif %}><span aria-hidden="true">✓</span> {{ term | localised_term(lang) }}<span class="sr-only"> ({{ t('report.term.found', lang) }})</span></span>
       {% endfor %}
       {% for term in sub.missing %}
       {% if (term | term_level) == 1 %}
@@ -186,7 +186,7 @@
          it, no bullet shows it — so it is not a missing term and never wears the ✕. #}
       {{ ui.mentioned(term | term_name | localised_term(lang), lang) }}
       {% else %}
-      <span class="chip chip-missing"><span aria-hidden="true">✕</span> {{ term | localised_term(lang) }}<span class="sr-only"> ({{ t('report.term.missing', lang) }})</span></span>
+      <span class="chip chip-missing"{% if cv_keys is defined and name == 'keywords' %} data-jd-term="{{ term }}" tabindex="0"{% endif %}><span aria-hidden="true">✕</span> {{ term | localised_term(lang) }}<span class="sr-only"> ({{ t('report.term.missing', lang) }})</span></span>
       {% endif %}
       {% endfor %}
     </div>

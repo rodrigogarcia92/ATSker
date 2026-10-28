@@ -17,6 +17,8 @@ def test_the_posting_reads_back_exactly_with_each_keyword_marked():
     ]
     assert marked == [("SQL", 1, True), ("Kubernetes", 2, False), ("SQL", 1, True)]
     assert (view["matched"], view["missing"]) == (1, 1)
+    terms = [segment.term for segment in view["segments"] if segment.number]
+    assert terms == ["SQL", "Kubernetes", "SQL"]
 
 
 def test_a_matched_keyword_carries_the_cv_line_that_has_it():

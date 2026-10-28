@@ -192,6 +192,7 @@ class JdSegment:
     number: int
     matched: bool
     context: str = ""
+    term: str = ""
 
 
 def jd_view(
@@ -228,7 +229,7 @@ def jd_view(
             segments.append(JdSegment(jd_text[cursor:start], 0, False))
         segments.append(
             JdSegment(
-                jd_text[start:end], numbers[term], status[term], found.get(term, "")
+                jd_text[start:end], numbers[term], status[term], found.get(term, ""), term
             )
         )
         cursor = end

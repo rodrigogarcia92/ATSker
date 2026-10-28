@@ -1,23 +1,32 @@
 {# §12.7's JD view: the posting as it was written, with every keyword the analysis counted
    marked in it. A matched keyword is a fill (the CV evidences it), a missing one a dashed
    underline. Each mark carries its context in `data-context` (the CV line for a matched one,
-   "Falta en tu CV" for a missing one), shown as a tooltip on hover or focus. A mark and its
-   other occurrences share `data-kw`: hover or focus on one lights them all in the intense
-   tone, by the script at the foot of this file. Without JavaScript every mark shows in its
-   base tone, and the tooltip still works. #}
+   "Falta en tu CV" for a missing one), shown as a tooltip on hover or focus, and its term in
+   `data-term`. Hover or focus on a mark lights its other occurrences (`data-intense`). A
+   keyword chip in the report (§12.1, Components) selects its term here (`data-selected`) and
+   travels to it: the pane switches to this view, and the page goes to the first mark, or to
+   the top of the posting when the term has none. Without JavaScript the marks show in their
+   base tone and the tooltip still works. #}
 {% set jd = cv_pane.jd %}
 <div class="cv-sheet jd-sheet" data-jd-view>
   {% if jd.matched or jd.missing %}
   <p class="field-hint">{{ t('report.jd.summary', lang, matched=jd.matched, missing=jd.missing) }}</p>
   <div class="jd-text mt-3">{%- for seg in jd.segments -%}
-    {%- if seg.number -%}<mark class="jd-kw{% if seg.matched %} jd-kw-matched{% else %} jd-kw-missing{% endif %}" data-kw="{{ seg.number }}" tabindex="0" data-context="{{ t('report.jd.context', lang, line=seg.context) if seg.matched and seg.context else (t('report.jd.matched', lang) if seg.matched else t('report.jd.missing', lang)) }}">{{ seg.text }}</mark>{%- else -%}{{ seg.text }}{%- endif -%}
+    {%- if seg.number -%}<mark class="jd-kw{% if seg.matched %} jd-kw-matched{% else %} jd-kw-missing{% endif %}" data-kw="{{ seg.number }}" data-term="{{ seg.term }}" tabindex="0" data-context="{{ t('report.jd.context', lang, line=seg.context) if seg.matched and seg.context else (t('report.jd.matched', lang) if seg.matched else t('report.jd.missing', lang)) }}">{{ seg.text }}</mark>{%- else -%}{{ seg.text }}{%- endif -%}
   {%- endfor -%}</div>
   <script>
     (function () {
       var view = document.querySelector('[data-jd-view]');
       if (!view) return;
+      var smooth = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      function clear(attribute) {
+        view.querySelectorAll('[' + attribute + ']').forEach(function (el) { el.removeAttribute(attribute); });
+      }
+
+      // Hover or focus: the marks of one keyword light up together, until the pointer leaves.
       function light(number) {
-        view.querySelectorAll('[data-intense]').forEach(function (el) { el.removeAttribute('data-intense'); });
+        clear('data-intense');
         if (!number) return;
         view.querySelectorAll('[data-kw="' + number + '"]').forEach(function (el) { el.setAttribute('data-intense', ''); });
       }
@@ -25,6 +34,30 @@
       view.addEventListener('focusin', function (e) { var el = e.target.closest('[data-kw]'); if (el) light(el.dataset.kw); });
       view.addEventListener('mouseout', function () { light(0); });
       view.addEventListener('focusout', function () { light(0); });
+
+      // A chip in the report selects its keyword: the pane shows the posting, the keyword's
+      // marks are selected (they stay selected), and the page travels to the first of them.
+      function select(term) {
+        var radio = document.getElementById('cv-view-jd');
+        if (radio) radio.checked = true;
+        clear('data-selected');
+        var marks = Array.prototype.filter.call(view.querySelectorAll('mark.jd-kw'), function (mark) {
+          return mark.dataset.term === term;
+        });
+        marks.forEach(function (mark) { mark.setAttribute('data-selected', ''); });
+        (marks[0] || view).scrollIntoView({ block: marks.length ? 'center' : 'start', behavior: smooth ? 'smooth' : 'auto' });
+      }
+      document.addEventListener('click', function (e) {
+        var chip = e.target instanceof Element ? e.target.closest('[data-jd-term]') : null;
+        if (chip) select(chip.dataset.jdTerm);
+      });
+      document.addEventListener('keydown', function (e) {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        var chip = e.target instanceof Element ? e.target.closest('[data-jd-term]') : null;
+        if (!chip) return;
+        e.preventDefault();
+        select(chip.dataset.jdTerm);
+      });
     })();
   </script>
   {% else %}

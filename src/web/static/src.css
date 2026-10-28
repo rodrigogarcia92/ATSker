@@ -1186,11 +1186,13 @@ body.sheet-open {
   background: none;
   border-bottom: 2px dashed var(--slate);
 }
-.jd-kw[data-intense] {
+.jd-kw[data-intense],
+.jd-kw[data-selected] {
   background: var(--lime);
   color: var(--on-lime);
 }
-.jd-kw-missing[data-intense] {
+.jd-kw-missing[data-intense],
+.jd-kw-missing[data-selected] {
   background: none;
   border-bottom-color: var(--ink);
   color: var(--ink);

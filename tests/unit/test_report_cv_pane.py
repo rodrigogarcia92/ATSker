@@ -155,6 +155,7 @@ def test_the_job_description_view_marks_the_keywords_it_counted(client, career, 
     assert t("report.cv_pane.jd", "es") in page
     assert 'class="jd-kw jd-kw-matched"' in view, "a matched keyword is evidence"
     assert 'data-context="En tu CV: ' in view, "its context is the CV line that has it"
+    assert 'data-term="' in view and 'data-jd-term="' in page, "a chip links to its marks"
     assert t("report.jd.missing", "es") in view, "a missing keyword says so"
     assert 'class="jd-keyword"' not in page, "no list under the posting"
 

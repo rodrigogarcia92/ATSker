@@ -3146,7 +3146,7 @@ STRINGS: dict[str, dict[str, str]] = {
     "report.cv_pane.controls": {"es": "Tú controlas tu CV", "en": "You control your CV"},
     "report.cv_pane.selector": {"es": "Línea y CV", "en": "Track and CV"},
     "report.cv_pane.view": {"es": "Vista del CV", "en": "CV view"},
-    "report.cv_pane.text": {"es": "Texto", "en": "Text"},
+    "report.cv_pane.text": {"es": "CV", "en": "CV"},
     "report.cv_pane.jd": {"es": "Descripción del puesto", "en": "Job description"},
     # §12.7 — the JD view: the posting with the analysis's keywords marked in it.
     "report.jd.summary": {
