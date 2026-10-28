@@ -193,6 +193,22 @@ def set_language(
     return RedirectResponse("/dashboard", status_code=303)
 
 
+@router.post("/settings/theme")
+def set_theme(
+    theme: Annotated[str, Form()],
+    user: SignedInUser,
+    session: DbSession,
+    back: Annotated[str, Form(alias="next")] = "/dashboard",
+):
+    """Dark mode (§12.6): the account's look, then back to the page the switch was on.
+    Only a path on this site is followed."""
+    if theme in ("light", "dark"):
+        user.ui_theme = theme
+        session.commit()
+    follow = back if back.startswith("/") and not back.startswith(("//", "/\\")) else "/dashboard"
+    return RedirectResponse(follow, status_code=303)
+
+
 @router.get("/profile/skills/delete")
 def skill_delete_form(
     request: Request,

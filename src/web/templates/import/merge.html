@@ -8,7 +8,7 @@
 {% if nothing_to_merge %}
 {# F2.5: a list of rows with every box unchecked reads as "the app found nothing".
    All-unchanged is a result, and it is the one the user needs stated. #}
-<p class="mt-2 rounded-card border border-forest bg-surface-1 px-4 py-3 text-sm text-forest">
+<p class="mt-2 rounded-card border border-forest bg-surface-1 px-4 py-3 text-sm text-forest-ink">
   {{ t('import.nothing_to_merge', lang, compared=compared) }}
 </p>
 {% elif compared == 0 %}

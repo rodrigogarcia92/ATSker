@@ -302,6 +302,9 @@ STRINGS: dict[str, dict[str, str]] = {
     "nav.vocabulary": {"es": "Vocabulario", "en": "Vocabulary"},
     "nav.logout": {"es": "Salir", "en": "Log out"},
     "nav.language": {"es": "Idioma", "en": "Language"},
+    "nav.theme": {"es": "Tema", "en": "Theme"},
+    "nav.theme_light": {"es": "Claro", "en": "Light"},
+    "nav.theme_dark": {"es": "Oscuro", "en": "Dark"},
     "nav.group.apply": {"es": "Postular", "en": "Apply"},
     "nav.group.material": {"es": "Tu material", "en": "Your material"},
     "nav.group.account": {"es": "Cuenta", "en": "Account"},
@@ -3144,11 +3147,18 @@ STRINGS: dict[str, dict[str, str]] = {
     "report.cv_pane.selector": {"es": "Línea y CV", "en": "Track and CV"},
     "report.cv_pane.view": {"es": "Vista del CV", "en": "CV view"},
     "report.cv_pane.text": {"es": "Texto", "en": "Text"},
-    "report.cv_pane.file": {"es": "Archivo original", "en": "Original file"},
-    "report.cv_pane.no_file": {"es": "archivo no guardado", "en": "file not saved"},
-    "report.cv_pane.no_pages": {
-        "es": "Sin imagen de página para este formato",
-        "en": "No page image for this format",
+    "report.cv_pane.jd": {"es": "Descripción del puesto", "en": "Job description"},
+    # §12.7 — the JD view: the posting with the analysis's keywords marked in it.
+    "report.jd.summary": {
+        "es": "{matched} en tu CV · {missing} faltan",
+        "en": "{matched} in your CV · {missing} missing",
+    },
+    "report.jd.matched": {"es": "En tu CV", "en": "In your CV"},
+    "report.jd.context": {"es": "En tu CV: {line}", "en": "In your CV: {line}"},
+    "report.jd.missing": {"es": "Falta en tu CV", "en": "Missing from your CV"},
+    "report.jd.none": {
+        "es": "Este análisis no tiene palabras clave.",
+        "en": "This analysis has no keywords.",
     },
     "report.cv_pane.showing_one": {
         "es": "Mostrando: {section} · {n} marca",

@@ -131,6 +131,17 @@ def draft_is_current(report: Mapping[str, object], draft: Mapping[str, object]) 
     return not (stored and draft_digest(draft) != stored)
 
 
+def keyword_spans(
+    text: str, terms: Sequence[str], aliases: Mapping[str, str]
+) -> list[tuple[int, int, str]]:
+    """Every occurrence of `terms` in `text` as `(start, end, term)`, by the scoring matcher.
+
+    The JD view of §12.7 marks the posting with the same alias rule the score counted the
+    keywords by, so a keyword the page marks is one the score found, and no other.
+    """
+    return _alias_spans(text, terms, aliases, alias_groups(dict(aliases)))
+
+
 def build_highlight_map(
     report: Mapping[str, object],
     elements: Sequence[Element],

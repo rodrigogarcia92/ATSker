@@ -59,7 +59,7 @@
     {% if row.rule == 'title' %}{% set label = t('generate.check.title', lang, title=row.detail) %}
     {% else %}{% set label = t('generate.check.skills', lang, n=(row.detail.split(', ') | select | list | length)) %}{% endif %}
     <li data-check="{{ row.rule }}" class="flex flex-wrap gap-x-2">
-      {% if row.ok %}<span aria-hidden="true" class="text-forest">✓</span>{% else %}<span aria-hidden="true" class="text-ink">✗</span>{% endif %}
+      {% if row.ok %}<span aria-hidden="true" class="text-forest-ink">✓</span>{% else %}<span aria-hidden="true" class="text-ink">✗</span>{% endif %}
       <span>{{ label }}{% if row.rule == 'skills' and row.detail %}: {{ row.detail }}{% endif %}</span>
       <span class="sr-only">({{ t('generate.check.ok', lang) if row.ok else t('generate.check.fail', lang) }})</span>
     </li>

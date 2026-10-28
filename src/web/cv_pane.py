@@ -24,9 +24,11 @@ from src.highlights import (
     RECRUITER,
     REQUIREMENTS,
     WEAK,
+    Element,
     Mark,
     build_highlight_map,
     draft_is_current,
+    keyword_spans,
     render_cv,
 )
 
@@ -68,7 +70,10 @@ class _Span:
 
 
 def pane_view(
-    report: Mapping[str, object], draft: Mapping[str, object], aliases: Mapping[str, str]
+    report: Mapping[str, object],
+    draft: Mapping[str, object],
+    aliases: Mapping[str, str],
+    jd_text: str = "",
 ) -> dict:
     """Everything the CV pane and the phone's links need, from the stored report alone.
 
@@ -115,6 +120,7 @@ def pane_view(
         "default_section": next(
             (name for name in SECTION_ORDER if keys[name]), COMPONENTS
         ),
+        "jd": jd_view(report, jd_text, elements if current else (), aliases),
     }
 
 
@@ -172,3 +178,85 @@ def _segments(text: str, spans: Sequence[_Span]) -> tuple[Segment, ...]:
     if cursor < len(text):
         segments.append(Segment(text[cursor:], False, False, (), (), ()))
     return tuple(segments)
+
+
+@dataclass(frozen=True)
+class JdSegment:
+    """A run of the posting's text: plain (`number` 0), or one keyword's occurrence.
+
+    `context` says what the analysis found for the keyword, for the mark's tooltip: the CV line
+    that carries a matched keyword, or nothing when it is missing (and for plain text).
+    """
+
+    text: str
+    number: int
+    matched: bool
+    context: str = ""
+
+
+def jd_view(
+    report: Mapping[str, object],
+    jd_text: str,
+    elements: Sequence[Element],
+    aliases: Mapping[str, str],
+) -> dict:
+    """The JD view's data (§12.7): the posting cut into segments, each keyword marked.
+
+    The keywords are the ones the score's keyword sub-score listed, matched first. Each one's
+    occurrences in the posting are marked by the scoring matcher: a matched keyword as
+    evidence (a fill), a missing one as a gap (a dashed underline). A matched keyword's
+    `context` is the first CV line the same matcher finds it in, so its mark can say where
+    it is; a missing one has no context.
+    """
+    score = report.get("score")
+    sub_scores = score.get("sub_scores") if isinstance(score, Mapping) else None
+    block = sub_scores.get("keywords") if isinstance(sub_scores, Mapping) else None
+    matched = _terms(block, "matched")
+    missing = _terms(block, "missing")
+    listed = [(term, True) for term in matched] + [(term, False) for term in missing]
+    if not listed:
+        return {"segments": (), "matched": 0, "missing": 0}
+
+    numbers = {term: index for index, (term, _) in enumerate(listed, start=1)}
+    status = dict(listed)
+    found = _evidence(matched, elements, aliases)
+    spans = keyword_spans(jd_text, [term for term, _ in listed], aliases)
+    segments: list[JdSegment] = []
+    cursor = 0
+    for start, end, term in sorted(spans):
+        if start > cursor:
+            segments.append(JdSegment(jd_text[cursor:start], 0, False))
+        segments.append(
+            JdSegment(
+                jd_text[start:end], numbers[term], status[term], found.get(term, "")
+            )
+        )
+        cursor = end
+    if cursor < len(jd_text):
+        segments.append(JdSegment(jd_text[cursor:], 0, False))
+    return {
+        "segments": tuple(segments),
+        "matched": len(matched),
+        "missing": len(missing),
+    }
+
+
+def _terms(block: object, key: str) -> list[str]:
+    """The keyword labels under `key`, as the stored report holds them; anything else is none."""
+    values = block.get(key) if isinstance(block, Mapping) else None
+    if not isinstance(values, list):
+        return []
+    return [value for value in values if isinstance(value, str) and value]
+
+
+def _evidence(
+    terms: Sequence[str], elements: Sequence[Element], aliases: Mapping[str, str]
+) -> dict[str, str]:
+    """For each term, the first element's text that the matcher finds it in."""
+    found: dict[str, str] = {}
+    if not terms:
+        return found
+    for element in elements:
+        for _, _, term in keyword_spans(element.text, terms, aliases):
+            found.setdefault(term, element.text)
+    return found

@@ -39,7 +39,7 @@ from src.web.alerts import ceiling_remainder
 from src.web.cv_pane import pane_view
 from src.web.deps import DbSession, OwnProfile, SignedInUser
 from src.web.findings import document_kind, finding_rows
-from src.web.locations import page_count, page_exists, render_page_png
+from src.web.locations import page_exists, render_page_png
 from src.web.recall import query_rows
 from src.web.routes.ingest import MAX_UPLOAD_BYTES
 from src.web.templating import render
@@ -527,17 +527,10 @@ def application_report(
     # deleted (F11.3 sets `resume_id` to NULL) or an old track analysis keeps the single
     # column (decision 4).
     has_cv = bool(application.resume_id and source is not None and source.draft)
+    # §12.7's JD view: the posting, with each keyword the analysis counted marked in it.
     cv_pane = (
-        pane_view(application.report, source.draft, alias_map(session)) if has_cv else None
-    )
-    # The Archivo original view lists the file's pages when it is a PDF that kept its
-    # bytes; a DOCX or an attempt-saved CV has none (F11.7).
-    cv_original = (
-        list(range(1, page_count(source.file_bytes) + 1))
+        pane_view(application.report, source.draft, alias_map(session), application.jd_text)
         if has_cv
-        and source is not None
-        and source.file_bytes is not None
-        and document_kind(source.filename) == "pdf"
         else None
     )
     keywords = keyword_advice(
@@ -556,12 +549,8 @@ def application_report(
         advice_for_file=cv_report,
         cv_choices=cv_choices,
         cv_edited=cv_edited,
-        # §12.7: the CV pane's elements, marks and per-section counts, and the original's
-        # page numbers for the Archivo original view.
+        # §12.7: the CV pane's elements, marks, per-section counts and the JD view.
         cv_pane=cv_pane,
-        cv_original=cv_original,
-        # The CV itself, so the pane's Archivo original view can say whether the file kept
-        # its bytes (F11.7). None for an old report or a deleted CV.
         source=source,
         # F10.1: the modal lists the attempts this analysis already has.
         attempts=application_attempts_report(attempt_rows),

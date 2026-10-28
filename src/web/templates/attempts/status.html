@@ -5,7 +5,7 @@
      data-attempt-url="/applications/{{ application.id }}/attempts/{{ attempt.id }}">
   <div class="flex flex-wrap items-center gap-2">
     <span>{{ t('attempt.title', lang, n=attempt.attempt_no) }}</span>
-    <span class="rounded-tag border px-2 py-0.5 text-xs {% if view.status == 'done' %}border-forest text-forest{% elif view.status == 'failed' %}border-ink text-ink{% else %}border-border text-text-3{% endif %}">
+    <span class="rounded-tag border px-2 py-0.5 text-xs {% if view.status == 'done' %}border-forest text-forest-ink{% elif view.status == 'failed' %}border-ink text-ink{% else %}border-border text-text-3{% endif %}">
       {{ t('attempt.status.' ~ view.status, lang) }}
     </span>
     {% if view.status == 'done' and view.job_match is not none %}

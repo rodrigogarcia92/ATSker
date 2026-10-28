@@ -21,8 +21,19 @@
   <button type="submit" name="lang" value="en" class="lang-option"{% if lang == 'en' %} aria-current="true"{% endif %}>EN</button>
 </form>
 {%- endmacro %}
+{# The theme is the account's own setting (`users.ui_theme`), so the page renders in it: no
+   script and no browser storage. The switch posts back to the page it was used on. #}
+{% set dark = user is not none and user.ui_theme == 'dark' %}
+{% macro theme_switch() -%}
+<form method="post" action="/settings/theme" class="lang-switch">
+  <span class="lang-label">{{ t('nav.theme', lang) }}</span>
+  <input type="hidden" name="next" value="{{ request.url.path if request is defined else '/' }}">
+  <button type="submit" name="theme" value="light" class="lang-option"{% if not dark %} aria-current="true"{% endif %}>{{ t('nav.theme_light', lang) }}</button>
+  <button type="submit" name="theme" value="dark" class="lang-option"{% if dark %} aria-current="true"{% endif %}>{{ t('nav.theme_dark', lang) }}</button>
+</form>
+{%- endmacro %}
 <!doctype html>
-<html lang="{{ lang }}">
+<html lang="{{ lang }}" data-theme="{{ 'dark' if dark else 'light' }}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -49,6 +60,7 @@
         <summary class="avatar" aria-label="{{ t('nav.account', lang) }}" title="{{ t('nav.account', lang) }}">{{ (user.email or '?')[0] | upper }}</summary>
         <div class="menu-panel">
           {% for href, key in account_items %}{{ nav_link(href, t(key, lang), 'menu-link') }}{% endfor %}
+          {{ theme_switch() }}
           {{ language_switch() }}
           <form method="post" action="/logout"><button type="submit" class="menu-link menu-button">{{ t('nav.logout', lang) }}</button></form>
         </div>
@@ -65,6 +77,7 @@
           </nav>
           <div class="sheet-links sheet-account">
             {% for href, key in account_items %}{{ nav_link(href, t(key, lang), 'sheet-link') }}{% endfor %}
+            {{ theme_switch() }}
             {{ language_switch() }}
             <form method="post" action="/logout"><button type="submit" class="sheet-link menu-button">{{ t('nav.logout', lang) }}</button></form>
           </div>

@@ -115,7 +115,7 @@ def test_a_cv_analysis_renders_two_panes(client, career, provider):
     assert "min-[1280px]:grid-cols-[minmax(0,58fr)_minmax(0,42fr)]" in page, (
         "the CV pane takes the larger share (design v3 §5, amended 2026-10-12)"
     )
-    assert 'id="cv-view-text"' in page and 'id="cv-view-file"' in page, "the two views"
+    assert 'id="cv-view-text"' in page and 'id="cv-view-jd"' in page, "the two views"
     assert 'id="cv-drawer"' in page and 'id="cv-sheet"' in page
 
 
@@ -146,10 +146,17 @@ def test_the_phone_bar_carries_the_three_short_buttons(client, career, provider)
     assert t("report.actions.summary_bar", "es") in bar
 
 
-def test_the_original_view_says_a_docx_has_no_page_image(client, career, provider):
+def test_the_job_description_view_marks_the_keywords_it_counted(client, career, provider):
+    """§12.7's JD view: the posting is in the pane, each counted keyword is a mark in it, and
+    the list says whether the CV has it."""
     _id, page = analysed(client, career)
+    view = part(page, "div", "data-jd-view")
 
-    assert t("report.cv_pane.no_pages", "es") in page
+    assert t("report.cv_pane.jd", "es") in page
+    assert 'class="jd-kw jd-kw-matched"' in view, "a matched keyword is evidence"
+    assert 'data-context="En tu CV: ' in view, "its context is the CV line that has it"
+    assert t("report.jd.missing", "es") in view, "a missing keyword says so"
+    assert 'class="jd-keyword"' not in page, "no list under the posting"
 
 
 # --- what the highlight behaviour needs from the server (§12.7) ---

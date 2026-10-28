@@ -1,0 +1,33 @@
+{# §12.7's JD view: the posting as it was written, with every keyword the analysis counted
+   marked in it. A matched keyword is a fill (the CV evidences it), a missing one a dashed
+   underline. Each mark carries its context in `data-context` (the CV line for a matched one,
+   "Falta en tu CV" for a missing one), shown as a tooltip on hover or focus. A mark and its
+   other occurrences share `data-kw`: hover or focus on one lights them all in the intense
+   tone, by the script at the foot of this file. Without JavaScript every mark shows in its
+   base tone, and the tooltip still works. #}
+{% set jd = cv_pane.jd %}
+<div class="cv-sheet jd-sheet" data-jd-view>
+  {% if jd.matched or jd.missing %}
+  <p class="field-hint">{{ t('report.jd.summary', lang, matched=jd.matched, missing=jd.missing) }}</p>
+  <div class="jd-text mt-3">{%- for seg in jd.segments -%}
+    {%- if seg.number -%}<mark class="jd-kw{% if seg.matched %} jd-kw-matched{% else %} jd-kw-missing{% endif %}" data-kw="{{ seg.number }}" tabindex="0" data-context="{{ t('report.jd.context', lang, line=seg.context) if seg.matched and seg.context else (t('report.jd.matched', lang) if seg.matched else t('report.jd.missing', lang)) }}">{{ seg.text }}</mark>{%- else -%}{{ seg.text }}{%- endif -%}
+  {%- endfor -%}</div>
+  <script>
+    (function () {
+      var view = document.querySelector('[data-jd-view]');
+      if (!view) return;
+      function light(number) {
+        view.querySelectorAll('[data-intense]').forEach(function (el) { el.removeAttribute('data-intense'); });
+        if (!number) return;
+        view.querySelectorAll('[data-kw="' + number + '"]').forEach(function (el) { el.setAttribute('data-intense', ''); });
+      }
+      view.addEventListener('mouseover', function (e) { var el = e.target.closest('[data-kw]'); if (el) light(el.dataset.kw); });
+      view.addEventListener('focusin', function (e) { var el = e.target.closest('[data-kw]'); if (el) light(el.dataset.kw); });
+      view.addEventListener('mouseout', function () { light(0); });
+      view.addEventListener('focusout', function () { light(0); });
+    })();
+  </script>
+  {% else %}
+  <p class="field-hint">{{ t('report.jd.none', lang) }}</p>
+  {% endif %}
+</div>

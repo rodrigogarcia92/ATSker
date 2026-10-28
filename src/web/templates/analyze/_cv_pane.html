@@ -58,38 +58,22 @@
 
   <div class="mt-4">{% include "analyze/_cv_legend.html" %}</div>
 
-  {# Texto / Archivo original: two radios and `:has()` switch the two views, so the toggle
-     works without JavaScript. #}
+  {# Texto / Descripción del puesto: two radios and `:has()` switch the two views, so the
+     toggle works without JavaScript. #}
   <div class="cv-views mt-3">
     <div role="group" aria-label="{{ t('report.cv_pane.view', lang) }}" class="cv-toggle">
       <input class="sr-only" type="radio" name="cv-view" id="cv-view-text" checked>
       <label class="cv-toggle-option" for="cv-view-text">{{ t('report.cv_pane.text', lang) }}</label>
-      <input class="sr-only" type="radio" name="cv-view" id="cv-view-file">
-      <label class="cv-toggle-option" for="cv-view-file">{{ t('report.cv_pane.file', lang) }}</label>
+      <input class="sr-only" type="radio" name="cv-view" id="cv-view-jd">
+      <label class="cv-toggle-option" for="cv-view-jd">{{ t('report.cv_pane.jd', lang) }}</label>
     </div>
 
     <div class="cv-view cv-view-text mt-4">
       {% include "analyze/_cv_sheet.html" %}
     </div>
 
-    <div class="cv-view cv-view-file mt-4">
-      {% if source is none or source.file_bytes is none %}
-      <p class="field-hint">{{ t('report.cv_pane.no_file', lang) }}</p>
-      {% elif cv_original %}
-      {% for page in cv_original %}
-      {# `loading="lazy"`: the browser asks for page 2 only when it scrolls into view, so
-         the pane never has two rasterisations of one file in flight at once. #}
-      <img class="cv-page" src="/applications/{{ application.id }}/cv/page/{{ page }}.png"
-           loading="lazy" decoding="async"
-           alt="{{ t('report.cv_pane.aria', lang) }} · {{ page }}"
-           onerror="this.hidden=true;this.nextElementSibling.hidden=false">
-      {# A page PDFium refuses is a 404 (N6.6): without this line the browser shows its
-         broken-image icon. Without JavaScript the icon stays, as before. #}
-      <p class="field-hint" hidden>{{ t('report.cv_pane.no_pages', lang) }} · {{ page }}</p>
-      {% endfor %}
-      {% else %}
-      <p class="field-hint">{{ t('report.cv_pane.no_pages', lang) }}</p>
-      {% endif %}
+    <div class="cv-view cv-view-jd mt-4">
+      {% include "analyze/_jd_sheet.html" %}
     </div>
   </div>
 </section>

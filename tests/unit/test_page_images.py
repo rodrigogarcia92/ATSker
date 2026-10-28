@@ -10,7 +10,6 @@ second request waits for the reader to scroll.
 
 import hashlib
 import logging
-import re
 from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
 
@@ -166,38 +165,6 @@ def test_cache_survives_eight_threads(monkeypatch):
     assert len(locations._PAGE_CACHE) <= 4
 
 
-# --- the pane ---
-
-
-def test_the_pane_offers_the_files_pages_one_at_a_time(client, session, career):
-    """`loading="lazy"`: page 2 is fetched when it scrolls in, not with page 1."""
-    application, _resume = stored_report_on_a_cv(session, career)
-    login(client, career.first.email)
-
-    page = client.get(f"/applications/{application.id}").text
-    images = re.findall(r"<img[^>]*class=\"cv-page\"[^>]*>", page)
-
-    assert len(images) == 2, "the file has two pages"
-    assert f"/applications/{application.id}/cv/page/1.png" in page
-    for image in images:
-        assert 'loading="lazy"' in image
-        assert 'decoding="async"' in image
-
-
-def test_a_refused_page_shows_text_instead_of_a_broken_icon(client, session, career):
-    """A 404 page is hidden and its fallback shown: the browser's icon never appears."""
-    application, _resume = stored_report_on_a_cv(session, career)
-    login(client, career.first.email)
-
-    page = client.get(f"/applications/{application.id}").text
-    pairs = re.findall(
-        r'(<img[^>]*class="cv-page"[^>]*>)\s*(<p class="field-hint" hidden>[^<]*</p>)', page
-    )
-
-    assert len(pairs) == 2, "one image and one fallback per page"
-    for number, (image, fallback) in enumerate(pairs, start=1):
-        assert 'onerror="this.hidden=true;this.nextElementSibling.hidden=false"' in image
-        assert re.search(rf"·\s*{number}</p>", fallback), "the fallback names its page"
 
 
 def test_the_page_image_is_the_rendered_page(client, session, career):

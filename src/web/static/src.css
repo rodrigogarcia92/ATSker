@@ -22,12 +22,39 @@
   --ink: #171717; /* primary text, icons, outlines that signal */
   /* Brand */
   --forest: #1f4a3d; /* primary button, the Fuerte band, focus ring; white text on it */
+  --forest-ink: #1f4a3d; /* forest as text: the same green, lighter in the dark set */
   --lime: #c4f07a; /* the highlighter, intense; the selected requirement chip */
   --highlight: #e7f9ca; /* the highlighter, base */
   /* The two other score bands (design v3 §1, §4): the number, the band word, the filled
      segments and the sub-score bar take them, on score surfaces only. */
   --ochre: #8c5e0a; /* the Adecuado band, and a requirement at level 1 */
   --brick: #a3431f; /* the Débil band, and a requirement at level 0 */
+  /* Text on the lime fill (the intense mark, the proposal tag): dark in both themes. */
+  --on-lime: #171717;
+  color-scheme: light;
+}
+
+/* The dark theme (the account menu's "Modo oscuro" sets `data-theme` on <html>, and the
+   saved choice is applied before the first paint). Same names, dark values, so every surface
+   and text colour follows. Light stays the default (§12.6). Its ratios are held by
+   tests/unit/test_contrast.py, as the light set's are. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --paper: #111412;
+  --vellum: #1d221f;
+  --hairline: #323a35;
+  --stone: #4a534d;
+  --ash: #6f7870;
+  --slate: #a4ada6;
+  --pewter: #c4cbc4;
+  --ink: #eef2ed;
+  --forest: #367a63;
+  --forest-ink: #8fd0b3;
+  --lime: #c4f07a;
+  --highlight: #33481f;
+  --ochre: #e6b35a;
+  --brick: #f0906f;
+  --on-lime: #111412;
 }
 
 /* Names by meaning, kept from §12.1 so a template says what a colour is for; each now points
@@ -52,6 +79,7 @@
   --color-ink: var(--ink);
   --color-sheet: var(--paper);
   --color-forest: var(--forest);
+  --color-forest-ink: var(--forest-ink);
   --color-lime: var(--lime);
   --color-highlight-base: var(--highlight);
   --color-highlight-intense: var(--lime);
@@ -466,7 +494,7 @@ body.sheet-open {
    is never the only signal. The variable is set on `[data-band]`, not on `.score`, because
    the Job Match bar carries its own band attribute and needs the same value. */
 [data-band="strong"] {
-  --band-color: var(--forest);
+  --band-color: var(--forest-ink);
 }
 [data-band="adequate"] {
   --band-color: var(--ochre);
@@ -525,7 +553,7 @@ body.sheet-open {
    score surfaces): the history's *Ajuste* column and an attempt's sub-score values take
    their band's colour, so every score in the app reads the same way. */
 .band-number-strong {
-  color: var(--forest);
+  color: var(--forest-ink);
 }
 .band-number-adequate {
   color: var(--ochre);
@@ -606,7 +634,7 @@ body.sheet-open {
 }
 .tag-strong {
   border-color: var(--forest);
-  color: var(--forest);
+  color: var(--forest-ink);
 }
 .tag-warning {
   border-color: var(--slate);
@@ -620,7 +648,7 @@ body.sheet-open {
 .tag-proposal {
   border-color: var(--lime);
   background: var(--lime);
-  color: var(--ink);
+  color: var(--on-lime);
 }
 .chip {
   display: inline-flex;
@@ -932,7 +960,7 @@ body.sheet-open {
   font-size: 0.75rem;
 }
 .req-level.req-strong {
-  color: var(--forest);
+  color: var(--forest-ink);
 }
 .req-level.req-adequate {
   color: var(--ochre);
@@ -997,7 +1025,7 @@ body.sheet-open {
   cursor: pointer;
 }
 .cv-views:has(#cv-view-text:checked) label[for="cv-view-text"],
-.cv-views:has(#cv-view-file:checked) label[for="cv-view-file"] {
+.cv-views:has(#cv-view-jd:checked) label[for="cv-view-jd"] {
   background: var(--paper);
   color: var(--ink);
 }
@@ -1005,7 +1033,7 @@ body.sheet-open {
   display: none;
 }
 .cv-views:has(#cv-view-text:checked) .cv-view-text,
-.cv-views:has(#cv-view-file:checked) .cv-view-file {
+.cv-views:has(#cv-view-jd:checked) .cv-view-jd {
   display: block;
 }
 
@@ -1102,13 +1130,70 @@ body.sheet-open {
 .cv-entry {
   margin-top: 0.375rem;
 }
-.cv-page {
-  width: 100%;
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius-card);
+/* §12.7's JD view: the posting as written, in the sheet, with every keyword the analysis
+   counted marked. A matched keyword is the base highlighter (evidence); a missing one is a
+   dashed underline in slate, never a fill. Hover or focus shows its context as a tooltip and
+   lights its other occurrences in the intense tone (`data-intense`, set by the view's script). */
+.jd-sheet {
+  padding: 1.25rem 1.5rem;
 }
-.cv-page + .cv-page {
-  margin-top: 1rem;
+.jd-text {
+  white-space: pre-line;
+  line-height: 1.6;
+  font-size: 0.9375rem;
+  color: var(--ink);
+}
+.jd-kw {
+  position: relative;
+  border-radius: 3px;
+  padding: 0 0.05em;
+  color: var(--ink);
+  cursor: help;
+}
+/* The context of the keyword, on hover or focus: the CV line that carries it, or that it is
+   missing. The colours are the page's own ink and paper, inverted, so it reads in both themes. */
+.jd-kw::after {
+  content: attr(data-context);
+  position: absolute;
+  left: 0;
+  top: calc(100% + 0.375rem);
+  z-index: 10;
+  width: max-content;
+  max-width: min(24rem, 80vw);
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-sm);
+  background: var(--ink);
+  color: var(--paper);
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  white-space: normal;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 150ms ease;
+}
+.jd-kw:hover::after,
+.jd-kw:focus::after {
+  opacity: 1;
+}
+.jd-kw-matched {
+  background: var(--highlight);
+  text-decoration: underline;
+  text-decoration-color: var(--lime);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 2px;
+}
+.jd-kw-missing {
+  background: none;
+  border-bottom: 2px dashed var(--slate);
+}
+.jd-kw[data-intense] {
+  background: var(--lime);
+  color: var(--on-lime);
+}
+.jd-kw-missing[data-intense] {
+  background: none;
+  border-bottom-color: var(--ink);
+  color: var(--ink);
 }
 
 /* The two tones (design v3 §4): base is the lighter highlight fill, every mark without
@@ -1155,6 +1240,7 @@ body.sheet-open {
 .cv-js .hl[data-intense] {
   --hl-fill: var(--lime);
   --hl-sweep: 100%;
+  color: var(--on-lime);
 }
 .cv-js .hl-weak[data-intense] {
   /* Weak evidence is never a fill: pointing at it strengthens the dashed underline. */
