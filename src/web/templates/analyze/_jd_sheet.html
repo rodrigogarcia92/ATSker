@@ -35,12 +35,16 @@
       view.addEventListener('mouseout', function () { light(0); });
       view.addEventListener('focusout', function () { light(0); });
 
-      // A chip in the report selects its keyword: the pane shows the posting, the keyword's
-      // marks are selected (they stay selected), and the page travels to the first of them.
-      function select(term) {
-        var radio = document.getElementById('cv-view-jd');
+      // A missing chip (✕) in the report switches the pane to the posting: the term's marks
+      // are selected (they stay selected) and the page travels to the first of them, or to
+      // the top of the posting when the term has none. A matched chip (✓) is evidence in the
+      // CV, so it keeps the pane on the CV: the report's own script takes it to the CV mark.
+      function select(chip) {
+        var term = chip.dataset.jdTerm;
+        var radio = document.getElementById(chip.classList.contains('chip-missing') ? 'cv-view-jd' : 'cv-view-text');
         if (radio) radio.checked = true;
         clear('data-selected');
+        if (!chip.classList.contains('chip-missing')) return;
         var marks = Array.prototype.filter.call(view.querySelectorAll('mark.jd-kw'), function (mark) {
           return mark.dataset.term === term;
         });
@@ -49,14 +53,14 @@
       }
       document.addEventListener('click', function (e) {
         var chip = e.target instanceof Element ? e.target.closest('[data-jd-term]') : null;
-        if (chip) select(chip.dataset.jdTerm);
+        if (chip) select(chip);
       });
       document.addEventListener('keydown', function (e) {
         if (e.key !== 'Enter' && e.key !== ' ') return;
         var chip = e.target instanceof Element ? e.target.closest('[data-jd-term]') : null;
         if (!chip) return;
         e.preventDefault();
-        select(chip.dataset.jdTerm);
+        select(chip);
       });
     })();
   </script>
